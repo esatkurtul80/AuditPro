@@ -489,7 +489,7 @@ export function AuditSummary({ audit }: AuditSummaryProps) {
         reader.readAsDataURL(blob);
       });
     } catch (error) {
-      console.warn('Fetch failed for:', url, error);
+      // console.warn('Fetch failed for:', url, error);
 
       // Fetch başarısız olursa, proxy kullan
       try {
