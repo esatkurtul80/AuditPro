@@ -150,14 +150,14 @@ export function AuditSummary({ audit }: AuditSummaryProps) {
     const hasNotesFlag = hasNotes(answer);
 
     return (
-      <Card key={`mobile-q-${idx}-${qIdx}`} className={`mb-4 overflow-hidden border-2 transition-all hover:shadow-lg ${isIncomplete ? 'border-red-300 bg-gradient-to-br from-red-50 to-white' : 'border-green-300 bg-gradient-to-br from-green-50 to-white'}`}>
+      <Card key={`mobile-q-${idx}-${qIdx}`} className={`mb-4 overflow-hidden border-2 transition-all hover:shadow-lg ${isIncomplete ? 'border-red-300 bg-gradient-to-br from-red-50 to-white dark:from-red-950/30 dark:to-slate-900' : 'border-green-300 bg-gradient-to-br from-green-50 to-white dark:from-green-950/30 dark:to-slate-900'}`}>
         <CardContent className="p-0">
           {/* Header with status icon */}
-          <div className={`px-4 py-3 flex items-center gap-3 ${isIncomplete ? 'bg-red-100/50' : 'bg-green-100/50'}`}>
+          <div className={`px-4 py-3 flex items-center gap-3 ${isIncomplete ? 'bg-red-100/50 dark:bg-red-900/30' : 'bg-green-100/50 dark:bg-green-900/30'}`}>
             {isIncomplete ? (
-              <XCircle className="h-5 w-5 text-red-600 flex-shrink-0" />
+              <XCircle className="h-5 w-5 text-red-600 dark:text-red-400 flex-shrink-0" />
             ) : (
-              <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0" />
+              <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400 flex-shrink-0" />
             )}
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-foreground leading-tight">{answer.questionText}</p>
@@ -174,8 +174,8 @@ export function AuditSummary({ audit }: AuditSummaryProps) {
               </div>
 
               {/* Score Badge */}
-              <div className={`ml-4 flex flex-col items-center justify-center rounded-xl px-4 py-3 ${isIncomplete ? 'bg-red-100' : 'bg-green-100'}`}>
-                <span className={`text-2xl font-bold ${isIncomplete ? 'text-red-600' : 'text-green-600'}`}>
+              <div className={`ml-4 flex flex-col items-center justify-center rounded-xl px-4 py-3 ${isIncomplete ? 'bg-red-100 dark:bg-red-900/50' : 'bg-green-100 dark:bg-green-900/50'}`}>
+                <span className={`text-2xl font-bold ${isIncomplete ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
                   {answer.earnedPoints}
                 </span>
                 <span className="text-xs text-muted-foreground font-medium">/ {answer.maxPoints}</span>
@@ -184,14 +184,14 @@ export function AuditSummary({ audit }: AuditSummaryProps) {
 
             {/* Notes Section */}
             {hasNotesFlag && (
-              <div className="bg-gradient-to-r from-blue-50 to-blue-100/50 p-4 rounded-xl border border-blue-200">
+              <div className="bg-gradient-to-r from-blue-50 to-blue-100/50 dark:from-blue-950/30 dark:to-blue-900/30 p-4 rounded-xl border border-blue-200 dark:border-blue-800">
                 <div className="flex items-center gap-2 mb-2">
-                  <AlertCircle className="h-4 w-4 text-blue-600" />
-                  <span className="text-xs font-bold text-blue-700 uppercase tracking-wide">Notlar</span>
+                  <AlertCircle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                  <span className="text-xs font-bold text-blue-700 dark:text-blue-400 uppercase tracking-wide">Notlar</span>
                 </div>
                 <div className="space-y-2">
                   {answer.notes?.filter(n => n.trim()).map((note, i) => (
-                    <p key={i} className="text-sm text-blue-900 leading-relaxed pl-2 border-l-2 border-blue-300">
+                    <p key={i} className="text-sm text-blue-900 dark:text-blue-100 leading-relaxed pl-2 border-l-2 border-blue-300 dark:border-blue-700">
                       {note}
                     </p>
                   ))}
@@ -201,11 +201,11 @@ export function AuditSummary({ audit }: AuditSummaryProps) {
 
             {/* Photos Section */}
             {answer.photos && answer.photos.length > 0 && (
-              <div className="bg-gradient-to-r from-purple-50 to-purple-100/50 p-4 rounded-xl border border-purple-200">
+              <div className="bg-gradient-to-r from-purple-50 to-purple-100/50 dark:from-purple-950/30 dark:to-purple-900/30 p-4 rounded-xl border border-purple-200 dark:border-purple-800">
                 <div className="flex items-center gap-2 mb-3">
-                  <ImageIcon className="h-4 w-4 text-purple-600" />
-                  <span className="text-xs font-bold text-purple-700 uppercase tracking-wide">Fotoğraflar</span>
-                  <Badge variant="outline" className="bg-purple-100 border-purple-300 text-purple-700 ml-auto">
+                  <ImageIcon className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                  <span className="text-xs font-bold text-purple-700 dark:text-purple-400 uppercase tracking-wide">Fotoğraflar</span>
+                  <Badge variant="outline" className="bg-purple-100 dark:bg-purple-900/50 border-purple-300 dark:border-purple-700 text-purple-700 dark:text-purple-300 ml-auto">
                     {answer.photos.length} adet
                   </Badge>
                 </div>
@@ -213,7 +213,7 @@ export function AuditSummary({ audit }: AuditSummaryProps) {
                   {answer.photos.map((photo, i) => (
                     <div
                       key={i}
-                      className="relative aspect-square rounded-lg overflow-hidden border-2 border-purple-200 shadow-sm cursor-pointer hover:opacity-80 transition-opacity"
+                      className="relative aspect-square rounded-lg overflow-hidden border-2 border-purple-200 dark:border-purple-800 shadow-sm cursor-pointer hover:opacity-80 transition-opacity"
                       onClick={() => setLightboxImage(photo)}
                     >
                       <img src={photo} alt={`Fotoğraf ${i + 1}`} className="object-cover w-full h-full" />
@@ -971,10 +971,10 @@ export function AuditSummary({ audit }: AuditSummaryProps) {
 
       <Tabs defaultValue="all" value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="w-full">
         <div className="flex items-center justify-between mb-6 gap-4 flex-wrap">
-          <TabsList className="grid grid-cols-3 h-auto p-1 bg-slate-100 rounded-xl flex-1 min-w-[280px]">
+          <TabsList className="grid grid-cols-3 h-auto p-1 bg-slate-100 dark:bg-slate-900 rounded-xl flex-1 min-w-[280px]">
             <TabsTrigger
               value="all"
-              className="flex flex-col sm:flex-row items-center gap-1.5 py-3 px-2 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm transition-all"
+              className="flex flex-col sm:flex-row items-center gap-1.5 py-3 px-2 rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-sm transition-all text-slate-500 dark:text-slate-400 data-[state=active]:text-slate-900 dark:data-[state=active]:text-white"
             >
               <FileText className="h-4 w-4" />
               <span className="font-semibold text-xs sm:text-sm">Tüm Sorular</span>
@@ -982,7 +982,7 @@ export function AuditSummary({ audit }: AuditSummaryProps) {
             </TabsTrigger>
             <TabsTrigger
               value="incomplete"
-              className="flex flex-col sm:flex-row items-center gap-1.5 py-3 px-2 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm transition-all"
+              className="flex flex-col sm:flex-row items-center gap-1.5 py-3 px-2 rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-sm transition-all text-slate-500 dark:text-slate-400 data-[state=active]:text-slate-900 dark:data-[state=active]:text-white"
             >
               <XCircle className="h-4 w-4" />
               <span className="font-semibold text-xs sm:text-sm">Eksikler</span>
@@ -990,7 +990,7 @@ export function AuditSummary({ audit }: AuditSummaryProps) {
             </TabsTrigger>
             <TabsTrigger
               value="incomplete-notes"
-              className="flex flex-col sm:flex-row items-center gap-1.5 py-3 px-2 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm transition-all"
+              className="flex flex-col sm:flex-row items-center gap-1.5 py-3 px-2 rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-sm transition-all text-slate-500 dark:text-slate-400 data-[state=active]:text-slate-900 dark:data-[state=active]:text-white"
             >
               <AlertCircle className="h-4 w-4" />
               <span className="font-semibold text-xs sm:text-sm">Notlular</span>
@@ -1001,7 +1001,7 @@ export function AuditSummary({ audit }: AuditSummaryProps) {
           <Button
             onClick={() => handleDownloadPDF(activeTab)}
             disabled={isDownloading}
-            className="flex items-center gap-2 bg-primary hover:bg-primary/90 whitespace-nowrap"
+            className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground dark:bg-slate-800 dark:text-white dark:border dark:border-slate-700 whitespace-nowrap"
             size="lg"
           >
             <Download className={`h-4 w-4 ${isDownloading ? 'animate-bounce' : ''}`} />
