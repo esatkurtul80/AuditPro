@@ -605,8 +605,8 @@ export function AuditSummary({ audit }: AuditSummaryProps) {
         startY: yPos,
         body: [
           ['MAĞAZA ADI', (audit.storeName || '-').toLocaleUpperCase('tr-TR'), 'DENETMEN', (audit.auditorName || '-').toLocaleUpperCase('tr-TR')],
-          ['İLGİLİ HAFTA', weekNum !== '-' ? `${weekNum}.HAFTA` : '-', 'DENETİM PUANI', `${audit.totalScore}`],
-          ['DENETİM TARİHİ', formatDate(audit.startedAt), 'DENETİM BAŞLANGIÇ VE BİTİŞ SAATİ', `${formatTime(audit.startedAt)} - ${formatTime(audit.completedAt)}`]
+          ['İLGİLİ HAFTA', weekNum !== '-' ? `${weekNum}.HAFTA` : '-', 'PUANI', `${audit.totalScore}`],
+          ['DENETİM TARİHİ', formatDate(audit.startedAt), 'BAŞLANGIÇ VE BİTİŞ SAATİ', `${formatTime(audit.startedAt)} - ${formatTime(audit.completedAt)}`]
         ],
         theme: 'grid',
         styles: {
@@ -619,9 +619,9 @@ export function AuditSummary({ audit }: AuditSummaryProps) {
         },
         columnStyles: {
           0: { cellWidth: 35, fontStyle: 'bold', fillColor: [243, 244, 246], textColor: [0, 0, 0] },
-          1: { cellWidth: 56, textColor: [0, 0, 0] },
-          2: { cellWidth: 35, fontStyle: 'bold', fillColor: [243, 244, 246], textColor: [0, 0, 0] },
-          3: { cellWidth: 56, textColor: [0, 0, 0] }
+          1: { cellWidth: 45, textColor: [0, 0, 0] },
+          2: { cellWidth: 50, fontStyle: 'bold', fillColor: [243, 244, 246], textColor: [0, 0, 0] },
+          3: { cellWidth: 52, textColor: [0, 0, 0] }
         },
         margin: { left: 14, right: 14 }
       });
