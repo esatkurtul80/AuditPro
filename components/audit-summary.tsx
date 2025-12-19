@@ -604,12 +604,9 @@ export function AuditSummary({ audit }: AuditSummaryProps) {
       autoTable(doc, {
         startY: yPos,
         body: [
-          ['Mağaza Adı', audit.storeName || '-'],
-          ['Denetmen', audit.auditorName || '-'],
-          ['İlgili Hafta', weekNum !== '-' ? `${weekNum}.HAFTA` : '-'],
-          ['Denetim Puanı', scorePercentage],
-          ['Denetim Tarihi', formatDate(audit.startedAt)],
-          ['Denetim Saatleri', `Başlama: ${formatTime(audit.startedAt)} | Bitiş: ${formatTime(audit.completedAt)}`]
+          ['MAĞAZA ADI', (audit.storeName || '-').toLocaleUpperCase('tr-TR'), 'DENETMEN', (audit.auditorName || '-').toLocaleUpperCase('tr-TR')],
+          ['İLGİLİ HAFTA', weekNum !== '-' ? `${weekNum}.HAFTA` : '-', 'DENETİM PUANI', `${audit.totalScore}`],
+          ['DENETİM TARİHİ', formatDate(audit.startedAt), 'DENETİM BAŞLANGIÇ VE BİTİŞ SAATİ', `${formatTime(audit.startedAt)} - ${formatTime(audit.completedAt)}`]
         ],
         theme: 'grid',
         styles: {
@@ -617,19 +614,14 @@ export function AuditSummary({ audit }: AuditSummaryProps) {
           fontSize: 9,
           cellPadding: 3,
           lineColor: [200, 200, 200],
-          lineWidth: 0.1
+          lineWidth: 0.1,
+          overflow: 'linebreak'
         },
         columnStyles: {
-          0: {
-            cellWidth: 50,
-            fontStyle: 'bold',
-            fillColor: [243, 244, 246],
-            textColor: [0, 0, 0]
-          },
-          1: {
-            cellWidth: 132,
-            textColor: [0, 0, 0]
-          }
+          0: { cellWidth: 35, fontStyle: 'bold', fillColor: [243, 244, 246], textColor: [0, 0, 0] },
+          1: { cellWidth: 56, textColor: [0, 0, 0] },
+          2: { cellWidth: 35, fontStyle: 'bold', fillColor: [243, 244, 246], textColor: [0, 0, 0] },
+          3: { cellWidth: 56, textColor: [0, 0, 0] }
         },
         margin: { left: 14, right: 14 }
       });
