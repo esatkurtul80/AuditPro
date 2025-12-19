@@ -26,6 +26,29 @@ function hasNotes(answer: AuditAnswer): boolean {
   return !!(answer.notes && answer.notes.length > 0 && answer.notes.some(n => n.trim()));
 }
 
+// Hafta numarası hesaplama (ISO 8601)
+function getWeekNumber(date: Date): number {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+}
+
+// Saat formatlama
+function formatTime(timestamp: any): string {
+  if (!timestamp) return '-';
+  const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+  return date.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+}
+
+// Tarih formatlama
+function formatDate(timestamp: any): string {
+  if (!timestamp) return '-';
+  const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+  return date.toLocaleDateString('tr-TR');
+}
+
 export function AuditSummary({ audit }: AuditSummaryProps) {
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
   const [activeTab, setActiveTab] = useState<'all' | 'incomplete' | 'incomplete-notes'>('all');
@@ -384,9 +407,9 @@ export function AuditSummary({ audit }: AuditSummaryProps) {
 
             return (
               <Collapsible key={`mobile-section-${idx}`} open={expandedSections[`section-${idx}`]} onOpenChange={() => toggleSection(`section-${idx}`)}>
-                <Card className={`mb-4 overflow-hidden border-2 cursor-pointer hover:shadow-xl transition-all ${sectionScore >= 80 ? 'border-green-300 bg-gradient-to-br from-green-50 to-white' : sectionScore >= 50 ? 'border-yellow-300 bg-gradient-to-br from-yellow-50 to-white' : 'border-red-300 bg-gradient-to-br from-red-50 to-white'}`}>
+                <Card className={`mb-4 overflow-hidden border-2 cursor-pointer hover:shadow-xl transition-all ${sectionScore >= 80 ? 'border-green-300' : sectionScore >= 50 ? 'border-yellow-300' : 'border-red-300'}`}>
                   <CollapsibleTrigger className="w-full">
-                    <CardHeader className={`pb-4 ${sectionScore >= 80 ? 'bg-green-100/50' : sectionScore >= 50 ? 'bg-yellow-100/50' : 'bg-red-100/50'}`}>
+                    <CardHeader className="pb-4">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3 flex-1">
                           {expandedSections[`section-${idx}`] ? (
@@ -401,7 +424,7 @@ export function AuditSummary({ audit }: AuditSummaryProps) {
                             </p>
                           </div>
                         </div>
-                        <Badge className={`px-4 py-2 text-lg font-bold ml-3 ${sectionScore >= 80 ? 'bg-green-500' : sectionScore >= 50 ? 'bg-yellow-500' : 'bg-red-500'}`}>
+                        <Badge variant="secondary" className="px-4 py-2 text-lg font-bold ml-3">
                           {sectionScore}%
                         </Badge>
                       </div>
@@ -572,7 +595,46 @@ export function AuditSummary({ audit }: AuditSummaryProps) {
       doc.text(`Rapor Türü: ${reportType}`, 14, yPos);
       yPos += 6;
       doc.text(`Tarih: ${new Date().toLocaleDateString('tr-TR')}`, 14, yPos);
-      yPos += 12;
+      yPos += 15;
+
+      // Denetim Bilgileri Tablosu
+      const weekNum = audit.startedAt ? getWeekNumber(audit.startedAt.toDate()) : '-';
+      const scorePercentage = audit.maxScore > 0 ? `${Math.round((audit.totalScore / audit.maxScore) * 100)}%` : '-';
+
+      autoTable(doc, {
+        startY: yPos,
+        body: [
+          ['Mağaza Adı', audit.storeName || '-'],
+          ['Denetmen', audit.auditorName || '-'],
+          ['İlgili Hafta', weekNum !== '-' ? `${weekNum}.HAFTA` : '-'],
+          ['Denetim Puanı', scorePercentage],
+          ['Denetim Tarihi', formatDate(audit.startedAt)],
+          ['Denetim Saatleri', `Başlama: ${formatTime(audit.startedAt)} | Bitiş: ${formatTime(audit.completedAt)}`]
+        ],
+        theme: 'grid',
+        styles: {
+          font: fontBase64 ? 'Roboto' : 'helvetica',
+          fontSize: 9,
+          cellPadding: 3,
+          lineColor: [200, 200, 200],
+          lineWidth: 0.1
+        },
+        columnStyles: {
+          0: {
+            cellWidth: 50,
+            fontStyle: 'bold',
+            fillColor: [243, 244, 246],
+            textColor: [0, 0, 0]
+          },
+          1: {
+            cellWidth: 132,
+            textColor: [0, 0, 0]
+          }
+        },
+        margin: { left: 14, right: 14 }
+      });
+
+      yPos = (doc as any).lastAutoTable.finalY + 15;
 
       // Her section için tablo
       for (const section of filteredData) {
@@ -856,6 +918,65 @@ export function AuditSummary({ audit }: AuditSummaryProps) {
 
   return (
     <div className="space-y-6">
+      {/* Denetim Bilgileri Kartı */}
+      <Card className="border-2 shadow-md overflow-hidden">
+        <CardHeader className="bg-gradient-to-r from-slate-700 to-slate-800 py-6">
+          <CardTitle className="text-2xl font-bold text-white text-center">📋 Denetim Bilgileri</CardTitle>
+        </CardHeader>
+        <CardContent className="p-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {/* Mağaza Adı */}
+            <div className="bg-slate-50 dark:bg-slate-800 rounded-lg p-4 border border-slate-200 dark:border-slate-700">
+              <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Mağaza Adı</p>
+              <p className="text-base font-bold text-slate-900 dark:text-white">{audit.storeName || '-'}</p>
+            </div>
+
+            {/* Denetmen */}
+            <div className="bg-slate-50 dark:bg-slate-800 rounded-lg p-4 border border-slate-200 dark:border-slate-700">
+              <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Denetmen</p>
+              <p className="text-base font-bold text-slate-900 dark:text-white">{audit.auditorName || '-'}</p>
+            </div>
+
+            {/* İlgili Hafta */}
+            <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
+              <p className="text-xs font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wider mb-2">İlgili Hafta</p>
+              <p className="text-base font-bold text-blue-900 dark:text-blue-100">
+                {audit.startedAt ? `${getWeekNumber(audit.startedAt.toDate())}.HAFTA` : '-'}
+              </p>
+            </div>
+
+            {/* Denetim Puanı */}
+            <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4 border border-green-200 dark:border-green-800">
+              <p className="text-xs font-semibold text-green-600 dark:text-green-400 uppercase tracking-wider mb-2">Denetim Puanı</p>
+              <p className="text-2xl font-bold text-green-900 dark:text-green-100">
+                {audit.maxScore > 0 ? `${Math.round((audit.totalScore / audit.maxScore) * 100)}%` : '-'}
+              </p>
+            </div>
+
+            {/* Denetim Tarihi */}
+            <div className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-4 border border-purple-200 dark:border-purple-800">
+              <p className="text-xs font-semibold text-purple-600 dark:text-purple-400 uppercase tracking-wider mb-2">Denetim Tarihi</p>
+              <p className="text-base font-bold text-purple-900 dark:text-purple-100">{formatDate(audit.startedAt)}</p>
+            </div>
+
+            {/* Denetim Saatleri */}
+            <div className="bg-orange-50 dark:bg-orange-900/20 rounded-lg p-4 border border-orange-200 dark:border-orange-800">
+              <p className="text-xs font-semibold text-orange-600 dark:text-orange-400 uppercase tracking-wider mb-3">Denetim Saatleri</p>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-orange-700 dark:text-orange-300">Başlama</span>
+                  <span className="text-base font-bold text-orange-900 dark:text-orange-100">{formatTime(audit.startedAt)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-orange-700 dark:text-orange-300">Bitiş</span>
+                  <span className="text-base font-bold text-orange-900 dark:text-orange-100">{formatTime(audit.completedAt)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       <Tabs defaultValue="all" value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="w-full">
         <div className="flex items-center justify-between mb-6 gap-4 flex-wrap">
           <TabsList className="grid grid-cols-3 h-auto p-1 bg-slate-100 rounded-xl flex-1 min-w-[280px]">
