@@ -261,7 +261,7 @@ export function AuditSummary({ audit }: AuditSummaryProps) {
           <CardContent className="p-0">
             <table className="w-full">
               <thead>
-                <tr className="bg-gradient-to-r from-slate-100 to-slate-50 border-b-2">
+                <tr className="bg-gradient-to-r from-slate-100 to-slate-50 dark:from-slate-800 dark:to-slate-900 border-b-2 dark:border-slate-700">
                   <th className="w-[35%] font-bold text-foreground text-left py-4 px-6">Soru</th>
                   <th className="w-[20%] font-bold text-foreground text-left py-4 px-6">Cevap</th>
                   <th className="w-[15%] text-center font-bold text-foreground py-4 px-6">Puan</th>
@@ -291,12 +291,12 @@ export function AuditSummary({ audit }: AuditSummaryProps) {
 
                   return (
                     <React.Fragment key={`section-${idx}`}>
-                      <tr className="bg-gradient-to-r from-slate-50 to-white border-t-4 border-slate-200">
+                      <tr className="bg-gradient-to-r from-slate-50 to-white dark:from-slate-800/50 dark:to-slate-900/50 border-t-4 border-slate-200 dark:border-slate-700">
                         <td colSpan={4} className="py-4 px-6">
                           <div className="flex items-center justify-between">
                             <span className="font-bold text-lg text-foreground">{section.sectionName}</span>
                             <Badge className={`px-4 py-2 text-base font-bold ${sectionScore >= 80 ? 'bg-green-500' : sectionScore >= 50 ? 'bg-yellow-500' : 'bg-red-500'}`}>
-                              {sectionScore}%
+                              {sectionScore}
                             </Badge>
                           </div>
                         </td>
@@ -307,21 +307,21 @@ export function AuditSummary({ audit }: AuditSummaryProps) {
 
                         return (
                           <React.Fragment key={`q-${idx}-${qIdx}`}>
-                            <tr className={`hover:bg-slate-50/50 border-b transition-colors ${isIncomplete ? 'bg-red-50/30' : ''}`}>
+                            <tr className={`hover:bg-slate-50/50 dark:hover:bg-slate-800/50 border-b dark:border-slate-700 transition-colors ${isIncomplete ? 'bg-red-50/30 dark:bg-red-950/20' : ''}`}>
                               <td className="align-top py-4 px-6">
                                 <div className="flex items-start gap-2">
                                   {isIncomplete ? (
-                                    <XCircle className="h-4 w-4 text-red-500 mt-0.5 flex-shrink-0" />
+                                    <XCircle className="h-4 w-4 text-red-500 dark:text-red-400 mt-0.5 flex-shrink-0" />
                                   ) : (
-                                    <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
+                                    <CheckCircle2 className="h-4 w-4 text-green-500 dark:text-green-400 mt-0.5 flex-shrink-0" />
                                   )}
                                   <span className="font-medium text-sm text-foreground/90 leading-relaxed">{answer.questionText}</span>
                                 </div>
                               </td>
                               <td className="align-top py-4 px-6">{renderAnswer(answer)}</td>
                               <td className="text-center align-top py-4 px-6">
-                                <div className={`inline-flex items-center justify-center rounded-lg px-3 py-2 ${isIncomplete ? 'bg-red-100' : 'bg-green-100'} whitespace-nowrap`}>
-                                  <span className={`text-xl font-bold ${isIncomplete ? 'text-red-600' : 'text-green-600'}`}>
+                                <div className={`inline-flex items-center justify-center rounded-lg px-3 py-2 ${isIncomplete ? 'bg-red-100 dark:bg-red-900/50' : 'bg-green-100 dark:bg-green-900/50'} whitespace-nowrap`}>
+                                  <span className={`text-xl font-bold ${isIncomplete ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
                                     {answer.earnedPoints}
                                   </span>
                                   <span className="text-sm text-muted-foreground font-medium ml-1">/ {answer.maxPoints}</span>
@@ -329,10 +329,10 @@ export function AuditSummary({ audit }: AuditSummaryProps) {
                               </td>
                               <td className="align-top py-4 px-6">
                                 {hasNotes(answer) && (
-                                  <div className="bg-blue-50 p-3 rounded-lg border border-blue-200 mb-2">
+                                  <div className="bg-gradient-to-r from-blue-50 to-blue-100/50 dark:from-blue-950/30 dark:to-blue-900/30 p-3 rounded-lg border border-blue-200 dark:border-blue-800 mb-2">
                                     <div className="space-y-1.5">
                                       {answer.notes?.filter(n => n.trim()).map((note, i) => (
-                                        <p key={i} className="text-xs text-blue-900 leading-relaxed pl-2 border-l-2 border-blue-300">
+                                        <p key={i} className="text-xs text-blue-900 dark:text-blue-100 leading-relaxed pl-2 border-l-2 border-blue-300 dark:border-blue-700">
                                           {note}
                                         </p>
                                       ))}
@@ -347,13 +347,13 @@ export function AuditSummary({ audit }: AuditSummaryProps) {
                             </tr>
                             {/* Photos Row */}
                             {hasPhotos && (
-                              <tr className={`${isIncomplete ? 'bg-red-50/20' : ''} border-b`}>
+                              <tr className={`${isIncomplete ? 'bg-red-50/20 dark:bg-red-950/10' : ''} border-b dark:border-slate-700`}>
                                 <td colSpan={4} className="py-3 px-6">
-                                  <div className="bg-gradient-to-r from-purple-50 to-purple-100/50 p-3 rounded-lg border border-purple-200">
+                                  <div className="bg-gradient-to-r from-purple-50 to-purple-100/50 dark:from-purple-950/30 dark:to-purple-900/30 p-3 rounded-lg border border-purple-200 dark:border-purple-800">
                                     <div className="flex items-center gap-2 mb-2">
-                                      <ImageIcon className="h-4 w-4 text-purple-600" />
-                                      <span className="text-xs font-bold text-purple-700 uppercase tracking-wide">Fotoğraflar</span>
-                                      <Badge variant="outline" className="bg-purple-100 border-purple-300 text-purple-700 ml-2">
+                                      <ImageIcon className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                                      <span className="text-xs font-bold text-purple-700 dark:text-purple-400 uppercase tracking-wide">Fotoğraflar</span>
+                                      <Badge variant="outline" className="bg-purple-100 dark:bg-purple-900/50 border-purple-300 dark:border-purple-700 text-purple-700 dark:text-purple-300 ml-2">
                                         {answer.photos!.length} adet
                                       </Badge>
                                     </div>
@@ -361,7 +361,7 @@ export function AuditSummary({ audit }: AuditSummaryProps) {
                                       {answer.photos!.map((photo, i) => (
                                         <div
                                           key={i}
-                                          className="relative aspect-square rounded-md overflow-hidden border-2 border-purple-200 shadow-sm cursor-pointer hover:opacity-80 transition-opacity"
+                                          className="relative aspect-square rounded-md overflow-hidden border-2 border-purple-200 dark:border-purple-800 shadow-sm cursor-pointer hover:opacity-80 transition-opacity"
                                           onClick={() => setLightboxImage(photo)}
                                         >
                                           <img src={photo} alt={`Fotoğraf ${i + 1}`} className="object-cover w-full h-full" />
@@ -425,7 +425,7 @@ export function AuditSummary({ audit }: AuditSummaryProps) {
                           </div>
                         </div>
                         <Badge variant="secondary" className="px-4 py-2 text-lg font-bold ml-3">
-                          {sectionScore}%
+                          {sectionScore}
                         </Badge>
                       </div>
                     </CardHeader>
@@ -460,65 +460,46 @@ export function AuditSummary({ audit }: AuditSummaryProps) {
   };
 
   const getBase64FromUrl = async (url: string): Promise<string> => {
-    try {
-      // Önce fetch ile dene
-      const response = await fetch(url, {
-        mode: 'cors',
-        cache: 'no-cache',
-        credentials: 'omit'
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const blob = await response.blob();
-
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          const base64 = reader.result as string;
-          // Data URL formatında olduğundan emin ol
-          if (base64 && base64.startsWith('data:image')) {
-            resolve(base64);
-          } else {
-            reject('Invalid base64 format');
-          }
-        };
-        reader.onerror = () => reject('FileReader error');
-        reader.readAsDataURL(blob);
-      });
-    } catch (error) {
-      // console.warn('Fetch failed for:', url, error);
-
-      // Fetch başarısız olursa, proxy kullan
+    // Firebase Storage URL'leri için doğrudan proxy kullan
+    // Bu, konsoldaki CORS hatalarını engeller
+    if (url.includes('firebasestorage.googleapis.com')) {
       try {
         const proxyUrl = `/api/image-proxy?url=${encodeURIComponent(url)}`;
         const response = await fetch(proxyUrl);
 
-        if (!response.ok) {
-          throw new Error('Proxy fetch failed');
-        }
+        if (!response.ok) return '';
 
         const blob = await response.blob();
-
-        return new Promise((resolve, reject) => {
+        return new Promise((resolve) => {
           const reader = new FileReader();
           reader.onloadend = () => {
-            const base64 = reader.result as string;
-            if (base64 && base64.startsWith('data:image')) {
-              resolve(base64);
-            } else {
-              reject('Invalid base64 format from proxy');
-            }
+            const result = reader.result as string;
+            resolve(result && result.startsWith('data:image') ? result : '');
           };
-          reader.onerror = () => reject('FileReader error from proxy');
+          reader.onerror = () => resolve('');
           reader.readAsDataURL(blob);
         });
-      } catch (proxyError) {
-        console.error('Both fetch and proxy failed for:', url, proxyError);
-        return ''; // Boş string döndür, hata verme
+      } catch {
+        return '';
       }
+    }
+
+    // Diğer URL'ler için normal fetch dene (büyük ihtimalle local URL'ler)
+    try {
+      const response = await fetch(url, { mode: 'cors', cache: 'no-cache', credentials: 'omit' });
+      if (!response.ok) throw new Error('Fetch failed');
+      const blob = await response.blob();
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const result = reader.result as string;
+          resolve(result && result.startsWith('data:image') ? result : '');
+        };
+        reader.onerror = () => resolve('');
+        reader.readAsDataURL(blob);
+      });
+    } catch {
+      return '';
     }
   };
 
@@ -565,7 +546,7 @@ export function AuditSummary({ audit }: AuditSummaryProps) {
             console.warn('Photo returned empty:', url.substring(0, 50) + '...');
           }
         } catch (err) {
-          console.error('Failed to load photo:', url.substring(0, 50) + '...', err);
+          // Silently ignore photo load failures
         }
       });
 
@@ -585,16 +566,10 @@ export function AuditSummary({ audit }: AuditSummaryProps) {
       const pageHeight = doc.internal.pageSize.getHeight();
       let yPos = 20;
 
-      // Başlık
-      doc.setFontSize(18);
-      doc.text(`Denetim Raporu: ${audit.storeName || 'Mağaza'}`, 14, yPos);
-      yPos += 10;
-
-      doc.setFontSize(10);
-      const reportType = type === 'all' ? 'Tüm Sorular' : type === 'incomplete' ? 'Eksikler' : 'Notlular';
-      doc.text(`Rapor Türü: ${reportType}`, 14, yPos);
-      yPos += 6;
-      doc.text(`Tarih: ${new Date().toLocaleDateString('tr-TR')}`, 14, yPos);
+      // Sadece mağaza adı - büyük harflerle
+      doc.setFontSize(16);
+      const storeName = (audit.storeName || 'MAĞAZA').toLocaleUpperCase('tr-TR');
+      doc.text(storeName, 14, yPos);
       yPos += 15;
 
       // Denetim Bilgileri Tablosu
@@ -605,7 +580,37 @@ export function AuditSummary({ audit }: AuditSummaryProps) {
         startY: yPos,
         body: [
           ['MAĞAZA ADI', (audit.storeName || '-').toLocaleUpperCase('tr-TR'), 'DENETMEN', (audit.auditorName || '-').toLocaleUpperCase('tr-TR')],
-          ['İLGİLİ HAFTA', weekNum !== '-' ? `${weekNum}.HAFTA` : '-', 'PUANI', `${audit.totalScore}`],
+          ['İLGİLİ HAFTA', weekNum !== '-' ? `${weekNum}.HAFTA` : '-', 'PUANI', `${(() => {
+            let totalSectionPercentage = 0;
+            let sectionCount = 0;
+
+            audit.sections.forEach(section => {
+              let sectionEarned = 0;
+              let sectionMax = 0;
+              let hasValidQuestions = false;
+
+              section.answers.forEach(a => {
+                if (a.answer && a.answer.trim() !== "" && a.answer !== "muaf") {
+                  sectionEarned += a.earnedPoints;
+                  sectionMax += a.maxPoints;
+                  hasValidQuestions = true;
+                }
+              });
+
+              if (hasValidQuestions && sectionMax > 0) {
+                const sectionScore = (sectionEarned / sectionMax) * 100;
+                totalSectionPercentage += sectionScore;
+                sectionCount++;
+              }
+            });
+
+            // Bölümlerin ortalaması
+            const averageScore = sectionCount > 0 ? totalSectionPercentage / sectionCount : 0;
+
+            // Özel yuvarlama: .50 ve üzeri yukarı, altı aşağı
+            const decimalPart = averageScore % 1;
+            return decimalPart >= 0.50 ? Math.ceil(averageScore) : Math.floor(averageScore);
+          })()}`],
           ['DENETİM TARİHİ', formatDate(audit.startedAt), 'BAŞLANGIÇ VE BİTİŞ SAATİ', `${formatTime(audit.startedAt)} - ${formatTime(audit.completedAt)}`]
         ],
         theme: 'grid',
@@ -626,7 +631,7 @@ export function AuditSummary({ audit }: AuditSummaryProps) {
         margin: { left: 14, right: 14 }
       });
 
-      yPos = (doc as any).lastAutoTable.finalY + 15;
+      yPos = (doc as any).lastAutoTable.finalY + 5;
 
       // Her section için tablo
       for (const section of filteredData) {
@@ -638,6 +643,9 @@ export function AuditSummary({ audit }: AuditSummaryProps) {
           }
         });
         const sectionScore = sectionMax > 0 ? Math.round((sectionEarned / sectionMax) * 100) : 0;
+
+        // Zaten çizilen hücreleri takip etmek için
+        const drawnPhotoCells = new Set<string>();
 
         // Yeni sayfa kontrolü
         if (yPos > pageHeight - 40) {
@@ -715,7 +723,8 @@ export function AuditSummary({ audit }: AuditSummaryProps) {
               tableBody.push([{
                 content: `FOTO_ROW:${loadedPhotos.join('|')}`,
                 colSpan: 4,
-                styles: { minCellHeight: 25, fillColor: [255, 255, 255], cellPadding: 0 }
+                styles: { minCellHeight: 22, fillColor: [255, 255, 255], cellPadding: 0, rowPageBreak: 'avoid' },
+                rowSpan: 1
               }]);
             }
           }
@@ -725,11 +734,12 @@ export function AuditSummary({ audit }: AuditSummaryProps) {
         autoTable(doc, {
           startY: yPos,
           head: [['Soru', 'Cevap', 'Puan', 'Notlar']],
+          showHead: 'firstPage',
           body: tableBody,
           theme: 'grid',
-          styles: { font: fontBase64 ? 'Roboto' : 'helvetica', fontStyle: 'normal', fontSize: 8, lineColor: [180, 180, 180], lineWidth: 0.1 },
-          headStyles: { font: fontBase64 ? 'Roboto' : 'helvetica', fillColor: [229, 231, 235], textColor: [0, 0, 0], fontStyle: 'bold', fontSize: 9, halign: 'center', valign: 'middle', lineColor: [180, 180, 180], lineWidth: 0.1 },
-          bodyStyles: { font: fontBase64 ? 'Roboto' : 'helvetica', fontSize: 8, cellPadding: 3, minCellHeight: 10, valign: 'top', lineColor: [180, 180, 180], lineWidth: 0.1 },
+          styles: { font: fontBase64 ? 'Roboto' : 'helvetica', fontStyle: 'normal', fontSize: 8, lineColor: [180, 180, 180], lineWidth: 0.5 },
+          headStyles: { font: fontBase64 ? 'Roboto' : 'helvetica', fillColor: [229, 231, 235], textColor: [0, 0, 0], fontStyle: 'bold', fontSize: 9, halign: 'center', valign: 'middle', lineColor: [180, 180, 180], lineWidth: 0.5 },
+          bodyStyles: { font: fontBase64 ? 'Roboto' : 'helvetica', fontSize: 8, cellPadding: 3, minCellHeight: 10, valign: 'top', lineColor: [180, 180, 180], lineWidth: 0.5 },
           columnStyles: {
             0: { cellWidth: 70, halign: 'left' },
             1: { cellWidth: 35, halign: 'left' },
@@ -743,6 +753,7 @@ export function AuditSummary({ audit }: AuditSummaryProps) {
               if (text.startsWith('FOTO_ROW:')) {
                 data.cell.text = [''];
                 data.cell.styles.fillColor = [255, 255, 255];
+                data.cell.styles.minCellHeight = 22;
               }
             }
 
@@ -824,6 +835,10 @@ export function AuditSummary({ audit }: AuditSummaryProps) {
             // Fotoğrafları çiz ve linkleri ekle
             if (data.section === 'body' && data.column.index === 0) {
               const raw = data.cell.raw as any;
+
+              // Zaten çizildiyse tekrar çizme (AutoTable bazen hook'u birden fazla çağırabilir)
+              // if ((data.cell as any)._drawn) return;
+
               let content = '';
               if (raw && typeof raw === 'object' && raw.content) {
                 content = raw.content;
@@ -832,19 +847,46 @@ export function AuditSummary({ audit }: AuditSummaryProps) {
               }
 
               if (content.startsWith('FOTO_ROW:')) {
+                const cell = data.cell;
                 const photoUrls = content.substring(9).split('|');
 
-                const cell = data.cell;
-                const imgSize = 25;
+                // CRITICAL: Check if we're too close to page bottom
+                // If so, don't draw photos - this makes the row appear empty
+                // AutoTable will detect this and move the row to next page
+                const pageHeight = doc.internal.pageSize.getHeight();
+                const imgSize = 22;
+                const requiredSpace = 25; // Minimal threshold - just photo size + small buffer
+
+                if (cell.y + requiredSpace > pageHeight - 20) {
+                  // Too close to bottom - skip drawing to force page break
+                  console.log('Skipping photo draw at page bottom, y:', cell.y);
+                  return;
+                }
+
+                // Fotoğraf URL'lerine göre unique key oluştur
+                const photoKey = photoUrls.sort().join('||');
+
+                // Zaten bu fotoğraflar çizildiyse tekrar çizme
+                if (drawnPhotoCells.has(photoKey)) {
+                  return;
+                }
+
+                // Çizildi olarak işaretle
+                drawnPhotoCells.add(photoKey);
+
                 const gap = 0;
-                let x = cell.x;
-                let y = cell.y;
+
+                // Fotoğrafları hücrenin tam köşesine yerleştir (padding yok)
+                const startX = cell.x; // Padding yok
+                const startY = cell.y; // Padding yok - satır ile yapışık
+
+                let x = startX;
+                let y = startY;
 
                 photoUrls.forEach((url: string) => {
                   const b64 = photoMap[url];
                   if (b64 && b64.startsWith('data:image')) {
                     try {
-                      // Format belirleme
                       let format: 'PNG' | 'JPEG' = 'JPEG';
                       if (b64.includes('data:image/png')) {
                         format = 'PNG';
@@ -852,35 +894,24 @@ export function AuditSummary({ audit }: AuditSummaryProps) {
                         format = 'JPEG';
                       }
 
-                      // Sayfa genişliğini kontrol et
+                      // Sayfa genişliğini kontrol et (overflow korumasi)
                       if (x + imgSize > doc.internal.pageSize.getWidth() - 14) {
                         return;
                       }
 
-                      // Base64 verisi geçerli mi kontrol et
-                      const base64Data = b64.split(',')[1];
-                      if (!base64Data) {
-                        console.error('Invalid base64 data for:', url.substring(0, 50));
-                        return;
-                      }
-
                       doc.addImage(b64, format, x, y, imgSize, imgSize, undefined, 'FAST');
-                      console.log('Image added to PDF:', url.substring(0, 50) + '...');
 
-                      // Açık gri kenarlık ekle
+                      // Açık gri kenarlık
                       doc.setDrawColor(200, 200, 200);
                       doc.setLineWidth(0.5);
                       doc.rect(x, y, imgSize, imgSize);
 
-                      // Fotoğrafa tıklandığında yeni sekmede aç
                       doc.link(x, y, imgSize, imgSize, { url: url });
 
                       x += imgSize + gap;
                     } catch (e) {
                       console.error("PDF image drawing error for:", url.substring(0, 50), e);
                     }
-                  } else {
-                    console.warn('Photo not loaded or invalid format:', url.substring(0, 50));
                   }
                 });
               }
@@ -889,13 +920,13 @@ export function AuditSummary({ audit }: AuditSummaryProps) {
           margin: { left: 14, right: 14 }
         });
 
-        yPos = (doc as any).lastAutoTable.finalY + 10;
+        yPos = (doc as any).lastAutoTable.finalY + 3;
       }
 
       // PDF'i indir
-      const storeName = audit.storeName ? audit.storeName.replace(/\s+/g, '_') : 'Mağaza';
+      const storeNameForFile = audit.storeName ? audit.storeName.replace(/\s+/g, '_') : 'Mağaza';
       const timestamp = new Date().getTime();
-      const fileName = `Denetim_Raporu_${storeName}_${type}_${timestamp}.pdf`;
+      const fileName = `Denetim_Raporu_${storeNameForFile}_${type}_${timestamp}.pdf`;
       doc.save(fileName);
 
       console.log('PDF download completed successfully');
@@ -941,7 +972,39 @@ export function AuditSummary({ audit }: AuditSummaryProps) {
             <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4 border border-green-200 dark:border-green-800">
               <p className="text-xs font-semibold text-green-600 dark:text-green-400 uppercase tracking-wider mb-2">Denetim Puanı</p>
               <p className="text-2xl font-bold text-green-900 dark:text-green-100">
-                {audit.maxScore > 0 ? `${Math.round((audit.totalScore / audit.maxScore) * 100)}%` : '-'}
+                {(() => {
+                  let totalSectionPercentage = 0;
+                  let sectionCount = 0;
+
+                  audit.sections.forEach(section => {
+                    let sectionEarned = 0;
+                    let sectionMax = 0;
+                    let hasValidQuestions = false;
+
+                    section.answers.forEach(a => {
+                      if (a.answer && a.answer.trim() !== "" && a.answer !== "muaf") {
+                        sectionEarned += a.earnedPoints;
+                        sectionMax += a.maxPoints;
+                        hasValidQuestions = true;
+                      }
+                    });
+
+                    if (hasValidQuestions && sectionMax > 0) {
+                      const sectionScore = (sectionEarned / sectionMax) * 100;
+                      totalSectionPercentage += sectionScore;
+                      sectionCount++;
+                    }
+                  });
+
+                  // Bölümlerin ortalaması
+                  const averageScore = sectionCount > 0 ? totalSectionPercentage / sectionCount : 0;
+
+                  // Özel yuvarlama: .50 ve üzeri yukarı, altı aşağı
+                  const decimalPart = averageScore % 1;
+                  const finalScore = decimalPart >= 0.50 ? Math.ceil(averageScore) : Math.floor(averageScore);
+
+                  return finalScore;
+                })()}
               </p>
             </div>
 

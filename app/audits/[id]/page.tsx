@@ -458,7 +458,18 @@ export default function AuditPage() {
                         <Button
                             size="lg"
                             className="bg-gradient-to-r from-[#8B0000] to-[#A0522D] hover:from-[#6B0000] hover:to-[#8B0000] text-white shadow-md border-0"
-                            onClick={() => setShowBackDialog(true)}
+                            onClick={() => {
+                                if (isViewMode) {
+                                    // View mode: navigate directly without dialog
+                                    window.location.href = '/denetmen/tamamlanan';
+                                } else if (isEditMode) {
+                                    // Edit mode: show confirmation dialog
+                                    setShowBackDialog(true);
+                                } else {
+                                    // Pending audit: show confirmation dialog
+                                    setShowBackDialog(true);
+                                }
+                            }}
                         >
                             <ArrowLeft className="mr-2 h-4 w-4" />
                             Geri
@@ -1063,17 +1074,20 @@ export default function AuditPage() {
                                     <AlertDialogDescription>
                                         {isEditMode
                                             ? "Düzenlemeler iptal edilecektir. Yine de geri dönmek istiyor musunuz?"
-                                            : "Denetimden çıkmak istediğinize emin misiniz? Denetim bekleyen denetimler listesinde kalacaktır."
+                                            : isViewMode
+                                                ? "Görüntülemeden çıkmak istediğinize emin misiniz?"
+                                                : "Denetimden çıkmak istediğinize emin misiniz? Denetim bekleyen denetimler listesinde kalacaktır."
                                         }
                                     </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
                                     <AlertDialogCancel>İptal</AlertDialogCancel>
                                     <AlertDialogAction onClick={() => {
-                                        if (isEditMode) {
-                                            // Force full page reload to get fresh data from Firebase
+                                        if (isEditMode || isViewMode) {
+                                            // For completed audits (edit or view mode), go to completed page
                                             window.location.href = '/denetmen/tamamlanan';
                                         } else {
+                                            // For pending audits, go to pending page
                                             router.push('/denetmen/bekleyen');
                                         }
                                     }}>

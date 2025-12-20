@@ -300,10 +300,7 @@ export default function AdminDashboard() {
                             Sistem istatistikleri ve denetim yönetimi
                         </p>
                     </div>
-                    <div className="flex items-center gap-4">
 
-                        <DateRangePicker value={dateRange} onChange={setDateRange} />
-                    </div>
                 </div>
 
                 {/* Dashboard Statistics */}
@@ -418,181 +415,187 @@ export default function AdminDashboard() {
                     </CardHeader>
                     <CardContent className="space-y-4">
                         {/* Search and Filters */}
-                        <div className="grid gap-4 md:grid-cols-5">
-                            <div className="relative md:col-span-2">
-                                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                <Input
-                                    placeholder="Ara..."
-                                    value={searchTerm}
-                                    onChange={(e) => setSearchTerm(e.target.value)}
-                                    className="pl-9"
-                                />
+                        <div className="space-y-4">
+                            <div className="flex flex-col md:flex-row gap-4">
+                                <div className="relative flex-1">
+                                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                    <Input
+                                        placeholder="Ara..."
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                        className="pl-9"
+                                    />
+                                </div>
+                                <DateRangePicker value={dateRange} onChange={setDateRange} />
                             </div>
 
-                            {/* Status Filter */}
-                            <Popover open={openStatusCombobox} onOpenChange={setOpenStatusCombobox}>
-                                <PopoverTrigger asChild>
-                                    <Button
-                                        variant="outline"
-                                        role="combobox"
-                                        aria-expanded={openStatusCombobox}
-                                        className="w-full justify-between"
-                                    >
-                                        {statusFilter !== "all"
-                                            ? statusOptions.find((status) => status.value === statusFilter)?.label
-                                            : "Durum"}
-                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                    </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-full p-0">
-                                    <Command>
-                                        <CommandInput placeholder="Durum ara..." />
-                                        <CommandList>
-                                            <CommandEmpty>Durum bulunamadı.</CommandEmpty>
-                                            <CommandGroup>
-                                                {statusOptions.map((status) => (
-                                                    <CommandItem
-                                                        key={status.value}
-                                                        value={status.label}
-                                                        onSelect={() => {
-                                                            setStatusFilter(status.value)
-                                                            setOpenStatusCombobox(false)
-                                                        }}
-                                                    >
-                                                        <Check
-                                                            className={cn(
-                                                                "mr-2 h-4 w-4",
-                                                                statusFilter === status.value ? "opacity-100" : "opacity-0"
-                                                            )}
-                                                        />
-                                                        {status.label}
-                                                    </CommandItem>
-                                                ))}
-                                            </CommandGroup>
-                                        </CommandList>
-                                    </Command>
-                                </PopoverContent>
-                            </Popover>
+                            <div className="grid gap-4 md:grid-cols-3">
 
-                            {/* Audit Type Filter */}
-                            <Popover open={openTypeCombobox} onOpenChange={setOpenTypeCombobox}>
-                                <PopoverTrigger asChild>
-                                    <Button
-                                        variant="outline"
-                                        role="combobox"
-                                        aria-expanded={openTypeCombobox}
-                                        className="w-full justify-between"
-                                    >
-                                        {auditTypeFilter !== "all"
-                                            ? auditTypes.find((type) => type.id === auditTypeFilter)?.name
-                                            : "Tür"}
-                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                    </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-full p-0">
-                                    <Command>
-                                        <CommandInput placeholder="Tür ara..." />
-                                        <CommandList>
-                                            <CommandEmpty>Tür bulunamadı.</CommandEmpty>
-                                            <CommandGroup>
-                                                <CommandItem
-                                                    value="Tüm Türler"
-                                                    onSelect={() => {
-                                                        setAuditTypeFilter("all")
-                                                        setOpenTypeCombobox(false)
-                                                    }}
-                                                >
-                                                    <Check
-                                                        className={cn(
-                                                            "mr-2 h-4 w-4",
-                                                            auditTypeFilter === "all" ? "opacity-100" : "opacity-0"
-                                                        )}
-                                                    />
-                                                    Tüm Türler
-                                                </CommandItem>
-                                                {auditTypes.map((type) => (
+                                {/* Status Filter */}
+                                <Popover open={openStatusCombobox} onOpenChange={setOpenStatusCombobox}>
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            variant="outline"
+                                            role="combobox"
+                                            aria-expanded={openStatusCombobox}
+                                            className="w-full justify-between"
+                                        >
+                                            {statusFilter !== "all"
+                                                ? statusOptions.find((status) => status.value === statusFilter)?.label
+                                                : "Durum"}
+                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-full p-0">
+                                        <Command>
+                                            <CommandInput placeholder="Durum ara..." />
+                                            <CommandList>
+                                                <CommandEmpty>Durum bulunamadı.</CommandEmpty>
+                                                <CommandGroup>
+                                                    {statusOptions.map((status) => (
+                                                        <CommandItem
+                                                            key={status.value}
+                                                            value={status.label}
+                                                            onSelect={() => {
+                                                                setStatusFilter(status.value)
+                                                                setOpenStatusCombobox(false)
+                                                            }}
+                                                        >
+                                                            <Check
+                                                                className={cn(
+                                                                    "mr-2 h-4 w-4",
+                                                                    statusFilter === status.value ? "opacity-100" : "opacity-0"
+                                                                )}
+                                                            />
+                                                            {status.label}
+                                                        </CommandItem>
+                                                    ))}
+                                                </CommandGroup>
+                                            </CommandList>
+                                        </Command>
+                                    </PopoverContent>
+                                </Popover>
+
+                                {/* Audit Type Filter */}
+                                <Popover open={openTypeCombobox} onOpenChange={setOpenTypeCombobox}>
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            variant="outline"
+                                            role="combobox"
+                                            aria-expanded={openTypeCombobox}
+                                            className="w-full justify-between"
+                                        >
+                                            {auditTypeFilter !== "all"
+                                                ? auditTypes.find((type) => type.id === auditTypeFilter)?.name
+                                                : "Tür"}
+                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-full p-0">
+                                        <Command>
+                                            <CommandInput placeholder="Tür ara..." />
+                                            <CommandList>
+                                                <CommandEmpty>Tür bulunamadı.</CommandEmpty>
+                                                <CommandGroup>
                                                     <CommandItem
-                                                        key={type.id}
-                                                        value={type.name}
+                                                        value="Tüm Türler"
                                                         onSelect={() => {
-                                                            setAuditTypeFilter(type.id)
+                                                            setAuditTypeFilter("all")
                                                             setOpenTypeCombobox(false)
                                                         }}
                                                     >
                                                         <Check
                                                             className={cn(
                                                                 "mr-2 h-4 w-4",
-                                                                auditTypeFilter === type.id ? "opacity-100" : "opacity-0"
+                                                                auditTypeFilter === "all" ? "opacity-100" : "opacity-0"
                                                             )}
                                                         />
-                                                        {type.name}
+                                                        Tüm Türler
                                                     </CommandItem>
-                                                ))}
-                                            </CommandGroup>
-                                        </CommandList>
-                                    </Command>
-                                </PopoverContent>
-                            </Popover>
+                                                    {auditTypes.map((type) => (
+                                                        <CommandItem
+                                                            key={type.id}
+                                                            value={type.name}
+                                                            onSelect={() => {
+                                                                setAuditTypeFilter(type.id)
+                                                                setOpenTypeCombobox(false)
+                                                            }}
+                                                        >
+                                                            <Check
+                                                                className={cn(
+                                                                    "mr-2 h-4 w-4",
+                                                                    auditTypeFilter === type.id ? "opacity-100" : "opacity-0"
+                                                                )}
+                                                            />
+                                                            {type.name}
+                                                        </CommandItem>
+                                                    ))}
+                                                </CommandGroup>
+                                            </CommandList>
+                                        </Command>
+                                    </PopoverContent>
+                                </Popover>
 
-                            {/* Store Filter */}
-                            <Popover open={openStoreCombobox} onOpenChange={setOpenStoreCombobox}>
-                                <PopoverTrigger asChild>
-                                    <Button
-                                        variant="outline"
-                                        role="combobox"
-                                        aria-expanded={openStoreCombobox}
-                                        className="w-full justify-between"
-                                    >
-                                        {storeFilter !== "all"
-                                            ? stores.find((store) => store.id === storeFilter)?.name
-                                            : "Mağaza"}
-                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                    </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-full p-0">
-                                    <Command>
-                                        <CommandInput placeholder="Mağaza ara..." />
-                                        <CommandList>
-                                            <CommandEmpty>Mağaza bulunamadı.</CommandEmpty>
-                                            <CommandGroup>
-                                                <CommandItem
-                                                    value="Tüm Mağazalar"
-                                                    onSelect={() => {
-                                                        setStoreFilter("all")
-                                                        setOpenStoreCombobox(false)
-                                                    }}
-                                                >
-                                                    <Check
-                                                        className={cn(
-                                                            "mr-2 h-4 w-4",
-                                                            storeFilter === "all" ? "opacity-100" : "opacity-0"
-                                                        )}
-                                                    />
-                                                    Tüm Mağazalar
-                                                </CommandItem>
-                                                {stores.map((store) => (
+                                {/* Store Filter */}
+                                <Popover open={openStoreCombobox} onOpenChange={setOpenStoreCombobox}>
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            variant="outline"
+                                            role="combobox"
+                                            aria-expanded={openStoreCombobox}
+                                            className="w-full justify-between"
+                                        >
+                                            {storeFilter !== "all"
+                                                ? stores.find((store) => store.id === storeFilter)?.name
+                                                : "Mağaza"}
+                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-full p-0">
+                                        <Command>
+                                            <CommandInput placeholder="Mağaza ara..." />
+                                            <CommandList>
+                                                <CommandEmpty>Mağaza bulunamadı.</CommandEmpty>
+                                                <CommandGroup>
                                                     <CommandItem
-                                                        key={store.id}
-                                                        value={store.name}
+                                                        value="Tüm Mağazalar"
                                                         onSelect={() => {
-                                                            setStoreFilter(store.id)
+                                                            setStoreFilter("all")
                                                             setOpenStoreCombobox(false)
                                                         }}
                                                     >
                                                         <Check
                                                             className={cn(
                                                                 "mr-2 h-4 w-4",
-                                                                storeFilter === store.id ? "opacity-100" : "opacity-0"
+                                                                storeFilter === "all" ? "opacity-100" : "opacity-0"
                                                             )}
                                                         />
-                                                        {store.name}
+                                                        Tüm Mağazalar
                                                     </CommandItem>
-                                                ))}
-                                            </CommandGroup>
-                                        </CommandList>
-                                    </Command>
-                                </PopoverContent>
-                            </Popover>
+                                                    {stores.map((store) => (
+                                                        <CommandItem
+                                                            key={store.id}
+                                                            value={store.name}
+                                                            onSelect={() => {
+                                                                setStoreFilter(store.id)
+                                                                setOpenStoreCombobox(false)
+                                                            }}
+                                                        >
+                                                            <Check
+                                                                className={cn(
+                                                                    "mr-2 h-4 w-4",
+                                                                    storeFilter === store.id ? "opacity-100" : "opacity-0"
+                                                                )}
+                                                            />
+                                                            {store.name}
+                                                        </CommandItem>
+                                                    ))}
+                                                </CommandGroup>
+                                            </CommandList>
+                                        </Command>
+                                    </PopoverContent>
+                                </Popover>
+                            </div>
                         </div>
 
                         <div className="flex items-center justify-between">

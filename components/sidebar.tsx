@@ -64,6 +64,7 @@ export function Sidebar({ className }: SidebarProps) {
     ];
 
     const denetmenLinks = [
+        { href: "/denetmen/panel", label: "Panel", icon: LayoutDashboard },
         { href: "/denetmen/bekleyen", label: "Bekleyen Denetimler", icon: PlayCircle },
         { href: "/denetmen/tamamlanan", label: "Tamamlanan Denetimlerim", icon: CheckCircle },
     ];
