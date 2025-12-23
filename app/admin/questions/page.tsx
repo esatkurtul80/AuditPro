@@ -77,6 +77,7 @@ interface QuestionTemplate {
     type: QuestionType;
     maxPoints: number;
     photoRequired: boolean;
+    actionPhotoRequired: boolean;
     options?: QuestionOption[];
     ratingMax?: number;
     createdAt: any;
@@ -115,6 +116,7 @@ export default function QuestionsPage() {
         type: "yes_no" as QuestionType,
         maxPoints: 10,
         photoRequired: false,
+        actionPhotoRequired: false,
         options: [] as QuestionOption[],
         ratingMax: 5,
     });
@@ -177,6 +179,7 @@ export default function QuestionsPage() {
                 type: formData.type,
                 maxPoints: calculatedMaxPoints,
                 photoRequired: formData.photoRequired,
+                actionPhotoRequired: formData.actionPhotoRequired,
                 updatedAt: Timestamp.now(),
                 // Explicitly set type-specific fields to null to remove them if not applicable
                 options: null,
@@ -217,6 +220,7 @@ export default function QuestionsPage() {
             type: question.type,
             maxPoints: question.maxPoints,
             photoRequired: question.photoRequired,
+            actionPhotoRequired: question.actionPhotoRequired || false,
             options: question.options || [],
             ratingMax: question.ratingMax || 5,
         });
@@ -246,6 +250,7 @@ export default function QuestionsPage() {
             type: "yes_no",
             maxPoints: 10,
             photoRequired: false,
+            actionPhotoRequired: false,
             options: [],
             ratingMax: 5,
         });
@@ -324,6 +329,11 @@ export default function QuestionsPage() {
                                 📷 Foto
                             </Badge>
                         )}
+                        {question.actionPhotoRequired && (
+                            <Badge variant="secondary" className="text-xs bg-orange-100 text-orange-800">
+                                📸 Aksiyon Foto
+                            </Badge>
+                        )}
                         {question.options && (
                             <Badge variant="secondary" className="text-xs">
                                 {question.options.length} seçenek
@@ -379,7 +389,7 @@ export default function QuestionsPage() {
     }
 
     return (
-        <div className="container mx-auto py-8">
+        <div className="container mx-auto py-4 md:py-8 px-4 md:px-6">
             <div className="flex items-center justify-between mb-8">
                 <div>
                     <h1 className="text-4xl font-bold">Soru Havuzu</h1>
@@ -649,6 +659,24 @@ export default function QuestionsPage() {
                                     className="h-4 w-4"
                                 />
                                 <Label>Fotoğraf Zorunlu</Label>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                                <input
+                                    type="checkbox"
+                                    checked={formData.actionPhotoRequired}
+                                    onChange={(e) =>
+                                        setFormData({
+                                            ...formData,
+                                            actionPhotoRequired: e.target.checked,
+                                        })
+                                    }
+                                    className="h-4 w-4"
+                                />
+                                <Label>Aksiyon İçin Fotoğraf Zorunlu</Label>
+                                <p className="text-xs text-muted-foreground ml-2">
+                                    (Hayır cevabı verilirse)
+                                </p>
                             </div>
 
                             <div className="flex justify-end gap-2">

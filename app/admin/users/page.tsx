@@ -565,7 +565,7 @@ function AdminUsersContent() {
     }, [activeTab, stores, assignStore, handleRoleSelect, handleDeleteClick, openEditUserDialog]);
 
     return (
-        <div className="container mx-auto py-8">
+        <div className="container mx-auto py-4 md:py-8 px-4 md:px-6">
             <Card>
                 <CardHeader>
                     <div className="flex items-center justify-between">
@@ -580,7 +580,7 @@ function AdminUsersContent() {
                 </CardHeader>
                 <CardContent>
                     <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                        <TabsList className="mb-4">
+                        <TabsList className="mb-4 w-full flex-wrap h-auto justify-center">
                             <TabsTrigger value="admin" className="data-[state=active]:bg-purple-600 data-[state=active]:text-white text-purple-600 font-semibold">
                                 Admin
                             </TabsTrigger>
@@ -617,7 +617,7 @@ function AdminUsersContent() {
                                     </p>
                                 </div>
                             ) : (
-                                <DataTable columns={columns} data={filteredUsers} searchKey="Kullanıcı" searchPlaceholder="Email ara..." />
+                                <DataTable columns={columns} data={filteredUsers} searchKey="Kullanıcı" searchPlaceholder="Email ara..." mobileHiddenColumns={["role"]} />
                             )}
                         </TabsContent>
 
@@ -641,7 +641,7 @@ function AdminUsersContent() {
                                     </p>
                                 </div>
                             ) : (
-                                <DataTable columns={columns} data={filteredUsers} searchKey="Kullanıcı" searchPlaceholder="Email ara..." />
+                                <DataTable columns={columns} data={filteredUsers} searchKey="Kullanıcı" searchPlaceholder="Email ara..." mobileHiddenColumns={["role"]} />
                             )}
                         </TabsContent>
 
@@ -665,7 +665,7 @@ function AdminUsersContent() {
                                     </p>
                                 </div>
                             ) : (
-                                <DataTable columns={columns} data={filteredUsers} searchKey="Kullanıcı" searchPlaceholder="Email ara..." />
+                                <DataTable columns={columns} data={filteredUsers} searchKey="Kullanıcı" searchPlaceholder="Email ara..." mobileHiddenColumns={["role"]} />
                             )}
                         </TabsContent>
 
@@ -689,7 +689,7 @@ function AdminUsersContent() {
                                     </p>
                                 </div>
                             ) : (
-                                <DataTable columns={columns} data={filteredUsers} searchKey="Kullanıcı" searchPlaceholder="Email ara..." />
+                                <DataTable columns={columns} data={filteredUsers} searchKey="Kullanıcı" searchPlaceholder="Email ara..." mobileHiddenColumns={["role"]} />
                             )}
                         </TabsContent>
 
@@ -711,7 +711,7 @@ function AdminUsersContent() {
                                     </p>
                                 </div>
                             ) : (
-                                <DataTable columns={columns} data={filteredUsers} searchKey="Kullanıcı" searchPlaceholder="Email ara..." />
+                                <DataTable columns={columns} data={filteredUsers} searchKey="Kullanıcı" searchPlaceholder="Email ara..." mobileHiddenColumns={["role"]} />
                             )}
                         </TabsContent>
                     </Tabs>

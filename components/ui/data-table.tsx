@@ -9,6 +9,8 @@ import {
     flexRender,
     getCoreRowModel,
     getFilteredRowModel,
+    getFacetedRowModel,
+    getFacetedUniqueValues,
     getPaginationRowModel,
     getSortedRowModel,
     useReactTable,
@@ -39,6 +41,9 @@ interface DataTableProps<TData, TValue> {
     searchPlaceholder?: string
     onRowClick?: (row: TData) => void
     toolbar?: React.ReactNode
+    mobileHiddenColumns?: string[]
+    initialColumnVisibility?: VisibilityState
+    initialSorting?: SortingState
 }
 
 export function DataTable<TData, TValue>({
@@ -48,14 +53,35 @@ export function DataTable<TData, TValue>({
     searchPlaceholder = "Filter...",
     onRowClick,
     toolbar,
+    mobileHiddenColumns = [],
+    initialColumnVisibility = {},
+    initialSorting = [],
 }: DataTableProps<TData, TValue>) {
-    const [sorting, setSorting] = React.useState<SortingState>([])
+    const [sorting, setSorting] = React.useState<SortingState>(initialSorting)
     const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
         []
     )
     const [columnVisibility, setColumnVisibility] =
-        React.useState<VisibilityState>({})
+        React.useState<VisibilityState>(initialColumnVisibility)
     const [rowSelection, setRowSelection] = React.useState({})
+
+    // Hide specified columns on mobile by default
+    React.useEffect(() => {
+        const handleResize = () => {
+            if (window.innerWidth < 768 && mobileHiddenColumns.length > 0) { // Mobile breakpoint
+                setColumnVisibility((prev) => {
+                    const newVisibility = { ...prev };
+                    mobileHiddenColumns.forEach(col => {
+                        newVisibility[col] = false;
+                    });
+                    return newVisibility;
+                });
+            }
+        };
+
+        // Run on mount
+        handleResize();
+    }, [mobileHiddenColumns]);
 
     const table = useReactTable({
         data,
@@ -66,6 +92,8 @@ export function DataTable<TData, TValue>({
         getPaginationRowModel: getPaginationRowModel(),
         getSortedRowModel: getSortedRowModel(),
         getFilteredRowModel: getFilteredRowModel(),
+        getFacetedRowModel: getFacetedRowModel(),
+        getFacetedUniqueValues: getFacetedUniqueValues(),
         onColumnVisibilityChange: setColumnVisibility,
         onRowSelectionChange: setRowSelection,
         state: {
@@ -78,7 +106,7 @@ export function DataTable<TData, TValue>({
 
     return (
         <div className="w-full">
-            <div className="flex items-center py-4 gap-2">
+            <div className="flex flex-col md:flex-row items-stretch md:items-center py-4 gap-4">
                 {searchKey && (
                     <Input
                         placeholder={searchPlaceholder}
@@ -86,13 +114,15 @@ export function DataTable<TData, TValue>({
                         onChange={(event) =>
                             table.getColumn(searchKey)?.setFilterValue(event.target.value)
                         }
-                        className="max-w-sm"
+                        className="w-full md:max-w-sm"
                     />
                 )}
-                {toolbar}
+                <div className="flex flex-col md:flex-row gap-4 flex-1">
+                    {toolbar}
+                </div>
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                        <Button variant="outline" className="ml-auto">
+                        <Button variant="outline" className="w-full md:w-auto md:ml-auto">
                             Sütunlar <ChevronDown className="ml-2 h-4 w-4" />
                         </Button>
                     </DropdownMenuTrigger>
@@ -171,28 +201,68 @@ export function DataTable<TData, TValue>({
                     </TableBody>
                 </Table>
             </div>
-            <div className="flex items-center justify-end space-x-2 py-4">
+            <div className="flex items-center justify-between py-4">
                 <div className="flex-1 text-sm text-muted-foreground">
-                    {table.getFilteredRowModel().rows.length} satırdan{" "}
-                    {table.getFilteredSelectedRowModel().rows.length} tanesi seçildi.
+                    Toplam {table.getFilteredRowModel().rows.length} kayıt
                 </div>
-                <div className="space-x-2">
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => table.previousPage()}
-                        disabled={!table.getCanPreviousPage()}
-                    >
-                        Önceki
-                    </Button>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => table.nextPage()}
-                        disabled={!table.getCanNextPage()}
-                    >
-                        Sonraki
-                    </Button>
+                <div className="flex items-center space-x-6 lg:space-x-8">
+                    <div className="flex items-center space-x-2">
+                        <p className="text-sm font-medium">Sayfa başına satır</p>
+                        <select
+                            value={table.getState().pagination.pageSize}
+                            onChange={(e) => {
+                                table.setPageSize(Number(e.target.value))
+                            }}
+                            className="h-8 w-[70px] rounded-md border border-input bg-background px-2 text-sm"
+                        >
+                            {[10, 20, 30, 40, 50].map((pageSize) => (
+                                <option key={pageSize} value={pageSize}>
+                                    {pageSize}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                    <div className="flex w-[100px] items-center justify-center text-sm font-medium">
+                        Sayfa {table.getState().pagination.pageIndex + 1} / {table.getPageCount()}
+                    </div>
+                    <div className="flex items-center space-x-2">
+                        <Button
+                            variant="outline"
+                            className="hidden h-8 w-8 p-0 lg:flex"
+                            onClick={() => table.setPageIndex(0)}
+                            disabled={!table.getCanPreviousPage()}
+                        >
+                            <span className="sr-only">İlk sayfaya git</span>
+                            {"<<"}
+                        </Button>
+                        <Button
+                            variant="outline"
+                            className="h-8 w-8 p-0"
+                            onClick={() => table.previousPage()}
+                            disabled={!table.getCanPreviousPage()}
+                        >
+                            <span className="sr-only">Önceki sayfaya git</span>
+                            {"<"}
+                        </Button>
+                        <Button
+                            variant="outline"
+                            className="h-8 w-8 p-0"
+                            onClick={() => table.nextPage()}
+                            disabled={!table.getCanNextPage()}
+                        >
+                            <span className="sr-only">Sonraki sayfaya git</span>
+                            {">"}
+                        </Button>
+                        <Button
+                            variant="outline"
+                            className="hidden h-8 w-8 p-0 lg:flex"
+                            onClick={() => table.setPageIndex(table.getPageCount() - 1)}
+                            disabled={!table.getCanNextPage()}
+                        >
+                            <span className="sr-only">Son sayfaya git</span>
+                            {">>"}
+                        </Button>
+                    </div>
                 </div>
             </div>
         </div>

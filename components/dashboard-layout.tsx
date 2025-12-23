@@ -11,13 +11,20 @@ import { FloatingActionButton } from "@/components/floating-action-button";
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
     const { userProfile } = useAuth();
+
+    const sidebarWidth = isSidebarCollapsed ? "lg:w-[70px]" : "lg:w-64";
+    const mainPadding = isSidebarCollapsed ? "lg:pl-[70px]" : "lg:pl-64";
 
     return (
         <div className="min-h-screen bg-background">
             {/* Desktop Sidebar - Fixed Position */}
-            <aside className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:z-50 lg:flex lg:w-64 lg:flex-col">
-                <Sidebar />
+            <aside className={`hidden lg:fixed lg:inset-y-0 lg:left-0 lg:z-50 lg:flex ${sidebarWidth} lg:flex-col transition-all duration-300`}>
+                <Sidebar
+                    isCollapsed={isSidebarCollapsed}
+                    toggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+                />
             </aside>
 
             {/* Mobile Header with all elements in one row */}
@@ -29,7 +36,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
 
                 {/* Center: Logo */}
                 <div className="absolute left-1/2 -translate-x-1/2">
-                    <span className="text-2xl font-playwrite-norge text-[#8B0000] dark:text-white">AuditPro</span>
+                    <span className="text-2xl font-playwrite-norge text-black dark:text-white">AuditPro</span>
                 </div>
 
                 {/* Right: Header actions (online status, notifications, theme, profile) */}
@@ -46,7 +53,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
                     className={`fixed inset-y-0 left-0 w-[80%] max-w-sm bg-background p-0 shadow-lg transform transition-transform duration-300 ease-in-out ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
                         }`}
                 >
-                    <Sidebar className="border-none" />
+                    <Sidebar className="border-none" onLinkClick={() => setIsMobileMenuOpen(false)} />
                     <Button
                         variant="ghost"
                         size="icon"
@@ -59,10 +66,10 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
             </div>
 
             {/* Main Content */}
-            <main className="lg:pl-64">
+            <main className={`${mainPadding} transition-all duration-300`}>
                 {/* Top Header - Only show on desktop */}
                 <div className="hidden lg:block">
-                    <TopHeader />
+                    <TopHeader toggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)} isCollapsed={isSidebarCollapsed} />
                 </div>
 
                 {/* Page Content */}

@@ -312,11 +312,45 @@ export default function AuditPage() {
         setCompleting(true);
 
         try {
+            // Calculate deadline (3 working days, excluding Sunday)
+            const calculateActionDeadline = () => {
+                let date = new Date();
+                let daysAdded = 0;
+                while (daysAdded < 3) {
+                    date.setDate(date.getDate() + 1);
+                    if (date.getDay() !== 0) { // 0 is Sunday
+                        daysAdded++;
+                    }
+                }
+                return Timestamp.fromDate(date);
+            };
+
+            const actionDeadline = calculateActionDeadline();
             const now = Timestamp.now();
+
+            // Prepare updated sections with actionData
+            const updatedSections = audit.sections.map(section => ({
+                ...section,
+                answers: section.answers.map(answer => {
+                    if (answer.answer === "hayir") {
+                        return {
+                            ...answer,
+                            actionData: {
+                                status: "pending_store" as const,
+                            }
+                        };
+                    }
+                    return answer;
+                })
+            }));
+
             await updateDoc(doc(db, "audits", auditId), {
                 status: "tamamlandi",
                 completedAt: now,
                 updatedAt: now,
+                actionDeadline: actionDeadline,
+                sections: updatedSections,
+                allActionsResolved: false // Initially false if there are actions
             });
 
             // Local state'i güncelle ki UI hemen güncellensin ve özet görünsün
@@ -325,6 +359,9 @@ export default function AuditPage() {
                 status: "tamamlandi",
                 completedAt: now,
                 updatedAt: now,
+                actionDeadline: actionDeadline,
+                sections: updatedSections,
+                allActionsResolved: false
             });
 
             toast.success("Denetim tamamlandı!");
@@ -621,6 +658,19 @@ export default function AuditPage() {
                                         const isComplete = answeredQuestions === totalQuestions;
                                         const hasAny = answeredQuestions > 0;
 
+                                        // Dynamic border colors
+                                        const borderColors = [
+                                            "border-blue-300 dark:border-blue-700",
+                                            "border-green-300 dark:border-green-700",
+                                            "border-orange-300 dark:border-orange-700",
+                                            "border-purple-300 dark:border-purple-700",
+                                            "border-pink-300 dark:border-pink-700",
+                                            "border-teal-300 dark:border-teal-700",
+                                            "border-indigo-300 dark:border-indigo-700",
+                                            "border-cyan-300 dark:border-cyan-700"
+                                        ];
+                                        const borderColorClass = borderColors[sectionIndex % borderColors.length];
+
                                         // Calculate section score
                                         let sectionEarned = 0;
                                         let sectionMax = 0;
@@ -635,7 +685,7 @@ export default function AuditPage() {
                                         return (
                                             <Card
                                                 key={sectionIndex}
-                                                className="cursor-pointer hover:shadow-md transition-all border shadow-sm bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/40 border-blue-200 dark:border-blue-800 hover:border-blue-300 dark:hover:border-blue-700 group rounded-xl h-20 md:h-auto py-0 md:py-6 gap-0 md:gap-6 flex items-center justify-center"
+                                                className={`cursor-pointer hover:shadow-md transition-all border shadow-sm bg-blue-50/20 dark:bg-blue-900/10 hover:bg-blue-50 dark:hover:bg-blue-900/30 ${borderColorClass} group rounded-xl h-20 md:h-auto py-0 md:py-6 gap-0 md:gap-6 flex items-center justify-center`}
                                                 onClick={() => setCurrentSectionIndex(sectionIndex)}
                                             >
                                                 <CardHeader className="p-0 px-3 md:p-6 w-full">
@@ -695,7 +745,7 @@ export default function AuditPage() {
                                 );
                             })()}
                             {audit.sections[currentSectionIndex].answers.map((answer, answerIndex) => (
-                                <Card key={answerIndex} className="p-4 border shadow-sm hover:shadow-md transition-shadow bg-blue-50 dark:bg-blue-900/10 border-blue-200 dark:border-blue-800">
+                                <Card key={answerIndex} className="p-4 border shadow-sm hover:shadow-md transition-shadow bg-blue-50/30 dark:bg-blue-900/5 border-blue-200 dark:border-blue-800">
                                     <div className="space-y-4">
                                         <div className="flex items-start justify-between gap-4">
                                             <div className="flex-1">

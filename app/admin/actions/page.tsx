@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { DashboardLayout } from "@/components/dashboard-layout";
 import {
     collection,
     getDocs,
     query,
     where,
+    Timestamp,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Audit, Store } from "@/lib/types";
@@ -17,59 +17,121 @@ import {
     CardHeader,
     CardTitle,
 } from "@/components/ui/card";
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table";
-import { Loader2, AlertTriangle, Check, ChevronsUpDown } from "lucide-react";
-import { Skeleton } from "@/components/ui/skeleton";
-import { toast } from "sonner";
+import { AlertTriangle, Check, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { DataTable } from "@/components/ui/data-table";
+import { ColumnDef } from "@tanstack/react-table";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import {
-    Command,
-    CommandEmpty,
-    CommandGroup,
-    CommandInput,
-    CommandItem,
-    CommandList,
-} from "@/components/ui/command"
+import { ArrowUpDown, Search, XCircle, ListFilter } from "lucide-react";
+import { DataTableFacetedFilter } from "@/components/ui/data-table-faceted-filter";
+import { DateRangePicker } from "@/components/ui/date-range-picker";
+import { DateRangeFilter } from "@/lib/types";
+import { Input } from "@/components/ui/input";
 import {
     Popover,
     PopoverContent,
     PopoverTrigger,
-} from "@/components/ui/popover"
-import { cn } from "@/lib/utils";
+} from "@/components/ui/popover";
+
+// Helper component for column header with sorting and faceted filtering
+const DataTableColumnHeader = ({ column, title }: { column: any; title: string }) => {
+    // Generate unique options from the column data for the faceted filter
+    const facets = column.getFacetedUniqueValues();
+    const options = Array.from(facets.keys())
+        .filter((key) => key !== undefined && key !== null && key !== "")
+        .sort()
+        .map((key) => ({
+            label: String(key),
+            value: String(key),
+        }));
+
+    return (
+        <div className="flex items-center space-x-2">
+            <Button
+                variant="ghost"
+                size="sm"
+                className="-ml-3 h-8 data-[state=open]:bg-accent"
+                onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+            >
+                <span>{title}</span>
+                <ArrowUpDown className="ml-2 h-4 w-4" />
+            </Button>
+            {/* Use the new Faceted Filter component with ListFilter icon styled trigger */}
+            <div className="flex items-center">
+                <DataTableFacetedFilter
+                    column={column}
+                    title={title}
+                    options={options}
+                />
+            </div>
+        </div>
+    );
+};
+
+// Helper function to calculate working days passed (excluding Sundays)
+const getWorkingDaysPassed = (startDate: Date, endDate: Date) => {
+    let count = 0;
+    let current = new Date(startDate);
+    current.setHours(0, 0, 0, 0);
+    let end = new Date(endDate);
+    end.setHours(0, 0, 0, 0);
+
+    while (current < end) {
+        current.setDate(current.getDate() + 1);
+        if (current.getDay() !== 0) { // 0 is Sunday
+            count++;
+        }
+    }
+    return count;
+};
+
+// Helper function to calculate deadline date (3 working days)
+const calculateDeadlineDate = (startDate: Date) => {
+    let date = new Date(startDate);
+    let daysAdded = 0;
+    while (daysAdded < 3) {
+        date.setDate(date.getDate() + 1);
+        if (date.getDay() !== 0) {
+            daysAdded++;
+        }
+    }
+    return date;
+};
 
 export default function AdminActionsPage() {
     const [auditsWithActions, setAuditsWithActions] = useState<Audit[]>([]);
-    const [stores, setStores] = useState<Store[]>([]);
     const [loading, setLoading] = useState(true);
-    const [selectedStatus, setSelectedStatus] = useState<string>("all");
-    const [selectedStore, setSelectedStore] = useState<string>("all");
-    const [openStoreCombobox, setOpenStoreCombobox] = useState(false);
-    const [openStatusCombobox, setOpenStatusCombobox] = useState(false);
+    const [dateRange, setDateRange] = useState<DateRangeFilter>({ from: undefined, to: undefined });
+    const router = useRouter();
 
     useEffect(() => {
         loadData();
     }, []);
 
+    // Filter logic removed in favor of column filtering
+    const filteredData = auditsWithActions.filter(audit => {
+        if (!audit.completedAt) return false;
+        const completedDate = audit.completedAt.toDate();
+
+        if (dateRange.from) {
+            const fromDate = new Date(dateRange.from);
+            fromDate.setHours(0, 0, 0, 0);
+            if (completedDate < fromDate) return false;
+        }
+
+        if (dateRange.to) {
+            const toDate = new Date(dateRange.to);
+            toDate.setHours(23, 59, 59, 999);
+            if (completedDate > toDate) return false;
+        }
+
+        return true;
+    });
+
     const loadData = async () => {
         try {
-            // Mağazaları yükle
-            const storesSnapshot = await getDocs(collection(db, "stores"));
-            const storesData = storesSnapshot.docs.map((doc) => ({
-                id: doc.id,
-                ...doc.data(),
-            })) as Store[];
-            setStores(storesData);
-
             // Tamamlanmış denetimleri yükle
             const auditsQuery = query(
                 collection(db, "audits"),
@@ -90,47 +152,259 @@ export default function AdminActionsPage() {
             setAuditsWithActions(auditsData);
         } catch (error) {
             console.error("Error loading data:", error);
-            toast.error("Veriler yüklenirken hata oluştu");
         } finally {
             setLoading(false);
         }
     };
 
-    const formatDate = (timestamp: any) => {
-        if (!timestamp) return "-";
-        return timestamp.toDate().toLocaleDateString("tr-TR", {
-            day: "numeric",
-            month: "long",
-            year: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-        });
-    };
+    const columns: ColumnDef<Audit>[] = [
+        {
+            accessorKey: "auditTypeName",
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Denetim Türü" />,
+            cell: ({ row }) => <span className="font-medium">{row.original.auditTypeName}</span>
+        },
+        {
+            accessorKey: "auditorName",
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Denetmen" />,
+        },
+        {
+            accessorKey: "storeName",
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Mağaza Adı" />,
+        },
+        {
+            id: "deadline",
+            accessorFn: (row) => {
+                if (row.allActionsResolved) return Number.MAX_SAFE_INTEGER;
+                if (!row.completedAt) return Number.MAX_SAFE_INTEGER;
+                return calculateDeadlineDate(row.completedAt.toDate()).getTime();
+            },
+            header: ({ column }) => {
+                return (
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        className="-ml-3 h-8 data-[state=open]:bg-accent"
+                        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                    >
+                        <span>Son Dönüş Tarihi</span>
+                        <ArrowUpDown className="ml-2 h-4 w-4" />
+                    </Button>
+                )
+            },
+            cell: ({ row }) => {
+                const audit = row.original;
+                if (!audit.completedAt) return "-";
 
-    const getActionCount = (audit: Audit) => {
-        let count = 0;
-        audit.sections.forEach((section) => {
-            section.answers.forEach((answer) => {
-                if (answer.answer === "hayir") count++;
-            });
-        });
-        return count;
-    };
+                const completedDate = audit.completedAt.toDate();
+                const now = new Date();
+                const daysPassed = getWorkingDaysPassed(completedDate, now);
+                const deadlineDate = calculateDeadlineDate(completedDate);
 
-    const filteredAudits = auditsWithActions.filter((audit) => {
-        if (selectedStore !== "all" && audit.storeId !== selectedStore) {
-            return false;
+                const formattedDeadline = deadlineDate.toLocaleDateString("tr-TR", {
+                    day: "numeric",
+                    month: "long"
+                });
+
+                // Calculate remaining days based on WORKING days
+                // Start from now, count working days until deadline
+                let remainingDays = 0;
+                let tempDate = new Date();
+                tempDate.setHours(0, 0, 0, 0);
+                const targetDate = new Date(deadlineDate);
+                targetDate.setHours(0, 0, 0, 0);
+
+                if (tempDate < targetDate) {
+                    // Future
+                    while (tempDate < targetDate) {
+                        tempDate.setDate(tempDate.getDate() + 1);
+                        if (tempDate.getDay() !== 0) { // Exclude Sunday
+                            remainingDays++;
+                        }
+                    }
+                } else {
+                    // Past or Today (calculate overdue)
+                    let overdueDate = new Date(targetDate);
+                    while (overdueDate < tempDate) {
+                        overdueDate.setDate(overdueDate.getDate() + 1);
+                        if (overdueDate.getDay() !== 0) {
+                            remainingDays--; // Negative for overdue
+                        }
+                    }
+                }
+
+                // If today is deadline, remainingDays is 0 (handled above by loop not running if equals, wait loop is <)
+                // If tempDate == targetDate, loop doesn't run, remainingDays = 0.
+
+                // Determine badge style and text
+                let badgeClass = "bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-100";
+                let badgeText = `${remainingDays} Gün Kaldı`;
+                let showWarning = false;
+
+                if (remainingDays < 0) {
+                    badgeClass = "bg-red-100 text-red-800 border-red-200 hover:bg-red-100 animate-pulse";
+                    badgeText = `${Math.abs(remainingDays)} Gün Gecikti`;
+                    showWarning = true;
+                } else if (remainingDays === 0) {
+                    badgeClass = "bg-orange-100 text-orange-800 border-orange-200 hover:bg-orange-100";
+                    badgeText = "Bugün Son Gün";
+                    showWarning = true;
+                } else if (remainingDays >= 3) {
+                    badgeClass = "bg-green-100 text-green-800 border-green-200 hover:bg-green-100";
+                }
+
+                if (audit.allActionsResolved) {
+                    return (
+                        <div className="flex flex-col gap-1">
+                            <Badge variant="outline" className="bg-green-50 text-green-700 w-fit">
+                                Tamamlandı
+                            </Badge>
+                            <span className="text-xs text-muted-foreground">{formattedDeadline}</span>
+                        </div>
+                    )
+                }
+
+                return (
+                    <div className="flex flex-col gap-1">
+                        <Badge variant="outline" className={cn("w-fit flex gap-1", badgeClass)}>
+                            {showWarning && <AlertTriangle className="h-3 w-3" />}
+                            {badgeText}
+                        </Badge>
+                        <span className="text-xs text-muted-foreground">{formattedDeadline}</span>
+                    </div>
+                );
+            }
+        },
+        {
+            id: "actions",
+            header: "Aksiyon",
+            cell: ({ row }) => {
+                const audit = row.original;
+                let totalActions = 0;
+                audit.sections.forEach(s => s.answers.forEach(a => {
+                    if (a.answer === "hayir") totalActions++;
+                }));
+
+                const badgeClass = totalActions > 10
+                    ? "bg-red-100 text-red-800 border-red-200 hover:bg-red-100"
+                    : "bg-orange-100 text-orange-800 border-orange-200 hover:bg-orange-100";
+
+                return (
+                    <Badge variant="outline" className={cn("w-fit", badgeClass)}>
+                        {totalActions} Madde
+                    </Badge>
+                );
+            }
+        },
+        {
+            accessorKey: "totalScore",
+            header: "Puan",
+            cell: ({ row }) => {
+                const score = row.original.totalScore || 0;
+                const badgeClass = score >= 80
+                    ? "bg-green-100 text-green-800 hover:bg-green-100"
+                    : score >= 60
+                        ? "bg-yellow-100 text-yellow-800 hover:bg-yellow-100"
+                        : "bg-red-100 text-red-800 hover:bg-red-100";
+
+                return <Badge variant="secondary" className={badgeClass}>{score}</Badge>;
+            }
+        },
+        {
+            id: "status",
+            accessorFn: (row) => {
+                const audit = row;
+                let totalActions = 0;
+                let approvedActions = 0;
+                let pendingStoreActions = 0;
+                let pendingAdminActions = 0;
+                let rejectedActions = 0;
+
+                audit.sections.forEach(s => s.answers.forEach(a => {
+                    if (a.answer === "hayir") {
+                        totalActions++;
+                        const status = a.actionData?.status || "pending_store";
+                        if (status === "approved") approvedActions++;
+                        else if (status === "pending_admin") pendingAdminActions++;
+                        else if (status === "rejected") rejectedActions++;
+                        else pendingStoreActions++;
+                    }
+                }));
+
+                if (totalActions === 0) return "-";
+                if (approvedActions === totalActions) return "Onaylandı";
+                if (rejectedActions > 0) return "Düzeltme Bekleniyor";
+                if (pendingAdminActions > 0) return "Onay Bekliyor";
+                if (pendingStoreActions === totalActions) return "Dönüş Yapılmadı";
+                return "Mağaza Bekleniyor";
+            },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Durum" />,
+            filterFn: (row, id, value) => {
+                return value.includes(row.getValue(id));
+            },
+            cell: ({ row }) => {
+                const status = row.getValue("status") as string;
+                // We can use the status string directly or recalculate if we need counts.
+                // Re-calculating counts for detailed display:
+                const audit = row.original;
+                let totalActions = 0;
+                let pendingAdminActions = 0;
+                let rejectedActions = 0;
+                let pendingStoreActions = 0;
+
+                audit.sections.forEach(s => s.answers.forEach(a => {
+                    if (a.answer === "hayir") {
+                        totalActions++;
+                        const s = a.actionData?.status || "pending_store";
+                        if (s === "pending_admin") pendingAdminActions++;
+                        else if (s === "rejected") rejectedActions++;
+                        else if (s === "pending_store") pendingStoreActions++;
+                    }
+                }));
+
+                if (status === "Onaylandı") {
+                    return (
+                        <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200 hover:bg-green-100">
+                            <Check className="h-3 w-3 mr-1" /> Onaylandı
+                        </Badge>
+                    );
+                }
+                if (status === "Düzeltme Bekleniyor") {
+                    return (
+                        <div className="flex flex-col gap-1">
+                            <Badge variant="outline" className="bg-red-100 text-red-800 border-red-200 hover:bg-red-100 w-fit">
+                                Düzeltme Bekleniyor
+                            </Badge>
+                            <span className="text-xs text-muted-foreground">{rejectedActions} madde reddedildi</span>
+                        </div>
+                    );
+                }
+                if (status === "Onay Bekliyor") {
+                    return (
+                        <div className="flex flex-col gap-1">
+                            <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-100 w-fit">
+                                Onay Bekliyor
+                            </Badge>
+                            <span className="text-xs text-muted-foreground">{pendingAdminActions} madde onaya hazır</span>
+                        </div>
+                    );
+                }
+                if (status === "Dönüş Yapılmadı") {
+                    return (
+                        <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-200 hover:bg-orange-100 w-fit">
+                            Dönüş Yapılmadı
+                        </Badge>
+                    );
+                }
+                return (
+                    <div className="flex flex-col gap-1">
+                        <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-200 hover:bg-yellow-100 w-fit">
+                            Mağaza Bekleniyor
+                        </Badge>
+                        <span className="text-xs text-muted-foreground">{pendingStoreActions} cevaplanmadı</span>
+                    </div>
+                );
+            }
         }
-        // Status filtresi gelecekte actions field'ı eklendiğinde kullanılabilir
-        return true;
-    });
-
-    const statusOptions = [
-        { value: "all", label: "Tümü" },
-        { value: "pending", label: "Aksiyon Bekleniyor" },
-        { value: "review", label: "Onay Bekleniyor" },
-        { value: "completed", label: "Tamamlandı" },
-        { value: "rejected", label: "Reddedildi" },
     ];
 
     return (
@@ -142,197 +416,47 @@ export default function AdminActionsPage() {
                 </p>
             </div>
 
-            <Card className="mb-6">
-                <CardHeader>
-                    <CardTitle>Filtreler</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div className="grid gap-4 md:grid-cols-2">
-                        <div>
-                            <Label>Mağaza</Label>
-                            <Popover open={openStoreCombobox} onOpenChange={setOpenStoreCombobox}>
-                                <PopoverTrigger asChild>
-                                    <Button
-                                        variant="outline"
-                                        role="combobox"
-                                        aria-expanded={openStoreCombobox}
-                                        className="w-full justify-between"
-                                    >
-                                        {selectedStore !== "all"
-                                            ? stores.find((store) => store.id === selectedStore)?.name
-                                            : "Tüm Mağazalar"}
-                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                    </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-full p-0">
-                                    <Command>
-                                        <CommandInput placeholder="Mağaza ara..." />
-                                        <CommandList>
-                                            <CommandEmpty>Mağaza bulunamadı.</CommandEmpty>
-                                            <CommandGroup>
-                                                <CommandItem
-                                                    value="Tüm Mağazalar"
-                                                    onSelect={() => {
-                                                        setSelectedStore("all")
-                                                        setOpenStoreCombobox(false)
-                                                    }}
-                                                >
-                                                    <Check
-                                                        className={cn(
-                                                            "mr-2 h-4 w-4",
-                                                            selectedStore === "all" ? "opacity-100" : "opacity-0"
-                                                        )}
-                                                    />
-                                                    Tüm Mağazalar
-                                                </CommandItem>
-                                                {stores.map((store) => (
-                                                    <CommandItem
-                                                        key={store.id}
-                                                        value={store.name}
-                                                        onSelect={() => {
-                                                            setSelectedStore(store.id)
-                                                            setOpenStoreCombobox(false)
-                                                        }}
-                                                    >
-                                                        <Check
-                                                            className={cn(
-                                                                "mr-2 h-4 w-4",
-                                                                selectedStore === store.id ? "opacity-100" : "opacity-0"
-                                                            )}
-                                                        />
-                                                        {store.name}
-                                                    </CommandItem>
-                                                ))}
-                                            </CommandGroup>
-                                        </CommandList>
-                                    </Command>
-                                </PopoverContent>
-                            </Popover>
-                        </div>
-                        <div>
-                            <Label>Durum</Label>
-                            <Popover open={openStatusCombobox} onOpenChange={setOpenStatusCombobox}>
-                                <PopoverTrigger asChild>
-                                    <Button
-                                        variant="outline"
-                                        role="combobox"
-                                        aria-expanded={openStatusCombobox}
-                                        className="w-full justify-between"
-                                    >
-                                        {statusOptions.find((status) => status.value === selectedStatus)?.label}
-                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                    </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-full p-0">
-                                    <Command>
-                                        <CommandInput placeholder="Durum ara..." />
-                                        <CommandList>
-                                            <CommandEmpty>Durum bulunamadı.</CommandEmpty>
-                                            <CommandGroup>
-                                                {statusOptions.map((status) => (
-                                                    <CommandItem
-                                                        key={status.value}
-                                                        value={status.label}
-                                                        onSelect={() => {
-                                                            setSelectedStatus(status.value)
-                                                            setOpenStatusCombobox(false)
-                                                        }}
-                                                    >
-                                                        <Check
-                                                            className={cn(
-                                                                "mr-2 h-4 w-4",
-                                                                selectedStatus === status.value ? "opacity-100" : "opacity-0"
-                                                            )}
-                                                        />
-                                                        {status.label}
-                                                    </CommandItem>
-                                                ))}
-                                            </CommandGroup>
-                                        </CommandList>
-                                    </Command>
-                                </PopoverContent>
-                            </Popover>
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
-
             <Card>
                 <CardHeader>
                     <CardTitle>Aksiyon Gerektiren Denetimler</CardTitle>
                     <CardDescription>
-                        {filteredAudits.length} denetim listeleniyor
+                        {auditsWithActions.length} denetim listeleniyor
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
                     {loading ? (
-                        <div className="space-y-4">
-                            <div className="space-y-2">
-                                <Skeleton className="h-10 w-full" />
-                                <Skeleton className="h-10 w-full" />
-                                <Skeleton className="h-10 w-full" />
-                                <Skeleton className="h-10 w-full" />
-                                <Skeleton className="h-10 w-full" />
-                            </div>
-                        </div>
-                    ) : filteredAudits.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center py-12 text-center">
-                            <AlertTriangle className="h-16 w-16 text-muted-foreground mb-4" />
-                            <h3 className="text-lg font-semibold">Aksiyon gerektiren denetim yok</h3>
-                            <p className="text-muted-foreground mt-2">
-                                Harika! Tüm aksiyonlar tamamlanmış.
-                            </p>
+                        <div className="flex justify-center p-8">
+                            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                         </div>
                     ) : (
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Denetim Türü</TableHead>
-                                    <TableHead>Mağaza</TableHead>
-                                    <TableHead>Denetmen</TableHead>
-                                    <TableHead>Tarih</TableHead>
-                                    <TableHead>Aksiyon Sayısı</TableHead>
-                                    <TableHead>Puan</TableHead>
-                                    <TableHead className="text-right">İşlem</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {filteredAudits.map((audit) => (
-                                    <TableRow key={audit.id}>
-                                        <TableCell className="font-medium">
-                                            {audit.auditTypeName}
-                                        </TableCell>
-                                        <TableCell>{audit.storeName}</TableCell>
-                                        <TableCell>{audit.auditorName}</TableCell>
-                                        <TableCell>{formatDate(audit.completedAt)}</TableCell>
-                                        <TableCell>
-                                            <Badge className="bg-orange-500">
-                                                <AlertTriangle className="mr-1 h-3 w-3" />
-                                                {getActionCount(audit)} Madde
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Badge
-                                                variant={
-                                                    audit.totalScore >= 80
-                                                        ? "default"
-                                                        : "destructive"
-                                                }
-                                            >
-                                                {audit.totalScore || 0}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell className="text-right">
-                                            <Link href={`/audits/actions?id=${audit.id}`}>
-                                                <Button variant="ghost" size="sm">
-                                                    İncele
-                                                </Button>
-                                            </Link>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
+                        <DataTable
+                            columns={columns}
+                            data={filteredData}
+                            searchKey="storeName"
+                            searchPlaceholder="Mağaza ara..."
+                            initialSorting={[{ id: "deadline", desc: false }]}
+                            onRowClick={(row) => router.push(`/audits/${row.id}/actions`)}
+                            toolbar={
+                                <div className="flex items-center space-x-2">
+                                    <DateRangePicker
+                                        value={dateRange}
+                                        onChange={setDateRange}
+                                        className="w-[300px]"
+                                    />
+                                    {(dateRange.from || dateRange.to) && (
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => setDateRange({ from: undefined, to: undefined })}
+                                            className="h-8 px-2 lg:px-3 text-red-500 hover:text-red-600 hover:bg-red-50"
+                                        >
+                                            <XCircle className="mr-2 h-4 w-4" />
+                                            Tarihi Temizle
+                                        </Button>
+                                    )}
+                                </div>
+                            }
+                        />
                     )}
                 </CardContent>
             </Card>

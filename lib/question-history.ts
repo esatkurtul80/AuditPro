@@ -1,6 +1,6 @@
-import { collection, query, where, getDocs, orderBy, limit, Timestamp } from "firebase/firestore";
+import { collection, query, where, getDocs, orderBy, limit, Timestamp, doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { Audit, AuditAnswer } from "@/lib/types";
+import { Audit, AuditAnswer, UserProfile } from "@/lib/types";
 
 export interface QuestionHistoryEntry {
     auditId: string;
@@ -127,9 +127,26 @@ export async function getQuestionHistory(
         // Check if answer is incomplete (any question type)
         if (isIncompleteAnswer(foundAnswer)) {
             consecutiveFailCount++;
+
+            // Fetch auditor details to get proper name (firstName + lastName)
+            let auditorDisplayName = audit.auditorName;
+            if (audit.auditorId) {
+                try {
+                    const userDoc = await getDoc(doc(db, "users", audit.auditorId));
+                    if (userDoc.exists()) {
+                        const userData = userDoc.data() as UserProfile;
+                        if (userData.firstName && userData.lastName) {
+                            auditorDisplayName = `${userData.firstName} ${userData.lastName}`;
+                        }
+                    }
+                } catch (e) {
+                    console.error("Error fetching auditor name for history:", e);
+                }
+            }
+
             entries.push({
                 auditId: audit.id,
-                auditorName: audit.auditorName,
+                auditorName: auditorDisplayName,
                 completedAt: audit.completedAt!,
                 answer: foundAnswer.answer,
                 earnedPoints: foundAnswer.earnedPoints,

@@ -211,6 +211,7 @@ export default function DenetmenPage() {
                             maxPoints: calculatedMaxPoints,
                             originalMaxPoints: calculatedMaxPoints, // Muaf için orijinal değer
                             photoRequired: question.photoRequired || false,
+                            actionPhotoRequired: question.actionPhotoRequired || false,
                             ...(question.options && question.options.length > 0 ? { options: question.options } : {}),
                             ...(question.ratingMax ? { ratingMax: question.ratingMax } : {}), // Rating sorular için
                             selectedOptions: [],
@@ -257,7 +258,9 @@ export default function DenetmenPage() {
                 storeId: store.id,
                 storeName: store.name || "",
                 auditorId: userProfile.uid,
-                auditorName: userProfile.displayName || userProfile.email || "",
+                auditorName: (userProfile.firstName && userProfile.lastName)
+                    ? `${userProfile.firstName} ${userProfile.lastName}`
+                    : (userProfile.displayName || userProfile.email || ""),
                 status: "devam_ediyor",
                 sections,
                 totalScore: 0,
@@ -361,6 +364,11 @@ export default function DenetmenPage() {
                                         setAuditToCancel(auditId);
                                         setCancelDialogOpen(true);
                                     })}
+                                    mobileHiddenColumns={["startTime", "endTime"]}
+                                    initialColumnVisibility={{
+                                        auditTypeName: false,
+                                        status: false
+                                    }}
                                     data={myAudits.filter((audit) => {
                                         // Date Filter
                                         if (dateRange.from || dateRange.to) {

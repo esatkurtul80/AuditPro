@@ -147,6 +147,11 @@ export default function CancelledAuditsPage() {
                                         </>
                                     }
                                     columns={auditColumns}
+                                    mobileHiddenColumns={["startTime", "endTime"]}
+                                    initialColumnVisibility={{
+                                        auditTypeName: false,
+                                        status: false
+                                    }}
                                     data={myAudits.filter((audit) => {
                                         // Date Filter
                                         if (dateRange.from || dateRange.to) {

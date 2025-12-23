@@ -16,6 +16,13 @@ const formatDate = (timestamp: Timestamp) => {
     })
 }
 
+const formatTime = (timestamp: Timestamp) => {
+    return timestamp.toDate().toLocaleTimeString("tr-TR", {
+        hour: "2-digit",
+        minute: "2-digit",
+    })
+}
+
 export const getAuditColumns = (onCancel?: (auditId: string) => void): ColumnDef<Audit>[] => [
     {
         accessorKey: "auditTypeName",
@@ -70,6 +77,24 @@ export const getAuditColumns = (onCancel?: (auditId: string) => void): ColumnDef
         cell: ({ row }) => {
             const timestamp = row.getValue("startedAt") as Timestamp
             return <div className="whitespace-nowrap">{formatDate(timestamp)}</div>
+        },
+    },
+    {
+        id: "startTime",
+        accessorFn: (row) => row.startedAt,
+        header: "Başlangıç Saati",
+        cell: ({ row }) => {
+            const timestamp = row.getValue("startTime") as Timestamp
+            return <div className="whitespace-nowrap">{formatTime(timestamp)}</div>
+        },
+    },
+    {
+        id: "endTime",
+        accessorFn: (row) => row.completedAt,
+        header: "Bitiş Saati",
+        cell: ({ row }) => {
+            const timestamp = row.getValue("endTime") as Timestamp
+            return <div className="whitespace-nowrap">{timestamp ? formatTime(timestamp) : "-"}</div>
         },
     },
     {

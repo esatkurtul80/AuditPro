@@ -175,7 +175,7 @@ export function QuestionHistoryButton({
                                                             <span className="font-semibold">
                                                                 {(() => {
                                                                     const daysAgo = differenceInDays(new Date(), entry.completedAt.toDate());
-                                                                    return `${entry.auditorName.toUpperCase()} - ${daysAgo} GÜN ÖNCE YAPILAN DENETİM`;
+                                                                    return `${entry.auditorName.toLocaleUpperCase('tr-TR')} - ${daysAgo} GÜN ÖNCE YAPILAN DENETİM`;
                                                                 })()}
                                                             </span>
                                                             <span className="text-sm text-muted-foreground">

@@ -60,6 +60,7 @@ export interface Question {
     type: QuestionType;
     maxPoints: number;           // Auto-calculated for some types
     photoRequired: boolean;
+    actionPhotoRequired?: boolean; // New field for action management
 
     // Type-specific fields
     options?: QuestionOption[];  // For multiple_choice, checkbox
@@ -98,6 +99,7 @@ export interface AuditAnswer {
     maxPoints: number;
     originalMaxPoints?: number; // Muaf seçildiğinde orijinal değeri saklamak için
     photoRequired: boolean;
+    actionPhotoRequired: boolean;
     options?: QuestionOption[];  // For checkbox and multiple_choice questions
     ratingMax?: number;          // For rating questions (e.g., 5 for 1-5 rating)
 
@@ -113,6 +115,22 @@ export interface AuditAnswer {
     earnedPoints: number;
     notes: string[];  // Multiple notes can be added for any answer
     photos: string[];
+
+    // Action Management
+    actionData?: ActionData;
+}
+
+export type ActionDataStatus = "pending_store" | "pending_admin" | "approved" | "rejected";
+
+export interface ActionData {
+    status: ActionDataStatus;
+    storeNote?: string;
+    storeImages?: string[];
+    submittedAt?: Timestamp;
+    adminNote?: string;
+    rejectedAt?: Timestamp;
+    approvedAt?: Timestamp;
+    resolvedAt?: Timestamp; // When finally approved
 }
 
 export interface AuditSection {
@@ -143,6 +161,10 @@ export interface Audit {
     updatedAt: Timestamp;
     isDeleted?: boolean;
     deletedAt?: Timestamp;
+
+    // Action Management
+    actionDeadline?: Timestamp;
+    allActionsResolved?: boolean;
 }
 
 // Action tracking

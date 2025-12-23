@@ -126,14 +126,28 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
     const avatarSize = compact ? "h-8 w-8" : "h-10 w-10";
 
     return compact ? (
-        // Mobile/Tablet: Grouped layout with gap before profile
         <div className="flex items-center gap-2">
+            {/* Actions Button */}
+            {userProfile?.role === "admin" && (
+                <div className="flex items-center justify-center">
+                    <Button
+                        variant="destructive"
+                        size="sm"
+                        className="text-xs px-2 h-8"
+                        onClick={() => router.push("/admin/actions")}
+                    >
+                        AKSİYONLAR
+                    </Button>
+                </div>
+            )}
+
             {/* First 3 buttons: Online Status, Notifications, Theme */}
             <div className="flex items-center gap-0">
-                {/* Online Status */}
                 <div className="flex items-center justify-center w-6 md:w-auto md:mr-2">
                     <OnlineStatusBadge isOnline={isOnline} compact={compact} />
                 </div>
+
+
 
                 {/* Notifications Button */}
                 <div className="flex items-center justify-center w-6">
@@ -304,8 +318,9 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
             </DropdownMenu>
         </div>
     ) : (
-        // Desktop: Original spacing
         <div className="flex items-center gap-1">
+
+
             {/* Online Status */}
             <OnlineStatusBadge isOnline={isOnline} compact={compact} />
 

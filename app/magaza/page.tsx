@@ -82,6 +82,20 @@ export default function MagazaPage() {
         });
     };
 
+    const getDeadlineStatus = (audit: Audit) => {
+        if (audit.allActionsResolved) return { text: "Tamamlandı", color: "bg-green-100 text-green-800 border-green-200" };
+        if (!audit.actionDeadline) return null;
+
+        const now = new Date().getTime();
+        const deadline = audit.actionDeadline.toMillis();
+        const diff = deadline - now;
+        const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
+
+        if (days < 0) return { text: `${Math.abs(days)} gün gecikti`, color: "bg-red-100 text-red-800 border-red-200 animate-pulse" };
+        if (days === 0) return { text: "Bugün son gün", color: "bg-orange-100 text-orange-800 border-orange-200" };
+        return { text: `${days} gün kaldı`, color: "bg-blue-100 text-blue-800 border-blue-200" };
+    };
+
     if (loading) {
         return (
             <ProtectedRoute allowedRoles={["magaza"]}>
@@ -128,38 +142,49 @@ export default function MagazaPage() {
                                             <TableHead>Denetim Türü</TableHead>
                                             <TableHead>Denetmen</TableHead>
                                             <TableHead>Tarih</TableHead>
+                                            <TableHead>Son Tarih</TableHead>
                                             <TableHead>Puan</TableHead>
                                             <TableHead className="text-right">İşlem</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {auditsWithActions.map((audit) => (
-                                            <TableRow key={audit.id}>
-                                                <TableCell className="font-medium">
-                                                    {audit.auditTypeName}
-                                                </TableCell>
-                                                <TableCell>{audit.auditorName}</TableCell>
-                                                <TableCell>{formatDate(audit.completedAt)}</TableCell>
-                                                <TableCell>
-                                                    <Badge
-                                                        variant={
-                                                            audit.totalScore / audit.maxScore >= 0.8
-                                                                ? "default"
-                                                                : "destructive"
-                                                        }
-                                                    >
-                                                        {audit.totalScore} / {audit.maxScore}
-                                                    </Badge>
-                                                </TableCell>
-                                                <TableCell className="text-right">
-                                                    <Link href={`/audits/${audit.id}/actions`}>
-                                                        <Button variant="ghost" size="sm">
-                                                            Aksiyonları Görüntüle
-                                                        </Button>
-                                                    </Link>
-                                                </TableCell>
-                                            </TableRow>
-                                        ))}
+                                        {auditsWithActions.map((audit) => {
+                                            const deadline = getDeadlineStatus(audit);
+                                            return (
+                                                <TableRow key={audit.id}>
+                                                    <TableCell className="font-medium">
+                                                        {audit.auditTypeName}
+                                                    </TableCell>
+                                                    <TableCell>{audit.auditorName}</TableCell>
+                                                    <TableCell>{formatDate(audit.completedAt)}</TableCell>
+                                                    <TableCell>
+                                                        {deadline && (
+                                                            <Badge variant="outline" className={deadline.color}>
+                                                                {deadline.text}
+                                                            </Badge>
+                                                        )}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Badge
+                                                            variant={
+                                                                audit.totalScore / audit.maxScore >= 0.8
+                                                                    ? "default"
+                                                                    : "destructive"
+                                                            }
+                                                        >
+                                                            {audit.totalScore} / {audit.maxScore}
+                                                        </Badge>
+                                                    </TableCell>
+                                                    <TableCell className="text-right">
+                                                        <Link href={`/audits/${audit.id}/actions`}>
+                                                            <Button variant="ghost" size="sm">
+                                                                Aksiyonları Görüntüle
+                                                            </Button>
+                                                        </Link>
+                                                    </TableCell>
+                                                </TableRow>
+                                            );
+                                        })}
                                     </TableBody>
                                 </Table>
                             )}

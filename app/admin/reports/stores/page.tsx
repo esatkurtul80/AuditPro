@@ -173,7 +173,7 @@ export default function StoresReportPage() {
     const trendData = getTrendData();
 
     return (
-        <div className="container mx-auto py-8">
+        <div className="container mx-auto py-4 md:py-8 px-4 md:px-6">
             <div className="mb-8">
                 <h1 className="text-4xl font-bold flex items-center gap-3">
                     <BarChart3 className="h-10 w-10" />

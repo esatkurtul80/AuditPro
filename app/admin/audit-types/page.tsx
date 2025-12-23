@@ -299,7 +299,7 @@ export default function AuditTypesPage() {
     }
 
     return (
-        <div className="container mx-auto py-8">
+        <div className="container mx-auto py-4 md:py-8 px-4 md:px-6">
             <div className="flex items-center justify-between mb-8">
                 <div>
                     <h1 className="text-4xl font-bold">Denetim Formları</h1>

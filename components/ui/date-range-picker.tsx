@@ -33,7 +33,7 @@ export function DateRangePicker({ value, onChange, className }: DateRangePickerP
                     <Button
                         variant={"outline"}
                         className={cn(
-                            "w-[160px] justify-start text-left font-normal",
+                            "flex-1 justify-start text-left font-normal",
                             !value.from && "text-muted-foreground"
                         )}
                     >
@@ -67,7 +67,7 @@ export function DateRangePicker({ value, onChange, className }: DateRangePickerP
                     <Button
                         variant={"outline"}
                         className={cn(
-                            "w-[160px] justify-start text-left font-normal",
+                            "flex-1 justify-start text-left font-normal",
                             !value.to && "text-muted-foreground"
                         )}
                     >

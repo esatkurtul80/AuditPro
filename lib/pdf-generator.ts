@@ -1,7 +1,7 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { Audit, UserProfile } from "@/lib/types";
-import { doc, getDoc } from "firebase/firestore";
+import { doc as firestoreDoc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
 export async function generateAuditPDF(audit: Audit) {
@@ -19,7 +19,7 @@ export async function generateAuditPDF(audit: Audit) {
     let auditorDisplayName = audit.auditorName;
     if (audit.auditorId) {
         try {
-            const userDoc = await getDoc(doc(db, "users", audit.auditorId));
+            const userDoc = await getDoc(firestoreDoc(db, "users", audit.auditorId));
             if (userDoc.exists()) {
                 const userData = userDoc.data() as UserProfile;
                 if (userData.firstName && userData.lastName) {
