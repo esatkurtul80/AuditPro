@@ -635,7 +635,7 @@ export default function AuditPage() {
                                         return (
                                             <Card
                                                 key={sectionIndex}
-                                                className="cursor-pointer hover:shadow-md transition-all border shadow-sm bg-card hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-200 dark:hover:border-blue-800 group rounded-xl h-20 md:h-auto py-0 md:py-6 gap-0 md:gap-6 flex items-center justify-center"
+                                                className="cursor-pointer hover:shadow-md transition-all border shadow-sm bg-blue-50/30 dark:bg-blue-900/5 hover:bg-blue-100/50 dark:hover:bg-blue-900/20 border-blue-100/50 dark:border-blue-800/50 hover:border-blue-200 dark:hover:border-blue-700 group rounded-xl h-20 md:h-auto py-0 md:py-6 gap-0 md:gap-6 flex items-center justify-center"
                                                 onClick={() => setCurrentSectionIndex(sectionIndex)}
                                             >
                                                 <CardHeader className="p-0 px-3 md:p-6 w-full">

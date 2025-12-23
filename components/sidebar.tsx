@@ -102,7 +102,7 @@ export function Sidebar({ className }: SidebarProps) {
                 <div className="flex items-center gap-3">
                     <div className="flex h-10 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 via-purple-600 to-pink-600 shadow-lg shadow-purple-500/30">
                         <span className="text-sm font-bold text-white">
-                            v1.6
+                            v1.7
                         </span>
                     </div>
                     <div className="flex flex-col">
