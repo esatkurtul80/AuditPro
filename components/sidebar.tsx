@@ -116,7 +116,7 @@ export function Sidebar({ className, onLinkClick, isCollapsed, toggleSidebar }: 
                     isCollapsed ? "h-9 w-9" : "h-10 w-10"
                 )}>
                     <span className={cn("font-bold text-white", isCollapsed ? "text-[10px]" : "text-xs")}>
-                        {isCollapsed ? "A" : "v1.9"}
+                        {isCollapsed ? "A" : "v1.9.1"}
                     </span>
                 </div>
             </div>

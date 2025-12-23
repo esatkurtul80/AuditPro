@@ -1,6 +1,6 @@
 # AuditPro Version History
 
-## v1.9.0 (Current)
+## v1.9.1 (Current)
 - Updated question cards to match the blue theme of the section cards.
 
 ## v1.8.0
