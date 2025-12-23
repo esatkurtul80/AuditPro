@@ -572,13 +572,13 @@ export default function AuditPage() {
                 </div>
 
                 {currentSectionIndex === null && (
-                    <div className="flex items-center justify-between mb-6 p-4 bg-muted/50 rounded-lg border">
+                    <div className="flex items-center justify-between mb-6 p-4 bg-blue-50/50 dark:bg-blue-900/10 rounded-lg border border-blue-100 dark:border-blue-800">
                         <div className="flex-1">
-                            <h2 className="text-3xl font-bold mb-2 text-foreground">{audit.auditTypeName}</h2>
-                            <div className="text-muted-foreground text-lg">{audit.storeName} • {audit.auditorName}</div>
+                            <h2 className="text-3xl font-bold mb-2 text-blue-950 dark:text-blue-50">{audit.auditTypeName}</h2>
+                            <div className="text-blue-800/80 dark:text-blue-200/80 text-lg">{audit.storeName} • {audit.auditorName}</div>
                         </div>
                         <div className="flex flex-col items-center">
-                            <div className="flex items-center justify-center w-20 h-20 bg-white dark:bg-slate-800 rounded-full shadow-lg border-4 border-slate-100 dark:border-slate-700">
+                            <div className="flex items-center justify-center w-20 h-20 bg-white dark:bg-slate-800 rounded-full shadow-lg border-4 border-blue-100 dark:border-blue-800">
                                 <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">
                                     {audit.totalScore || 0}
                                 </div>
@@ -635,7 +635,7 @@ export default function AuditPage() {
                                         return (
                                             <Card
                                                 key={sectionIndex}
-                                                className="cursor-pointer hover:shadow-lg transition-all border shadow-sm bg-card hover:bg-accent/50 group rounded-xl h-20 md:h-auto py-0 md:py-6 gap-0 md:gap-6 flex items-center justify-center"
+                                                className="cursor-pointer hover:shadow-md transition-all border shadow-sm bg-card hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-200 dark:hover:border-blue-800 group rounded-xl h-20 md:h-auto py-0 md:py-6 gap-0 md:gap-6 flex items-center justify-center"
                                                 onClick={() => setCurrentSectionIndex(sectionIndex)}
                                             >
                                                 <CardHeader className="p-0 px-3 md:p-6 w-full">
@@ -684,9 +684,9 @@ export default function AuditPage() {
                                 const sectionScore = sectionMax > 0 ? Math.round((sectionEarned / sectionMax) * 100) : 0;
 
                                 return (
-                                    <div className="flex items-center justify-between mb-6 p-4 bg-muted/50 rounded-lg border">
-                                        <h2 className="text-2xl font-bold text-foreground">{section.sectionName}</h2>
-                                        <div className="flex items-center justify-center w-14 h-14 bg-white dark:bg-slate-800 rounded-full shadow-md border">
+                                    <div className="flex items-center justify-between mb-6 p-4 bg-blue-50/50 dark:bg-blue-900/10 rounded-lg border border-blue-100 dark:border-blue-800">
+                                        <h2 className="text-2xl font-bold text-blue-950 dark:text-blue-50">{section.sectionName}</h2>
+                                        <div className="flex items-center justify-center w-14 h-14 bg-white dark:bg-slate-800 rounded-full shadow-md border border-blue-100 dark:border-blue-800">
                                             <div className="text-xl font-bold text-blue-600 dark:text-blue-400">
                                                 {sectionScore}
                                             </div>
