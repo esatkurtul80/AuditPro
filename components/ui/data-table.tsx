@@ -38,6 +38,7 @@ interface DataTableProps<TData, TValue> {
     searchKey?: string
     searchPlaceholder?: string
     onRowClick?: (row: TData) => void
+    toolbar?: React.ReactNode
 }
 
 export function DataTable<TData, TValue>({
@@ -46,6 +47,7 @@ export function DataTable<TData, TValue>({
     searchKey,
     searchPlaceholder = "Filter...",
     onRowClick,
+    toolbar,
 }: DataTableProps<TData, TValue>) {
     const [sorting, setSorting] = React.useState<SortingState>([])
     const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
@@ -87,6 +89,7 @@ export function DataTable<TData, TValue>({
                         className="max-w-sm"
                     />
                 )}
+                {toolbar}
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                         <Button variant="outline" className="ml-auto">

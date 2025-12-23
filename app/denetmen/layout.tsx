@@ -1,5 +1,3 @@
-import { FloatingActionButton } from "@/components/floating-action-button";
-
 export default function DenetmenLayout({
     children,
 }: {
@@ -8,7 +6,6 @@ export default function DenetmenLayout({
     return (
         <>
             {children}
-            <FloatingActionButton />
         </>
     );
 }

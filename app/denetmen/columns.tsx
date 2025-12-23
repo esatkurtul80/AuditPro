@@ -13,8 +13,6 @@ const formatDate = (timestamp: Timestamp) => {
         day: "numeric",
         month: "long",
         year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
     })
 }
 
@@ -35,12 +33,23 @@ export const getAuditColumns = (onCancel?: (auditId: string) => void): ColumnDef
         header: "Durum",
         cell: ({ row }) => {
             const status = row.getValue("status") as string
-            return status === "devam_ediyor" ? (
-                <Badge className="bg-yellow-500">
-                    <PlayCircle className="mr-1 h-3 w-3" />
-                    Devam Ediyor
-                </Badge>
-            ) : (
+            if (status === "devam_ediyor") {
+                return (
+                    <Badge className="bg-yellow-500">
+                        <PlayCircle className="mr-1 h-3 w-3" />
+                        Devam Ediyor
+                    </Badge>
+                )
+            }
+            if (status === "iptal_edildi") {
+                return (
+                    <Badge variant="destructive">
+                        <XCircle className="mr-1 h-3 w-3" />
+                        İptal Edildi
+                    </Badge>
+                )
+            }
+            return (
                 <Badge className="bg-green-500">
                     <CheckCircle2 className="mr-1 h-3 w-3" />
                     Tamamlandı
@@ -72,30 +81,32 @@ export const getAuditColumns = (onCancel?: (auditId: string) => void): ColumnDef
                 <div className="flex gap-2 justify-end">
                     {audit.status === "devam_ediyor" ? (
                         <>
-                            <Link href={`/audits/${audit.id}`}>
-                                <Button variant="ghost" size="sm">
-                                    Devam Et
+                            <Link href={`/audits/${audit.id}`} title="Devam Et">
+                                <Button variant="ghost" size="icon">
+                                    <PlayCircle className="h-4 w-4" />
                                 </Button>
                             </Link>
                             {onCancel && (
                                 <Button
                                     variant="ghost"
-                                    size="sm"
+                                    size="icon"
                                     className="text-red-600 hover:text-red-700 hover:bg-red-50"
                                     onClick={() => onCancel(audit.id)}
+                                    title="İptal Et"
                                 >
-                                    <XCircle className="h-4 w-4 mr-1" />
-                                    İptal Et
+                                    <XCircle className="h-4 w-4" />
                                 </Button>
                             )}
                         </>
                     ) : (
                         <>
-                            <Link href={`/audits/${audit.id}?mode=view`}>
-                                <Button variant="ghost" size="icon" title="Görüntüle">
-                                    <Eye className="h-4 w-4" />
-                                </Button>
-                            </Link>
+                            {audit.status === "tamamlandi" && (
+                                <Link href={`/audits/${audit.id}?mode=view`}>
+                                    <Button variant="ghost" size="icon" title="Görüntüle">
+                                        <Eye className="h-4 w-4" />
+                                    </Button>
+                                </Link>
+                            )}
                             <Link href={`/audits/${audit.id}?mode=edit`}>
                                 <Button variant="ghost" size="icon" title="Düzenle">
                                     <Edit className="h-4 w-4" />

@@ -131,7 +131,7 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
             {/* First 3 buttons: Online Status, Notifications, Theme */}
             <div className="flex items-center gap-0">
                 {/* Online Status */}
-                <div className="flex items-center justify-center w-6">
+                <div className="flex items-center justify-center w-6 md:w-auto md:mr-2">
                     <OnlineStatusBadge isOnline={isOnline} compact={compact} />
                 </div>
 

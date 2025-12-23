@@ -1,16 +1,41 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Bell, Circle, ClipboardPen } from "lucide-react";
+import { Plus, Bell, Circle, ClipboardPen, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { CreateAuditDialog } from "@/components/create-audit-dialog";
+import { WhatsAppShareDialog } from "@/components/whatsapp-share-dialog";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export function FloatingActionButton() {
     const [isOpen, setIsOpen] = useState(false);
     const [isCreateAuditOpen, setIsCreateAuditOpen] = useState(false);
+    const [isWhatsAppOpen, setIsWhatsAppOpen] = useState(false);
+    const [showConfirmDialog, setShowConfirmDialog] = useState(false);
     const router = useRouter();
+    const pathname = usePathname();
+
+    const handleNewAuditClick = () => {
+        // Eğer şu an bir denetim sayfasındaysak (/audits/...) onay iste
+        if (pathname?.startsWith('/audits/')) {
+            setShowConfirmDialog(true);
+            setIsOpen(false);
+        } else {
+            setIsCreateAuditOpen(true);
+            setIsOpen(false);
+        }
+    };
 
     const toggleOpen = () => setIsOpen(!isOpen);
 
@@ -36,6 +61,24 @@ export function FloatingActionButton() {
     return (
         <>
             <CreateAuditDialog open={isCreateAuditOpen} onOpenChange={setIsCreateAuditOpen} />
+            <WhatsAppShareDialog open={isWhatsAppOpen} onOpenChange={setIsWhatsAppOpen} />
+
+            <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Yeni Denetim Başlat</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Devam eden bir denetim işleminiz bulunuyor. Yeni bir denetim başlatmak istediğinize emin misiniz?
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>İptal</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => setIsCreateAuditOpen(true)}>
+                            Devam Et
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
 
             {/* Backdrop for focus */}
             <AnimatePresence>
@@ -54,7 +97,7 @@ export function FloatingActionButton() {
                 <AnimatePresence>
                     {isOpen && (
                         <div className="flex flex-col items-end gap-3 mb-2">
-                            {/* Empty Button (Placeholder) */}
+                            {/* WhatsApp Share Button */}
                             <motion.div
                                 custom={2}
                                 initial="hidden"
@@ -65,12 +108,15 @@ export function FloatingActionButton() {
                                 <Button
                                     variant="default"
                                     className="h-14 pr-6 pl-2 rounded-full bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 shadow-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-750 flex items-center gap-3 group transition-all"
-                                    onClick={() => setIsOpen(false)}
+                                    onClick={() => {
+                                        setIsWhatsAppOpen(true);
+                                        setIsOpen(false);
+                                    }}
                                 >
-                                    <div className="flex items-center justify-center w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-500 group-hover:scale-110 transition-transform">
-                                        <Circle className="h-5 w-5" />
+                                    <div className="flex items-center justify-center w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/50 text-green-600 dark:text-green-500 group-hover:scale-110 transition-transform">
+                                        <MessageCircle className="h-5 w-5" />
                                     </div>
-                                    <span className="font-semibold text-base">Henüz Karar Verilmedi</span>
+                                    <span className="font-semibold text-base">WhatsApp ile Paylaş</span>
                                 </Button>
                             </motion.div>
 
@@ -108,10 +154,7 @@ export function FloatingActionButton() {
                                 <Button
                                     variant="default"
                                     className="h-14 pr-6 pl-2 rounded-full bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 shadow-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-750 flex items-center gap-3 group transition-all"
-                                    onClick={() => {
-                                        setIsCreateAuditOpen(true);
-                                        setIsOpen(false);
-                                    }}
+                                    onClick={handleNewAuditClick}
                                 >
                                     <div className="flex items-center justify-center w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-500 group-hover:scale-110 transition-transform">
                                         <ClipboardPen className="h-5 w-5" />

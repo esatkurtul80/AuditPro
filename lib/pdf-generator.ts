@@ -1,6 +1,8 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { Audit } from "@/lib/types";
+import { Audit, UserProfile } from "@/lib/types";
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
 export async function generateAuditPDF(audit: Audit) {
     const doc = new jsPDF();
@@ -13,7 +15,23 @@ export async function generateAuditPDF(audit: Audit) {
     doc.setFontSize(12);
     doc.text(`Denetim Türü: ${audit.auditTypeName}`, 20, 40);
     doc.text(`Mağaza: ${audit.storeName}`, 20, 50);
-    doc.text(`Denetmen: ${audit.auditorName}`, 20, 60);
+    // Denetmen ismini veritabanından güncel olarak çekmeye çalış
+    let auditorDisplayName = audit.auditorName;
+    if (audit.auditorId) {
+        try {
+            const userDoc = await getDoc(doc(db, "users", audit.auditorId));
+            if (userDoc.exists()) {
+                const userData = userDoc.data() as UserProfile;
+                if (userData.firstName && userData.lastName) {
+                    auditorDisplayName = `${userData.firstName} ${userData.lastName}`;
+                }
+            }
+        } catch (e) {
+            console.error("Error fetching auditor name:", e);
+        }
+    }
+
+    doc.text(`Denetmen: ${auditorDisplayName}`, 20, 60);
     doc.text(
         `Tarih: ${audit.completedAt?.toDate().toLocaleDateString("tr-TR")}`,
         20,
@@ -114,6 +132,5 @@ export async function generateAuditPDF(audit: Audit) {
     doc.text(`Genel Değerlendirme: ${resultText}`, 20, yPosition);
     doc.setTextColor(0, 0, 0);
 
-    // İndir
-    doc.save(`denetim-${audit.id}.pdf`);
+    return doc;
 }

@@ -6,9 +6,12 @@ import { TopHeader } from "@/components/top-header";
 import { HeaderActions } from "@/components/header-actions";
 import { Button } from "@/components/ui/button";
 import { Menu, X } from "lucide-react";
+import { useAuth } from "@/components/auth-provider";
+import { FloatingActionButton } from "@/components/floating-action-button";
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    const { userProfile } = useAuth();
 
     return (
         <div className="min-h-screen bg-background">
@@ -66,6 +69,8 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
                 <div className="min-h-screen">
                     {children}
                 </div>
+
+                {userProfile?.role === "denetmen" && <FloatingActionButton />}
             </main>
         </div>
     );

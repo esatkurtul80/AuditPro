@@ -17,6 +17,7 @@ import autoTable from 'jspdf-autotable';
 interface AuditSummaryProps { audit: Audit; }
 
 function isIncompleteAnswer(answer: AuditAnswer): boolean {
+  if (!answer.answer || answer.answer.trim() === "" || answer.answer === "muaf") return false;
   if (answer.questionType === 'yes_no' || !answer.questionType) return answer.answer === 'hayir';
   if (answer.questionType === 'rating' || answer.questionType === 'multiple_choice' || answer.questionType === 'checkbox') return answer.earnedPoints < answer.maxPoints;
   return false;

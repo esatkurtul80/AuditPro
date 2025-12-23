@@ -122,7 +122,7 @@ export interface AuditSection {
     answers: AuditAnswer[];
 }
 
-export type AuditStatus = "devam_ediyor" | "tamamlandi";
+export type AuditStatus = "devam_ediyor" | "tamamlandi" | "iptal_edildi";
 
 export interface Audit {
     id: string;
@@ -138,6 +138,7 @@ export interface Audit {
     maxScore: number;
     startedAt: Timestamp;
     completedAt?: Timestamp;
+    cancelledAt?: Timestamp;
     createdAt: Timestamp;
     updatedAt: Timestamp;
     isDeleted?: boolean;

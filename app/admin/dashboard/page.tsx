@@ -34,6 +34,14 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -50,7 +58,10 @@ import {
     Trash2,
     Clock,
     Check,
+    MoreHorizontal,
+    Eye,
     ChevronsUpDown,
+    XCircle,
 } from "lucide-react";
 import {
     collection,
@@ -130,12 +141,34 @@ export default function AdminDashboard() {
                 stores: storesSnapshot.size
             });
 
-            // Load ALL audits and filter in memory (existing audits don't have isDeleted field)
+            // Create a lookup map for users
+            const usersMap = new Map();
+            usersSnapshot.docs.forEach(doc => {
+                usersMap.set(doc.id, doc.data());
+            });
+
+            // Load ALL audits and filter in memory
             const auditsSnapshot = await getDocs(collection(db, "audits"));
-            const auditsData = auditsSnapshot.docs.map((doc) => ({
-                id: doc.id,
-                ...doc.data(),
-            })) as Audit[];
+            const auditsData = auditsSnapshot.docs.map((doc) => {
+                const data = doc.data() as Audit;
+                let auditorName = data.auditorName;
+
+                // Override auditorName with fresh data from users collection
+                if (data.auditorId && usersMap.has(data.auditorId)) {
+                    const user = usersMap.get(data.auditorId);
+                    if (user.firstName && user.lastName) {
+                        auditorName = `${user.firstName} ${user.lastName}`;
+                    } else if (user.displayName) {
+                        auditorName = user.displayName;
+                    }
+                }
+
+                return {
+                    ...data,
+                    id: doc.id,
+                    auditorName: auditorName
+                };
+            }) as Audit[];
 
             // Filter out deleted ones
             const activeAudits = auditsData.filter(audit => !audit.isDeleted);
@@ -279,6 +312,7 @@ export default function AdminDashboard() {
         { value: "all", label: "Tüm Durumlar" },
         { value: "devam_ediyor", label: "Devam Ediyor" },
         { value: "tamamlandi", label: "Tamamlandı" },
+        { value: "iptal_edildi", label: "İptal Edildi" },
     ];
 
     if (loading) {
@@ -306,32 +340,24 @@ export default function AdminDashboard() {
                 {/* Dashboard Statistics */}
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                     <StatCard
-                        title="Toplam Kullanıcılar"
-                        value={counts.users}
-                        icon={Users}
-                        description="Sistemdeki tüm kullanıcılar"
-                        iconColor="text-blue-600"
-                        iconBg="bg-blue-100"
-                    />
-                    <StatCard
-                        title="Toplam Mağazalar"
-                        value={counts.stores}
-                        icon={StoreIcon}
-                        description="Kayıtlı mağaza sayısı"
+                        title="Tamamlanan Denetimler"
+                        value={filteredAudits.filter(a => a.status === "tamamlandi").length}
+                        icon={CheckCircle2}
+                        description={
+                            dateRange.from || dateRange.to
+                                ? "Seçili tarih aralığında"
+                                : "Tüm zamanlar"
+                        }
                         iconColor="text-green-600"
                         iconBg="bg-green-100"
                     />
                     <StatCard
-                        title="Yapılan Denetimler"
-                        value={filteredAudits.length}
-                        icon={ClipboardList}
-                        description={
-                            dateRange.from || dateRange.to
-                                ? "Seçili tarih aralığında"
-                                : "Toplam denetim sayısı"
-                        }
-                        iconColor="text-purple-600"
-                        iconBg="bg-purple-100"
+                        title="Denetlenen Mağaza Sayısı"
+                        value={new Set(filteredAudits.map(a => a.storeId)).size}
+                        icon={StoreIcon}
+                        description="Farklı mağaza sayısı"
+                        iconColor="text-blue-600"
+                        iconBg="bg-blue-100"
                     />
                     <StatCard
                         title="Devam Eden"
@@ -345,65 +371,21 @@ export default function AdminDashboard() {
                         iconColor="text-orange-600"
                         iconBg="bg-orange-100"
                     />
+                    <StatCard
+                        title="Toplam Denetimler"
+                        value={filteredAudits.length}
+                        icon={ClipboardList}
+                        description={
+                            dateRange.from || dateRange.to
+                                ? "Seçili tarih aralığında"
+                                : "Toplam kayıt"
+                        }
+                        iconColor="text-purple-600"
+                        iconBg="bg-purple-100"
+                    />
                 </div>
 
-                {/* Quick Access Cards */}
-                <div className="grid gap-4 md:grid-cols-3">
-                    <Card>
-                        <CardContent className="p-6">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-sm font-medium text-muted-foreground">
-                                        Toplam Denetimler
-                                    </p>
-                                    <h3 className="text-3xl font-bold mt-2">{quickStats.total}</h3>
-                                    <p className="text-xs text-muted-foreground mt-1">
-                                        {dateRange.from || dateRange.to
-                                            ? "Seçili tarih aralığında"
-                                            : "Tüm zamanlar"}
-                                    </p>
-                                </div>
-                                <ClipboardList className="h-10 w-10 text-muted-foreground" />
-                            </div>
-                        </CardContent>
-                    </Card>
-                    <Card>
-                        <CardContent className="p-6">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-sm font-medium text-muted-foreground">
-                                        Devam Eden
-                                    </p>
-                                    <h3 className="text-3xl font-bold mt-2 text-yellow-600">
-                                        {quickStats.ongoing}
-                                    </h3>
-                                    <p className="text-xs text-muted-foreground mt-1">
-                                        Tamamlanmamış
-                                    </p>
-                                </div>
-                                <PlayCircle className="h-10 w-10 text-yellow-600" />
-                            </div>
-                        </CardContent>
-                    </Card>
-                    <Card>
-                        <CardContent className="p-6">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-sm font-medium text-muted-foreground">
-                                        Tamamlanan
-                                    </p>
-                                    <h3 className="text-3xl font-bold mt-2 text-green-600">
-                                        {quickStats.completed}
-                                    </h3>
-                                    <p className="text-xs text-muted-foreground mt-1">
-                                        Başarıyla tamamlandı
-                                    </p>
-                                </div>
-                                <CheckCircle2 className="h-10 w-10 text-green-600" />
-                            </div>
-                        </CardContent>
-                    </Card>
-                </div>
+
 
                 {/* Audits Table */}
                 <Card>
@@ -641,6 +623,8 @@ export default function AdminDashboard() {
                                                 <TableHead>Durum</TableHead>
                                                 <TableHead>Puan</TableHead>
                                                 <TableHead>Tarih</TableHead>
+                                                <TableHead>Başlangıç</TableHead>
+                                                <TableHead>Bitiş</TableHead>
                                                 <TableHead className="text-right">İşlemler</TableHead>
                                             </TableRow>
                                         </TableHeader>
@@ -660,6 +644,11 @@ export default function AdminDashboard() {
                                                                 <PlayCircle className="mr-1 h-3 w-3" />
                                                                 Devam Ediyor
                                                             </Badge>
+                                                        ) : audit.status === "iptal_edildi" ? (
+                                                            <Badge variant="destructive">
+                                                                <XCircle className="mr-1 h-3 w-3" />
+                                                                İptal Edildi
+                                                            </Badge>
                                                         ) : (
                                                             <Badge className="bg-green-500">
                                                                 <CheckCircle2 className="mr-1 h-3 w-3" />
@@ -673,38 +662,51 @@ export default function AdminDashboard() {
                                                         </span>
                                                     </TableCell>
                                                     <TableCell className="text-sm">
-                                                        {formatDate(audit.createdAt)}
+                                                        {audit.createdAt?.toDate().toLocaleDateString("tr-TR")}
+                                                    </TableCell>
+                                                    <TableCell className="text-sm">
+                                                        {audit.startedAt?.toDate().toLocaleTimeString("tr-TR", { hour: '2-digit', minute: '2-digit' }) || "-"}
+                                                    </TableCell>
+                                                    <TableCell className="text-sm">
+                                                        {audit.completedAt?.toDate().toLocaleTimeString("tr-TR", { hour: '2-digit', minute: '2-digit' }) || "-"}
                                                     </TableCell>
                                                     <TableCell className="text-right">
-                                                        <div className="flex justify-end gap-2">
-                                                            <Link href={`/audits/view?id=${audit.id}`}>
-                                                                <Button variant="ghost" size="sm">
-                                                                    Görüntüle
+                                                        <DropdownMenu>
+                                                            <DropdownMenuTrigger asChild>
+                                                                <Button variant="ghost" className="h-8 w-8 p-0">
+                                                                    <span className="sr-only">Menüyü aç</span>
+                                                                    <MoreHorizontal className="h-4 w-4" />
                                                                 </Button>
-                                                            </Link>
-                                                            <Link href={`/audits/view?id=${audit.id}`}>
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="sm"
-                                                                    className="gap-2"
+                                                            </DropdownMenuTrigger>
+                                                            <DropdownMenuContent align="end">
+                                                                <DropdownMenuLabel>İşlemler</DropdownMenuLabel>
+                                                                {audit.status === "tamamlandi" && (
+                                                                    <DropdownMenuItem asChild>
+                                                                        <Link href={`/audits/${audit.id}?mode=view`} className="cursor-pointer w-full flex items-center">
+                                                                            <Eye className="mr-2 h-4 w-4" />
+                                                                            Görüntüle
+                                                                        </Link>
+                                                                    </DropdownMenuItem>
+                                                                )}
+                                                                <DropdownMenuItem asChild>
+                                                                    <Link href={`/audits/${audit.id}?mode=edit`} className="cursor-pointer w-full flex items-center">
+                                                                        <Edit className="mr-2 h-4 w-4" />
+                                                                        Düzenle
+                                                                    </Link>
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuSeparator />
+                                                                <DropdownMenuItem
+                                                                    onClick={() => {
+                                                                        setAuditToDelete(audit.id);
+                                                                        setDeleteDialogOpen(true);
+                                                                    }}
+                                                                    className="text-red-600 focus:text-red-600 cursor-pointer flex items-center"
                                                                 >
-                                                                    <Edit className="h-4 w-4" />
-                                                                    Düzenle
-                                                                </Button>
-                                                            </Link>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                className="gap-2 text-red-600 hover:text-red-700 hover:bg-red-50"
-                                                                onClick={() => {
-                                                                    setAuditToDelete(audit.id);
-                                                                    setDeleteDialogOpen(true);
-                                                                }}
-                                                            >
-                                                                <Trash2 className="h-4 w-4" />
-                                                                Sil
-                                                            </Button>
-                                                        </div>
+                                                                    <Trash2 className="mr-2 h-4 w-4" />
+                                                                    Sil
+                                                                </DropdownMenuItem>
+                                                            </DropdownMenuContent>
+                                                        </DropdownMenu>
                                                     </TableCell>
                                                 </TableRow>
                                             ))}

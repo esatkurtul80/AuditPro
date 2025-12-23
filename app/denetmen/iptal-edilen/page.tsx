@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -12,7 +12,7 @@ import {
     where,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { AuditType, Store, Audit, Section, Question, DateRangeFilter } from "@/lib/types";
+import { AuditType, Store, Audit, DateRangeFilter } from "@/lib/types";
 import {
     Card,
     CardContent,
@@ -22,14 +22,13 @@ import {
     ClipboardList,
 } from "lucide-react";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
 import { DataTable } from "@/components/ui/data-table";
 import { auditColumns } from "../columns";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { Input } from "@/components/ui/input";
 import { Search } from "lucide-react";
 
-export default function DenetmenPage() {
+export default function CancelledAuditsPage() {
     const router = useRouter();
     const { userProfile } = useAuth();
 
@@ -37,11 +36,11 @@ export default function DenetmenPage() {
     const [auditTypes, setAuditTypes] = useState<AuditType[]>([]);
     const [myAudits, setMyAudits] = useState<Audit[]>([]);
     const [loading, setLoading] = useState(true);
-    const [searchTerm, setSearchTerm] = useState("");
     const [dateRange, setDateRange] = useState<DateRangeFilter>({
         from: undefined,
         to: undefined,
     });
+    const [searchTerm, setSearchTerm] = useState("");
 
 
     useEffect(() => {
@@ -69,7 +68,7 @@ export default function DenetmenPage() {
             const auditsQuery = query(
                 collection(db, "audits"),
                 where("auditorId", "==", userProfile!.uid),
-                where("status", "==", "tamamlandi")
+                where("status", "==", "iptal_edildi")
             );
             const auditsSnapshot = await getDocs(auditsQuery);
             const auditsData = auditsSnapshot.docs.map((doc) => {
@@ -92,8 +91,6 @@ export default function DenetmenPage() {
     };
 
 
-
-
     if (loading) {
         return (
             <ProtectedRoute allowedRoles={["denetmen"]}>
@@ -112,9 +109,9 @@ export default function DenetmenPage() {
                 <div className="container mx-auto py-4 md:py-8 px-4 md:px-6 space-y-6">
                     <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                         <div>
-                            <h1 className="text-3xl md:text-4xl font-inter font-bold tracking-tight">Tamamlanan Denetimlerim</h1>
+                            <h1 className="text-3xl md:text-4xl font-inter font-bold tracking-tight">İptal Edilen Denetimlerim</h1>
                             <p className="text-muted-foreground mt-2 font-inter">
-                                Tamamladığınız denetimleri görüntüleyin
+                                İptal ettiğiniz denetimleri görüntüleyin
                             </p>
                         </div>
 
@@ -123,12 +120,14 @@ export default function DenetmenPage() {
                     <Card>
 
                         <CardContent className="px-4 md:px-6">
+
+
                             {myAudits.length === 0 ? (
                                 <div className="flex flex-col items-center justify-center py-12 text-center">
                                     <ClipboardList className="h-16 w-16 text-muted-foreground mb-4" />
-                                    <h3 className="text-lg font-semibold">Henüz denetim yok</h3>
+                                    <h3 className="text-lg font-semibold">İptal edilen denetim yok</h3>
                                     <p className="text-muted-foreground mt-2">
-                                        Tamamlanan denetimleriniz burada listelenir
+                                        İptal ettiğiniz denetimler burada listelenir
                                     </p>
                                 </div>
                             ) : (
@@ -185,6 +184,6 @@ export default function DenetmenPage() {
                     </Card>
                 </div>
             </DashboardLayout>
-        </ProtectedRoute>
+        </ProtectedRoute >
     );
 }

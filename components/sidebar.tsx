@@ -18,6 +18,7 @@ import {
     Bell,
     PlayCircle,
     CheckCircle,
+    XCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
@@ -32,6 +33,7 @@ export function Sidebar({ className }: SidebarProps) {
     const { userProfile, loading } = useAuth();
     const pathname = usePathname();
     const [isAuditMenuOpen, setIsAuditMenuOpen] = useState(true);
+    const [isDenetmenAuditMenuOpen, setIsDenetmenAuditMenuOpen] = useState(true);
     const [unreadCount, setUnreadCount] = useState(0);
 
     useEffect(() => {
@@ -65,8 +67,12 @@ export function Sidebar({ className }: SidebarProps) {
 
     const denetmenLinks = [
         { href: "/denetmen/panel", label: "Panel", icon: LayoutDashboard },
+    ];
+
+    const denetimSubLinks = [
+        { href: "/denetmen/tamamlanan", label: "Tamamlanan Denetimler", icon: CheckCircle },
         { href: "/denetmen/bekleyen", label: "Bekleyen Denetimler", icon: PlayCircle },
-        { href: "/denetmen/tamamlanan", label: "Tamamlanan Denetimlerim", icon: CheckCircle },
+        { href: "/denetmen/iptal-edilen", label: "İptal Edilen Denetimler", icon: XCircle },
     ];
 
     const magazaLinks = [
@@ -85,14 +91,18 @@ export function Sidebar({ className }: SidebarProps) {
         link => pathname === link.href || pathname.startsWith(link.href + '/')
     );
 
+    const isDenetmenAuditSectionActive = denetimSubLinks.some(
+        link => pathname === link.href || pathname.startsWith(link.href + '/')
+    );
+
     return (
         <div className={cn("flex flex-col h-screen border-r bg-gradient-to-b from-slate-50 to-white dark:from-slate-950 dark:to-slate-900", className)}>
             {/* Header */}
             <div className="px-6 py-6 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm">
                 <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 via-purple-600 to-pink-600 shadow-lg shadow-purple-500/30">
-                        <span className="text-xl font-bold text-white">
-                            {userProfile?.firstName?.[0] || userProfile?.email?.[0]?.toUpperCase() || "A"}
+                    <div className="flex h-10 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 via-purple-600 to-pink-600 shadow-lg shadow-purple-500/30">
+                        <span className="text-sm font-bold text-white">
+                            v1.6
                         </span>
                     </div>
                     <div className="flex flex-col">
@@ -226,29 +236,79 @@ export function Sidebar({ className }: SidebarProps) {
                             })}
                         </>
                     ) : userProfile?.role === "denetmen" ? (
-                        denetmenLinks.map((link) => {
-                            const Icon = link.icon;
-                            const isActive = pathname === link.href || pathname.startsWith(link.href + '/');
-                            return (
-                                <Link key={link.href} href={link.href}>
-                                    <Button
-                                        variant="ghost"
-                                        className={cn(
-                                            "w-full justify-start gap-3 h-11 px-4 font-medium transition-all duration-200",
-                                            isActive
-                                                ? "bg-gradient-to-r from-[#8B0000] to-[#A0522D] hover:from-[#6B0000] hover:to-[#8B0000] text-white hover:text-white shadow-md shadow-red-500/20"
-                                                : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100"
-                                        )}
-                                    >
-                                        <Icon className={cn(
-                                            "h-5 w-5 transition-transform duration-200",
-                                            isActive && "scale-110"
-                                        )} />
-                                        <span className="text-sm">{link.label}</span>
-                                    </Button>
-                                </Link>
-                            );
-                        })
+                        <>
+                            {denetmenLinks.map((link) => {
+                                const Icon = link.icon;
+                                const isActive = pathname === link.href || pathname.startsWith(link.href + '/');
+                                return (
+                                    <Link key={link.href} href={link.href}>
+                                        <Button
+                                            variant="ghost"
+                                            className={cn(
+                                                "w-full justify-start gap-3 h-11 px-4 font-medium transition-all duration-200",
+                                                isActive
+                                                    ? "bg-gradient-to-r from-[#8B0000] to-[#A0522D] hover:from-[#6B0000] hover:to-[#8B0000] text-white hover:text-white shadow-md shadow-red-500/20"
+                                                    : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100"
+                                            )}
+                                        >
+                                            <Icon className={cn(
+                                                "h-5 w-5 transition-transform duration-200",
+                                                isActive && "scale-110"
+                                            )} />
+                                            <span className="text-sm">{link.label}</span>
+                                        </Button>
+                                    </Link>
+                                );
+                            })}
+
+                            <div className="space-y-1">
+                                <Button
+                                    variant="ghost"
+                                    onClick={() => setIsDenetmenAuditMenuOpen(!isDenetmenAuditMenuOpen)}
+                                    className={cn(
+                                        "w-full justify-start gap-3 h-11 px-4 font-medium transition-all duration-200",
+                                        isDenetmenAuditSectionActive
+                                            ? "bg-gradient-to-r from-[#8B0000] to-[#A0522D] hover:from-[#6B0000] hover:to-[#8B0000] text-white hover:text-white shadow-md shadow-red-500/20"
+                                            : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100"
+                                    )}
+                                >
+                                    <ClipboardList className={cn(
+                                        "h-5 w-5 transition-transform duration-200",
+                                        isDenetmenAuditSectionActive && "scale-110"
+                                    )} />
+                                    <span className="text-sm flex-1 text-left">Denetimlerim</span>
+                                    <ChevronDown className={cn(
+                                        "h-4 w-4 transition-transform duration-200",
+                                        isDenetmenAuditMenuOpen && "rotate-180"
+                                    )} />
+                                </Button>
+
+                                {isDenetmenAuditMenuOpen && (
+                                    <div className="ml-4 space-y-1 border-l-2 border-slate-200 dark:border-slate-700 pl-2">
+                                        {denetimSubLinks.map((link) => {
+                                            const Icon = link.icon;
+                                            const isActive = pathname === link.href || pathname.startsWith(link.href + '/');
+                                            return (
+                                                <Link key={link.href} href={link.href}>
+                                                    <Button
+                                                        variant="ghost"
+                                                        className={cn(
+                                                            "w-full justify-start gap-3 h-10 px-3 font-medium transition-all duration-200",
+                                                            isActive
+                                                                ? "bg-gradient-to-r from-[#8B0000] to-[#A0522D] hover:from-[#6B0000] hover:to-[#8B0000] text-white hover:text-white shadow-sm"
+                                                                : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100"
+                                                        )}
+                                                    >
+                                                        <Icon className="h-4 w-4" />
+                                                        <span className="text-sm">{link.label}</span>
+                                                    </Button>
+                                                </Link>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </div>
+                        </>
                     ) : (
                         magazaLinks.map((link) => {
                             const Icon = link.icon;

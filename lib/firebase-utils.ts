@@ -106,8 +106,13 @@ export const cancelAudit = async (auditId: string): Promise<void> => {
     const { clearAllAuditData } = await import("@/lib/offline-storage");
     await clearAllAuditData(auditId);
 
-    // Then delete from Firebase
-    await permanentlyDeleteAudit(auditId);
+    // Cancel the audit by updating status (don't delete)
+    const auditRef = doc(db, "audits", auditId);
+    await updateDoc(auditRef, {
+        status: "iptal_edildi",
+        cancelledAt: Timestamp.now(),
+        updatedAt: Timestamp.now(),
+    });
 };
 
 /**

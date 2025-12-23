@@ -16,13 +16,10 @@ import {
     getDoc,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { AuditType, Store, Audit, Section, Question } from "@/lib/types";
+import { AuditType, Store, Audit, Section, Question, DateRangeFilter } from "@/lib/types";
 import {
     Card,
     CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
 } from "@/components/ui/card";
 import {
     Dialog,
@@ -53,8 +50,10 @@ import {
     FileText,
     Check,
     ChevronsUpDown,
+    Search,
 } from "lucide-react";
 import { toast } from "sonner";
+import { Input } from "@/components/ui/input";
 import {
     Command,
     CommandEmpty,
@@ -71,6 +70,7 @@ import {
 import { cn } from "@/lib/utils";
 import { DataTable } from "@/components/ui/data-table";
 import { getAuditColumns } from "../columns";
+import { DateRangePicker } from "@/components/ui/date-range-picker";
 
 export default function DenetmenPage() {
     const router = useRouter();
@@ -89,6 +89,11 @@ export default function DenetmenPage() {
     const [canceling, setCanceling] = useState(false);
     const [step, setStep] = useState(1);
     const [openStoreCombobox, setOpenStoreCombobox] = useState(false);
+    const [dateRange, setDateRange] = useState<DateRangeFilter>({
+        from: undefined,
+        to: undefined,
+    });
+    const [searchTerm, setSearchTerm] = useState("");
 
     useEffect(() => {
         if (userProfile) {
@@ -118,10 +123,16 @@ export default function DenetmenPage() {
                 where("status", "==", "devam_ediyor")
             );
             const auditsSnapshot = await getDocs(auditsQuery);
-            const auditsData = auditsSnapshot.docs.map((doc) => ({
-                id: doc.id,
-                ...doc.data(),
-            })) as Audit[];
+            const auditsData = auditsSnapshot.docs.map((doc) => {
+                const data = doc.data();
+                return {
+                    id: doc.id,
+                    ...data,
+                    auditorName: userProfile?.firstName && userProfile?.lastName
+                        ? `${userProfile.firstName} ${userProfile.lastName}`
+                        : data.auditorName
+                };
+            }) as Audit[];
             setMyAudits(auditsData.sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis()));
         } catch (error) {
             console.error("Error loading data:", error);
@@ -315,14 +326,13 @@ export default function DenetmenPage() {
 
                     </div>
 
+
+
                     <Card>
-                        <CardHeader>
-                            <CardTitle>Tüm Denetimler</CardTitle>
-                            <CardDescription>
-                                Başlattığınız tüm denetimlerin listesi
-                            </CardDescription>
-                        </CardHeader>
+
                         <CardContent className="px-4 md:px-6">
+
+
                             {myAudits.length === 0 ? (
                                 <div className="flex flex-col items-center justify-center py-12 text-center">
                                     <ClipboardList className="h-16 w-16 text-muted-foreground mb-4" />
@@ -333,13 +343,55 @@ export default function DenetmenPage() {
                                 </div>
                             ) : (
                                 <DataTable
+                                    toolbar={
+                                        <>
+                                            <div className="relative flex-1 md:max-w-sm">
+                                                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                                                <Input
+                                                    placeholder="Mağaza ara..."
+                                                    value={searchTerm}
+                                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                                    className="pl-9"
+                                                />
+                                            </div>
+                                            <DateRangePicker value={dateRange} onChange={setDateRange} />
+                                        </>
+                                    }
                                     columns={getAuditColumns((auditId: string) => {
                                         setAuditToCancel(auditId);
                                         setCancelDialogOpen(true);
                                     })}
-                                    data={myAudits}
-                                    searchKey="storeName"
-                                    searchPlaceholder="Mağaza ara..."
+                                    data={myAudits.filter((audit) => {
+                                        // Date Filter
+                                        if (dateRange.from || dateRange.to) {
+                                            const auditDate = audit.createdAt.toDate();
+                                            const checkDate = new Date(auditDate);
+                                            checkDate.setHours(0, 0, 0, 0);
+
+                                            if (dateRange.from) {
+                                                const fromDate = new Date(dateRange.from);
+                                                fromDate.setHours(0, 0, 0, 0);
+                                                if (checkDate < fromDate) return false;
+                                            }
+
+                                            if (dateRange.to) {
+                                                const effectiveTo = new Date(dateRange.to);
+                                                effectiveTo.setHours(23, 59, 59, 999);
+                                                if (auditDate > effectiveTo) return false;
+                                            }
+                                        }
+
+                                        // Search Filter
+                                        if (searchTerm) {
+                                            const term = searchTerm.toLowerCase();
+                                            return (
+                                                audit.storeName?.toLowerCase().includes(term) ||
+                                                false
+                                            );
+                                        }
+
+                                        return true;
+                                    })}
                                 />
                             )}
                         </CardContent>
@@ -351,7 +403,7 @@ export default function DenetmenPage() {
                             <AlertDialogHeader>
                                 <AlertDialogTitle>Denetimi İptal Et</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                    Bu denetimi iptal etmek istediğinizden emin misiniz? Bu işlem geri alınamaz ve denetime ait tüm veriler (fotoğraflar, notlar, cevaplar) kalıcı olarak silinecektir.
+                                    Bu denetimi iptal etmek istediğinizden emin misiniz? Denetim durumu "İptal Edildi" olarak güncellenecek ve işlem sonlandırılacaktır.
                                 </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
@@ -378,6 +430,6 @@ export default function DenetmenPage() {
                     </AlertDialog>
                 </div>
             </DashboardLayout>
-        </ProtectedRoute>
+        </ProtectedRoute >
     );
 }

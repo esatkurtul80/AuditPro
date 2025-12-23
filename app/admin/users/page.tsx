@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useState, Suspense, useMemo } from "react";
 import { useAuth } from "@/components/auth-provider";
 import { useRouter } from "next/navigation";
 import { DashboardLayout } from "@/components/dashboard-layout";
@@ -201,7 +201,7 @@ function AdminUsersContent() {
     const [users, setUsers] = useState<UserProfile[]>([]);
     const [stores, setStores] = useState<Store[]>([]);
     const [loading, setLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState("active");
+    const [activeTab, setActiveTab] = useState("admin");
 
     // Delete Dialog State
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -388,8 +388,16 @@ function AdminUsersContent() {
     const filteredUsers = users.filter(user => {
         if (activeTab === "pending") {
             return user.role === "pending";
+        } else if (activeTab === "magaza") {
+            return user.role === "magaza";
+        } else if (activeTab === "denetmen") {
+            return user.role === "denetmen";
+        } else if (activeTab === "bolge-muduru") {
+            return user.role === "bolge-muduru";
+        } else if (activeTab === "admin") {
+            return user.role === "admin";
         }
-        return user.role !== "pending";
+        return false;
     });
 
     const [editUserDialogOpen, setEditUserDialogOpen] = useState(false);
@@ -429,111 +437,132 @@ function AdminUsersContent() {
         }
     };
 
-    const columns: ColumnDef<UserProfile>[] = [
-        {
-            accessorKey: "email",
-            id: "Kullanıcı",
-            header: ({ column }) => {
-                return (
-                    <Button
-                        variant="ghost"
-                        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-                    >
-                        Kullanıcı
-                        <ArrowUpDown className="ml-2 h-4 w-4" />
-                    </Button>
-                )
-            },
-            cell: ({ row }) => {
-                const user = row.original;
-                return (
-                    <div className="flex items-center gap-2">
-                        {user.photoURL && (
-                            <img
-                                src={user.photoURL}
-                                alt={user.displayName || "User"}
-                                className="h-8 w-8 rounded-full"
-                            />
-                        )}
-                        <div className="flex flex-col">
-                            <span className="font-medium text-sm">
-                                {user.displayName || "İsimsiz"}
-                            </span>
-                            <span className="text-xs text-muted-foreground">{user.email}</span>
+    const columns = useMemo<ColumnDef<UserProfile>[]>(() => {
+        const cols: ColumnDef<UserProfile>[] = [
+            {
+                accessorKey: "email",
+                id: "Kullanıcı",
+                header: ({ column }) => {
+                    return (
+                        <Button
+                            variant="ghost"
+                            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                        >
+                            Kullanıcı
+                            <ArrowUpDown className="ml-2 h-4 w-4" />
+                        </Button>
+                    )
+                },
+                cell: ({ row }) => {
+                    const user = row.original;
+                    return (
+                        <div className="flex items-center gap-2">
+                            {user.photoURL && (
+                                <img
+                                    src={user.photoURL}
+                                    alt={user.displayName || "User"}
+                                    className="h-8 w-8 rounded-full"
+                                />
+                            )}
+                            <div className="flex flex-col">
+                                <span className="font-medium text-sm">
+                                    {user.displayName || "İsimsiz"}
+                                </span>
+                                <span className="text-xs text-muted-foreground">{user.email}</span>
+                            </div>
                         </div>
-                    </div>
-                );
+                    );
+                }
             }
-        },
-        {
-            accessorKey: "firstName",
-            header: "Ad",
-            cell: ({ row }) => row.original.firstName || "-"
-        },
-        {
-            accessorKey: "lastName",
-            header: "Soyad",
-            cell: ({ row }) => row.original.lastName || "-"
-        },
-        {
+        ];
+
+        // Ad ve Soyad kolonları - Mağaza sekmesinde gösterilmez
+        if (activeTab !== "magaza") {
+            cols.push(
+                {
+                    accessorKey: "firstName",
+                    header: "Ad",
+                    cell: ({ row }) => row.original.firstName || "-"
+                },
+                {
+                    accessorKey: "lastName",
+                    header: "Soyad",
+                    cell: ({ row }) => row.original.lastName || "-"
+                }
+            );
+        }
+
+        // Rol kolonu
+        cols.push({
             accessorKey: "role",
             header: "Rol",
             cell: ({ row }) => getRoleBadge(row.original.role)
-        },
-        {
-            id: "storeAssignment",
-            header: "Mağaza",
-            cell: ({ row }) => (
-                <StoreAssignmentCell
-                    user={row.original}
-                    stores={stores}
-                    onAssign={assignStore}
-                />
-            )
-        },
-        {
-            id: "roleAssignment",
-            header: "Rol Değiştir",
-            cell: ({ row }) => (
-                <RoleAssignmentCell
-                    user={row.original}
-                    onRoleSelect={handleRoleSelect}
-                />
-            )
-        },
-        {
-            id: "actions",
-            enableHiding: false,
-            cell: ({ row }) => {
-                const user = row.original;
-                return (
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="h-8 w-8 p-0">
-                                <span className="sr-only">Menüyü aç</span>
-                                <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                            <DropdownMenuLabel>İşlemler</DropdownMenuLabel>
-                            <DropdownMenuItem onClick={() => openEditUserDialog(user)}>
-                                <Pencil className="mr-2 h-4 w-4" />
-                                Düzenle
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                                onClick={() => handleDeleteClick(user.uid, user.displayName || user.email)}
-                                className="text-red-600 focus:text-red-600"
-                            >
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Sil
-                            </DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                );
-            }
+        });
+
+        // Mağaza Atama kolonu - Sadece mağaza sekmesinde gösterilir (veya onay bekleyenlerde opsiyonel olabilir ama talep mağaza atamasını kaldırmak yönündeydi diğerlerinden)
+        // Talep: "sadece mağazada mağaza ataması kalabilir"
+        if (activeTab === "magaza") {
+            cols.push({
+                id: "storeAssignment",
+                header: "Mağaza",
+                cell: ({ row }) => (
+                    <StoreAssignmentCell
+                        user={row.original}
+                        stores={stores}
+                        onAssign={assignStore}
+                    />
+                )
+            });
         }
-    ];
+
+        // Rol Değiştirme ve İşlemler her zaman gösterilir
+        cols.push(
+            {
+                id: "roleAssignment",
+                header: "Rol Değiştir",
+                cell: ({ row }) => (
+                    <RoleAssignmentCell
+                        user={row.original}
+                        onRoleSelect={handleRoleSelect}
+                    />
+                )
+            },
+            {
+                id: "actions",
+                enableHiding: false,
+                cell: ({ row }) => {
+                    const user = row.original;
+                    return (
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" className="h-8 w-8 p-0">
+                                    <span className="sr-only">Menüyü aç</span>
+                                    <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                <DropdownMenuLabel>İşlemler</DropdownMenuLabel>
+                                <DropdownMenuItem onClick={() => openEditUserDialog(user)}>
+                                    <Pencil className="mr-2 h-4 w-4" />
+                                    Düzenle
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                    onClick={() => handleDeleteClick(user.uid, user.displayName || user.email)}
+                                    className="text-red-600 focus:text-red-600"
+                                >
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    Sil
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    );
+                }
+            }
+        );
+
+        return cols;
+    }, [activeTab, stores, assignStore, handleRoleSelect, handleDeleteClick, openEditUserDialog]);
 
     return (
         <div className="container mx-auto py-8">
@@ -552,7 +581,12 @@ function AdminUsersContent() {
                 <CardContent>
                     <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                         <TabsList className="mb-4">
-                            <TabsTrigger value="active">Aktif Kullanıcılar</TabsTrigger>
+                            <TabsTrigger value="admin" className="data-[state=active]:bg-purple-600 data-[state=active]:text-white text-purple-600 font-semibold">
+                                Admin
+                            </TabsTrigger>
+                            <TabsTrigger value="magaza">Mağaza</TabsTrigger>
+                            <TabsTrigger value="denetmen">Denetmenler</TabsTrigger>
+                            <TabsTrigger value="bolge-muduru">Bölge Müdürü</TabsTrigger>
                             <TabsTrigger value="pending" className="relative">
                                 Onay Bekleyenler
                                 {users.filter(u => u.role === "pending").length > 0 && (
@@ -563,7 +597,7 @@ function AdminUsersContent() {
                             </TabsTrigger>
                         </TabsList>
 
-                        <TabsContent value="active" className="mt-0">
+                        <TabsContent value="magaza" className="mt-0">
                             {loading ? (
                                 <div className="space-y-4">
                                     <div className="space-y-2">
@@ -573,6 +607,86 @@ function AdminUsersContent() {
                                         <Skeleton className="h-10 w-full" />
                                         <Skeleton className="h-10 w-full" />
                                     </div>
+                                </div>
+                            ) : filteredUsers.length === 0 ? (
+                                <div className="flex flex-col items-center justify-center py-12 text-center border rounded-lg bg-gray-50">
+                                    <StoreIcon className="h-12 w-12 text-muted-foreground mb-4" />
+                                    <h3 className="text-lg font-semibold">Mağaza kullanıcısı yok</h3>
+                                    <p className="text-muted-foreground mt-2">
+                                        Şu anda sistemde mağaza kullanıcısı bulunmuyor.
+                                    </p>
+                                </div>
+                            ) : (
+                                <DataTable columns={columns} data={filteredUsers} searchKey="Kullanıcı" searchPlaceholder="Email ara..." />
+                            )}
+                        </TabsContent>
+
+                        <TabsContent value="denetmen" className="mt-0">
+                            {loading ? (
+                                <div className="space-y-4">
+                                    <div className="space-y-2">
+                                        <Skeleton className="h-10 w-full" />
+                                        <Skeleton className="h-10 w-full" />
+                                        <Skeleton className="h-10 w-full" />
+                                        <Skeleton className="h-10 w-full" />
+                                        <Skeleton className="h-10 w-full" />
+                                    </div>
+                                </div>
+                            ) : filteredUsers.length === 0 ? (
+                                <div className="flex flex-col items-center justify-center py-12 text-center border rounded-lg bg-gray-50">
+                                    <UserCheck className="h-12 w-12 text-muted-foreground mb-4" />
+                                    <h3 className="text-lg font-semibold">Denetmen yok</h3>
+                                    <p className="text-muted-foreground mt-2">
+                                        Şu anda sistemde denetmen bulunmuyor.
+                                    </p>
+                                </div>
+                            ) : (
+                                <DataTable columns={columns} data={filteredUsers} searchKey="Kullanıcı" searchPlaceholder="Email ara..." />
+                            )}
+                        </TabsContent>
+
+                        <TabsContent value="bolge-muduru" className="mt-0">
+                            {loading ? (
+                                <div className="space-y-4">
+                                    <div className="space-y-2">
+                                        <Skeleton className="h-10 w-full" />
+                                        <Skeleton className="h-10 w-full" />
+                                        <Skeleton className="h-10 w-full" />
+                                        <Skeleton className="h-10 w-full" />
+                                        <Skeleton className="h-10 w-full" />
+                                    </div>
+                                </div>
+                            ) : filteredUsers.length === 0 ? (
+                                <div className="flex flex-col items-center justify-center py-12 text-center border rounded-lg bg-gray-50">
+                                    <Briefcase className="h-12 w-12 text-muted-foreground mb-4" />
+                                    <h3 className="text-lg font-semibold">Bölge müdürü yok</h3>
+                                    <p className="text-muted-foreground mt-2">
+                                        Şu anda sistemde bölge müdürü bulunmuyor.
+                                    </p>
+                                </div>
+                            ) : (
+                                <DataTable columns={columns} data={filteredUsers} searchKey="Kullanıcı" searchPlaceholder="Email ara..." />
+                            )}
+                        </TabsContent>
+
+                        <TabsContent value="admin" className="mt-0">
+                            {loading ? (
+                                <div className="space-y-4">
+                                    <div className="space-y-2">
+                                        <Skeleton className="h-10 w-full" />
+                                        <Skeleton className="h-10 w-full" />
+                                        <Skeleton className="h-10 w-full" />
+                                        <Skeleton className="h-10 w-full" />
+                                        <Skeleton className="h-10 w-full" />
+                                    </div>
+                                </div>
+                            ) : filteredUsers.length === 0 ? (
+                                <div className="flex flex-col items-center justify-center py-12 text-center border rounded-lg bg-gray-50">
+                                    <ShieldCheck className="h-12 w-12 text-muted-foreground mb-4" />
+                                    <h3 className="text-lg font-semibold">Admin yok</h3>
+                                    <p className="text-muted-foreground mt-2">
+                                        Şu anda sistemde admin bulunmuyor.
+                                    </p>
                                 </div>
                             ) : (
                                 <DataTable columns={columns} data={filteredUsers} searchKey="Kullanıcı" searchPlaceholder="Email ara..." />

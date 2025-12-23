@@ -1,14 +1,5 @@
-﻿"use client";
+﻿import { redirect } from 'next/navigation';
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
-
-export default function DenetmenRedirect() {
-    const router = useRouter();
-
-    useEffect(() => {
-        router.replace("/denetmen/bekleyen");
-    }, [router]);
-
-    return null;
+export default function DenetmenPage() {
+    redirect('/denetmen/panel');
 }

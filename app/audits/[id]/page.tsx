@@ -112,6 +112,23 @@ export default function AuditPage() {
             }
             const auditData = { id: auditDoc.id, ...auditDoc.data() } as Audit;
 
+            // Denetmen ismini güncel veritabanından çek
+            if (auditData.auditorId) {
+                try {
+                    const userDoc = await getDoc(doc(db, "users", auditData.auditorId));
+                    if (userDoc.exists()) {
+                        const userData = userDoc.data() as any;
+                        if (userData.firstName && userData.lastName) {
+                            auditData.auditorName = `${userData.firstName} ${userData.lastName}`;
+                        } else if (userData.displayName) {
+                            auditData.auditorName = userData.displayName;
+                        }
+                    }
+                } catch (e) {
+                    console.error("Error fetching auditor name:", e);
+                }
+            }
+
             // Ensure each answer has at least one empty note
             auditData.sections.forEach(section => {
                 section.answers.forEach(answer => {
@@ -140,15 +157,18 @@ export default function AuditPage() {
             // Return to section list from section detail
             setCurrentSectionIndex(null);
         } else {
+            // Determine back destination based on user role
+            const backDestination = userProfile?.role === 'admin' ? '/admin/dashboard' : '/denetmen/tamamlanan';
+
             // If in view mode (just viewing completed audit), go directly back without dialog
             if (isViewMode) {
-                router.push('/denetmen/tamamlanan');
+                router.push(backDestination);
                 return;
             }
 
-            // If in edit mode and no changes, go directly to tamamlanan page
+            // If in edit mode and no changes, go directly back
             if (isEditMode && !isDirty) {
-                router.push('/denetmen/tamamlanan');
+                router.push(backDestination);
                 return;
             }
             // Show exit confirmation dialog
@@ -292,14 +312,24 @@ export default function AuditPage() {
         setCompleting(true);
 
         try {
+            const now = Timestamp.now();
             await updateDoc(doc(db, "audits", auditId), {
                 status: "tamamlandi",
-                completedAt: Timestamp.now(),
-                updatedAt: Timestamp.now(),
+                completedAt: now,
+                updatedAt: now,
+            });
+
+            // Local state'i güncelle ki UI hemen güncellensin ve özet görünsün
+            setAudit({
+                ...audit,
+                status: "tamamlandi",
+                completedAt: now,
+                updatedAt: now,
             });
 
             toast.success("Denetim tamamlandı!");
-            router.push("/denetmen");
+            // Yönlendirme yerine sayfayı view moduna al (özet ve rapor indirme için)
+            router.replace(`/audits/${auditId}?mode=view`);
         } catch (error) {
             console.error("Error completing audit:", error);
             toast.error("Denetim tamamlanırken hata oluştu");
@@ -400,7 +430,9 @@ export default function AuditPage() {
             }
 
             toast.success("Düzenleme kaydedildi");
-            router.push("/denetmen/tamamlanan");
+            // Redirect based on user role
+            const backDestination = userProfile?.role === 'admin' ? '/admin/dashboard' : '/denetmen/tamamlanan';
+            router.push(backDestination);
         } catch (error) {
             console.error("Error saving audit:", error);
             toast.error("Denetim kaydedilirken hata oluştu");
@@ -447,8 +479,9 @@ export default function AuditPage() {
                 <div className="mb-6 flex items-center justify-between">
                     {currentSectionIndex !== null ? (
                         <Button
+                            variant="outline"
                             size="lg"
-                            className="bg-gradient-to-r from-[#8B0000] to-[#A0522D] hover:from-[#6B0000] hover:to-[#8B0000] text-white shadow-md border-0"
+                            className="bg-background hover:bg-muted shadow-sm"
                             onClick={handleBack}
                         >
                             <ArrowLeft className="mr-2 h-4 w-4" />
@@ -456,12 +489,14 @@ export default function AuditPage() {
                         </Button>
                     ) : (
                         <Button
+                            variant="outline"
                             size="lg"
-                            className="bg-gradient-to-r from-[#8B0000] to-[#A0522D] hover:from-[#6B0000] hover:to-[#8B0000] text-white shadow-md border-0"
+                            className="bg-background hover:bg-muted shadow-sm"
                             onClick={() => {
+                                const backDestination = userProfile?.role === 'admin' ? '/admin/dashboard' : '/denetmen/tamamlanan';
                                 if (isViewMode) {
                                     // View mode: navigate directly without dialog
-                                    window.location.href = '/denetmen/tamamlanan';
+                                    window.location.href = backDestination;
                                 } else if (isEditMode) {
                                     // Edit mode: show confirmation dialog
                                     setShowBackDialog(true);
@@ -496,12 +531,12 @@ export default function AuditPage() {
                                 )}
                             </Button>
                         )}
-                        {!isCompleted && (
+                        {!isCompleted && currentSectionIndex === null && (
                             <Button
                                 onClick={completeAudit}
                                 disabled={completing || hasPending || !isOnline}
                                 size="lg"
-                                className="bg-gradient-to-r from-[#8B0000] to-[#A0522D] hover:from-[#6B0000] hover:to-[#8B0000] text-white shadow-md border-0"
+                                className="bg-blue-600 hover:bg-blue-700 text-white shadow-md"
                                 title={
                                     !isOnline
                                         ? "Denetimi tamamlamak için internet bağlantısı gerekli"
@@ -536,21 +571,21 @@ export default function AuditPage() {
                     </div>
                 </div>
 
-                <Card className="shadow-lg overflow-hidden bg-gradient-to-r from-[#8B0000] to-[#A0522D] border-0">
+                <Card className="shadow-lg overflow-hidden border bg-card">
                     {currentSectionIndex === null && (
-                        <CardHeader className="bg-gradient-to-r from-[#8B0000] to-[#A0522D] text-white">
+                        <CardHeader className="bg-slate-50 dark:bg-slate-900 border-b">
                             <div className="flex items-center justify-between">
                                 <div className="flex-1">
-                                    <CardTitle className="text-3xl font-bold mb-2">
+                                    <CardTitle className="text-3xl font-bold mb-2 text-foreground">
                                         {audit.auditTypeName}
                                     </CardTitle>
-                                    <CardDescription className="text-white/90 text-lg">
+                                    <CardDescription className="text-muted-foreground text-lg">
                                         {audit.storeName} • {audit.auditorName}
                                     </CardDescription>
                                 </div>
                                 <div className="flex flex-col items-center">
-                                    <div className="flex items-center justify-center w-20 h-20 bg-white rounded-full shadow-lg border-4 border-white/50">
-                                        <div className="text-3xl font-bold text-[#8B0000]">
+                                    <div className="flex items-center justify-center w-20 h-20 bg-white dark:bg-slate-800 rounded-full shadow-lg border-4 border-slate-100 dark:border-slate-700">
+                                        <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">
                                             {audit.totalScore || 0}
                                         </div>
                                     </div>
@@ -558,7 +593,7 @@ export default function AuditPage() {
                             </div>
                         </CardHeader>
                     )}
-                    <CardContent className={`pb-8 px-6 bg-[#F5F1E8] dark:bg-gray-900 ${currentSectionIndex === null ? 'pt-6' : 'pt-0'}`}>
+                    <CardContent className={`pb-8 px-6 bg-background ${currentSectionIndex === null ? 'pt-6' : 'pt-0'}`}>
                         {isViewMode && (
                             <div className="mb-6 rounded-lg bg-green-50 border border-green-200 p-4">
                                 <div className="flex items-center gap-2 text-green-700 font-medium">
@@ -582,7 +617,7 @@ export default function AuditPage() {
                             // Section list view - hide in view mode, show only in edit mode or pending audits
                             !isViewMode ? (
                                 <>
-                                    <div className="grid gap-2 md:gap-4 bg-[#F5F1E8] dark:bg-gray-900 p-2 md:p-6 rounded-lg transition-all duration-500 ease-out animate-in fade-in zoom-in-95">
+                                    <div className="grid gap-2 md:gap-4 bg-background p-2 md:p-6 rounded-lg transition-all duration-500 ease-out animate-in fade-in zoom-in-95">
                                         {audit.sections.map((section, sectionIndex) => {
                                             const totalQuestions = section.answers.length;
                                             const answeredQuestions = section.answers.filter(
@@ -605,7 +640,7 @@ export default function AuditPage() {
                                             return (
                                                 <Card
                                                     key={sectionIndex}
-                                                    className="cursor-pointer hover:shadow-lg transition-all border border-[#800000] dark:border-[#800000] shadow-[inset_0_0_10px_rgba(0,0,0,0.1)] bg-gradient-to-r from-[#8B0000] to-[#A0522D] text-white rounded-xl h-20 md:h-auto py-0 md:py-6 gap-0 md:gap-6 flex items-center justify-center"
+                                                    className="cursor-pointer hover:shadow-lg transition-all border shadow-sm bg-card hover:bg-accent/50 group rounded-xl h-20 md:h-auto py-0 md:py-6 gap-0 md:gap-6 flex items-center justify-center"
                                                     onClick={() => setCurrentSectionIndex(sectionIndex)}
                                                 >
                                                     <CardHeader className="p-0 px-3 md:p-6 w-full">
@@ -615,19 +650,19 @@ export default function AuditPage() {
                                                                     className={`h-5 w-5 ${isComplete ? 'fill-green-500 text-green-500' : hasAny ? 'fill-red-500 text-red-500' : 'text-gray-300'}`}
                                                                 />
                                                                 <div className="flex-1 min-w-0">
-                                                                    <h3 className="font-bold text-base md:text-2xl mb-1 md:mb-2 truncate">{section.sectionName}</h3>
-                                                                    <p className="text-sm text-white/90 mt-1 truncate">
+                                                                    <h3 className="font-bold text-base md:text-2xl mb-1 md:mb-2 truncate text-foreground group-hover:text-blue-700 transition-colors">{section.sectionName}</h3>
+                                                                    <p className="text-sm text-muted-foreground mt-1 truncate">
                                                                         {answeredQuestions} / {totalQuestions} soru cevaplanmış
                                                                     </p>
                                                                 </div>
                                                             </div>
                                                             <div className="flex items-center gap-3">
-                                                                <div className="flex items-center justify-center w-10 h-10 md:w-14 md:h-14 bg-white rounded-full shadow-md">
-                                                                    <div className="text-base md:text-xl font-bold text-[#8B0000]">
+                                                                <div className="flex items-center justify-center w-10 h-10 md:w-14 md:h-14 bg-muted rounded-full shadow-inner">
+                                                                    <div className="text-base md:text-xl font-bold text-primary">
                                                                         {sectionScore}
                                                                     </div>
                                                                 </div>
-                                                                <ChevronRight className="h-6 w-6 text-white/70" />
+                                                                <ChevronRight className="h-6 w-6 text-muted-foreground group-hover:text-blue-600 transition-colors" />
                                                             </div>
                                                         </div>
                                                     </CardHeader>
@@ -654,10 +689,10 @@ export default function AuditPage() {
                                     const sectionScore = sectionMax > 0 ? Math.round((sectionEarned / sectionMax) * 100) : 0;
 
                                     return (
-                                        <div className="flex items-center justify-between mb-6 p-4 bg-[#F5F1E8] dark:bg-gray-900 rounded-lg">
-                                            <h2 className="text-2xl font-bold text-[#8B0000] dark:text-white">{section.sectionName}</h2>
-                                            <div className="flex items-center justify-center w-14 h-14 bg-gradient-to-r from-[#8B0000] to-[#A0522D] rounded-full shadow-md">
-                                                <div className="text-xl font-bold text-white">
+                                        <div className="flex items-center justify-between mb-6 p-4 bg-muted/50 rounded-lg border">
+                                            <h2 className="text-2xl font-bold text-foreground">{section.sectionName}</h2>
+                                            <div className="flex items-center justify-center w-14 h-14 bg-white dark:bg-slate-800 rounded-full shadow-md border">
+                                                <div className="text-xl font-bold text-blue-600 dark:text-blue-400">
                                                     {sectionScore}
                                                 </div>
                                             </div>
@@ -665,7 +700,7 @@ export default function AuditPage() {
                                     );
                                 })()}
                                 {audit.sections[currentSectionIndex].answers.map((answer, answerIndex) => (
-                                    <Card key={answerIndex} className="p-4 border border-[#800000] dark:border-[#800000] shadow-[inset_0_0_10px_rgba(0,0,0,0.1)]">
+                                    <Card key={answerIndex} className="p-4 border shadow-sm hover:shadow-md transition-shadow">
                                         <div className="space-y-4">
                                             <div className="flex items-start justify-between gap-4">
                                                 <div className="flex-1">
@@ -1043,8 +1078,8 @@ export default function AuditPage() {
                             </div>
                         )}
 
-                        {/* Audit Summary - Show for completed audits */}
-                        {isCompleted && currentSectionIndex === null && (isViewMode || isEditMode) && (
+                        {/* Audit Summary - Show only in view mode, not in edit mode */}
+                        {isCompleted && currentSectionIndex === null && isViewMode && (
                             <AuditSummary audit={audit} />
                         )}
 
@@ -1083,12 +1118,14 @@ export default function AuditPage() {
                                 <AlertDialogFooter>
                                     <AlertDialogCancel>İptal</AlertDialogCancel>
                                     <AlertDialogAction onClick={() => {
+                                        const isAdmin = userProfile?.role === 'admin';
                                         if (isEditMode || isViewMode) {
-                                            // For completed audits (edit or view mode), go to completed page
-                                            window.location.href = '/denetmen/tamamlanan';
+                                            // For completed audits (edit or view mode)
+                                            window.location.href = isAdmin ? '/admin/dashboard' : '/denetmen/tamamlanan';
                                         } else {
-                                            // For pending audits, go to pending page
-                                            router.push('/denetmen/bekleyen');
+                                            // For pending audits
+                                            const backDestination = isAdmin ? '/admin/dashboard' : '/denetmen/bekleyen';
+                                            router.push(backDestination);
                                         }
                                     }}>
                                         {isEditMode ? "Evet, Geri Dön" : "Çıkış Yap"}
@@ -1099,6 +1136,6 @@ export default function AuditPage() {
                     </CardContent>
                 </Card>
             </div>
-        </DashboardLayout>
+        </DashboardLayout >
     );
 }
