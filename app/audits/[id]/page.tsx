@@ -695,7 +695,7 @@ export default function AuditPage() {
                                 );
                             })()}
                             {audit.sections[currentSectionIndex].answers.map((answer, answerIndex) => (
-                                <Card key={answerIndex} className="p-4 border shadow-sm hover:shadow-md transition-shadow">
+                                <Card key={answerIndex} className="p-4 border shadow-sm hover:shadow-md transition-shadow bg-blue-50 dark:bg-blue-900/10 border-blue-200 dark:border-blue-800">
                                     <div className="space-y-4">
                                         <div className="flex items-start justify-between gap-4">
                                             <div className="flex-1">
