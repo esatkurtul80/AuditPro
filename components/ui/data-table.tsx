@@ -201,11 +201,11 @@ export function DataTable<TData, TValue>({
                     </TableBody>
                 </Table>
             </div>
-            <div className="flex items-center justify-between py-4">
-                <div className="flex-1 text-sm text-muted-foreground">
+            <div className="flex flex-col md:flex-row items-center justify-between py-4 gap-4">
+                <div className="flex-1 text-sm text-muted-foreground text-center md:text-left">
                     Toplam {table.getFilteredRowModel().rows.length} kayıt
                 </div>
-                <div className="flex items-center space-x-6 lg:space-x-8">
+                <div className="flex flex-col sm:flex-row items-center gap-4 md:gap-6 lg:gap-8">
                     <div className="flex items-center space-x-2">
                         <p className="text-sm font-medium">Sayfa başına satır</p>
                         <select

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/components/auth-provider";
 import { Button } from "@/components/ui/button";
@@ -40,12 +41,9 @@ export function Sidebar({ className, onLinkClick, isCollapsed, toggleSidebar }: 
     const [isDenetmenAuditMenuOpen, setIsDenetmenAuditMenuOpen] = useState(true);
     const [unreadCount, setUnreadCount] = useState(0);
 
-    // Auto-expand if collapsed is turned off
+    // Close submenus when sidebar is collapsed
     useEffect(() => {
-        if (!isCollapsed) {
-            setIsAuditMenuOpen(true);
-            setIsDenetmenAuditMenuOpen(true);
-        } else {
+        if (isCollapsed) {
             setIsAuditMenuOpen(false);
             setIsDenetmenAuditMenuOpen(false);
         }
@@ -107,18 +105,29 @@ export function Sidebar({ className, onLinkClick, isCollapsed, toggleSidebar }: 
     );
 
     return (
-        <div className={cn("flex flex-col h-screen border-r bg-gradient-to-b from-slate-50 to-white dark:from-slate-950 dark:to-slate-900 transition-all duration-300", className)}>
+        <div className={cn("flex flex-col h-screen border-r bg-gradient-to-b from-slate-50 to-white dark:from-slate-950 dark:to-slate-900 transition-all duration-500", className)}>
             {/* Header / Brand */}
-            <div className={cn("flex items-center justify-center h-16 border-b transition-all duration-300", isCollapsed ? "px-2" : "px-4")}>
+            <div className={cn("flex items-center h-16 border-b transition-all duration-500 gap-3", isCollapsed ? "justify-center px-2" : "justify-start px-6")}>
                 {/* Version Badge - Always visible */}
                 <div className={cn(
-                    "flex items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 via-purple-600 to-pink-600 shadow-lg shadow-purple-500/30 shrink-0 transition-all duration-300",
-                    isCollapsed ? "h-9 w-9" : "h-10 w-10"
+                    "flex items-center justify-center shrink-0 transition-all duration-500 relative",
+                    isCollapsed ? "h-9 w-9" : "h-9 w-9"
                 )}>
-                    <span className={cn("font-bold text-white", isCollapsed ? "text-[10px]" : "text-xs")}>
-                        {isCollapsed ? "A" : "v1.9.1"}
-                    </span>
+                    <Image
+                        src="/login-assets-new/logo.png"
+                        alt="AuditPro"
+                        fill
+                        className="object-contain"
+                    />
                 </div>
+                <span className={cn(
+                    "text-xl font-bold tracking-tight text-slate-900 dark:text-white whitespace-nowrap transition-all duration-500 ease-in-out origin-left",
+                    isCollapsed
+                        ? "opacity-0 w-0 -translate-x-5 overflow-hidden scale-90"
+                        : "opacity-100 w-auto translate-x-0 scale-100"
+                )}>
+                    AuditPro
+                </span>
             </div>
 
             {/* Navigation Links */}
@@ -137,22 +146,26 @@ export function Sidebar({ className, onLinkClick, isCollapsed, toggleSidebar }: 
                                 const isActive = pathname === link.href || pathname.startsWith(link.href + '/');
                                 return (
                                     <Link key={link.href} href={link.href} onClick={onLinkClick} title={isCollapsed ? link.label : undefined}>
-                                        <Button
-                                            variant="ghost"
+                                        <div
                                             className={cn(
-                                                "w-full h-11 px-4 font-medium transition-all duration-200",
-                                                isCollapsed ? "justify-center px-2" : "justify-start gap-3",
+                                                "w-full h-11 px-4 font-medium transition-all duration-500 flex items-center rounded-md cursor-pointer",
+                                                isCollapsed ? "justify-center px-2" : "justify-start",
                                                 isActive
                                                     ? "bg-blue-600 text-white hover:bg-blue-700 shadow-md shadow-blue-500/20"
                                                     : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100"
                                             )}
                                         >
                                             <Icon className={cn(
-                                                "h-5 w-5 transition-transform duration-200",
+                                                "h-5 w-5 transition-transform duration-500 shrink-0",
                                                 isActive && "scale-110"
                                             )} />
-                                            {!isCollapsed && <span className="text-sm">{link.label}</span>}
-                                        </Button>
+                                            <span className={cn(
+                                                "text-sm whitespace-nowrap transition-all duration-500 ease-in-out overflow-hidden origin-left",
+                                                isCollapsed ? "max-w-0 opacity-0 ml-0" : "max-w-[200px] opacity-100 ml-3"
+                                            )}>
+                                                {link.label}
+                                            </span>
+                                        </div>
                                     </Link>
                                 );
                             })}
@@ -170,8 +183,8 @@ export function Sidebar({ className, onLinkClick, isCollapsed, toggleSidebar }: 
                                         }
                                     }}
                                     className={cn(
-                                        "w-full h-11 px-4 font-medium transition-all duration-200",
-                                        isCollapsed ? "justify-center px-2" : "justify-start gap-3",
+                                        "w-full h-11 px-4 font-medium transition-all duration-500",
+                                        isCollapsed ? "justify-center px-2" : "justify-start",
                                         isAuditSectionActive
                                             ? "bg-blue-600 text-white hover:bg-blue-700 shadow-md shadow-blue-500/20"
                                             : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100"
@@ -179,18 +192,19 @@ export function Sidebar({ className, onLinkClick, isCollapsed, toggleSidebar }: 
                                     title={isCollapsed ? "Denetim Yönetimi" : undefined}
                                 >
                                     <ClipboardList className={cn(
-                                        "h-5 w-5 transition-transform duration-200",
+                                        "h-5 w-5 transition-transform duration-500 shrink-0",
                                         isAuditSectionActive && "scale-110"
                                     )} />
-                                    {!isCollapsed && (
-                                        <>
-                                            <span className="text-sm flex-1 text-left">Denetim Yönetimi</span>
-                                            <ChevronDown className={cn(
-                                                "h-4 w-4 transition-transform duration-200",
-                                                isAuditMenuOpen && "rotate-180"
-                                            )} />
-                                        </>
-                                    )}
+                                    <div className={cn(
+                                        "flex-1 flex items-center justify-between whitespace-nowrap transition-all duration-500 ease-in-out overflow-hidden origin-left",
+                                        isCollapsed ? "max-w-0 opacity-0 ml-0" : "max-w-[200px] opacity-100 ml-3"
+                                    )}>
+                                        <span className="text-sm text-left">Denetim Yönetimi</span>
+                                        <ChevronDown className={cn(
+                                            "h-4 w-4 transition-transform duration-500 shrink-0 ml-2",
+                                            isAuditMenuOpen && "rotate-180"
+                                        )} />
+                                    </div>
                                 </Button>
 
                                 {/* Sub Menu Items - Only show if open and NOT collapsed */}
@@ -201,18 +215,17 @@ export function Sidebar({ className, onLinkClick, isCollapsed, toggleSidebar }: 
                                             const isActive = pathname === link.href || pathname.startsWith(link.href + '/');
                                             return (
                                                 <Link key={link.href} href={link.href} onClick={onLinkClick}>
-                                                    <Button
-                                                        variant="ghost"
+                                                    <div
                                                         className={cn(
-                                                            "w-full justify-start gap-3 h-10 px-3 font-medium transition-all duration-200",
+                                                            "w-full justify-start h-10 px-3 font-medium transition-all duration-500 flex items-center rounded-md cursor-pointer",
                                                             isActive
                                                                 ? "bg-blue-600 text-white hover:bg-blue-700 shadow-sm"
                                                                 : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100"
                                                         )}
                                                     >
-                                                        <Icon className="h-4 w-4" />
+                                                        <Icon className="h-4 w-4 shrink-0 mr-3" />
                                                         <span className="text-sm">{link.label}</span>
-                                                    </Button>
+                                                    </div>
                                                 </Link>
                                             );
                                         })}
@@ -228,22 +241,26 @@ export function Sidebar({ className, onLinkClick, isCollapsed, toggleSidebar }: 
                                 const isActive = pathname === link.href || pathname.startsWith(link.href + '/');
                                 return (
                                     <Link key={link.href} href={link.href} onClick={onLinkClick} title={isCollapsed ? link.label : undefined}>
-                                        <Button
-                                            variant="ghost"
+                                        <div
                                             className={cn(
-                                                "w-full h-11 px-4 font-medium transition-all duration-200",
-                                                isCollapsed ? "justify-center px-2" : "justify-start gap-3",
+                                                "w-full h-11 px-4 font-medium transition-all duration-500 flex items-center rounded-md cursor-pointer",
+                                                isCollapsed ? "justify-center px-2" : "justify-start",
                                                 isActive
                                                     ? "bg-blue-600 text-white hover:bg-blue-700 shadow-md shadow-blue-500/20"
                                                     : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100"
                                             )}
                                         >
                                             <Icon className={cn(
-                                                "h-5 w-5 transition-transform duration-200",
+                                                "h-5 w-5 transition-transform duration-500 shrink-0",
                                                 isActive && "scale-110"
                                             )} />
-                                            {!isCollapsed && <span className="text-sm">{link.label}</span>}
-                                        </Button>
+                                            <span className={cn(
+                                                "text-sm whitespace-nowrap transition-all duration-500 ease-in-out overflow-hidden origin-left",
+                                                isCollapsed ? "max-w-0 opacity-0 ml-0" : "max-w-[200px] opacity-100 ml-3"
+                                            )}>
+                                                {link.label}
+                                            </span>
+                                        </div>
                                     </Link>
                                 );
                             })}
@@ -255,22 +272,26 @@ export function Sidebar({ className, onLinkClick, isCollapsed, toggleSidebar }: 
                                 const isActive = pathname === link.href || pathname.startsWith(link.href + '/');
                                 return (
                                     <Link key={link.href} href={link.href} onClick={onLinkClick} title={isCollapsed ? link.label : undefined}>
-                                        <Button
-                                            variant="ghost"
+                                        <div
                                             className={cn(
-                                                "w-full h-11 px-4 font-medium transition-all duration-200",
-                                                isCollapsed ? "justify-center px-2" : "justify-start gap-3",
+                                                "w-full h-11 px-4 font-medium transition-all duration-500 flex items-center rounded-md cursor-pointer",
+                                                isCollapsed ? "justify-center px-2" : "justify-start",
                                                 isActive
                                                     ? "bg-blue-600 text-white hover:bg-blue-700 shadow-md shadow-blue-500/20"
                                                     : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100"
                                             )}
                                         >
                                             <Icon className={cn(
-                                                "h-5 w-5 transition-transform duration-200",
+                                                "h-5 w-5 transition-transform duration-500 shrink-0",
                                                 isActive && "scale-110"
                                             )} />
-                                            {!isCollapsed && <span className="text-sm">{link.label}</span>}
-                                        </Button>
+                                            <span className={cn(
+                                                "text-sm whitespace-nowrap transition-all duration-500 ease-in-out overflow-hidden origin-left",
+                                                isCollapsed ? "max-w-0 opacity-0 ml-0" : "max-w-[200px] opacity-100 ml-3"
+                                            )}>
+                                                {link.label}
+                                            </span>
+                                        </div>
                                     </Link>
                                 );
                             })}
@@ -288,7 +309,7 @@ export function Sidebar({ className, onLinkClick, isCollapsed, toggleSidebar }: 
                                     }}
                                     className={cn(
                                         "w-full h-11 px-4 font-medium transition-all duration-200",
-                                        isCollapsed ? "justify-center px-2" : "justify-start gap-3",
+                                        isCollapsed ? "justify-center px-2" : "justify-start",
                                         isDenetmenAuditSectionActive
                                             ? "bg-blue-600 text-white hover:bg-blue-700 shadow-md shadow-blue-500/20"
                                             : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100"
@@ -296,18 +317,19 @@ export function Sidebar({ className, onLinkClick, isCollapsed, toggleSidebar }: 
                                     title={isCollapsed ? "Denetimlerim" : undefined}
                                 >
                                     <ClipboardList className={cn(
-                                        "h-5 w-5 transition-transform duration-200",
+                                        "h-5 w-5 transition-transform duration-200 shrink-0",
                                         isDenetmenAuditSectionActive && "scale-110"
                                     )} />
-                                    {!isCollapsed && (
-                                        <>
-                                            <span className="text-sm flex-1 text-left">Denetimlerim</span>
-                                            <ChevronDown className={cn(
-                                                "h-4 w-4 transition-transform duration-200",
-                                                isDenetmenAuditMenuOpen && "rotate-180"
-                                            )} />
-                                        </>
-                                    )}
+                                    <div className={cn(
+                                        "flex-1 flex items-center justify-between whitespace-nowrap transition-all duration-500 ease-in-out overflow-hidden origin-left",
+                                        isCollapsed ? "max-w-0 opacity-0 ml-0" : "max-w-[200px] opacity-100 ml-3"
+                                    )}>
+                                        <span className="text-sm text-left">Denetimlerim</span>
+                                        <ChevronDown className={cn(
+                                            "h-4 w-4 transition-transform duration-200 shrink-0 ml-2",
+                                            isDenetmenAuditMenuOpen && "rotate-180"
+                                        )} />
+                                    </div>
                                 </Button>
 
                                 {isDenetmenAuditMenuOpen && !isCollapsed && (
@@ -317,18 +339,17 @@ export function Sidebar({ className, onLinkClick, isCollapsed, toggleSidebar }: 
                                             const isActive = pathname === link.href || pathname.startsWith(link.href + '/');
                                             return (
                                                 <Link key={link.href} href={link.href} onClick={onLinkClick}>
-                                                    <Button
-                                                        variant="ghost"
+                                                    <div
                                                         className={cn(
-                                                            "w-full justify-start gap-3 h-10 px-3 font-medium transition-all duration-200",
+                                                            "w-full justify-start h-10 px-3 font-medium transition-all duration-500 flex items-center rounded-md cursor-pointer",
                                                             isActive
                                                                 ? "bg-blue-600 text-white hover:bg-blue-700 shadow-sm"
                                                                 : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100"
                                                         )}
                                                     >
-                                                        <Icon className="h-4 w-4" />
+                                                        <Icon className="h-4 w-4 shrink-0 mr-3" />
                                                         <span className="text-sm">{link.label}</span>
-                                                    </Button>
+                                                    </div>
                                                 </Link>
                                             );
                                         })}
@@ -342,22 +363,26 @@ export function Sidebar({ className, onLinkClick, isCollapsed, toggleSidebar }: 
                             const isActive = pathname === link.href || pathname.startsWith(link.href + '/');
                             return (
                                 <Link key={link.href} href={link.href} onClick={onLinkClick} title={isCollapsed ? link.label : undefined}>
-                                    <Button
-                                        variant="ghost"
+                                    <div
                                         className={cn(
-                                            "w-full h-11 px-4 font-medium transition-all duration-200",
-                                            isCollapsed ? "justify-center px-2" : "justify-start gap-3",
+                                            "w-full h-11 px-4 font-medium transition-all duration-500 flex items-center rounded-md cursor-pointer",
+                                            isCollapsed ? "justify-center px-2" : "justify-start",
                                             isActive
                                                 ? "bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 hover:to-purple-700 shadow-md shadow-purple-500/20"
                                                 : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100"
                                         )}
                                     >
                                         <Icon className={cn(
-                                            "h-5 w-5 transition-transform duration-200",
+                                            "h-5 w-5 transition-transform duration-500 shrink-0",
                                             isActive && "scale-110"
                                         )} />
-                                        {!isCollapsed && <span className="text-sm">{link.label}</span>}
-                                    </Button>
+                                        <span className={cn(
+                                            "text-sm whitespace-nowrap transition-all duration-500 ease-in-out overflow-hidden origin-left",
+                                            isCollapsed ? "max-w-0 opacity-0 ml-0" : "max-w-[200px] opacity-100 ml-3"
+                                        )}>
+                                            {link.label}
+                                        </span>
+                                    </div>
                                 </Link>
                             );
                         })

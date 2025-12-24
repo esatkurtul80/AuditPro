@@ -50,7 +50,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
             >
                 <div className="fixed inset-0 bg-black/80" onClick={() => setIsMobileMenuOpen(false)} />
                 <div
-                    className={`fixed inset-y-0 left-0 w-[80%] max-w-sm bg-background p-0 shadow-lg transform transition-transform duration-300 ease-in-out ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
+                    className={`fixed inset-y-0 left-0 w-[65%] max-w-[280px] bg-background p-0 shadow-lg transform transition-transform duration-300 ease-in-out ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
                         }`}
                 >
                     <Sidebar className="border-none" onLinkClick={() => setIsMobileMenuOpen(false)} />

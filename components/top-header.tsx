@@ -16,8 +16,8 @@ export function TopHeader({ toggleSidebar, isCollapsed }: TopHeaderProps) {
     return (
         <>
             {/* Full-width border underneath sidebar + header */}
-            <div className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-                <div className="container flex h-16 items-center justify-between px-4">
+            <div className="sticky top-0 z-40 h-16 flex items-center border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+                <div className="container flex h-full items-center justify-between px-4">
                     {/* Left: Sidebar Toggle + Actions Button */}
                     <div className="flex-1 flex items-center gap-3">
                         <Button
@@ -32,7 +32,7 @@ export function TopHeader({ toggleSidebar, isCollapsed }: TopHeaderProps) {
 
                         <Button
                             variant="default"
-                            className="gap-2 bg-blue-600 hover:bg-blue-700 text-white cursor-pointer"
+                            className="hidden xl:flex gap-2 bg-blue-600 hover:bg-blue-700 text-white cursor-pointer"
                             onClick={() => router.push("/admin/actions")}
                         >
                             <Zap className="h-4 w-4" />

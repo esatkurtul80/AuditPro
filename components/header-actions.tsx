@@ -127,19 +127,7 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
 
     return compact ? (
         <div className="flex items-center gap-2">
-            {/* Actions Button */}
-            {userProfile?.role === "admin" && (
-                <div className="flex items-center justify-center">
-                    <Button
-                        variant="destructive"
-                        size="sm"
-                        className="text-xs px-2 h-8"
-                        onClick={() => router.push("/admin/actions")}
-                    >
-                        AKSİYONLAR
-                    </Button>
-                </div>
-            )}
+
 
             {/* First 3 buttons: Online Status, Notifications, Theme */}
             <div className="flex items-center gap-0">
@@ -158,6 +146,7 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
                                 size="icon"
                                 className="relative h-8 w-8"
                                 title={unreadCount > 0 ? `${unreadCount} yeni bildirim` : "Bildirimler"}
+                                suppressHydrationWarning
                             >
                                 <Bell className={iconSize} />
                                 {unreadCount > 0 && (
@@ -274,6 +263,7 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
                     <Button
                         variant="ghost"
                         className={`relative ${avatarSize} rounded-full p-0`}
+                        suppressHydrationWarning
                     >
                         {loading ? (
                             <Skeleton className={`${avatarSize} rounded-full`} />
@@ -332,6 +322,7 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
                         size="icon"
                         className="relative"
                         title={unreadCount > 0 ? `${unreadCount} yeni bildirim` : "Bildirimler"}
+                        suppressHydrationWarning
                     >
                         <Bell className={iconSize} />
                         {unreadCount > 0 && (
@@ -443,6 +434,7 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
                     <Button
                         variant="ghost"
                         className={`relative ${avatarSize} rounded-full p-0`}
+                        suppressHydrationWarning
                     >
                         {loading ? (
                             <Skeleton className={`${avatarSize} rounded-full`} />

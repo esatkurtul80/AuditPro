@@ -20,6 +20,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "AuditPro - Mağaza Denetim Sistemi",
   description: "Profesyonel mağaza denetim ve aksiyon takip sistemi",
+  icons: {
+    icon: "/login-assets-new/logo.png",
+  },
 };
 
 export default function RootLayout({
