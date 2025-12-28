@@ -1,6 +1,12 @@
 # AuditPro Version History
 
-## v1.9.1 (Current)
+## v1.9.3 (Current)
+- Refined Admin Actions UI: Increased row height, font sizes, and badge styles.
+- Reordered columns in Admin Actions table: Store -> Auditor -> Audit Type.
+- Fixed `useSearchParams` build errors in Admin Actions and Sidebar by adding Suspense boundaries.
+- Added dynamic filtering for "Return Date" and "Deadline" columns based on tab.
+
+## v1.9.1
 - Updated question cards to match the blue theme of the section cards.
 
 ## v1.8.0
