@@ -5,6 +5,7 @@ import { AuthProvider } from "@/components/auth-provider";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { OfflineIndicator } from "@/components/offline-indicator";
+import { PageTransition } from "@/components/page-transition";
 import NextTopLoader from "nextjs-toploader";
 
 const geistSans = Geist({
@@ -43,8 +44,17 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <AuthProvider>
-            <NextTopLoader color="#2563eb" showSpinner={false} />
-            {children}
+            <NextTopLoader
+              color="#2563eb"
+              height={2}
+              showSpinner={false}
+              speed={200}
+              easing="ease"
+              shadow={false}
+            />
+            <PageTransition>
+              {children}
+            </PageTransition>
             <Toaster />
             <OfflineIndicator />
           </AuthProvider>

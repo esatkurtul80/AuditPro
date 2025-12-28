@@ -210,7 +210,9 @@ export function CreateAuditDialog({ open, onOpenChange }: CreateAuditDialogProps
                 storeId: store.id,
                 storeName: store.name || "",
                 auditorId: userProfile.uid,
-                auditorName: userProfile.displayName || userProfile.email || "",
+                auditorName: (userProfile.firstName && userProfile.lastName)
+                    ? `${userProfile.firstName} ${userProfile.lastName}`
+                    : userProfile.displayName || userProfile.email || "",
                 status: "devam_ediyor",
                 sections,
                 totalScore: 0,

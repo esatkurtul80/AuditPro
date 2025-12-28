@@ -34,7 +34,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Upload, X, CheckCircle2, ArrowLeft, Circle, Plus, Save, WifiOff, Clock, Star, ChevronRight } from "lucide-react";
+import { Loader2, Upload, X, CheckCircle2, ArrowLeft, Circle, Plus, Save, WifiOff, Clock, Star, ChevronRight, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
@@ -74,6 +74,8 @@ export default function AuditPage() {
     const [originalScore, setOriginalScore] = useState<number>(0);
     const [originalAudit, setOriginalAudit] = useState<Audit | null>(null);
     const [isDirty, setIsDirty] = useState(false);
+    const [validationErrors, setValidationErrors] = useState<{ photos: string[], notes: string[] }>({ photos: [], notes: [] });
+    const [showValidationModal, setShowValidationModal] = useState(false);
 
     // Offline sync
     const isOnline = useOnlineStatus();
@@ -118,7 +120,9 @@ export default function AuditPage() {
                     const userDoc = await getDoc(doc(db, "users", auditData.auditorId));
                     if (userDoc.exists()) {
                         const userData = userDoc.data() as any;
-                        if (userData.firstName && userData.lastName) {
+                        if (userData.firstName && userData.lastName &&
+                            userData.firstName.trim().length > 1 &&
+                            userData.lastName.trim().length > 1) {
                             auditData.auditorName = `${userData.firstName} ${userData.lastName}`;
                         } else if (userData.displayName) {
                             auditData.auditorName = userData.displayName;
@@ -226,7 +230,7 @@ export default function AuditPage() {
             if (sectionMax > 0) {
                 const sectionScore = (sectionEarned / sectionMax) * 100;
                 sectionScores.push(sectionScore);
-                console.log(`${section.sectionName}: ${sectionEarned}/${sectionMax} = ${Math.round(sectionScore)}%`);
+
             }
         });
 
@@ -306,6 +310,46 @@ export default function AuditPage() {
                 `Lütfen şu bölümlerdeki tüm soruları cevaplayın: ${incompleteSections.join(", ")}`,
                 { duration: 5000 }
             );
+            return;
+        }
+
+        // Zorunlu fotoğraf kontrolü
+        const missingPhotos: string[] = [];
+
+        audit.sections.forEach(section => {
+            section.answers.forEach(answer => {
+                // Sorunun cevaplanmış ve fotoğraf zorunlu olup olmadığını kontrol et
+                if (answer.answer && answer.answer.trim() !== "" && answer.photoRequired) {
+                    if (!answer.photos || answer.photos.length === 0) {
+                        missingPhotos.push(`${section.sectionName}: ${answer.questionText}`);
+                    }
+                }
+            });
+        });
+
+        // "Hayır" cevapları için zorunlu not kontrolü
+        const missingNotes: string[] = [];
+
+        audit.sections.forEach(section => {
+            section.answers.forEach(answer => {
+                // "Hayır" cevabı verilmiş mi kontrol et
+                if (answer.answer === "hayir") {
+                    // Not var mı ve içeriği anlamlı mı kontrol et
+                    const hasValidNote = answer.notes &&
+                        answer.notes.length > 0 &&
+                        answer.notes.some(note => note && note.trim() !== "");
+
+                    if (!hasValidNote) {
+                        missingNotes.push(`${section.sectionName}: ${answer.questionText}`);
+                    }
+                }
+            });
+        });
+
+        // Eğer eksik fotoğraf veya not varsa modal göster
+        if (missingPhotos.length > 0 || missingNotes.length > 0) {
+            setValidationErrors({ photos: missingPhotos, notes: missingNotes });
+            setShowValidationModal(true);
             return;
         }
 
@@ -1174,6 +1218,68 @@ export default function AuditPage() {
                                     }
                                 }}>
                                     {isEditMode ? "Evet, Geri Dön" : "Çıkış Yap"}
+                                </AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
+
+                    {/* Validation Errors Modal */}
+                    <AlertDialog open={showValidationModal} onOpenChange={setShowValidationModal}>
+                        <AlertDialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                            <AlertDialogHeader>
+                                <AlertDialogTitle className="text-xl">Denetim Tamamlanamıyor</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    Lütfen aşağıdaki eksiklikleri tamamlayın:
+                                </AlertDialogDescription>
+                            </AlertDialogHeader>
+
+                            <div className="space-y-6 py-4">
+                                {validationErrors.photos.length > 0 && (
+                                    <div className="space-y-3">
+                                        <h4 className="font-semibold text-red-700 flex items-center gap-2">
+                                            <AlertCircle className="h-5 w-5" />
+                                            Fotoğraf Eklemeniz Gereken Sorular ({validationErrors.photos.length})
+                                        </h4>
+                                        <ul className="space-y-2">
+                                            {validationErrors.photos.map((item, index) => (
+                                                <li key={index} className="flex gap-2 text-sm">
+                                                    <span className="text-red-500 font-bold shrink-0">•</span>
+                                                    <span className="leading-relaxed">{item}</span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                )}
+
+                                {validationErrors.notes.length > 0 && (
+                                    <div className="space-y-3">
+                                        <h4 className="font-semibold text-orange-700 flex items-center gap-2">
+                                            <AlertCircle className="h-5 w-5" />
+                                            Not Eklemeniz Gereken Sorular ({validationErrors.notes.length})
+                                        </h4>
+                                        <div className="bg-orange-50 p-3 rounded-lg mb-2">
+                                            <p className="text-sm text-orange-800">
+                                                💡 "Hayır" cevabı verilen sorular için açıklayıcı not eklemeniz gerekmektedir.
+                                            </p>
+                                        </div>
+                                        <ul className="space-y-2">
+                                            {validationErrors.notes.map((item, index) => (
+                                                <li key={index} className="flex gap-2 text-sm">
+                                                    <span className="text-orange-500 font-bold shrink-0">•</span>
+                                                    <span className="leading-relaxed">{item}</span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                )}
+                            </div>
+
+                            <AlertDialogFooter>
+                                <AlertDialogAction
+                                    onClick={() => setShowValidationModal(false)}
+                                    className="bg-blue-600 hover:bg-blue-700"
+                                >
+                                    Anladım
                                 </AlertDialogAction>
                             </AlertDialogFooter>
                         </AlertDialogContent>

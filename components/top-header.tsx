@@ -4,6 +4,7 @@ import { HeaderActions } from "@/components/header-actions";
 import { Button } from "@/components/ui/button";
 import { CheckSquare, Zap, PanelLeft } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/components/auth-provider";
 
 interface TopHeaderProps {
     toggleSidebar?: () => void;
@@ -12,6 +13,7 @@ interface TopHeaderProps {
 
 export function TopHeader({ toggleSidebar, isCollapsed }: TopHeaderProps) {
     const router = useRouter();
+    const { userProfile } = useAuth();
 
     return (
         <>
@@ -30,14 +32,16 @@ export function TopHeader({ toggleSidebar, isCollapsed }: TopHeaderProps) {
                             <PanelLeft className="h-5 w-5" />
                         </Button>
 
-                        <Button
-                            variant="default"
-                            className="hidden xl:flex gap-2 bg-blue-600 hover:bg-blue-700 text-white cursor-pointer"
-                            onClick={() => router.push("/admin/actions")}
-                        >
-                            <Zap className="h-4 w-4" />
-                            AKSİYONLAR
-                        </Button>
+                        {userProfile?.role !== "magaza" && (
+                            <Button
+                                variant="default"
+                                className="hidden xl:flex gap-2 bg-blue-600 hover:bg-blue-700 text-white cursor-pointer"
+                                onClick={() => router.push("/admin/actions?tab=pending_admin")}
+                            >
+                                <Zap className="h-4 w-4" />
+                                AKSİYONLAR
+                            </Button>
+                        )}
                     </div>
 
                     {/* Right: Header actions */}

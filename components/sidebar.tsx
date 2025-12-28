@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/auth-provider";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,7 +22,7 @@ import {
     XCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { collection, query, where, onSnapshot } from "firebase/firestore";
@@ -34,11 +34,13 @@ interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
     toggleSidebar?: () => void;
 }
 
-export function Sidebar({ className, onLinkClick, isCollapsed, toggleSidebar }: SidebarProps) {
+function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar }: SidebarProps) {
     const { userProfile, loading } = useAuth();
     const pathname = usePathname();
+    const searchParams = useSearchParams();
     const [isAuditMenuOpen, setIsAuditMenuOpen] = useState(true);
     const [isDenetmenAuditMenuOpen, setIsDenetmenAuditMenuOpen] = useState(true);
+    const [isActionsMenuOpen, setIsActionsMenuOpen] = useState(true);
     const [unreadCount, setUnreadCount] = useState(0);
 
     // Close submenus when sidebar is collapsed
@@ -46,6 +48,7 @@ export function Sidebar({ className, onLinkClick, isCollapsed, toggleSidebar }: 
         if (isCollapsed) {
             setIsAuditMenuOpen(false);
             setIsDenetmenAuditMenuOpen(false);
+            setIsActionsMenuOpen(false);
         }
     }, [isCollapsed]);
 
@@ -67,7 +70,7 @@ export function Sidebar({ className, onLinkClick, isCollapsed, toggleSidebar }: 
         { href: "/admin/dashboard", label: "Panel", icon: LayoutDashboard },
         { href: "/admin/users", label: "Kullanıcılar", icon: Users },
         { href: "/admin/stores", label: "Mağazalar", icon: Store },
-        { href: "/admin/actions", label: "Aksiyonlar", icon: CheckSquare },
+        // Aksiyonlar removed from here to be its own section
         { href: "/admin/reports/stores", label: "Raporlar", icon: BarChart3 },
         { href: "/admin/cop-kutusu", label: "Çöp Kutusu", icon: Trash2 },
     ];
@@ -76,6 +79,12 @@ export function Sidebar({ className, onLinkClick, isCollapsed, toggleSidebar }: 
         { href: "/admin/questions", label: "Sorular", icon: FileQuestion },
         { href: "/admin/sections", label: "Bölümler", icon: LayoutList },
         { href: "/admin/audit-types", label: "Denetim Formları", icon: ClipboardList },
+    ];
+
+    const actionsSubLinks = [
+        { href: "/admin/actions?tab=pending_store", label: "Dönüş Yapmayanlar", icon: XCircle },
+        { href: "/admin/actions?tab=pending_admin", label: "Onay Bekleyenler", icon: PlayCircle }, // Using PlayCircle as a placeholder for waiting
+        { href: "/admin/actions?tab=approved", label: "Onaylananlar", icon: CheckCircle },
     ];
 
     const denetmenLinks = [
@@ -169,6 +178,73 @@ export function Sidebar({ className, onLinkClick, isCollapsed, toggleSidebar }: 
                                     </Link>
                                 );
                             })}
+
+                            {/* Aksiyonlar Dropdown */}
+                            <div className="space-y-1">
+                                <Button
+                                    variant="ghost"
+                                    onClick={() => {
+                                        if (isCollapsed && toggleSidebar) {
+                                            toggleSidebar();
+                                            setTimeout(() => setIsActionsMenuOpen(true), 100);
+                                        } else {
+                                            setIsActionsMenuOpen(!isActionsMenuOpen);
+                                        }
+                                    }}
+                                    className={cn(
+                                        "w-full h-11 px-4 font-medium transition-all duration-500",
+                                        isCollapsed ? "justify-center px-2" : "justify-start",
+                                        pathname.startsWith("/admin/actions")
+                                            ? "bg-blue-600 text-white hover:bg-blue-700 shadow-md shadow-blue-500/20"
+                                            : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100"
+                                    )}
+                                    title={isCollapsed ? "Aksiyonlar" : undefined}
+                                >
+                                    <CheckSquare className={cn(
+                                        "h-5 w-5 transition-transform duration-500 shrink-0",
+                                        pathname.startsWith("/admin/actions") && "scale-110"
+                                    )} />
+                                    <div className={cn(
+                                        "flex-1 flex items-center justify-between whitespace-nowrap transition-all duration-500 ease-in-out overflow-hidden origin-left",
+                                        isCollapsed ? "max-w-0 opacity-0 ml-0" : "max-w-[200px] opacity-100 ml-3"
+                                    )}>
+                                        <span className="text-sm text-left">Aksiyonlar</span>
+                                        <ChevronDown className={cn(
+                                            "h-4 w-4 transition-transform duration-500 shrink-0 ml-2",
+                                            isActionsMenuOpen && "rotate-180"
+                                        )} />
+                                    </div>
+                                </Button>
+
+                                {/* Sub Menu Items - Only show if open and NOT collapsed */}
+                                {isActionsMenuOpen && !isCollapsed && (
+                                    <div className="ml-4 space-y-1 border-l-2 border-slate-200 dark:border-slate-700 pl-2">
+                                        {actionsSubLinks.map((link) => {
+                                            const Icon = link.icon;
+                                            // Check exact match for query params handling
+                                            const currentTab = searchParams.get('tab') || 'pending_store';
+                                            const linkTab = link.href.split('tab=')[1];
+                                            const isActive = pathname === "/admin/actions" && currentTab === linkTab;
+
+                                            return (
+                                                <Link key={link.href} href={link.href} onClick={onLinkClick}>
+                                                    <div
+                                                        className={cn(
+                                                            "w-full justify-start h-10 px-3 font-medium transition-all duration-500 flex items-center rounded-md cursor-pointer",
+                                                            isActive
+                                                                ? "bg-blue-600 text-white hover:bg-blue-700 shadow-sm"
+                                                                : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100"
+                                                        )}
+                                                    >
+                                                        <Icon className="h-4 w-4 shrink-0 mr-3" />
+                                                        <span className="text-sm">{link.label}</span>
+                                                    </div>
+                                                </Link>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </div>
 
                             {/* Denetim Yönetimi Dropdown */}
                             <div className="space-y-1">
@@ -390,5 +466,13 @@ export function Sidebar({ className, onLinkClick, isCollapsed, toggleSidebar }: 
                 </nav>
             </div>
         </div >
+    );
+}
+
+export function Sidebar(props: SidebarProps) {
+    return (
+        <Suspense fallback={<div className="w-[70px] bg-white h-screen border-r" />}>
+            <SidebarContent {...props} />
+        </Suspense>
     );
 }

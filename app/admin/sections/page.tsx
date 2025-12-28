@@ -250,102 +250,99 @@ export default function SectionsPage() {
 
     return (
         <div className="container mx-auto py-4 md:py-8 px-4 md:px-6">
-            <div className="flex items-center justify-between mb-8">
-                <div>
-                    <h1 className="text-4xl font-bold">Bölüm Havuzu</h1>
-                    <p className="text-muted-foreground mt-2">
-                        Bölümleri oluşturun, sorular atayın ve denetim formlarına ekleyin
-                    </p>
-                </div>
-                <Dialog
-                    open={dialogOpen}
-                    onOpenChange={(open) => {
-                        setDialogOpen(open);
-                        if (!open) {
-                            setEditing(null);
-                            setFormData({ name: "", description: "" });
-                        }
-                    }}
-                >
-                    <DialogTrigger asChild>
-                        <Button size="lg">
-                            <Plus className="mr-2 h-5 w-5" />
-                            Yeni Bölüm
-                        </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                        <DialogHeader>
-                            <DialogTitle>
-                                {editing ? "Bölüm Düzenle" : "Yeni Bölüm"}
-                            </DialogTitle>
-                            <DialogDescription>
-                                Bölüm havuzuna yeni bir bölüm ekleyin
-                            </DialogDescription>
-                        </DialogHeader>
-                        <div className="space-y-4">
-                            <div>
-                                <Label>Bölüm Adı</Label>
-                                <Input
-                                    value={formData.name}
-                                    onChange={(e) =>
-                                        setFormData({ ...formData, name: e.target.value })
-                                    }
-                                    placeholder="Örn: Temizlik"
-                                />
-                            </div>
-                            <div>
-                                <Label>Açıklama</Label>
-                                <Textarea
-                                    value={formData.description}
-                                    onChange={(e) =>
-                                        setFormData({ ...formData, description: e.target.value })
-                                    }
-                                    placeholder="Bölüm açıklaması..."
-                                    rows={3}
-                                />
-                            </div>
-                            <div className="flex justify-end gap-2">
-                                <Button
-                                    variant="outline"
-                                    onClick={() => setDialogOpen(false)}
-                                >
-                                    İptal
-                                </Button>
-                                <Button onClick={handleSubmit}>
-                                    {editing ? "Güncelle" : "Oluştur"}
-                                </Button>
-                            </div>
-                        </div>
-                    </DialogContent>
-                </Dialog>
-            </div>
-
             <Card>
-                <CardHeader>
-                    <CardTitle>Tüm Bölümler</CardTitle>
-                    <CardDescription>{sections.length} bölüm</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <DataTable columns={columns} data={sections} searchKey="Bölüm Adı" searchPlaceholder="Bölüm ara..." />
+                <CardContent className="p-6 pt-0">
+                    <Dialog
+                        open={dialogOpen}
+                        onOpenChange={(open) => {
+                            setDialogOpen(open);
+                            if (!open) {
+                                setEditing(null);
+                                setFormData({ name: "", description: "" });
+                            }
+                        }}
+                    >
+                        <DialogContent>
+                            <DialogHeader>
+                                <DialogTitle>
+                                    {editing ? "Bölüm Düzenle" : "Yeni Bölüm"}
+                                </DialogTitle>
+                                <DialogDescription>
+                                    Bölüm havuzuna yeni bir bölüm ekleyin
+                                </DialogDescription>
+                            </DialogHeader>
+                            <div className="space-y-4">
+                                <div>
+                                    <Label>Bölüm Adı</Label>
+                                    <Input
+                                        value={formData.name}
+                                        onChange={(e) =>
+                                            setFormData({ ...formData, name: e.target.value })
+                                        }
+                                        placeholder="Örn: Temizlik"
+                                    />
+                                </div>
+                                <div>
+                                    <Label>Açıklama</Label>
+                                    <Textarea
+                                        value={formData.description}
+                                        onChange={(e) =>
+                                            setFormData({ ...formData, description: e.target.value })
+                                        }
+                                        placeholder="Bölüm açıklaması..."
+                                        rows={3}
+                                    />
+                                </div>
+                                <div className="flex justify-end gap-2">
+                                    <Button
+                                        variant="outline"
+                                        onClick={() => setDialogOpen(false)}
+                                    >
+                                        İptal
+                                    </Button>
+                                    <Button onClick={handleSubmit}>
+                                        {editing ? "Güncelle" : "Oluştur"}
+                                    </Button>
+                                </div>
+                            </div>
+                        </DialogContent>
+                    </Dialog>
+
+                    <DataTable
+                        columns={columns}
+                        data={sections}
+                        searchKey="Bölüm Adı"
+                        searchPlaceholder="Bölüm ara..."
+                        actionElement={
+                            <Button
+                                size="lg"
+                                onClick={() => setDialogOpen(true)}
+                                className="bg-blue-600 text-white hover:bg-blue-700 shadow-md shadow-blue-500/20"
+                            >
+                                <Plus className="mr-2 h-5 w-5" />
+                                Yeni Bölüm
+                            </Button>
+                        }
+                    />
+
+                    <AlertDialog open={deleteAlertOpen} onOpenChange={setDeleteAlertOpen}>
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                                <AlertDialogTitle>Bölümü silmek istediğinizden emin misiniz?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    Bu işlem geri alınamaz. Bu bölümü kalıcı olarak silmek istediğinize emin misiniz?
+                                </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                                <AlertDialogCancel>İptal</AlertDialogCancel>
+                                <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">
+                                    Sil
+                                </AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
                 </CardContent>
             </Card>
-
-            <AlertDialog open={deleteAlertOpen} onOpenChange={setDeleteAlertOpen}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Bölümü silmek istediğinizden emin misiniz?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            Bu işlem geri alınamaz. Bu bölümü kalıcı olarak silmek istediğinize emin misiniz?
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>İptal</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">
-                            Sil
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
-        </div>
+        </div >
     );
 }

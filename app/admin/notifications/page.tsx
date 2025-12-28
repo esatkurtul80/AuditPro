@@ -358,13 +358,7 @@ export default function NotificationsPage() {
     return (
 
         <div className="container mx-auto py-8 space-y-6">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-4xl font-bold">Bildirimler</h1>
-                    <p className="text-muted-foreground mt-2">
-                        Sistem bildirimleri ve güncellemeler
-                    </p>
-                </div>
+            <div className="flex items-center justify-end">
                 <div className="flex gap-2">
                     {notifications.some((n) => !n.read) && (
                         <Button

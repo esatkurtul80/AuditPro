@@ -5,6 +5,8 @@ import Link from "next/link";
 import { ProtectedRoute } from "@/components/protected-route";
 import { DashboardLayout } from "@/components/dashboard-layout";
 import { StatCard } from "@/components/stat-card";
+import { GridFadeIn, GridItem } from "@/components/stagger-animation";
+import { Skeleton } from "@/components/ui/skeleton";
 
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 
@@ -62,6 +64,7 @@ import {
     Eye,
     ChevronsUpDown,
     XCircle,
+    AlertCircle,
 } from "lucide-react";
 import {
     collection,
@@ -286,6 +289,17 @@ export default function AdminDashboard() {
         });
     };
 
+    const calculateDuration = (start: Timestamp | null, end: Timestamp | null) => {
+        if (!start || !end) return "-";
+
+        const diffInMinutes = Math.floor((end.toMillis() - start.toMillis()) / (1000 * 60));
+        const hours = Math.floor(diffInMinutes / 60);
+        const minutes = diffInMinutes % 60;
+
+        if (hours === 0) return `${minutes} dk`;
+        return `${hours} sa ${minutes} dk`;
+    };
+
     const filteredAudits = filterAudits(audits);
     const totalPages = Math.ceil(filteredAudits.length / itemsPerPage);
     const paginatedAudits = filteredAudits.slice(
@@ -302,6 +316,9 @@ export default function AdminDashboard() {
         })
         : audits;
 
+
+
+
     const quickStats = {
         total: dateFilteredAudits.length,
         ongoing: dateFilteredAudits.filter((a) => a.status === "devam_ediyor").length,
@@ -317,8 +334,43 @@ export default function AdminDashboard() {
 
     if (loading) {
         return (
-            <div className="flex min-h-screen items-center justify-center">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <div className="container mx-auto py-4 md:py-8 px-4 md:px-6 space-y-6">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    <div>
+                        <Skeleton className="h-10 w-64 mb-2" />
+                        <Skeleton className="h-5 w-96" />
+                    </div>
+                </div>
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                    {[...Array(4)].map((_, i) => (
+                        <Card key={i}>
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                <Skeleton className="h-4 w-32" />
+                                <Skeleton className="h-10 w-10 rounded-full" />
+                            </CardHeader>
+                            <CardContent>
+                                <Skeleton className="h-8 w-16 mb-2" />
+                                <Skeleton className="h-3 w-24" />
+                            </CardContent>
+                        </Card>
+                    ))}
+                </div>
+                <Card>
+                    <CardHeader>
+                        <Skeleton className="h-6 w-48 mb-2" />
+                        <Skeleton className="h-4 w-96" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="space-y-4">
+                            <Skeleton className="h-10 w-full" />
+                            <div className="space-y-2">
+                                {[...Array(5)].map((_, i) => (
+                                    <Skeleton key={i} className="h-16 w-full" />
+                                ))}
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
             </div>
         );
     }
@@ -326,64 +378,62 @@ export default function AdminDashboard() {
     return (
         <>
             <div className="container mx-auto py-4 md:py-8 px-4 md:px-6 space-y-6">
-                {/* Header */}
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                    <div>
-                        <h1 className="text-3xl md:text-4xl font-inter font-bold tracking-tight">Yönetim Paneli</h1>
-                        <p className="text-muted-foreground mt-2 font-inter">
-                            Sistem istatistikleri ve denetim yönetimi
-                        </p>
-                    </div>
-
-                </div>
 
                 {/* Dashboard Statistics */}
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                    <StatCard
-                        title="Tamamlanan Denetimler"
-                        value={filteredAudits.filter(a => a.status === "tamamlandi").length}
-                        icon={CheckCircle2}
-                        description={
-                            dateRange.from || dateRange.to
-                                ? "Seçili tarih aralığında"
-                                : "Tüm zamanlar"
-                        }
-                        iconColor="text-green-600"
-                        iconBg="bg-green-100"
-                    />
-                    <StatCard
-                        title="Denetlenen Mağaza Sayısı"
-                        value={new Set(filteredAudits.map(a => a.storeId)).size}
-                        icon={StoreIcon}
-                        description="Farklı mağaza sayısı"
-                        iconColor="text-blue-600"
-                        iconBg="bg-blue-100"
-                    />
-                    <StatCard
-                        title="Devam Eden"
-                        value={filteredAudits.filter(a => a.status === "devam_ediyor").length}
-                        icon={Clock}
-                        description={
-                            dateRange.from || dateRange.to
-                                ? "Seçili tarih aralığında"
-                                : "Tamamlanmamış denetimler"
-                        }
-                        iconColor="text-orange-600"
-                        iconBg="bg-orange-100"
-                    />
-                    <StatCard
-                        title="Toplam Denetimler"
-                        value={filteredAudits.length}
-                        icon={ClipboardList}
-                        description={
-                            dateRange.from || dateRange.to
-                                ? "Seçili tarih aralığında"
-                                : "Toplam kayıt"
-                        }
-                        iconColor="text-purple-600"
-                        iconBg="bg-purple-100"
-                    />
-                </div>
+                <GridFadeIn className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                    <GridItem>
+                        <StatCard
+                            title="Tamamlanan Denetimler"
+                            value={filteredAudits.filter(a => a.status === "tamamlandi").length}
+                            icon={CheckCircle2}
+                            description={
+                                dateRange.from || dateRange.to
+                                    ? "Seçili tarih aralığında"
+                                    : "Tüm zamanlar"
+                            }
+                            iconColor="text-green-600"
+                            iconBg="bg-green-100"
+                        />
+                    </GridItem>
+                    <GridItem>
+                        <StatCard
+                            title="Denetlenen Mağaza Sayısı"
+                            value={new Set(filteredAudits.map(a => a.storeId)).size}
+                            icon={StoreIcon}
+                            description="Farklı mağaza sayısı"
+                            iconColor="text-blue-600"
+                            iconBg="bg-blue-100"
+                        />
+                    </GridItem>
+                    <GridItem>
+                        <StatCard
+                            title="Devam Eden"
+                            value={filteredAudits.filter(a => a.status === "devam_ediyor").length}
+                            icon={Clock}
+                            description={
+                                dateRange.from || dateRange.to
+                                    ? "Seçili tarih aralığında"
+                                    : "Tamamlanmamış denetimler"
+                            }
+                            iconColor="text-orange-600"
+                            iconBg="bg-orange-100"
+                        />
+                    </GridItem>
+                    <GridItem>
+                        <StatCard
+                            title="Toplam Denetimler"
+                            value={filteredAudits.length}
+                            icon={ClipboardList}
+                            description={
+                                dateRange.from || dateRange.to
+                                    ? "Seçili tarih aralığında"
+                                    : "Toplam kayıt"
+                            }
+                            iconColor="text-purple-600"
+                            iconBg="bg-purple-100"
+                        />
+                    </GridItem>
+                </GridFadeIn>
 
 
 
@@ -391,9 +441,6 @@ export default function AdminDashboard() {
                 <Card>
                     <CardHeader>
                         <CardTitle>Tüm Denetimler</CardTitle>
-                        <CardDescription>
-                            Sistemdeki tüm denetimleri görüntüleyin ve yönetin
-                        </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
                         {/* Search and Filters */}
@@ -410,6 +457,8 @@ export default function AdminDashboard() {
                                 </div>
                                 <DateRangePicker value={dateRange} onChange={setDateRange} />
                             </div>
+
+
 
                             <div className="grid gap-4 md:grid-cols-3">
 
@@ -625,6 +674,7 @@ export default function AdminDashboard() {
                                                 <TableHead>Tarih</TableHead>
                                                 <TableHead>Başlangıç</TableHead>
                                                 <TableHead>Bitiş</TableHead>
+                                                <TableHead>Süre</TableHead>
                                                 <TableHead className="text-right">İşlemler</TableHead>
                                             </TableRow>
                                         </TableHeader>
@@ -669,6 +719,9 @@ export default function AdminDashboard() {
                                                     </TableCell>
                                                     <TableCell className="text-sm">
                                                         {audit.completedAt?.toDate().toLocaleTimeString("tr-TR", { hour: '2-digit', minute: '2-digit' }) || "-"}
+                                                    </TableCell>
+                                                    <TableCell className="text-sm font-medium">
+                                                        {calculateDuration(audit.startedAt || null, audit.completedAt || null)}
                                                     </TableCell>
                                                     <TableCell className="text-right">
                                                         <DropdownMenu>

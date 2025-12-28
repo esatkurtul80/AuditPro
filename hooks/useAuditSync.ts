@@ -323,7 +323,6 @@ export function useAuditSync(auditId: string) {
             const recheckAndSync = async () => {
                 // Guard against concurrent sync attempts
                 if (syncing) {
-                    console.log('[useAuditSync] Sync already in progress, skipping');
                     return;
                 }
 

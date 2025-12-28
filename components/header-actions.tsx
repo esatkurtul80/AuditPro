@@ -269,7 +269,7 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
                             <Skeleton className={`${avatarSize} rounded-full`} />
                         ) : (
                             <Avatar className={avatarSize}>
-                                <AvatarFallback className="bg-primary text-primary-foreground">
+                                <AvatarFallback className="bg-blue-600 text-white">
                                     {userProfile ? getInitials(userProfile.displayName || userProfile.email || "User") : "U"}
                                 </AvatarFallback>
                             </Avatar>
@@ -440,7 +440,7 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
                             <Skeleton className={`${avatarSize} rounded-full`} />
                         ) : (
                             <Avatar className={avatarSize}>
-                                <AvatarFallback className="bg-primary text-primary-foreground">
+                                <AvatarFallback className="bg-blue-600 text-white">
                                     {userProfile ? getInitials(userProfile.displayName || userProfile.email || "User") : "U"}
                                 </AvatarFallback>
                             </Avatar>

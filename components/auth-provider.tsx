@@ -41,8 +41,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 if (userDoc.exists()) {
                     const profile = userDoc.data() as UserProfile;
                     setUserProfile(profile);
-                    // Check if user needs to enter name
-                    if (profile.role !== "pending" && (!profile.firstName || !profile.lastName)) {
+                    // Check if user needs to enter name (excluding store users)
+                    if (profile.role !== "pending" && profile.role !== "magaza" && (!profile.firstName || !profile.lastName)) {
                         setShowNameModal(true);
                     }
                 } else {

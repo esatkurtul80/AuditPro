@@ -567,17 +567,6 @@ function AdminUsersContent() {
     return (
         <div className="container mx-auto py-4 md:py-8 px-4 md:px-6">
             <Card>
-                <CardHeader>
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <CardTitle className="text-3xl">Kullanıcı Yönetimi</CardTitle>
-                            <CardDescription>
-                                Kullanıcılara rol atayın ve mağaza kullanıcılarını mağazalarla
-                                eşleştirin
-                            </CardDescription>
-                        </div>
-                    </div>
-                </CardHeader>
                 <CardContent>
                     <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                         <TabsList className="mb-4 w-full flex-wrap h-auto justify-center">

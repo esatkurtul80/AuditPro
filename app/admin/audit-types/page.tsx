@@ -300,127 +300,122 @@ export default function AuditTypesPage() {
 
     return (
         <div className="container mx-auto py-4 md:py-8 px-4 md:px-6">
-            <div className="flex items-center justify-between mb-8">
-                <div>
-                    <h1 className="text-4xl font-bold">Denetim Formları</h1>
-                    <p className="text-muted-foreground mt-2">
-                        Denetim formlarını oluşturun ve yönetin
-                    </p>
-                </div>
-                <Dialog open={dialogOpen} onOpenChange={(open) => {
-                    setDialogOpen(open);
-                    if (!open) {
-                        setEditing(null);
-                        setFormData({ name: "", description: "", isScored: true });
-                    }
-                }}>
-                    <DialogTrigger asChild>
-                        <Button size="lg">
-                            <Plus className="mr-2 h-5 w-5" />
-                            Yeni Form
-                        </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                        <DialogHeader>
-                            <DialogTitle>{editing ? "Denetim Formunu Düzenle" : "Yeni Denetim Formu"}</DialogTitle>
-                            <DialogDescription>
-                                {editing ? "Denetim formunu güncelleyin" : "Yeni bir denetim formu oluşturun"}
-                            </DialogDescription>
-                        </DialogHeader>
-                        <div className="space-y-4">
-                            <div>
-                                <Label>Form Adı</Label>
-                                <Input
-                                    value={formData.name}
-                                    onChange={(e) =>
-                                        setFormData({ ...formData, name: e.target.value })
-                                    }
-                                    placeholder="Örn: Genel Mağaza Denetimi"
-                                />
-                            </div>
-                            <div>
-                                <Label>Açıklama</Label>
-                                <textarea
-                                    value={formData.description}
-                                    onChange={(e) =>
-                                        setFormData({ ...formData, description: e.target.value })
-                                    }
-                                    placeholder="Form açıklaması..."
-                                    rows={3}
-                                    className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Form Tipi</Label>
-                                <div className="flex items-center gap-4">
-                                    <div className="flex items-center gap-3">
-                                        <span className={`text-sm font-medium ${formData.isScored ? 'text-green-600' : 'text-muted-foreground'}`}>
-                                            Puanlı
-                                        </span>
-                                        <Switch
-                                            checked={!formData.isScored}
-                                            onCheckedChange={(checked) => setFormData({ ...formData, isScored: !checked })}
-                                        />
-                                        <span className={`text-sm font-medium ${!formData.isScored ? 'text-blue-600' : 'text-muted-foreground'}`}>
-                                            Puansız
+            <Card>
+                <CardContent className="p-6 pt-0">
+                    <Dialog open={dialogOpen} onOpenChange={(open) => {
+                        setDialogOpen(open);
+                        if (!open) {
+                            setEditing(null);
+                            setFormData({ name: "", description: "", isScored: true });
+                        }
+                    }}>
+                        <DialogContent>
+                            <DialogHeader>
+                                <DialogTitle>{editing ? "Denetim Formunu Düzenle" : "Yeni Denetim Formu"}</DialogTitle>
+                                <DialogDescription>
+                                    {editing ? "Denetim formunu güncelleyin" : "Yeni bir denetim formu oluşturun"}
+                                </DialogDescription>
+                            </DialogHeader>
+                            <div className="space-y-4">
+                                <div>
+                                    <Label>Form Adı</Label>
+                                    <Input
+                                        value={formData.name}
+                                        onChange={(e) =>
+                                            setFormData({ ...formData, name: e.target.value })
+                                        }
+                                        placeholder="Örn: Genel Mağaza Denetimi"
+                                    />
+                                </div>
+                                <div>
+                                    <Label>Açıklama</Label>
+                                    <textarea
+                                        value={formData.description}
+                                        onChange={(e) =>
+                                            setFormData({ ...formData, description: e.target.value })
+                                        }
+                                        placeholder="Form açıklaması..."
+                                        rows={3}
+                                        className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>Form Tipi</Label>
+                                    <div className="flex items-center gap-4">
+                                        <div className="flex items-center gap-3">
+                                            <span className={`text-sm font-medium ${formData.isScored ? 'text-green-600' : 'text-muted-foreground'}`}>
+                                                Puanlı
+                                            </span>
+                                            <Switch
+                                                checked={!formData.isScored}
+                                                onCheckedChange={(checked) => setFormData({ ...formData, isScored: !checked })}
+                                            />
+                                            <span className={`text-sm font-medium ${!formData.isScored ? 'text-blue-600' : 'text-muted-foreground'}`}>
+                                                Puansız
+                                            </span>
+                                        </div>
+                                        <span className="text-xs text-muted-foreground">
+                                            (Puanlı: Puan sistemi ile, Puansız: Sadece bilgi toplar)
                                         </span>
                                     </div>
-                                    <span className="text-xs text-muted-foreground">
-                                        (Puanlı: Puan sistemi ile, Puansız: Sadece bilgi toplar)
-                                    </span>
+                                </div>
+                                <div className="flex justify-end gap-2">
+                                    <Button
+                                        variant="outline"
+                                        onClick={() => setDialogOpen(false)}
+                                    >
+                                        İptal
+                                    </Button>
+                                    <Button onClick={handleSubmit} disabled={saving}>
+                                        {saving ? (
+                                            <>
+                                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                {editing ? "Güncelleniyor..." : "Oluşturuluyor..."}
+                                            </>
+                                        ) : (
+                                            editing ? "Güncelle" : "Oluştur"
+                                        )}
+                                    </Button>
                                 </div>
                             </div>
-                            <div className="flex justify-end gap-2">
-                                <Button
-                                    variant="outline"
-                                    onClick={() => setDialogOpen(false)}
-                                >
-                                    İptal
-                                </Button>
-                                <Button onClick={handleSubmit} disabled={saving}>
-                                    {saving ? (
-                                        <>
-                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                            {editing ? "Güncelleniyor..." : "Oluşturuluyor..."}
-                                        </>
-                                    ) : (
-                                        editing ? "Güncelle" : "Oluştur"
-                                    )}
-                                </Button>
-                            </div>
-                        </div>
-                    </DialogContent>
-                </Dialog>
-            </div>
+                        </DialogContent>
+                    </Dialog>
 
-            <Card>
-                <CardHeader>
-                    <CardTitle>Tüm Formlar</CardTitle>
-                    <CardDescription>
-                        {auditTypes.length} denetim formu
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <DataTable columns={columns} data={auditTypes} searchKey="Form Adı" searchPlaceholder="Form ara..." />
+                    <DataTable
+                        columns={columns}
+                        data={auditTypes}
+                        searchKey="Form Adı"
+                        searchPlaceholder="Form ara..."
+                        actionElement={
+                            <Button
+                                size="lg"
+                                onClick={() => setDialogOpen(true)}
+                                className="bg-blue-600 text-white hover:bg-blue-700 shadow-md shadow-blue-500/20"
+                            >
+                                <Plus className="mr-2 h-5 w-5" />
+                                Yeni Form
+                            </Button>
+                        }
+                    />
+
+                    <AlertDialog open={deleteAlertOpen} onOpenChange={setDeleteAlertOpen}>
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                                <AlertDialogTitle>Denetim formunu silmek istediğinizden emin misiniz?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    Bu işlem geri alınamaz. "{auditTypeToDelete?.name}" denetim formunu kalıcı olarak silmek istediğinize emin misiniz?
+                                </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                                <AlertDialogCancel>İptal</AlertDialogCancel>
+                                <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">
+                                    Sil
+                                </AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
                 </CardContent>
             </Card>
-
-            <AlertDialog open={deleteAlertOpen} onOpenChange={setDeleteAlertOpen}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Denetim formunu silmek istediğinizden emin misiniz?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            Bu işlem geri alınamaz. "{auditTypeToDelete?.name}" denetim formunu kalıcı olarak silmek istediğinize emin misiniz?
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>İptal</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">
-                            Sil
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
-        </div>
+        </div >
     );
 }

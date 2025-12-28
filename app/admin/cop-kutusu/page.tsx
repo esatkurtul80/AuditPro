@@ -147,14 +147,7 @@ export default function TrashPage() {
     return (
         <>
             <div className="container mx-auto py-4 md:py-8 px-4 md:px-6 space-y-6">
-                {/* Header */}
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className="text-4xl font-bold">Çöp Kutusu</h1>
-                        <p className="text-muted-foreground mt-2">
-                            Silinmiş denetimleri geri yükleyin veya kalıcı olarak silin
-                        </p>
-                    </div>
+                <div className="flex items-center justify-end">
                     <Button onClick={loadDeletedAudits} variant="outline" className="gap-2">
                         <RefreshCw className="h-4 w-4" />
                         Yenile

@@ -127,6 +127,8 @@ export interface ActionData {
     storeNote?: string;
     storeImages?: string[];
     submittedAt?: Timestamp;
+    photoUploadedAt?: Timestamp;
+    noteUpdatedAt?: Timestamp;
     adminNote?: string;
     rejectedAt?: Timestamp;
     approvedAt?: Timestamp;

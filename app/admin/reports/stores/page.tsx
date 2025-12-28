@@ -174,16 +174,6 @@ export default function StoresReportPage() {
 
     return (
         <div className="container mx-auto py-4 md:py-8 px-4 md:px-6">
-            <div className="mb-8">
-                <h1 className="text-4xl font-bold flex items-center gap-3">
-                    <BarChart3 className="h-10 w-10" />
-                    Mağaza Karşılaştırma Raporu
-                </h1>
-                <p className="text-muted-foreground mt-2">
-                    Mağazaların denetim performanslarını karşılaştırın
-                </p>
-            </div>
-
             <Card className="mb-6">
                 <CardHeader>
                     <CardTitle>Tarih Aralığı</CardTitle>

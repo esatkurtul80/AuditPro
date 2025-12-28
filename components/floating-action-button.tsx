@@ -7,6 +7,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useRouter, usePathname } from "next/navigation";
 import { CreateAuditDialog } from "@/components/create-audit-dialog";
 import { WhatsAppShareDialog } from "@/components/whatsapp-share-dialog";
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { Audit } from "@/lib/types";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -17,6 +20,7 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
 
 export function FloatingActionButton() {
     const [isOpen, setIsOpen] = useState(false);
@@ -26,15 +30,30 @@ export function FloatingActionButton() {
     const router = useRouter();
     const pathname = usePathname();
 
-    const handleNewAuditClick = () => {
-        // Eğer şu an bir denetim sayfasındaysak (/audits/...) onay iste
+    const handleNewAuditClick = async () => {
+        // Eğer şu an bir denetim sayfasındaysak (/audits/...) durumunu kontrol et
         if (pathname?.startsWith('/audits/')) {
-            setShowConfirmDialog(true);
-            setIsOpen(false);
-        } else {
-            setIsCreateAuditOpen(true);
-            setIsOpen(false);
+            const auditId = pathname.split('/audits/')[1];
+            if (auditId) {
+                try {
+                    const auditDoc = await getDoc(doc(db, "audits", auditId));
+                    if (auditDoc.exists()) {
+                        const audit = auditDoc.data() as Audit;
+                        if (audit.status === "devam_ediyor") {
+                            setShowConfirmDialog(true);
+                            setIsOpen(false);
+                            return;
+                        }
+                    }
+                } catch (error) {
+                    console.error("Error checking audit status:", error);
+                    // Hata durumunda güvenli davranıp direkt açabiliriz veya toast gösterebiliriz
+                }
+            }
         }
+
+        setIsCreateAuditOpen(true);
+        setIsOpen(false);
     };
 
     const toggleOpen = () => setIsOpen(!isOpen);
@@ -79,6 +98,8 @@ export function FloatingActionButton() {
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
+
+
 
             {/* Backdrop for focus */}
             <AnimatePresence>

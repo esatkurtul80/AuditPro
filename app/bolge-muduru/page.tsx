@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/components/auth-provider";
 import { useRouter } from "next/navigation";
 import { DashboardLayout } from "@/components/dashboard-layout";
+import { GridFadeIn, GridItem } from "@/components/stagger-animation";
 import { collection, getDocs, query, where, orderBy, limit, Timestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Store, Audit } from "@/lib/types";
@@ -174,37 +175,41 @@ function RegionalManagerContent() {
             </div>
 
             {/* Stats Overview */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">
-                            Mağazalarım
-                        </CardTitle>
-                        <StoreIcon className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{stats.totalStores}</div>
-                        <p className="text-xs text-muted-foreground">
-                            Sorumlu olduğunuz mağazalar
-                        </p>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">
-                            Son Denetimler
-                        </CardTitle>
-                        <ClipboardList className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{recentAudits.length}</div>
-                        <p className="text-xs text-muted-foreground">
-                            Son 30 gündeki denetimler
-                        </p>
-                    </CardContent>
-                </Card>
+            <GridFadeIn className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                <GridItem>
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">
+                                Mağazalarım
+                            </CardTitle>
+                            <StoreIcon className="h-4 w-4 text-muted-foreground" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold">{stats.totalStores}</div>
+                            <p className="text-xs text-muted-foreground">
+                                Sorumlu olduğunuz mağazalar
+                            </p>
+                        </CardContent>
+                    </Card>
+                </GridItem>
+                <GridItem>
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">
+                                Son Denetimler
+                            </CardTitle>
+                            <ClipboardList className="h-4 w-4 text-muted-foreground" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold">{recentAudits.length}</div>
+                            <p className="text-xs text-muted-foreground">
+                                Son 30 gündeki denetimler
+                            </p>
+                        </CardContent>
+                    </Card>
+                </GridItem>
                 {/* Add more stats cards as needed */}
-            </div>
+            </GridFadeIn>
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
                 {/* Recent Audits */}

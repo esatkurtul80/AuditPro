@@ -17,6 +17,7 @@ import {
 } from "@tanstack/react-table"
 import { ChevronDown } from "lucide-react"
 
+import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import {
     DropdownMenu,
@@ -41,9 +42,11 @@ interface DataTableProps<TData, TValue> {
     searchPlaceholder?: string
     onRowClick?: (row: TData) => void
     toolbar?: React.ReactNode
+    actionElement?: React.ReactNode
     mobileHiddenColumns?: string[]
     initialColumnVisibility?: VisibilityState
     initialSorting?: SortingState
+    rowClassName?: string
 }
 
 export function DataTable<TData, TValue>({
@@ -53,9 +56,11 @@ export function DataTable<TData, TValue>({
     searchPlaceholder = "Filter...",
     onRowClick,
     toolbar,
+    actionElement,
     mobileHiddenColumns = [],
     initialColumnVisibility = {},
     initialSorting = [],
+    rowClassName,
 }: DataTableProps<TData, TValue>) {
     const [sorting, setSorting] = React.useState<SortingState>(initialSorting)
     const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
@@ -132,7 +137,7 @@ export function DataTable<TData, TValue>({
                             .filter((column) => column.getCanHide())
                             .map((column) => {
                                 const header = column.columnDef.header;
-                                const label = typeof header === "string" ? header : column.id;
+                                const label = (column.columnDef.meta as any)?.title || (typeof header === "string" ? header : column.id);
                                 return (
                                     <DropdownMenuCheckboxItem
                                         key={column.id}
@@ -148,6 +153,7 @@ export function DataTable<TData, TValue>({
                             })}
                     </DropdownMenuContent>
                 </DropdownMenu>
+                {actionElement}
             </div>
             <div className="rounded-md border">
                 <Table>
@@ -176,7 +182,7 @@ export function DataTable<TData, TValue>({
                                     key={row.id}
                                     data-state={row.getIsSelected() && "selected"}
                                     onClick={() => onRowClick?.(row.original)}
-                                    className={onRowClick ? "cursor-pointer hover:bg-muted/50" : ""}
+                                    className={cn(onRowClick ? "cursor-pointer hover:bg-muted/50" : "", rowClassName)}
                                 >
                                     {row.getVisibleCells().map((cell) => (
                                         <TableCell key={cell.id}>
