@@ -13,11 +13,11 @@ import {
     onAuthStateChanged,
     signInWithEmailAndPassword
 } from "firebase/auth";
-import { doc, getDoc, setDoc, collection, getDocs, Timestamp } from "firebase/firestore";
+import { doc, getDoc, setDoc, collection, getDocs, Timestamp, arrayUnion } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import { UserProfile } from "@/lib/types";
 import { NameEntryModal } from "@/components/name-entry-modal";
-import { toast } from "sonner"; // Toast ekledik
+import { toast } from "sonner";
 
 interface AuthContextType {
     user: User | null;
@@ -37,36 +37,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [showNameModal, setShowNameModal] = useState(false);
 
     useEffect(() => {
-
-
-        const initializeAuth = async () => {
-            // 1. Persistence: IndexedDB (PWA için en kararlı olan)
-            try {
-                await setPersistence(auth, indexedDBLocalPersistence);
-            } catch (e) {
-                console.error("Persistence error:", e);
-            }
-
-            // 2. Redirect Sonucunu Yakala (PWA Login Loop'u kırmak için kritik)
-            try {
-                const result = await getRedirectResult(auth);
-                if (result) {
-                    console.log("Redirect login success:", result.user.email);
-                    toast.success("Giriş başarılı!");
+        // Safety Timeout: Force loading to false after 5 seconds to prevent PWA hang
+        const safetyTimer = setTimeout(() => {
+            setLoading((prev) => {
+                if (prev) {
+                    console.warn("Auth Listener timed out. Forcing app to load.");
+                    return false;
                 }
-            } catch (error: any) {
-                console.error("Redirect login error:", error);
-                // Eğer hata varsa kullanıcıya gösterelim
-                if (error.code !== 'auth/popup-closed-by-user') {
-                    toast.error(`Giriş Hatası: ${error.message}`);
-                }
-            }
+                return prev;
+            });
+        }, 5000);
 
-            // 3. Auth Durumunu Dinle
-            const unsubscribe = onAuthStateChanged(auth, async (user) => {
-                setUser(user);
+        // 1. Persistence Setup (Non-blocking attempt)
+        setPersistence(auth, indexedDBLocalPersistence).catch(e => console.error("Persistence error:", e));
 
-                if (user) {
+        // 2. Auth State Listener (Critical for ending loading state)
+        const unsubscribe = onAuthStateChanged(auth, async (user) => {
+            setUser(user);
+
+            if (user) {
+                try {
                     const userDocRef = doc(db, "users", user.uid);
                     const userDoc = await getDoc(userDocRef);
 
@@ -77,38 +67,53 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                             setShowNameModal(true);
                         }
 
-                        // FCM Token Logic
+                        // FCM Token Logic - Non-blocking
                         if (typeof window !== "undefined" && "serviceWorker" in navigator && Notification.permission !== "denied") {
-                            try {
-                                const { messaging } = await import("@/lib/firebase");
+                            import("@/lib/firebase").then(async ({ messaging }) => {
                                 if (messaging) {
                                     const { getToken, onMessage } = await import("firebase/messaging");
-                                    const currentToken = await getToken(messaging, {
-                                        vapidKey: process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY
-                                    });
-                                    if (currentToken) {
-                                        await setDoc(userDocRef, { fcmToken: currentToken }, { merge: true });
-                                        console.log("FCM Token saved");
-                                    }
 
-                                    // Foreground Message Listener
+                                    // Get Token
+                                    getToken(messaging, { vapidKey: process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY })
+                                        .then(token => {
+                                            if (token) {
+                                                const hostname = window.location.hostname;
+                                                const isProduction = hostname === 'tugbadenetim.info' ||
+                                                    hostname === 'tugba-auditpro.web.app' ||
+                                                    hostname === 'tugba-auditpro.firebaseapp.com';
+
+                                                console.log('🔔 FCM Token Check:', {
+                                                    hostname,
+                                                    isProduction,
+                                                    tokenPreview: token.substring(0, 20) + '...',
+                                                    willSave: isProduction
+                                                });
+
+                                                if (isProduction) {
+                                                    console.log('✅ SAVING token to production database');
+                                                    setDoc(userDocRef, {
+                                                        fcmTokens: arrayUnion(token),
+                                                        fcmToken: token,
+                                                        lastLogin: Timestamp.now()
+                                                    }, { merge: true });
+                                                } else {
+                                                    console.warn('⚠️ LOCALHOST DETECTED - Token NOT saved to production database');
+                                                }
+                                            }
+                                        })
+                                        .catch(err => console.log("FCM Token Error:", err));
+
+                                    // Foreground Listener
                                     onMessage(messaging, (payload) => {
-                                        console.log("Foreground Message received: ", payload);
+                                        console.log("Foreground Message:", payload);
                                         const { title, body } = payload.notification || {};
-                                        if (title) {
-                                            toast.info(title, {
-                                                description: body,
-                                                duration: 5000,
-                                            });
-                                        }
+                                        if (title) toast.info(title, { description: body, duration: 5000 });
                                     });
                                 }
-                            } catch (err) {
-                                console.log("FCM Token Error (e.g. missing VAPID or permission):", err);
-                            }
+                            }).catch(err => console.error("FCM Import Error:", err));
                         }
                     } else {
-                        // Yeni Kullanıcı Oluştur
+                        // Create New User
                         const usersSnapshot = await getDocs(collection(db, "users"));
                         const isFirstUser = usersSnapshot.empty;
 
@@ -125,20 +130,66 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                         await setDoc(userDocRef, newProfile);
                         setUserProfile(newProfile);
                     }
-                } else {
-                    setUserProfile(null);
+                } catch (err: any) {
+                    console.error("Profile fetch error:", err);
+                    // Retry Logic for Safari/Network glitches
+                    // If error is 'unavailable' or network related, try once more after 1s
+                    if (err.code === 'unavailable' || err.message?.includes('offline')) {
+                        console.log("Retrying profile fetch in 1s...");
+                        setTimeout(async () => {
+                            try {
+                                const retryRef = doc(db, "users", user.uid);
+                                const retrySnap = await getDoc(retryRef);
+                                if (retrySnap.exists()) {
+                                    setUserProfile(retrySnap.data() as UserProfile);
+                                }
+                            } catch (retryErr: any) {
+                                toast.error(`Profil hatası (Tekrarlandı): ${retryErr.message}`);
+                            }
+                        }, 1000);
+                    } else {
+                        toast.error(`Profil bilgileri alınamadı: ${err.message || 'Bilinmeyen hata'}`);
+                    }
                 }
+            } else {
+                setUserProfile(null);
+            }
 
-                setLoading(false);
+            setLoading(false); // END LOADING STATE HERE
+            clearTimeout(safetyTimer); // Clear safety timer if we loaded successfully
+        });
+
+        // 3. Check Redirect Result (Independent check)
+        getRedirectResult(auth)
+            .then((result) => {
+                if (result) {
+                    console.log("Redirect login success:", result.user.email);
+                    toast.success("Giriş başarılı!");
+                }
+            })
+            .catch((error) => {
+                console.error("Redirect login error:", error);
+                if (error.code !== 'auth/popup-closed-by-user') {
+                    toast.error(`Giriş Hatası: ${error.message}`);
+                }
             });
-            return unsubscribe;
-        };
 
-        const cleanup = initializeAuth();
         return () => {
-            cleanup.then(unsubscribe => unsubscribe());
+            unsubscribe();
+            clearTimeout(safetyTimer);
         };
     }, []);
+
+    // Secondary Watchdog: Absolute fail-safe for Mobile PWA Hang
+    useEffect(() => {
+        if (loading) {
+            const watchdog = setTimeout(() => {
+                console.warn("⚠️ Watchdog: Loading stuck for 12s. Forcing release.");
+                setLoading(false);
+            }, 12000); // Increased to 12s for slow 3G/Safari
+            return () => clearTimeout(watchdog);
+        }
+    }, [loading]);
 
     const signInWithGoogle = async () => {
         const provider = new GoogleAuthProvider();
@@ -147,11 +198,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
 
         try {
-            // PWA İÇİN KRİTİK DEĞİŞİKLİK:
-            // Artık authDomain (tugbadenetim.info) ile sitemiz aynı.
-            // Bu yüzden "Redirect" yöntemi PWA içinde çalışması gereken en doğru yöntem.
-            // Popup yöntemi iOS PWA'da pencere sorunları yaratır.
-            await signInWithRedirect(auth, provider);
+            // HYBRID STRATEGY: 
+            // Localhost: Use Popup (More stable, avoids domain issues)
+            // Production/PWA: Use Redirect (Required for PWA/Mobile user experience)
+            if (window.location.hostname === 'localhost') {
+                await signInWithPopup(auth, provider);
+                // Notification permission logic logic is handled in onAuthStateChanged
+            } else {
+                await signInWithRedirect(auth, provider);
+            }
         } catch (error: any) {
             console.error("Login trigger error:", error);
             toast.error(`Giriş başlatılamadı: ${error.message}`);

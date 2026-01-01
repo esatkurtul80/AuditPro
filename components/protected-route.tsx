@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { Loader2 } from "lucide-react";
 import { UserRole } from "@/lib/types";
-
+import { toast } from "sonner";
 import { UnauthorizedView } from "@/components/unauthorized-view";
 
 interface ProtectedRouteProps {

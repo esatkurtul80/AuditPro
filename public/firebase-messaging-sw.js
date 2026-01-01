@@ -16,8 +16,16 @@ firebase.initializeApp(firebaseConfig);
 
 const messaging = firebase.messaging();
 
+// Handle background messages
+// DATA-ONLY MESSAGE HANDLER
+// We use data-only messages to prevent double notifications
+// Browser won't auto-show, so we MUST show manually here.
 messaging.onBackgroundMessage((payload) => {
-    console.log('[firebase-messaging-sw.js] Received background message ', payload);
+    console.log('[SW] Background message received:', payload);
+    // Browser will handle the 'notification' payload automatically!
+    // We do NOT call showNotification to avoid duplicates.
+    // This fixes the PC 2x issue.
+    // iOS/Android will show the system notification from payload.
 });
 
 self.addEventListener('notificationclick', function (event) {

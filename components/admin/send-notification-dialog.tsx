@@ -101,8 +101,9 @@ export function SendNotificationDialog() {
                 });
 
                 if (!apiResponse.ok) {
-                    console.error("Push API Error:", await apiResponse.text());
-                    toast.warning("Bildirim veritabanına eklendi ancak Telefon Bildirimi gönderilemedi. (API Hatası)");
+                    const errorText = await apiResponse.text();
+                    console.error("Push API Error:", errorText);
+                    toast.warning(`Bildirim Gönderilemedi! Hata Kodu: ${apiResponse.status} - Mesaj: ${errorText.substring(0, 100)}`);
                 } else {
                     const result = await apiResponse.json();
                     console.log("Push Result:", result);

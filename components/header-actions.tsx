@@ -245,6 +245,21 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
                                     </p>
                                 </div>
                             )}
+
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                                className="cursor-pointer p-2 text-center justify-center text-xs text-muted-foreground hover:text-primary"
+                                onClick={async () => {
+                                    toast.info("Bildirim servisi yenileniyor...");
+                                    if ('serviceWorker' in navigator) {
+                                        const regs = await navigator.serviceWorker.getRegistrations();
+                                        for (const reg of regs) await reg.unregister();
+                                    }
+                                    window.location.reload();
+                                }}
+                            >
+                                Bildirim gelmiyor mu? Tıkla ve Düzelt
+                            </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
                 </div>
@@ -315,7 +330,7 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
                     </DropdownMenuItem>
                 </DropdownMenuContent>
             </DropdownMenu>
-        </div>
+        </div >
     ) : (
         <div className="flex items-center gap-1">
 

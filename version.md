@@ -1,6 +1,20 @@
 # AuditPro Version History
 
-## v1.9.6 (Current)
+## v1.10.0 (Current) - "The Notification Update"
+- **New Feature: Notification System:**
+    - Added "Bell" icon for Admin (Sender) and Users (Receiver).
+    - Implemented Push Notifications via Firebase Cloud Messaging (FCM).
+    - Supports targeting specific groups (Auditors, Stores) or individuals.
+    - Added "Mark as Read" and "Delete" functionality.
+- **Mobile & PWA Stability:**
+    - **iOS Fix:** Added APNs headers (`apns-priority: 10`, `sound: default`) for reliable iOS notifications.
+    - **Android Fix:** Enforced High Priority to wake up devices in Doze mode.
+    - **Auth Watchdog:** Added 12s safety timer to preventing "Infinite Loading" on slow networks.
+    - **Localhost Support:** Implemented Dynamic Auth Domain and "Popup" login for Localhost vs "Redirect" for PWA.
+- **Troubleshooting Tools:**
+    - Added "Bildirim Gelmiyor mu?" (Fix Notifications) button to User Menu for self-healing connection issues.
+
+## v1.9.6
 - **Resolved Push Notification Issues:** Fixed API 500 errors by adding `firebase-functions` dependency and using safe admin initialization.
 - **Service Worker Fixes:** Corrected syntax errors in SW and removed redundant `showNotification` calls to prevent double notifications.
 - **Double Notification Fix:** Implemented `ServiceWorkerUpdater` to aggressively update cached workers and added token de-duplication in the API.
@@ -35,5 +49,3 @@
 - Added version display in sidebar.
 - Fixed build error in admin dashboard.
 - Modernized section headers.
-
-

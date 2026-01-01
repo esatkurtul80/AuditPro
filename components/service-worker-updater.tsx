@@ -4,8 +4,9 @@ import { useEffect } from "react";
 
 export function ServiceWorkerUpdater() {
     useEffect(() => {
+        // Disabled aggressive auto-update check to prevent loops
+        /*
         if (typeof window !== "undefined" && "serviceWorker" in navigator) {
-            // Mevcut SW'yi kontrol et ve güncellemeye zorla
             navigator.serviceWorker.ready.then((registration) => {
                 registration.update().then(() => {
                     console.log("Service Worker updated manually via .ready()");
@@ -19,6 +20,7 @@ export function ServiceWorkerUpdater() {
                 }
             });
         }
+        */
     }, []);
 
     return null;

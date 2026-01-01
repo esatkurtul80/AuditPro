@@ -9,7 +9,11 @@ import { getMessaging } from "firebase/messaging";
 // Your web app's Firebase configuration
 const firebaseConfig = {
     apiKey: "AIzaSyAWNOeyW0mHSqhjcLqdhPoL4TmOzyP7f6w",
-    authDomain: "tugbadenetim.info",
+    // Dynamic Auth Domain: Use 'firebaseapp.com' for Localhost to prevent CORS/Auth errors,
+    // Use 'tugbadenetim.info' for Production/PWA to ensure First-Party Cookies and Trust.
+    authDomain: (typeof window !== 'undefined' && window.location.hostname === 'localhost')
+        ? "tugba-auditpro.firebaseapp.com"
+        : "tugbadenetim.info",
     projectId: "tugba-auditpro",
     storageBucket: "tugba-auditpro.firebasestorage.app",
     messagingSenderId: "187720079346",
@@ -32,7 +36,16 @@ export const functions = getFunctions(app);
 let messaging: any = null;
 if (typeof window !== "undefined" && typeof navigator !== "undefined" && "serviceWorker" in navigator) {
     try {
-        messaging = getMessaging(app);
+        // Register Service Worker FIRST
+        navigator.serviceWorker.register('/firebase-messaging-sw.js')
+            .then((registration) => {
+                console.log('✅ Service Worker registered:', registration.scope);
+                // Only initialize messaging after SW is registered
+                messaging = getMessaging(app);
+            })
+            .catch((err) => {
+                console.error('❌ Service Worker registration failed:', err);
+            });
     } catch (e) {
         console.error("Firebase messaging support error", e);
     }
