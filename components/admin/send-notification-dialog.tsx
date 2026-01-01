@@ -27,7 +27,7 @@ import { collection, addDoc, Timestamp, getDocs, query, where } from "firebase/f
 import { db } from "@/lib/firebase";
 import { UserProfile, NotificationType } from "@/lib/types";
 
-export function SendNotificationDialog() {
+export function SendNotificationDialog({ trigger }: { trigger?: React.ReactNode }) {
     const [open, setOpen] = useState(false);
     const [loading, setLoading] = useState(false);
     const [title, setTitle] = useState("");
@@ -96,7 +96,7 @@ export function SendNotificationDialog() {
                         title: title,
                         message: message,
                         userIds: targetUserIds,
-                        url: "/" // veya ilgili sayfa
+                        url: "/notifications" // Varsayılan bildirim sayfası
                     })
                 });
 
@@ -132,10 +132,12 @@ export function SendNotificationDialog() {
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-2 border-blue-200 text-blue-700 hover:bg-blue-50">
-                    <BellRing className="h-4 w-4" />
-                    <span className="hidden sm:inline">Bildirim Gönder</span>
-                </Button>
+                {trigger ? trigger : (
+                    <Button variant="outline" size="sm" className="gap-2 border-blue-200 text-blue-700 hover:bg-blue-50">
+                        <BellRing className="h-4 w-4" />
+                        <span className="hidden sm:inline">Bildirim Gönder</span>
+                    </Button>
+                )}
             </DialogTrigger>
             <DialogContent className="sm:max-w-[500px]">
                 <DialogHeader>

@@ -29,23 +29,31 @@ messaging.onBackgroundMessage((payload) => {
 });
 
 self.addEventListener('notificationclick', function (event) {
-    console.log('[firebase-messaging-sw.js] Notification click Received.');
+    console.log('[firebase-messaging-sw.js] Notification click Received.', event.notification);
     event.notification.close();
+
+    // Get URL from data payload or default to root
+    const targetUrl = event.notification.data?.url || '/';
 
     // Open the app or focus the window
     event.waitUntil(
-        clients.matchAll({ type: 'window' }).then(function (windowClients) {
+        clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (windowClients) {
             // Check if there is already a window/tab open with the target URL
             for (var i = 0; i < windowClients.length; i++) {
                 var client = windowClients[i];
-                // If so, just focus it.
-                if (client.url === '/' && 'focus' in client) {
-                    return client.focus();
+                // If the client is already open, focus it and navigate
+                if ('focus' in client) {
+                    if (client.url.includes(targetUrl)) {
+                        return client.focus();
+                    }
+                    return client.focus().then(activeClient => {
+                        return activeClient.navigate(targetUrl);
+                    });
                 }
             }
             // If not, then open the target URL in a new window/tab.
             if (clients.openWindow) {
-                return clients.openWindow('/');
+                return clients.openWindow(targetUrl);
             }
         })
     );

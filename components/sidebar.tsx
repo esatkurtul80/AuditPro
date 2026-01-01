@@ -27,6 +27,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { collection, query, where, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { SendNotificationDialog } from "./admin/send-notification-dialog";
 
 interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
     onLinkClick?: () => void;
@@ -150,6 +151,8 @@ function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar }: 
                         </div>
                     ) : userProfile?.role === "admin" ? (
                         <>
+
+
                             {adminLinks.map((link) => {
                                 const Icon = link.icon;
                                 const isActive = pathname === link.href || pathname.startsWith(link.href + '/');
@@ -178,6 +181,33 @@ function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar }: 
                                     </Link>
                                 );
                             })}
+
+                            {/* Send Notification Button for Mobile/Sidebar Usage */}
+                            <SendNotificationDialog
+                                trigger={
+                                    <div
+                                        onClick={() => {
+                                            // Optional: Close sidebar on mobile if needed, but Dialog acts as overlay
+                                        }}
+                                        className={cn(
+                                            "w-full h-11 px-4 font-medium transition-all duration-500 flex items-center rounded-md cursor-pointer",
+                                            isCollapsed ? "justify-center px-2" : "justify-start",
+                                            "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100"
+                                        )}
+                                        title={isCollapsed ? "Bildirim Gönder" : undefined}
+                                    >
+                                        <Bell className={cn(
+                                            "h-5 w-5 transition-transform duration-500 shrink-0"
+                                        )} />
+                                        <span className={cn(
+                                            "text-sm whitespace-nowrap transition-all duration-500 ease-in-out overflow-hidden origin-left",
+                                            isCollapsed ? "max-w-0 opacity-0 ml-0" : "max-w-[200px] opacity-100 ml-3"
+                                        )}>
+                                            Bildirim Gönder
+                                        </span>
+                                    </div>
+                                }
+                            />
 
                             {/* Aksiyonlar Dropdown */}
                             <div className="space-y-1">

@@ -79,6 +79,8 @@ export async function POST(req: Request) {
                 priority: 'high',
                 ttl: 2419200,
                 notification: {
+                    title: title,
+                    body: message,
                     sound: 'default'
                 }
             },

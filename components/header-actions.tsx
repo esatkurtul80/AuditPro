@@ -23,7 +23,7 @@ import { Avatar, AvatarFallback } from "./ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
-import { SendNotificationDialog } from "./admin/send-notification-dialog";
+
 
 // Separate component for header actions so it can be reused
 export function HeaderActions({ compact = false }: { compact?: boolean }) {
@@ -47,7 +47,7 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
                 where("userId", "==", userProfile.uid),
                 where("read", "==", false),
                 orderBy("createdAt", "desc"),
-                limit(5)
+                limit(99)
             );
             const unsubscribeNotif = onSnapshot(notifQuery, (snapshot) => {
                 const notifs = snapshot.docs.map(doc => ({
@@ -139,13 +139,6 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
 
 
 
-                {/* Admin Send Notification Button */}
-                {userProfile?.role === "admin" && (
-                    <div className="flex items-center justify-center w-6 md:w-auto md:mr-1">
-                        <SendNotificationDialog />
-                    </div>
-                )}
-
                 {/* Notifications Button */}
                 <div className="flex items-center justify-center w-6">
                     <DropdownMenu>
@@ -165,6 +158,7 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
                                 )}
                             </Button>
                         </DropdownMenuTrigger>
+                        {/* Dropdown Content... */}
                         <DropdownMenuContent align="end" className="w-80">
                             <DropdownMenuLabel className="flex items-center justify-between">
                                 <Badge
@@ -279,6 +273,8 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
                         <span className="sr-only">Tema değiştir</span>
                     </Button>
                 </div>
+
+
             </div>
 
             {/* User Menu */}
@@ -338,12 +334,7 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
             {/* Online Status */}
             <OnlineStatusBadge isOnline={isOnline} compact={compact} />
 
-            {/* Admin Send Notification Button */}
-            {userProfile?.role === "admin" && (
-                <div className="flex items-center justify-center mr-1">
-                    <SendNotificationDialog />
-                </div>
-            )}
+
 
             {/* Notifications Button */}
             <DropdownMenu>

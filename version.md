@@ -1,6 +1,14 @@
 # AuditPro Version History
 
-## v1.10.0 (Current) - "The Notification Update"
+## v1.10.1 (Current) - "Notification Polish & Deep Linking"
+- **UI Refinements:**
+    - **Header Alignment:** Aligned "Send Notification" button style with "AKSİYONLAR" (Blue, Uppercase) and positioned it correctly.
+    - **Mobile UX:** Moved "Send Notification" button to the Sidebar for mobile admin users.
+- **Notification Quality:**
+    - **Content Fix:** Standardized push notification format to remove redundant "from AuditPro" text.
+    - **Deep Linking:** Fixed Service Worker to correctly redirect users to the `/notifications` page upon clicking a notification.
+
+## v1.10.0 - "The Notification Update"
 - **New Feature: Notification System:**
     - Added "Bell" icon for Admin (Sender) and Users (Receiver).
     - Implemented Push Notifications via Firebase Cloud Messaging (FCM).

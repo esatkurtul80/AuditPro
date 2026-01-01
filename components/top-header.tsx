@@ -2,9 +2,10 @@
 
 import { HeaderActions } from "@/components/header-actions";
 import { Button } from "@/components/ui/button";
-import { CheckSquare, Zap, PanelLeft } from "lucide-react";
+import { CheckSquare, Zap, PanelLeft, BellRing } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/auth-provider";
+import { SendNotificationDialog } from "./admin/send-notification-dialog";
 
 interface TopHeaderProps {
     toggleSidebar?: () => void;
@@ -42,6 +43,23 @@ export function TopHeader({ toggleSidebar, isCollapsed }: TopHeaderProps) {
                                 AKSİYONLAR
                             </Button>
                         )}
+
+                        {/* Admin Send Notification Button - Desktop Only */}
+                        {userProfile?.role === "admin" && (
+                            <div className="hidden md:flex ml-2">
+                                <SendNotificationDialog
+                                    trigger={
+                                        <Button
+                                            variant="default"
+                                            className="gap-2 bg-blue-600 hover:bg-blue-700 text-white cursor-pointer"
+                                        >
+                                            <BellRing className="h-4 w-4" />
+                                            BİLDİRİM GÖNDER
+                                        </Button>
+                                    }
+                                />
+                            </div>
+                        )}
                     </div>
 
                     {/* Right: Header actions */}
@@ -51,4 +69,3 @@ export function TopHeader({ toggleSidebar, isCollapsed }: TopHeaderProps) {
         </>
     );
 }
-
