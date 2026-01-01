@@ -15,19 +15,7 @@ const nextConfig: NextConfig = {
       "framer-motion",
     ],
   },
-  async headers() {
-    return [
-      {
-        source: '/:path*',
-        headers: [
-          {
-            key: 'Cross-Origin-Opener-Policy',
-            value: 'same-origin-allow-popups',
-          },
-        ],
-      },
-    ];
-  },
+  // headers removed to fix auth network error
 };
 
 export default nextConfig;

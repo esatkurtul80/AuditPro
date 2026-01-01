@@ -121,7 +121,8 @@ const getAuditStatus = (audit: Audit): { text: string; color: string } => {
 
     audit.sections.forEach(section => {
         section.answers.forEach(answer => {
-            if (answer.answer === "hayir" && answer.actionData) {
+            const isActionNeeded = answer.answer === "hayir" || (answer.questionType === "checkbox" && answer.earnedPoints < answer.maxPoints);
+            if (isActionNeeded && answer.actionData) {
                 hasActions = true;
                 if (answer.actionData.status === "pending_admin") {
                     pendingApprovalCount++;
@@ -173,9 +174,11 @@ export default function MagazaPage() {
             const auditsData = auditsSnapshot.docs
                 .map((doc) => ({ id: doc.id, ...doc.data() } as Audit))
                 .filter((audit) => {
-                    // Sadece "hayır" cevabı olan denetimleri al
+                    // "hayır" cevabı olan veya checkbox sorusunda tam puan alamayan denetimleri al
                     return audit.sections.some((section) =>
-                        section.answers.some((answer) => answer.answer === "hayir")
+                        section.answers.some((answer) =>
+                            answer.answer === "hayir" || (answer.questionType === "checkbox" && answer.earnedPoints < answer.maxPoints)
+                        )
                     );
                 })
                 .sort((a, b) => {
@@ -362,7 +365,8 @@ export default function MagazaPage() {
                                                 let pendingActionCount = 0;
                                                 let pendingAdminCount = 0;
                                                 audit.sections.forEach(s => s.answers.forEach(a => {
-                                                    if (a.answer === "hayir") {
+                                                    const isActionNeeded = a.answer === "hayir" || (a.questionType === "checkbox" && a.earnedPoints < a.maxPoints);
+                                                    if (isActionNeeded) {
                                                         const status = a.actionData?.status;
                                                         // Count if no status (initial), pending_store (draft), or rejected (needs fix)
                                                         if (!status || status === "pending_store" || status === "rejected") {
@@ -486,7 +490,7 @@ export default function MagazaPage() {
                                                 let scoreBgColor = "";
                                                 let totalActionCount = 0;
                                                 audit.sections.forEach(s => s.answers.forEach(a => {
-                                                    if (a.answer === "hayir") totalActionCount++;
+                                                    if (a.answer === "hayir" || (a.questionType === "checkbox" && a.earnedPoints < a.maxPoints)) totalActionCount++;
                                                 }));
 
                                                 if (percentage < 70) {

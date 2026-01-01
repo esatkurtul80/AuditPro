@@ -7,9 +7,10 @@ import { useAuth } from "@/components/auth-provider";
 import { Button } from "@/components/ui/button";
 import { Loader2, Users, ListPlus, ClipboardCheck, WifiOff, Camera, FileText, LayoutDashboard } from "lucide-react";
 import { toast } from "sonner";
+// DiagnosticPanel kaldırıldı, sorun tespit edildi.
 
 export default function LoginPage() {
-  const { signInWithGoogle, user } = useAuth();
+  const { signInWithGoogle, user, loading: authLoading } = useAuth();
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
@@ -23,17 +24,24 @@ export default function LoginPage() {
     try {
       setLoading(true);
       await signInWithGoogle();
-      toast.success("Giriş başarılı!");
+      // Redirect olduğu için burası çalışıp sayfa yenilenebilir.
+      toast.info("Google'a yönlendiriliyor...");
     } catch (error) {
       console.error("Login error:", error);
       toast.error("Giriş yapılırken bir hata oluştu");
-    } finally {
       setLoading(false);
     }
   };
 
-  if (user) {
-    return null;
+  // Auth durumu yüklenirken veya kullanıcı varsa spinner göster
+  // Bu, "Rendered more hooks" hatasını da engeller
+  if (authLoading || user) {
+    return (
+      <div className="flex items-center justify-center h-screen w-full bg-white">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="ml-2 text-slate-500 text-sm">Yükleniyor...</p>
+      </div>
+    );
   }
 
   return (
@@ -69,7 +77,7 @@ export default function LoginPage() {
               {loading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Giriş yapılıyor...
+                  Yönlendiriliyor...
                 </>
               ) : (
                 <>
@@ -109,9 +117,7 @@ export default function LoginPage() {
             </p>
           </div>
 
-
         </div>
-
 
       </div>
 

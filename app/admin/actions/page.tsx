@@ -114,7 +114,8 @@ const getStoreResponseTime = (audit: Audit): number | null => {
 
     audit.sections.forEach(section => {
         section.answers.forEach(answer => {
-            if (answer.answer === "hayir" && answer.actionData?.submittedAt) {
+            const isActionNeeded = answer.answer === "hayir" || (answer.questionType === "checkbox" && answer.earnedPoints < answer.maxPoints);
+            if (isActionNeeded && answer.actionData?.submittedAt) {
                 const submissionDate = answer.actionData.submittedAt.toDate();
                 if (!earliestSubmission || submissionDate < earliestSubmission) {
                     earliestSubmission = submissionDate;
@@ -133,7 +134,8 @@ const getLastSubmissionDate = (audit: Audit): Date | null => {
     let latestSubmission: Date | null = null;
     audit.sections.forEach(section => {
         section.answers.forEach(answer => {
-            if (answer.answer === "hayir" && answer.actionData?.submittedAt) {
+            const isActionNeeded = answer.answer === "hayir" || (answer.questionType === "checkbox" && answer.earnedPoints < answer.maxPoints);
+            if (isActionNeeded && answer.actionData?.submittedAt) {
                 const submissionDate = answer.actionData.submittedAt.toDate();
                 if (!latestSubmission || submissionDate > latestSubmission) {
                     latestSubmission = submissionDate;
@@ -167,9 +169,11 @@ function AdminActionsContent() {
                 let auditsData = snapshot.docs
                     .map((doc) => ({ id: doc.id, ...doc.data() } as Audit))
                     .filter((audit) => {
-                        // Sadece "hayır" cevabı olan denetimleri al
+                        // "hayır" cevabı olan veya checkbox sorusunda tam puan alamayan denetimleri al
                         return audit.sections.some((section) =>
-                            section.answers.some((answer) => answer.answer === "hayir")
+                            section.answers.some((answer) =>
+                                answer.answer === "hayir" || (answer.questionType === "checkbox" && answer.earnedPoints < answer.maxPoints)
+                            )
                         );
                     })
                     .sort((a, b) => b.completedAt!.toMillis() - a.completedAt!.toMillis());
@@ -248,7 +252,9 @@ function AdminActionsContent() {
 
         audit.sections.forEach(section => {
             section.answers.forEach(answer => {
-                if (answer.answer === "hayir") {
+                const isActionNeeded = answer.answer === "hayir" || (answer.questionType === "checkbox" && answer.earnedPoints < answer.maxPoints);
+
+                if (isActionNeeded) {
                     const status = answer.actionData?.status || "pending_store";
 
                     if (status !== "approved") {
@@ -471,7 +477,7 @@ function AdminActionsContent() {
                 const audit = row.original;
                 let totalActions = 0;
                 audit.sections.forEach((s: any) => s.answers.forEach((a: any) => {
-                    if (a.answer === "hayir") totalActions++;
+                    if (a.answer === "hayir" || (a.questionType === "checkbox" && a.earnedPoints < a.maxPoints)) totalActions++;
                 }));
 
                 const badgeClass = totalActions > 10
@@ -512,7 +518,8 @@ function AdminActionsContent() {
                 let rejectedActions = 0;
 
                 audit.sections.forEach((s: any) => s.answers.forEach((a: any) => {
-                    if (a.answer === "hayir") {
+                    const isActionNeeded = a.answer === "hayir" || (a.questionType === "checkbox" && a.earnedPoints < a.maxPoints);
+                    if (isActionNeeded) {
                         totalActions++;
                         const status = a.actionData?.status || "pending_store";
                         if (status === "approved") approvedActions++;
@@ -541,7 +548,8 @@ function AdminActionsContent() {
                 let pendingStoreActions = 0;
 
                 audit.sections.forEach((s: any) => s.answers.forEach((a: any) => {
-                    if (a.answer === "hayir") {
+                    const isActionNeeded = a.answer === "hayir" || (a.questionType === "checkbox" && a.earnedPoints < a.maxPoints);
+                    if (isActionNeeded) {
                         totalActions++;
                         const s = a.actionData?.status || "pending_store";
                         if (s === "pending_admin") pendingAdminActions++;
@@ -552,9 +560,12 @@ function AdminActionsContent() {
 
                 if (status === "Onaylandı") {
                     return (
-                        <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200 hover:bg-green-100 px-3 py-1 text-sm font-medium">
-                            <Check className="h-4 w-4 mr-1" /> Onaylandı
-                        </Badge>
+                        <div className="flex flex-col gap-1">
+                            <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200 hover:bg-green-100 w-fit px-3 py-1 text-sm font-medium">
+                                <Check className="h-4 w-4 mr-1" /> Onaylandı
+                            </Badge>
+                            <span className="text-xs text-muted-foreground">{totalActions} madde tamamlandı</span>
+                        </div>
                     );
                 }
                 if (status === "Düzeltme Bekleniyor") {

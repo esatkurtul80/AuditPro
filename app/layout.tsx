@@ -6,6 +6,8 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { OfflineIndicator } from "@/components/offline-indicator";
 import { PageTransition } from "@/components/page-transition";
+import { ServiceWorkerUpdater } from "@/components/service-worker-updater";
+
 import NextTopLoader from "nextjs-toploader";
 
 const geistSans = Geist({
@@ -19,10 +21,19 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AuditPro - Mağaza Denetim Sistemi",
+  title: "AuditPro",
   description: "Profesyonel mağaza denetim ve aksiyon takip sistemi",
   icons: {
     icon: "/login-assets-new/logo.png",
+    apple: "/login-assets-new/logo.png",
+  },
+  appleWebApp: {
+    capable: false,
+    title: "AuditPro",
+    statusBarStyle: "default",
+  },
+  other: {
+    'mobile-web-app-capable': 'no',
   },
 };
 
@@ -57,6 +68,7 @@ export default function RootLayout({
             </PageTransition>
             <Toaster />
             <OfflineIndicator />
+            <ServiceWorkerUpdater />
           </AuthProvider>
         </ThemeProvider>
       </body>

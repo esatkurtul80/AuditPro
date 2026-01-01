@@ -1,0 +1,12 @@
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=tugba-auditpro
+NEXT_PUBLIC_FIREBASE_VAPID_KEY=
+
+# -------------------------------------------------------------------------
+# AŞAĞIDAKİ BİLGİLERİ DOLDURUP BU DOSYANIN ADINI .env.local OLARAK DEĞİŞTİRİN
+# -------------------------------------------------------------------------
+
+# Bu bilgileri Firebase Konsol -> Proje Ayarları -> Hizmet Hesapları (Service Accounts) 
+# sekmesinden "Yeni özel anahtar oluştur" diyerek indirdiğiniz JSON dosyasından alabilirsiniz.
+
+FIREBASE_CLIENT_EMAIL=
+FIREBASE_PRIVATE_KEY=

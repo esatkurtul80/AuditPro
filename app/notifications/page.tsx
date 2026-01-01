@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useState, useMemo, Suspense } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/auth-provider";
-import { ProtectedRoute } from "@/components/protected-route";
 import { DashboardLayout } from "@/components/dashboard-layout";
 import {
     collection,
@@ -19,7 +18,6 @@ import {
     startAfter,
     QueryDocumentSnapshot,
     DocumentData,
-    Timestamp,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Notification } from "@/lib/types";
@@ -62,18 +60,16 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
+import { Suspense } from "react";
 
 const ITEMS_PER_PAGE = 20;
 
-type NotificationWithVirtual = Notification & { isVirtual?: boolean };
-
-function AdminNotificationsContent() {
+function NotificationsContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const { userProfile } = useAuth();
 
     const [notifications, setNotifications] = useState<Notification[]>([]);
-    const [pendingUsers, setPendingUsers] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [filterType, setFilterType] = useState<string>("all");
     const [lastDoc, setLastDoc] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
@@ -81,13 +77,10 @@ function AdminNotificationsContent() {
     const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
     useEffect(() => {
-        if (userProfile?.uid && userProfile.role === "admin") {
+        if (userProfile?.uid) {
             const unsubscribeNotifs = loadNotifications();
-            const unsubscribePending = loadPendingUsers();
-
             return () => {
                 if (unsubscribeNotifs) unsubscribeNotifs();
-                if (unsubscribePending) unsubscribePending();
             };
         }
     }, [userProfile, filterType]);
@@ -106,7 +99,6 @@ function AdminNotificationsContent() {
                 newSet.add(highlightId);
                 return newSet;
             });
-            // Auto scroll could be added here if needed
             setTimeout(() => {
                 const element = document.getElementById(`notification-${highlightId}`);
                 if (element) {
@@ -115,22 +107,6 @@ function AdminNotificationsContent() {
             }, 500);
         }
     }, [searchParams]);
-
-    const loadPendingUsers = () => {
-        const pendingQuery = query(
-            collection(db, "users"),
-            where("role", "==", "pending")
-        );
-
-        return onSnapshot(pendingQuery, (snapshot) => {
-            const users = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data(),
-                createdAt: doc.data().createdAt || Timestamp.now()
-            }));
-            setPendingUsers(users);
-        });
-    };
 
     const loadNotifications = () => {
         if (!userProfile?.uid) return;
@@ -142,7 +118,7 @@ function AdminNotificationsContent() {
             limit(ITEMS_PER_PAGE)
         );
 
-        if (filterType !== "all" && filterType !== "pending_user") {
+        if (filterType !== "all") {
             notificationsQuery = query(
                 collection(db, "notifications"),
                 where("userId", "==", userProfile.uid),
@@ -178,7 +154,7 @@ function AdminNotificationsContent() {
             limit(ITEMS_PER_PAGE)
         );
 
-        if (filterType !== "all" && filterType !== "pending_user") {
+        if (filterType !== "all") {
             moreQuery = query(
                 collection(db, "notifications"),
                 where("userId", "==", userProfile.uid),
@@ -201,39 +177,20 @@ function AdminNotificationsContent() {
     };
 
     const combinedNotifications = useMemo(() => {
-        let items: NotificationWithVirtual[] = [...notifications];
-
-        // Add virtual notifications for pending users
-        if (filterType === "all" || filterType === "pending_user") {
-            const virtualNotifs = pendingUsers.map(user => ({
-                id: `virtual_pending_${user.id}`,
-                userId: userProfile?.uid || "",
-                type: "pending_user",
-                title: "Kullanıcı Onayı Bekliyor",
-                message: `${user.displayName || user.email} sisteme kayıt oldu ve onay bekliyor.`,
-                read: false,
-                createdAt: user.createdAt,
-                isVirtual: true,
-                relatedId: user.id
-            } as NotificationWithVirtual));
-
-            items = [...items, ...virtualNotifs];
-        }
-
+        let items: Notification[] = [...notifications];
         // Sort by date desc
         return items.sort((a, b) => {
             const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt as any);
             const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt as any);
             return dateB.getTime() - dateA.getTime();
         });
-    }, [notifications, pendingUsers, filterType, userProfile]);
+    }, [notifications]);
 
     const markAsRead = async (notificationId: string) => {
         try {
             await updateDoc(doc(db, "notifications", notificationId), {
                 read: true,
             });
-            // toast.success("Bildirim okundu olarak işaretlendi"); 
         } catch (error) {
             console.error("Error marking notification as read:", error);
         }
@@ -263,13 +220,7 @@ function AdminNotificationsContent() {
         }
     };
 
-    const handleNotificationClick = (notification: NotificationWithVirtual) => {
-        // If virtual (pending user), go to users page
-        if (notification.isVirtual) {
-            router.push("/admin/users?filter=pending");
-            return;
-        }
-
+    const handleNotificationClick = (notification: Notification) => {
         // Mark as read if not read
         if (!notification.read) {
             markAsRead(notification.id);
@@ -290,7 +241,6 @@ function AdminNotificationsContent() {
                 router.push(`/audits/${notification.relatedId}?mode=view`);
             }
         }
-
     };
 
     const navigateToAudit = (e: React.MouseEvent, auditId: string) => {
@@ -308,8 +258,8 @@ function AdminNotificationsContent() {
                 return <Badge className="bg-green-500">Aksiyon Onaylandı</Badge>;
             case "new_audit":
                 return <Badge className="bg-purple-500">Yeni Denetim</Badge>;
-            case "pending_user":
-                return <Badge className="bg-yellow-500">Kullanıcı Onayı</Badge>;
+            case "admin_message":
+                return <Badge className="bg-indigo-500">Sistem Mesajı</Badge>;
             default:
                 return <Badge variant="outline">{type}</Badge>;
         }
@@ -356,7 +306,6 @@ function AdminNotificationsContent() {
     }
 
     return (
-
         <div className="container mx-auto py-8 space-y-6">
             <div className="flex items-center justify-end">
                 <div className="flex gap-2">
@@ -376,7 +325,7 @@ function AdminNotificationsContent() {
             <Card>
                 <CardHeader>
                     <div className="flex items-center justify-between">
-                        <CardTitle>Tüm Bildirimler</CardTitle>
+                        <CardTitle>Bildirimlerim</CardTitle>
                         <div className="flex items-center gap-2">
                             <Filter className="h-4 w-4 text-muted-foreground" />
                             <Select value={filterType} onValueChange={setFilterType}>
@@ -385,19 +334,11 @@ function AdminNotificationsContent() {
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">Tümü</SelectItem>
-                                    <SelectItem value="audit_edited">
-                                        Denetim Düzenlendi
-                                    </SelectItem>
-                                    <SelectItem value="action_rejected">
-                                        Aksiyon Reddedildi
-                                    </SelectItem>
-                                    <SelectItem value="action_approved">
-                                        Aksiyon Onaylandı
-                                    </SelectItem>
+                                    <SelectItem value="admin_message">Sistem Mesajı</SelectItem>
+                                    <SelectItem value="audit_edited">Denetim Düzenlendi</SelectItem>
+                                    <SelectItem value="action_rejected">Aksiyon Reddedildi</SelectItem>
+                                    <SelectItem value="action_approved">Aksiyon Onaylandı</SelectItem>
                                     <SelectItem value="new_audit">Yeni Denetim</SelectItem>
-                                    <SelectItem value="pending_user">
-                                        Kullanıcı Onayı
-                                    </SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
@@ -423,7 +364,7 @@ function AdminNotificationsContent() {
                                 <div
                                     id={`notification-${notification.id}`}
                                     key={notification.id}
-                                    className={`rounded-lg border transition-all ${!notification.read && !notification.isVirtual
+                                    className={`rounded-lg border transition-all ${!notification.read
                                         ? "bg-blue-50/50 border-blue-200"
                                         : "bg-background"
                                         }`}
@@ -437,20 +378,12 @@ function AdminNotificationsContent() {
                                                 {getNotificationTypeBadge(
                                                     notification.type
                                                 )}
-                                                {!notification.read && !notification.isVirtual && (
+                                                {!notification.read && (
                                                     <Badge
                                                         variant="outline"
                                                         className="text-[10px] px-1.5 py-0 border-blue-500 text-blue-600"
                                                     >
                                                         YENİ
-                                                    </Badge>
-                                                )}
-                                                {notification.isVirtual && (
-                                                    <Badge
-                                                        variant="outline"
-                                                        className="text-[10px] px-1.5 py-0 border-yellow-500 text-yellow-600"
-                                                    >
-                                                        BEKLEYEN
                                                     </Badge>
                                                 )}
                                             </div>
@@ -472,7 +405,7 @@ function AdminNotificationsContent() {
                                                 </Button>
                                             )}
 
-                                            {!notification.isVirtual && !notification.read && (
+                                            {!notification.read && (
                                                 <Button
                                                     variant="ghost"
                                                     size="icon"
@@ -486,20 +419,18 @@ function AdminNotificationsContent() {
                                                 </Button>
                                             )}
 
-                                            {!notification.isVirtual && (
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        deleteNotification(notification.id);
-                                                    }}
-                                                    title="Sil"
-                                                    className="text-red-600 hover:text-red-700"
-                                                >
-                                                    <Trash2 className="h-4 w-4" />
-                                                </Button>
-                                            )}
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    deleteNotification(notification.id);
+                                                }}
+                                                title="Sil"
+                                                className="text-red-600 hover:text-red-700"
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
                                         </div>
                                     </div>
 
@@ -590,7 +521,6 @@ function AdminNotificationsContent() {
                 </CardContent>
             </Card>
         </div>
-
     );
 }
 
@@ -602,7 +532,7 @@ export default function NotificationsPage() {
                     <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 </div>
             }>
-                <AdminNotificationsContent />
+                <NotificationsContent />
             </Suspense>
         </DashboardLayout>
     );

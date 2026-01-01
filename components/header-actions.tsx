@@ -23,6 +23,7 @@ import { Avatar, AvatarFallback } from "./ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
+import { SendNotificationDialog } from "./admin/send-notification-dialog";
 
 // Separate component for header actions so it can be reused
 export function HeaderActions({ compact = false }: { compact?: boolean }) {
@@ -83,14 +84,15 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
 
     const handleNotificationClick = (notification?: Notification) => {
         if (notification) {
-            router.push(`/admin/notifications?highlight=${notification.id}`);
+            router.push(`/notifications?highlight=${notification.id}`);
         } else {
-            router.push("/admin/notifications?filter=pending_user");
+            // Pending user notification (no specific notification obj)
+            router.push("/admin/users?filter=pending");
         }
     };
 
     const viewAllNotifications = () => {
-        router.push("/admin/notifications");
+        router.push("/notifications");
     };
 
     const handleLogout = async () => {
@@ -137,6 +139,13 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
 
 
 
+                {/* Admin Send Notification Button */}
+                {userProfile?.role === "admin" && (
+                    <div className="flex items-center justify-center w-6 md:w-auto md:mr-1">
+                        <SendNotificationDialog />
+                    </div>
+                )}
+
                 {/* Notifications Button */}
                 <div className="flex items-center justify-center w-6">
                     <DropdownMenu>
@@ -161,7 +170,7 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
                                 <Badge
                                     variant="secondary"
                                     className="cursor-pointer hover:bg-secondary/80"
-                                    onClick={() => router.push("/admin/notifications")}
+                                    onClick={() => router.push("/notifications")}
                                 >
                                     Bildirimler
                                 </Badge>
@@ -314,6 +323,13 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
             {/* Online Status */}
             <OnlineStatusBadge isOnline={isOnline} compact={compact} />
 
+            {/* Admin Send Notification Button */}
+            {userProfile?.role === "admin" && (
+                <div className="flex items-center justify-center mr-1">
+                    <SendNotificationDialog />
+                </div>
+            )}
+
             {/* Notifications Button */}
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -337,7 +353,7 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
                         <Badge
                             variant="secondary"
                             className="cursor-pointer hover:bg-secondary/80"
-                            onClick={() => router.push("/admin/notifications")}
+                            onClick={() => router.push("/notifications")}
                         >
                             Bildirimler
                         </Badge>

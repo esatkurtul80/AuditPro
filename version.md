@@ -1,6 +1,19 @@
 # AuditPro Version History
 
-## v1.9.3 (Current)
+## v1.9.6 (Current)
+- **Resolved Push Notification Issues:** Fixed API 500 errors by adding `firebase-functions` dependency and using safe admin initialization.
+- **Service Worker Fixes:** Corrected syntax errors in SW and removed redundant `showNotification` calls to prevent double notifications.
+- **Double Notification Fix:** Implemented `ServiceWorkerUpdater` to aggressively update cached workers and added token de-duplication in the API.
+- **Foreground Notifications:** Added `onMessage` listener to display in-app toast notifications when the app is open.
+- **Admin Testing:** Added "Tüm Adminler" option to the notification dialog for easier testing.
+
+## v1.9.5
+- **Resolved iOS PWA Login Loop:** Fixed the persistent `auth/network-request-failed` error on iOS PWA by switching to `signInWithRedirect` and `indexedDB` persistence.
+- **Aligned Auth Domain:** Updated `authDomain` to `tugbadenetim.info` to ensure Same-Origin policy compliance with the custom domain, bypassing iOS PWA network restrictions.
+- **Optimized PWA Experience:** Shortened the home screen app name to "AuditPro" and removed potentially conflicting Service Worker configurations.
+- **Enhanced Login Stability:** Implemented a robust "Kill Switch" for stale Service Workers to prevent caching issues affecting authentication.
+
+## v1.9.3
 - Refined Admin Actions UI: Increased row height, font sizes, and badge styles.
 - Reordered columns in Admin Actions table: Store -> Auditor -> Audit Type.
 - Fixed `useSearchParams` build errors in Admin Actions and Sidebar by adding Suspense boundaries.
@@ -22,3 +35,5 @@
 - Added version display in sidebar.
 - Fixed build error in admin dashboard.
 - Modernized section headers.
+
+

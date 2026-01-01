@@ -258,7 +258,8 @@ export default function AuditActionsPage() {
             section.answers.forEach((answer, aIndex) => {
                 const actionData = answer.actionData;
                 // Check if we have drafted data on server (pending_store or rejected)
-                if (answer.answer === "hayir" && actionData && (actionData.status === "pending_store" || actionData.status === "rejected")) {
+                const isActionNeeded = answer.answer === "hayir" || (answer.questionType === "checkbox" && answer.earnedPoints < answer.maxPoints);
+                if (isActionNeeded && actionData && (actionData.status === "pending_store" || actionData.status === "rejected")) {
                     const key = `${sIndex}-${aIndex}`;
 
                     // Only overwrite if we don't have local unsaved changes? 
@@ -654,7 +655,7 @@ export default function AuditActionsPage() {
         const pendingItems = audit.sections.flatMap((section, sIndex) =>
             section.answers
                 .map((answer, aIndex) => ({ answer, section, sIndex, aIndex }))
-                .filter(item => item.answer.answer === "hayir")
+                .filter(item => item.answer.answer === "hayir" || (item.answer.questionType === "checkbox" && item.answer.earnedPoints < item.answer.maxPoints))
         ).filter(item => {
             const status = item.answer.actionData?.status || "pending_store";
             return status === "pending_store" || status === "rejected";
@@ -795,7 +796,8 @@ export default function AuditActionsPage() {
             let hasUnresolvedActions = false;
             updatedSections.forEach(section => {
                 section.answers.forEach(a => {
-                    if (a.answer === "hayir") {
+                    const isActionNeeded = a.answer === "hayir" || (a.questionType === "checkbox" && a.earnedPoints < a.maxPoints);
+                    if (isActionNeeded) {
                         const status = a.actionData?.status || "pending_store";
                         if (status !== "approved") {
                             hasUnresolvedActions = true;
@@ -994,7 +996,7 @@ export default function AuditActionsPage() {
     const actions = audit.sections.flatMap((section, sIndex) =>
         section.answers
             .map((answer, aIndex) => ({ answer, section, sIndex, aIndex }))
-            .filter(item => item.answer.answer === "hayir")
+            .filter(item => item.answer.answer === "hayir" || (item.answer.questionType === "checkbox" && item.answer.earnedPoints < item.answer.maxPoints))
     );
 
     return (
@@ -1115,6 +1117,26 @@ export default function AuditActionsPage() {
                                                     <CardTitle className="text-lg leading-snug">
                                                         {answer.questionText}
                                                     </CardTitle>
+                                                    {/* Checkbox soruları için eksik (işaretlenmemiş) maddeleri göster */}
+                                                    {answer.questionType === 'checkbox' && answer.options && answer.selectedOptions && (
+                                                        <div className="mt-3 text-sm">
+                                                            <div className="font-semibold text-red-600 mb-1 flex items-center">
+                                                                <XCircle className="h-4 w-4 mr-1" />
+                                                                Eksik Maddeler:
+                                                            </div>
+                                                            <ul className="grid grid-cols-1 gap-2">
+                                                                {answer.options
+                                                                    .filter(opt => !answer.selectedOptions?.includes(opt.id))
+                                                                    .map(opt => (
+                                                                        <li key={opt.id} className="flex items-start text-muted-foreground bg-slate-50 p-2 rounded border border-slate-100">
+                                                                            <span className="w-1.5 h-1.5 rounded-full bg-red-400 mt-1.5 mr-2 shrink-0" />
+                                                                            {opt.text}
+                                                                        </li>
+                                                                    ))
+                                                                }
+                                                            </ul>
+                                                        </div>
+                                                    )}
                                                 </div>
 
                                             </div>

@@ -16,3 +16,4 @@ dist/
 .cache/
 coverage/
 .firebase-cache/
+service-account.json

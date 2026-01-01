@@ -4,20 +4,27 @@ import { createContext, useContext, useEffect, useState, ReactNode } from "react
 import {
     User,
     signInWithPopup,
+    signInWithRedirect,
+    getRedirectResult,
+    setPersistence,
+    indexedDBLocalPersistence,
     GoogleAuthProvider,
     signOut as firebaseSignOut,
-    onAuthStateChanged
+    onAuthStateChanged,
+    signInWithEmailAndPassword
 } from "firebase/auth";
 import { doc, getDoc, setDoc, collection, getDocs, Timestamp } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import { UserProfile } from "@/lib/types";
 import { NameEntryModal } from "@/components/name-entry-modal";
+import { toast } from "sonner"; // Toast ekledik
 
 interface AuthContextType {
     user: User | null;
     userProfile: UserProfile | null;
     loading: boolean;
     signInWithGoogle: () => Promise<void>;
+    signInWithEmail: (email: string, pass: string) => Promise<void>;
     signOut: () => Promise<void>;
 }
 
@@ -30,48 +37,107 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [showNameModal, setShowNameModal] = useState(false);
 
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, async (user) => {
-            setUser(user);
 
-            if (user) {
-                // Kullanıcı profilini Firestore'dan al
-                const userDocRef = doc(db, "users", user.uid);
-                const userDoc = await getDoc(userDocRef);
 
-                if (userDoc.exists()) {
-                    const profile = userDoc.data() as UserProfile;
-                    setUserProfile(profile);
-                    // Check if user needs to enter name (excluding store users)
-                    if (profile.role !== "pending" && profile.role !== "magaza" && (!profile.firstName || !profile.lastName)) {
-                        setShowNameModal(true);
-                    }
-                } else {
-                    // İlk kez giriş yapan kullanıcı için profil oluştur
-                    // Sistemdeki toplam kullanıcı sayısını kontrol et
-                    const usersSnapshot = await getDocs(collection(db, "users"));
-                    const isFirstUser = usersSnapshot.empty;
-
-                    const newProfile: UserProfile = {
-                        uid: user.uid,
-                        email: user.email!,
-                        displayName: user.displayName,
-                        photoURL: user.photoURL,
-                        role: isFirstUser ? "admin" : "pending", // İlk kullanıcı admin, diğerleri pending olur
-                        createdAt: Timestamp.now(),
-                        updatedAt: Timestamp.now(),
-                    };
-
-                    await setDoc(userDocRef, newProfile);
-                    setUserProfile(newProfile);
-                }
-            } else {
-                setUserProfile(null);
+        const initializeAuth = async () => {
+            // 1. Persistence: IndexedDB (PWA için en kararlı olan)
+            try {
+                await setPersistence(auth, indexedDBLocalPersistence);
+            } catch (e) {
+                console.error("Persistence error:", e);
             }
 
-            setLoading(false);
-        });
+            // 2. Redirect Sonucunu Yakala (PWA Login Loop'u kırmak için kritik)
+            try {
+                const result = await getRedirectResult(auth);
+                if (result) {
+                    console.log("Redirect login success:", result.user.email);
+                    toast.success("Giriş başarılı!");
+                }
+            } catch (error: any) {
+                console.error("Redirect login error:", error);
+                // Eğer hata varsa kullanıcıya gösterelim
+                if (error.code !== 'auth/popup-closed-by-user') {
+                    toast.error(`Giriş Hatası: ${error.message}`);
+                }
+            }
 
-        return () => unsubscribe();
+            // 3. Auth Durumunu Dinle
+            const unsubscribe = onAuthStateChanged(auth, async (user) => {
+                setUser(user);
+
+                if (user) {
+                    const userDocRef = doc(db, "users", user.uid);
+                    const userDoc = await getDoc(userDocRef);
+
+                    if (userDoc.exists()) {
+                        const profile = userDoc.data() as UserProfile;
+                        setUserProfile(profile);
+                        if (profile.role !== "pending" && profile.role !== "magaza" && (!profile.firstName || !profile.lastName)) {
+                            setShowNameModal(true);
+                        }
+
+                        // FCM Token Logic
+                        if (typeof window !== "undefined" && "serviceWorker" in navigator && Notification.permission !== "denied") {
+                            try {
+                                const { messaging } = await import("@/lib/firebase");
+                                if (messaging) {
+                                    const { getToken, onMessage } = await import("firebase/messaging");
+                                    const currentToken = await getToken(messaging, {
+                                        vapidKey: process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY
+                                    });
+                                    if (currentToken) {
+                                        await setDoc(userDocRef, { fcmToken: currentToken }, { merge: true });
+                                        console.log("FCM Token saved");
+                                    }
+
+                                    // Foreground Message Listener
+                                    onMessage(messaging, (payload) => {
+                                        console.log("Foreground Message received: ", payload);
+                                        const { title, body } = payload.notification || {};
+                                        if (title) {
+                                            toast.info(title, {
+                                                description: body,
+                                                duration: 5000,
+                                            });
+                                        }
+                                    });
+                                }
+                            } catch (err) {
+                                console.log("FCM Token Error (e.g. missing VAPID or permission):", err);
+                            }
+                        }
+                    } else {
+                        // Yeni Kullanıcı Oluştur
+                        const usersSnapshot = await getDocs(collection(db, "users"));
+                        const isFirstUser = usersSnapshot.empty;
+
+                        const newProfile: UserProfile = {
+                            uid: user.uid,
+                            email: user.email!,
+                            displayName: user.displayName,
+                            photoURL: user.photoURL,
+                            role: isFirstUser ? "admin" : "pending",
+                            createdAt: Timestamp.now(),
+                            updatedAt: Timestamp.now(),
+                        };
+
+                        await setDoc(userDocRef, newProfile);
+                        setUserProfile(newProfile);
+                    }
+                } else {
+                    setUserProfile(null);
+                }
+
+                setLoading(false);
+            });
+            return unsubscribe;
+        };
+
+        const cleanup = initializeAuth();
+        return () => {
+            cleanup.then(unsubscribe => unsubscribe());
+        };
     }, []);
 
     const signInWithGoogle = async () => {
@@ -79,7 +145,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         provider.setCustomParameters({
             prompt: 'select_account'
         });
-        await signInWithPopup(auth, provider);
+
+        try {
+            // PWA İÇİN KRİTİK DEĞİŞİKLİK:
+            // Artık authDomain (tugbadenetim.info) ile sitemiz aynı.
+            // Bu yüzden "Redirect" yöntemi PWA içinde çalışması gereken en doğru yöntem.
+            // Popup yöntemi iOS PWA'da pencere sorunları yaratır.
+            await signInWithRedirect(auth, provider);
+        } catch (error: any) {
+            console.error("Login trigger error:", error);
+            toast.error(`Giriş başlatılamadı: ${error.message}`);
+        }
+    };
+
+    const signInWithEmail = async (email: string, pass: string) => {
+        await signInWithEmailAndPassword(auth, email, pass);
     };
 
     const signOut = async () => {
@@ -93,6 +173,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 userProfile,
                 loading,
                 signInWithGoogle,
+                signInWithEmail,
                 signOut
             }}
         >
