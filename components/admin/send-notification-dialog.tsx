@@ -26,8 +26,10 @@ import { toast } from "sonner";
 import { collection, addDoc, Timestamp, getDocs, query, where } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { UserProfile, NotificationType } from "@/lib/types";
+import { useAuth } from "@/components/auth-provider";
 
 export function SendNotificationDialog({ trigger }: { trigger?: React.ReactNode }) {
+    const { userProfile } = useAuth();
     const [open, setOpen] = useState(false);
     const [loading, setLoading] = useState(false);
     const [title, setTitle] = useState("");
@@ -70,12 +72,19 @@ export function SendNotificationDialog({ trigger }: { trigger?: React.ReactNode 
             // 2. Bildirimleri Oluştur (Batch mantığı gerekebilir ama şimdilik döngü ile)
             // Firebase Batch limiti 500'dür. Eğer kullanıcı çoksa batch kullanmak gerekir.
             const notificationsRef = collection(db, "notifications");
+            const senderName = userProfile
+                ? (userProfile.firstName && userProfile.lastName
+                    ? `${userProfile.firstName} ${userProfile.lastName}`
+                    : userProfile.displayName)
+                : "Admin";
+
             const batchPromises = targetUsers.map(user => {
                 return addDoc(notificationsRef, {
                     userId: user.uid,
                     type: "admin_message",
                     title: title,
                     message: message,
+                    senderName: senderName,
                     read: false,
                     createdAt: Timestamp.now()
                 });

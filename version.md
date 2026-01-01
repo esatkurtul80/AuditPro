@@ -1,6 +1,11 @@
 # AuditPro Version History
 
-## v1.10.1 (Current) - "Notification Polish & Deep Linking"
+## v1.10.2 (Current) - "Personalized Notifications"
+- **User Experience:**
+    - **Sender Identity:** Notifications now display the real name of the sender (e.g., the specific Admin's name) instead of generic "System Message" badges.
+    - **Consistent UI:** Applied these changes to both the Header Dropdown and the main Notifications page.
+
+## v1.10.1 - "Notification Polish & Deep Linking"
 - **UI Refinements:**
     - **Header Alignment:** Aligned "Send Notification" button style with "AKSİYONLAR" (Blue, Uppercase) and positioned it correctly.
     - **Mobile UX:** Moved "Send Notification" button to the Sidebar for mobile admin users.

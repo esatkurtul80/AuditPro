@@ -201,6 +201,7 @@ export interface Notification {
     message: string;
     read: boolean;
     relatedId?: string; // audit ID, action ID, etc.
+    senderName?: string;
     changes?: Array<{
         sectionName: string;
         questionId: string;

@@ -113,14 +113,16 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
         return name.substring(0, 2).toUpperCase();
     };
 
-    const getNotificationTypeBadge = (type: string) => {
-        switch (type) {
+    const getNotificationTypeBadge = (notification: Notification) => {
+        switch (notification.type) {
             case "audit_edited":
                 return <Badge className="bg-blue-500 text-white text-[10px]">Denetim Düzenlendi</Badge>;
             case "pending_user":
                 return <Badge className="bg-yellow-500 text-white text-[10px]">Kullanıcı Onayı</Badge>;
+            case "admin_message":
+                return <Badge variant="outline" className="text-[10px]">{notification.senderName || "Yönetici Mesajı"}</Badge>;
             default:
-                return <Badge variant="outline" className="text-[10px]">{type}</Badge>;
+                return <Badge variant="outline" className="text-[10px]">{notification.type}</Badge>;
         }
     };
 
@@ -210,7 +212,7 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
                                         >
                                             <div className="flex flex-col gap-1 w-full">
                                                 <div className="flex items-center justify-between mb-1">
-                                                    {getNotificationTypeBadge(notification.type)}
+                                                    {getNotificationTypeBadge(notification)}
                                                     <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-blue-500 text-blue-600 bg-blue-50">
                                                         YENİ
                                                     </Badge>
@@ -405,7 +407,7 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
                                 >
                                     <div className="flex flex-col gap-1 w-full">
                                         <div className="flex items-center justify-between mb-1">
-                                            {getNotificationTypeBadge(notification.type)}
+                                            {getNotificationTypeBadge(notification)}
                                             <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-blue-500 text-blue-600 bg-blue-50">
                                                 YENİ
                                             </Badge>

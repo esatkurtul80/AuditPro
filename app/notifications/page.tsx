@@ -248,8 +248,8 @@ function NotificationsContent() {
         router.push(`/audits/${auditId}?mode=view`);
     }
 
-    const getNotificationTypeBadge = (type: string) => {
-        switch (type) {
+    const getNotificationTypeBadge = (notification: Notification) => {
+        switch (notification.type) {
             case "audit_edited":
                 return <Badge className="bg-blue-500">Denetim Düzenlendi</Badge>;
             case "action_rejected":
@@ -259,9 +259,9 @@ function NotificationsContent() {
             case "new_audit":
                 return <Badge className="bg-purple-500">Yeni Denetim</Badge>;
             case "admin_message":
-                return <Badge className="bg-indigo-500">Sistem Mesajı</Badge>;
+                return <Badge className="bg-indigo-500">{notification.senderName || "Yönetici Mesajı"}</Badge>;
             default:
-                return <Badge variant="outline">{type}</Badge>;
+                return <Badge variant="outline">{notification.type}</Badge>;
         }
     };
 
@@ -376,7 +376,7 @@ function NotificationsContent() {
                                         <div className="flex-1 space-y-2">
                                             <div className="flex items-center gap-2">
                                                 {getNotificationTypeBadge(
-                                                    notification.type
+                                                    notification
                                                 )}
                                                 {!notification.read && (
                                                     <Badge
