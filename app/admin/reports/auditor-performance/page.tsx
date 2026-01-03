@@ -101,6 +101,8 @@ interface DurationMetric {
             text: string;
             duration: number;
             score: number;
+            isSuspicious: boolean;
+            avgDuration: number;
         }[];
     }[];
 }
@@ -136,18 +138,41 @@ interface MonthlyScore {
     auditCount: number;
 }
 
+interface QuestionDetail {
+    sectionName: string;
+    text: string;
+    duration: number;
+    score: number;
+    isSuspicious: boolean;  // Şüpheli cevap (çok hızlı)
+    avgDuration: number;    // Genel ortalama süre
+}
+
 // Export fonksiyonları
 const exportToExcel = (data: QuestionDetail[], storeName: string, auditorName: string, date: string) => {
     // Veriyi Excel formatına uygun şekilde düzenle
     const excelData = data.map(item => ({
         'Bölüm': item.sectionName,
         'Soru': item.text,
-        'Süre (sn)': item.duration.toFixed(1),
-        'Puan': item.score
+        'Cevap Süre (sn)': Math.round(item.duration),
+        'Ort. Süre (sn)': Math.round(item.avgDuration),
+        'Puan': item.score,
+        'Durum': item.isSuspicious ? 'Şüpheli' : '-'
     }));
 
     // Worksheet oluştur
     const worksheet = XLSX.utils.json_to_sheet(excelData);
+
+    // Sütun genişliklerini ayarla
+    const wscols = [
+        { wch: 20 }, // Bölüm
+        { wch: 50 }, // Soru
+        { wch: 10 }, // Süre
+        { wch: 12 }, // Ort. Süre
+        { wch: 10 }, // Puan
+        { wch: 15 }  // Durum
+    ];
+    worksheet['!cols'] = wscols;
+
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Sorular");
 
@@ -236,10 +261,17 @@ const exportToPDF = async (
         ? formatTime(endTime)
         : '-';
 
-    infoTableBody.push([auditorName, startTimeStr, endTimeStr, formattedDuration]);
+    // Şüpheli Soru Oranı Hesapla
+    const suspiciousCount = data.filter(d => d.isSuspicious).length;
+    const totalCount = data.length;
+    const suspiciousRate = `${suspiciousCount}/${totalCount}`;
+
+    // Şüpheli oranı yüksekse kırmızı gösterilebilir (opsiyonel)
+
+    infoTableBody.push([auditorName, startTimeStr, endTimeStr, formattedDuration, suspiciousRate]);
 
     autoTable(doc, {
-        head: [['Denetmen Adı', 'Denetim Başlangıç Saati', 'Denetim Bitiş Saati', 'Toplam Denetim Süresi']],
+        head: [['Denetmen Adı', 'Denetim Başlangıç', 'Denetim Bitiş', 'Süre', 'Şüpheli Soru']],
         body: infoTableBody,
         startY: 20,
         theme: 'grid',
@@ -256,6 +288,10 @@ const exportToPDF = async (
             fontStyle: 'bold',
             halign: 'center'
         },
+        columnStyles: {
+            0: { cellWidth: 'auto' },
+            4: { textColor: suspiciousCount > 0 ? [220, 38, 38] : [0, 0, 0], fontStyle: suspiciousCount > 0 ? 'bold' : 'normal' }
+        },
         margin: { left: 14, right: 14 }
     });
 
@@ -264,12 +300,14 @@ const exportToPDF = async (
     const tableStartY = finalY + 5;
 
     autoTable(doc, {
-        head: [['Bölüm', 'Soru', 'Süre (sn)', 'Puan']],
+        head: [['Bölüm', 'Soru', 'Cevap Süre (sn)', 'Ort. Süre', 'Puan', 'Durum']],
         body: data.map(item => [
             item.sectionName,
             item.text,
-            item.duration.toFixed(1),
-            item.score.toString()
+            Math.round(item.duration).toString(),
+            Math.round(item.avgDuration).toString(),
+            item.score.toString(),
+            item.isSuspicious ? 'Şüpheli' : '-'
         ]),
         startY: tableStartY,
         styles: {
@@ -281,6 +319,9 @@ const exportToPDF = async (
             fillColor: [59, 130, 246],
             textColor: [255, 255, 255],
             fontStyle: 'bold'
+        },
+        columnStyles: {
+            5: { textColor: [220, 38, 38], fontStyle: 'bold' } // Şüpheli sütunu kırmızı
         },
         margin: { top: tableStartY },
         didParseCell: function (data) {
@@ -322,8 +363,8 @@ const questionDetailsColumns: ColumnDef<QuestionDetail>[] = [
         header: () => <div className="text-right">Süre (sn)</div>,
         cell: ({ row }) => (
             <div className="text-right">
-                <span className={(row.original.duration || 0) < 5 ? "text-red-500 font-bold" : "text-muted-foreground font-mono"}>
-                    {(row.original.duration || 0).toFixed(1)} sn
+                <span className={row.original.isSuspicious ? "text-red-500 font-bold" : "text-muted-foreground font-mono"}>
+                    {Math.round(row.original.duration || 0)} sn
                 </span>
             </div>
         ),
@@ -373,7 +414,7 @@ const auditHistoryColumns: ColumnDef<DurationMetric>[] = [
     {
         accessorKey: "duration",
         header: () => <div className="text-right">Süre (dk)</div>,
-        cell: ({ row }) => <div className="text-right">{(row.original.duration || 0).toFixed(1)}</div>,
+        cell: ({ row }) => <div className="text-right">{Math.round(row.original.duration || 0)}</div>,
         meta: { title: "Süre (dk)" }
     },
     {
@@ -394,7 +435,9 @@ const auditHistoryColumns: ColumnDef<DurationMetric>[] = [
                     sectionName: sec.name || 'Bölüm Yok',
                     text: ans.text,
                     duration: ans.duration,
-                    score: ans.score
+                    score: ans.score,
+                    isSuspicious: ans.isSuspicious,
+                    avgDuration: ans.avgDuration
                 }))
             );
 
@@ -405,7 +448,14 @@ const auditHistoryColumns: ColumnDef<DurationMetric>[] = [
                     </SheetTrigger>
                     <SheetContent side="right" className="w-full sm:max-w-3xl overflow-hidden flex flex-col gap-4 p-6">
                         <SheetHeader className="flex-shrink-0">
-                            <SheetTitle>Soru Bazlı Süre Analizi</SheetTitle>
+                            <SheetTitle>
+                                Soru Bazlı Süre Analizi
+                                {audit.suspiciousAnswerCount !== undefined && (
+                                    <span className="ml-2 text-sm font-normal text-red-500 bg-red-50 px-2 py-1 rounded-md">
+                                        Şüpheli: {audit.suspiciousAnswerCount}/{audit.validAnswersCount || allQuestions.length}
+                                    </span>
+                                )}
+                            </SheetTitle>
                             <SheetDescription>
                                 {audit.storeName} - {audit.date.toLocaleDateString('tr-TR')}
                             </SheetDescription>
@@ -782,13 +832,22 @@ export default function AuditorPerformancePage() {
             let suspiciousAnswerCount = 0;
             let validAnswersCount = 0;
 
+            // Calculate Suspicious Answers Count is moved to map
             audit.sections.forEach(s => {
                 s.answers.forEach(a => {
+                    // Filter out unanswered questions
+                    if (!a.answer) return;
+
                     validAnswersCount++;
                     const qKey = a.questionId || a.questionText;
                     const avgDuration = questionAverages[qKey] || 0;
-                    // If answer duration is less than average, count as suspicious
-                    if (avgDuration > 0 && (a.durationSeconds || 0) < avgDuration) {
+
+                    // Round both values to ignore decimals
+                    const roundedDuration = Math.round(a.durationSeconds || 0);
+                    const roundedAvg = Math.round(avgDuration);
+
+                    // Check if significantly strictly less than average (using rounded values)
+                    if (avgDuration > 0 && roundedDuration < roundedAvg) {
                         suspiciousAnswerCount++;
                     }
                 });
@@ -810,12 +869,29 @@ export default function AuditorPerformancePage() {
                 validAnswersCount,
                 sections: audit.sections.map(s => ({
                     name: currentSectionMap[s.sectionId] || s.name || 'Bilinmeyen Bölüm',
-                    answers: s.answers.map(a => ({
-                        text: a.questionText,
-                        duration: a.durationSeconds || 0,
-                        score: a.earnedPoints || 0
-                    }))
-                }))
+                    answers: s.answers
+                        .filter(a => a.answer && a.answer !== "") // Filter unanswered
+                        .map(a => {
+                            const qKey = a.questionId || a.questionText;
+                            const avgDuration = questionAverages[qKey] || 0;
+                            const duration = a.durationSeconds || 0;
+
+                            // Round both values to ignore decimals
+                            const roundedDuration = Math.round(duration);
+                            const roundedAvg = Math.round(avgDuration);
+
+                            // Check suspicious status
+                            const isAnswerSuspicious = avgDuration > 0 && roundedDuration < roundedAvg;
+
+                            return {
+                                text: a.questionText,
+                                duration: duration,
+                                score: a.earnedPoints || 0,
+                                isSuspicious: isAnswerSuspicious,
+                                avgDuration: avgDuration
+                            };
+                        })
+                })).filter(s => s.answers.length > 0) // Filter sections with no answers if desired, or keep them empty. User said "questions", usually implies rows. Keeping empty sections might be noise. Let's filter empty sections too to be clean.
             };
 
             durationList.push(metric);

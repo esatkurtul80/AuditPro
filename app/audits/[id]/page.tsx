@@ -82,69 +82,25 @@ export default function AuditPage() {
     const { syncing, syncProgress, hasPending, syncingImageUrls, uploadedImageUrls } = useAuditSync(auditId);
     const reloadedAfterSync = useRef(false);
 
-    // Time Tracking Refs
-    const activeQuestionId = useRef<string | null>(null);
-    const questionStartTime = useRef<number | null>(null);
+    // Time Tracking - Session Based
+    const lastActionTime = useRef<number>(Date.now());
 
-    const handleQuestionFocus = (questionId: string) => {
-        const now = Date.now();
+    // Reset timer when section changes to prevent large durations if user was idle between sections
+    // However, user wants "time between questions". If they switch sections and immediately answer, it should count.
+    // So we don't reset lastActionTime on section change, just let it run.
 
-        // If we were focusing on another question, save its duration
-        if (activeQuestionId.current && activeQuestionId.current !== questionId && questionStartTime.current) {
-            const duration = (now - questionStartTime.current) / 1000; // seconds
-            saveQuestionDuration(activeQuestionId.current, duration);
-        }
-
-        // Set new focus
-        activeQuestionId.current = questionId;
-        questionStartTime.current = now;
-    };
-
-    const saveQuestionDuration = (qId: string, additionalSeconds: number) => {
-        if (!audit) return;
-        // Find the question and update it
-        // This is tricky because we need the section index and answer index.
-        // We might need to pass them or search.
-        // Search is safer.
-        const newAudit = { ...audit };
-        let found = false;
-
-        newAudit.sections.forEach(section => {
-            section.answers.forEach(answer => {
-                if (answer.questionId === qId) {
-                    answer.durationSeconds = (answer.durationSeconds || 0) + additionalSeconds;
-                    found = true;
-                }
-            });
-        });
-
-        if (found) {
-            setAudit(newAudit);
-            // We don't save to Firebase immediately here to avoid write spam.
-            // It will be saved on next 'updateAnswer' or 'saveAndNotify'.
-        }
-    };
-
-    // When leaving a section (or page), save the last active question time
+    // Reload audit when sync completes (only once)
     useEffect(() => {
-        return () => {
-            if (activeQuestionId.current && questionStartTime.current) {
-                const duration = (Date.now() - questionStartTime.current) / 1000;
-                // We can't set state in unmount easily, but for section change we can.
-            }
-        };
-    }, []);
-
-    // Hook into section change
-    useEffect(() => {
-        // When section changes changes (currentSectionIndex changes), save pending time
-        if (activeQuestionId.current && questionStartTime.current) {
-            const duration = (Date.now() - questionStartTime.current) / 1000;
-            saveQuestionDuration(activeQuestionId.current, duration);
-            activeQuestionId.current = null;
-            questionStartTime.current = null;
+        if (!syncing && !hasPending && uploadedImageUrls.length > 0 && !reloadedAfterSync.current) {
+            // Sync just completed, reload audit to get Firebase URLs
+            reloadedAfterSync.current = true;
+            loadAudit();
+            // Reset after 5 seconds so next sync can reload
+            setTimeout(() => {
+                reloadedAfterSync.current = false;
+            }, 5000);
         }
-    }, [currentSectionIndex]);
+    }, [syncing, hasPending, uploadedImageUrls.length]);
 
 
     // Reload audit when sync completes (only once)
@@ -257,11 +213,33 @@ export default function AuditPage() {
             setIsDirty(true);
         }
 
+        // Time Tracking Logic
+        // Calculate duration based on time elapsed since last action
+        const now = Date.now();
+        const currentAnswer = audit.sections[sectionIndex].answers[answerIndex];
+
+        // Check if this is the first time answering this question
+        // Logic: No answer set AND duration is 0 (or undefined)
+        // If updating an existing answer (e.g. changing yes to no), we don't change duration
+        const isFirstAnswer = (!currentAnswer.answer || currentAnswer.answer === "") && (!currentAnswer.durationSeconds || currentAnswer.durationSeconds === 0);
+
         const updatedAudit = { ...audit };
         updatedAudit.sections[sectionIndex].answers[answerIndex] = {
             ...updatedAudit.sections[sectionIndex].answers[answerIndex],
             ...updates,
         };
+
+        // Only update duration if it's the first time answering
+        if (isFirstAnswer) {
+            // Calculate seconds since last action
+            const durationSinceLastAction = (now - lastActionTime.current) / 1000;
+            // Round to integer as requested
+            updatedAudit.sections[sectionIndex].answers[answerIndex].durationSeconds = Math.round(durationSinceLastAction);
+            console.log(`⏱️ Soru Süresi Hesaplandı: ${Math.round(durationSinceLastAction)} sn (Önceki işlemden beri)`);
+        }
+
+        // Always update lastActionTime on any interaction
+        lastActionTime.current = now;
 
         // Puanı güncelle
         if (updates.answer) {
@@ -857,10 +835,7 @@ export default function AuditPage() {
                                 <Card key={answerIndex} className="p-4 border shadow-sm hover:shadow-md transition-shadow bg-blue-50/30 dark:bg-blue-900/5 border-blue-200 dark:border-blue-800">
                                     <div className="space-y-4">
                                         <div className="flex items-start justify-between gap-4">
-                                            <div className="flex-1"
-                                                onClick={() => handleQuestionFocus(answer.questionId)}
-                                                onFocusCapture={() => handleQuestionFocus(answer.questionId)}
-                                            >
+                                            <div className="flex-1">
                                                 <h4 className="font-medium text-base">
                                                     {answer.questionText}
                                                 </h4>

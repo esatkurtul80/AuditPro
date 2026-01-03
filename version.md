@@ -1,6 +1,21 @@
 # AuditPro Version History
 
-## v1.10.3 (Current) - "Enhanced Reports & Export Features"
+## v1.10.4 (Current) - "Smart Duration Analysis & Suspicious Detection"
+- **New Feature: Suspicious Answer Detection:**
+    - **Smart Analysis:** Automatically compares individual answer duration against the global average for that specific question.
+    - **Rounding Tolerance:** Implemented intelligent rounding (no decimals) to prevent false positives (e.g., treating 6.1s and 5.9s as equal '6s').
+    - **Visual Indicators:** "Suspicious" status is highlighted in Red in both UI and PDF/Excel exports.
+    - **Data Filtering:** Automatically excludes unanswered questions from analysis and reports to ensure accurate statistics.
+- **Audit Form Engine:**
+    - **Refactored Timer Logic:** Replaced focus-based timing with a robust session-based interaction timer.
+    - **Interval Tracking:** Now calculates duration based on the interval between the last interaction and the current answer, providing truer reflection of "thinking time".
+- **Enhanced Reports (PDF & Excel):**
+    - **New Columns:** Added "Average Duration (sec)" and "Status" (Suspicious/-) columns to detailed question reports.
+    - **Header Updates:** Renamed "Duration" to "Answer Duration (sec)" for clarity.
+    - **Clean Data:** Removed decimal places from all duration fields for cleaner readability.
+    - **Summary Metrics:** Added "Suspicious Answer Rate" (e.g., 5/45) to the report headers.
+
+## v1.10.3 - "Enhanced Reports & Export Features"
 - **Auditor Performance Reports:**
     - **Interactive Charts:** Made auditor performance bar charts clickable - displays monthly breakdown in modal
     - **Monthly Analytics Modal:** Shows selected auditor's monthly store ratings with bar chart and detailed statistics table
@@ -16,13 +31,13 @@
     - **Excel Export:** Implemented Excel export with same data structure and file naming convention
     - **Export Buttons:** Added color-coded export buttons (Red for PDF, Green for Excel) in DataTable toolbar
 - **Data Enhancements:**
-    - Extended `DurationMetric` interface with `startDate` and `endDate` fields
-    - Automated Timestamp to Date conversion in `processAudits` function
-    - Improved data flow from database to export functions
+    - **Extended `DurationMetric` interface with `startDate` and `endDate` fields**
+    - **Automated Timestamp to Date conversion in `processAudits` function**
+    - **Improved data flow from database to export functions**
 - **UI/UX Improvements:**
-    - Optimized PDF spacing and layout for professional appearance
-    - Reduced vertical gaps between tables (20px start, 5px between tables)
-    - Center-aligned table content for better readability
+    - **Optimized PDF spacing and layout for professional appearance**
+    - **Reduced vertical gaps between tables (20px start, 5px between tables)**
+    - **Center-aligned table content for better readability**
 
 ## v1.10.2 - "Personalized Notifications"
 - **User Experience:**
@@ -39,17 +54,17 @@
 
 ## v1.10.0 - "The Notification Update"
 - **New Feature: Notification System:**
-    - Added "Bell" icon for Admin (Sender) and Users (Receiver).
-    - Implemented Push Notifications via Firebase Cloud Messaging (FCM).
-    - Supports targeting specific groups (Auditors, Stores) or individuals.
-    - Added "Mark as Read" and "Delete" functionality.
+    - **Bell icon for Admin (Sender) and Users (Receiver).**
+    - **Implemented Push Notifications via Firebase Cloud Messaging (FCM).**
+    - **Supports targeting specific groups (Auditors, Stores) or individuals.**
+    - **Added "Mark as Read" and "Delete" functionality.**
 - **Mobile & PWA Stability:**
     - **iOS Fix:** Added APNs headers (`apns-priority: 10`, `sound: default`) for reliable iOS notifications.
     - **Android Fix:** Enforced High Priority to wake up devices in Doze mode.
     - **Auth Watchdog:** Added 12s safety timer to preventing "Infinite Loading" on slow networks.
     - **Localhost Support:** Implemented Dynamic Auth Domain and "Popup" login for Localhost vs "Redirect" for PWA.
 - **Troubleshooting Tools:**
-    - Added "Bildirim Gelmiyor mu?" (Fix Notifications) button to User Menu for self-healing connection issues.
+    - **Added "Bildirim Gelmiyor mu?" (Fix Notifications) button to User Menu for self-healing connection issues.**
 
 ## v1.9.6
 - **Resolved Push Notification Issues:** Fixed API 500 errors by adding `firebase-functions` dependency and using safe admin initialization.
