@@ -110,7 +110,12 @@ const ChartTooltipContent = React.forwardRef<
         indicator?: "line" | "dashed" | "dot"
         nameKey?: string
         labelKey?: string
-        payload?: any[] // Fix for Next.js build error
+        payload?: any[]
+        label?: any
+        labelFormatter?: (label: any, payload: any[]) => React.ReactNode
+        labelClassName?: string
+        formatter?: (value: any, name: any, item: any, index: number, payload: any) => React.ReactNode
+        color?: string
     }
 >(
     (
