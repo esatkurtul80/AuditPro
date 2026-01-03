@@ -110,6 +110,7 @@ const ChartTooltipContent = React.forwardRef<
         indicator?: "line" | "dashed" | "dot"
         nameKey?: string
         labelKey?: string
+        payload?: any[] // Fix for Next.js build error
     }
 >(
     (
@@ -258,9 +259,10 @@ const ChartLegend = RechartsPrimitive.Legend
 const ChartLegendContent = React.forwardRef<
     HTMLDivElement,
     React.ComponentProps<"div"> &
-    Pick<RechartsPrimitive.LegendProps, "payload" | "verticalAlign"> & {
+    Pick<RechartsPrimitive.LegendProps, "verticalAlign"> & {
         hideIcon?: boolean
         nameKey?: string
+        payload?: any[]
     }
 >(
     (
