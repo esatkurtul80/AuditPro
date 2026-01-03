@@ -868,7 +868,7 @@ export default function AuditorPerformancePage() {
                 suspiciousAnswerCount,
                 validAnswersCount,
                 sections: audit.sections.map(s => ({
-                    name: currentSectionMap[s.sectionId] || s.name || 'Bilinmeyen Bölüm',
+                    name: currentSectionMap[s.sectionId] || (s as any).name || 'Bilinmeyen Bölüm',
                     answers: s.answers
                         .filter(a => a.answer && a.answer !== "") // Filter unanswered
                         .map(a => {
