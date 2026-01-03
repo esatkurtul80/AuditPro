@@ -118,6 +118,11 @@ export interface AuditAnswer {
 
     // Action Management
     actionData?: ActionData;
+
+    // Duration Tracking
+    startedAt?: Timestamp;
+    completedAt?: Timestamp;
+    durationSeconds?: number;
 }
 
 export type ActionDataStatus = "pending_store" | "pending_admin" | "approved" | "rejected";
@@ -140,6 +145,10 @@ export interface AuditSection {
     sectionName: string;
     order: number;
     answers: AuditAnswer[];
+
+    // Duration Tracking
+    startedAt?: Timestamp;
+    completedAt?: Timestamp;
 }
 
 export type AuditStatus = "devam_ediyor" | "tamamlandi" | "iptal_edildi";

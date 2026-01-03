@@ -82,6 +82,71 @@ export default function AuditPage() {
     const { syncing, syncProgress, hasPending, syncingImageUrls, uploadedImageUrls } = useAuditSync(auditId);
     const reloadedAfterSync = useRef(false);
 
+    // Time Tracking Refs
+    const activeQuestionId = useRef<string | null>(null);
+    const questionStartTime = useRef<number | null>(null);
+
+    const handleQuestionFocus = (questionId: string) => {
+        const now = Date.now();
+
+        // If we were focusing on another question, save its duration
+        if (activeQuestionId.current && activeQuestionId.current !== questionId && questionStartTime.current) {
+            const duration = (now - questionStartTime.current) / 1000; // seconds
+            saveQuestionDuration(activeQuestionId.current, duration);
+        }
+
+        // Set new focus
+        activeQuestionId.current = questionId;
+        questionStartTime.current = now;
+    };
+
+    const saveQuestionDuration = (qId: string, additionalSeconds: number) => {
+        if (!audit) return;
+        // Find the question and update it
+        // This is tricky because we need the section index and answer index.
+        // We might need to pass them or search.
+        // Search is safer.
+        const newAudit = { ...audit };
+        let found = false;
+
+        newAudit.sections.forEach(section => {
+            section.answers.forEach(answer => {
+                if (answer.questionId === qId) {
+                    answer.durationSeconds = (answer.durationSeconds || 0) + additionalSeconds;
+                    found = true;
+                }
+            });
+        });
+
+        if (found) {
+            setAudit(newAudit);
+            // We don't save to Firebase immediately here to avoid write spam.
+            // It will be saved on next 'updateAnswer' or 'saveAndNotify'.
+        }
+    };
+
+    // When leaving a section (or page), save the last active question time
+    useEffect(() => {
+        return () => {
+            if (activeQuestionId.current && questionStartTime.current) {
+                const duration = (Date.now() - questionStartTime.current) / 1000;
+                // We can't set state in unmount easily, but for section change we can.
+            }
+        };
+    }, []);
+
+    // Hook into section change
+    useEffect(() => {
+        // When section changes changes (currentSectionIndex changes), save pending time
+        if (activeQuestionId.current && questionStartTime.current) {
+            const duration = (Date.now() - questionStartTime.current) / 1000;
+            saveQuestionDuration(activeQuestionId.current, duration);
+            activeQuestionId.current = null;
+            questionStartTime.current = null;
+        }
+    }, [currentSectionIndex]);
+
+
     // Reload audit when sync completes (only once)
     useEffect(() => {
         if (!syncing && !hasPending && uploadedImageUrls.length > 0 && !reloadedAfterSync.current) {
@@ -792,7 +857,10 @@ export default function AuditPage() {
                                 <Card key={answerIndex} className="p-4 border shadow-sm hover:shadow-md transition-shadow bg-blue-50/30 dark:bg-blue-900/5 border-blue-200 dark:border-blue-800">
                                     <div className="space-y-4">
                                         <div className="flex items-start justify-between gap-4">
-                                            <div className="flex-1">
+                                            <div className="flex-1"
+                                                onClick={() => handleQuestionFocus(answer.questionId)}
+                                                onFocusCapture={() => handleQuestionFocus(answer.questionId)}
+                                            >
                                                 <h4 className="font-medium text-base">
                                                     {answer.questionText}
                                                 </h4>

@@ -1,6 +1,30 @@
 # AuditPro Version History
 
-## v1.10.2 (Current) - "Personalized Notifications"
+## v1.10.3 (Current) - "Enhanced Reports & Export Features"
+- **Auditor Performance Reports:**
+    - **Interactive Charts:** Made auditor performance bar charts clickable - displays monthly breakdown in modal
+    - **Monthly Analytics Modal:** Shows selected auditor's monthly store ratings with bar chart and detailed statistics table
+    - **Responsive Modal:** Optimized modal dimensions (50vw width, 65vh height) for better PC viewing experience
+    - **Year Selector:** Added year dropdown with 2026 as default selection
+- **Export Functionality:**
+    - **PDF Export:** Added professional PDF export for "Question-Based Duration Analysis" with:
+        - Roboto font support (Regular & Bold) for proper Turkish character rendering
+        - 4-column table layout displaying: Auditor Name, Start Time, End Time, Total Duration
+        - Bold headers with blue background (#3b82f6)
+        - Automatic time formatting (HH:MM format)
+        - Dynamic file naming: `{StoreName} - {AuditorName} {Date} Tarihli mağaza denetimi.pdf`
+    - **Excel Export:** Implemented Excel export with same data structure and file naming convention
+    - **Export Buttons:** Added color-coded export buttons (Red for PDF, Green for Excel) in DataTable toolbar
+- **Data Enhancements:**
+    - Extended `DurationMetric` interface with `startDate` and `endDate` fields
+    - Automated Timestamp to Date conversion in `processAudits` function
+    - Improved data flow from database to export functions
+- **UI/UX Improvements:**
+    - Optimized PDF spacing and layout for professional appearance
+    - Reduced vertical gaps between tables (20px start, 5px between tables)
+    - Center-aligned table content for better readability
+
+## v1.10.2 - "Personalized Notifications"
 - **User Experience:**
     - **Sender Identity:** Notifications now display the real name of the sender (e.g., the specific Admin's name) instead of generic "System Message" badges.
     - **Consistent UI:** Applied these changes to both the Header Dropdown and the main Notifications page.

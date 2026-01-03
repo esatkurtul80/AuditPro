@@ -42,6 +42,7 @@ function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar }: 
     const [isAuditMenuOpen, setIsAuditMenuOpen] = useState(true);
     const [isDenetmenAuditMenuOpen, setIsDenetmenAuditMenuOpen] = useState(true);
     const [isActionsMenuOpen, setIsActionsMenuOpen] = useState(true);
+    const [isReportsMenuOpen, setIsReportsMenuOpen] = useState(true);
     const [unreadCount, setUnreadCount] = useState(0);
 
     // Close submenus when sidebar is collapsed
@@ -50,6 +51,7 @@ function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar }: 
             setIsAuditMenuOpen(false);
             setIsDenetmenAuditMenuOpen(false);
             setIsActionsMenuOpen(false);
+            setIsReportsMenuOpen(false);
         }
     }, [isCollapsed]);
 
@@ -71,8 +73,9 @@ function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar }: 
         { href: "/admin/dashboard", label: "Panel", icon: LayoutDashboard },
         { href: "/admin/users", label: "Kullanıcılar", icon: Users },
         { href: "/admin/stores", label: "Mağazalar", icon: Store },
+
         // Aksiyonlar removed from here to be its own section
-        { href: "/admin/reports/stores", label: "Raporlar", icon: BarChart3 },
+        // Raporlar removed from here to be its own section
         { href: "/admin/cop-kutusu", label: "Çöp Kutusu", icon: Trash2 },
     ];
 
@@ -80,6 +83,18 @@ function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar }: 
         { href: "/admin/questions", label: "Sorular", icon: FileQuestion },
         { href: "/admin/sections", label: "Bölümler", icon: LayoutList },
         { href: "/admin/audit-types", label: "Denetim Formları", icon: ClipboardList },
+    ];
+
+    const reportsSubLinks = [
+        { label: "Puan Raporu", icon: BarChart3 },
+        { label: "Mağaza Raporu", icon: BarChart3 },
+        { label: "Mağaza Aksiyon Raporu", icon: BarChart3 },
+        { label: "Tekrarlanan Eksik Raporu", icon: BarChart3 },
+        { label: "Bölge Bazlı Rapor", icon: BarChart3 },
+        { label: "Soru Raporu", icon: BarChart3 },
+        { label: "Pareto Analiz Raporu", icon: BarChart3 },
+        { label: "Düzenleyici Faaliyet Raporu", icon: BarChart3 },
+        { label: "Denetçi Performans Raporu", icon: BarChart3, href: "/admin/reports/auditor-performance" },
     ];
 
     const actionsSubLinks = [
@@ -270,6 +285,87 @@ function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar }: 
                                                         <span className="text-sm">{link.label}</span>
                                                     </div>
                                                 </Link>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Reports Dropdown */}
+                            <div className="space-y-1">
+                                <Button
+                                    variant="ghost"
+                                    onClick={() => {
+                                        if (isCollapsed && toggleSidebar) {
+                                            toggleSidebar();
+                                            setTimeout(() => setIsReportsMenuOpen(true), 100);
+                                        } else {
+                                            setIsReportsMenuOpen(!isReportsMenuOpen);
+                                        }
+                                    }}
+                                    className={cn(
+                                        "w-full h-11 px-4 font-medium transition-all duration-500",
+                                        isCollapsed ? "justify-center px-2" : "justify-start",
+                                        pathname.startsWith("/admin/reports")
+                                            ? "bg-blue-600 text-white hover:bg-blue-700 shadow-md shadow-blue-500/20"
+                                            : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100"
+                                    )}
+                                    title={isCollapsed ? "Raporlar" : undefined}
+                                >
+                                    <BarChart3 className={cn(
+                                        "h-5 w-5 transition-transform duration-500 shrink-0",
+                                        pathname.startsWith("/admin/reports") && "scale-110"
+                                    )} />
+                                    <div className={cn(
+                                        "flex-1 flex items-center justify-between whitespace-nowrap transition-all duration-500 ease-in-out overflow-hidden origin-left",
+                                        isCollapsed ? "max-w-0 opacity-0 ml-0" : "max-w-[200px] opacity-100 ml-3"
+                                    )}>
+                                        <span className="text-sm text-left">Raporlar</span>
+                                        <ChevronDown className={cn(
+                                            "h-4 w-4 transition-transform duration-500 shrink-0 ml-2",
+                                            isReportsMenuOpen && "rotate-180"
+                                        )} />
+                                    </div>
+                                </Button>
+
+                                {/* Sub Menu Items - Only show if open and NOT collapsed */}
+                                {isReportsMenuOpen && !isCollapsed && (
+                                    <div className="ml-4 space-y-1 border-l-2 border-slate-200 dark:border-slate-700 pl-2">
+                                        {reportsSubLinks.map((link) => {
+                                            const Icon = link.icon;
+                                            // @ts-ignore
+                                            if (link.href) {
+                                                // @ts-ignore
+                                                const isActive = pathname === link.href;
+                                                return (
+                                                    // @ts-ignore
+                                                    <Link key={link.label} href={link.href} onClick={onLinkClick}>
+                                                        <div
+                                                            className={cn(
+                                                                "w-full justify-start h-10 px-3 font-medium transition-all duration-500 flex items-center rounded-md cursor-pointer",
+                                                                isActive
+                                                                    ? "bg-blue-600 text-white hover:bg-blue-700 shadow-sm"
+                                                                    : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100"
+                                                            )}
+                                                        >
+                                                            <Icon className="h-4 w-4 shrink-0 mr-3" />
+                                                            <span className="text-sm">{link.label}</span>
+                                                        </div>
+                                                    </Link>
+                                                );
+                                            }
+
+                                            return (
+                                                <div
+                                                    key={link.label}
+                                                    className={cn(
+                                                        "w-full justify-start h-10 px-3 font-medium transition-all duration-500 flex items-center rounded-md cursor-not-allowed opacity-50",
+                                                        "text-slate-600 dark:text-slate-400 hover:bg-transparent"
+                                                    )}
+                                                >
+                                                    <Icon className="h-4 w-4 shrink-0 mr-3" />
+                                                    <span className="text-sm">{link.label}</span>
+                                                </div>
                                             );
                                         })}
                                     </div>
