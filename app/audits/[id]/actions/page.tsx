@@ -80,6 +80,19 @@ import { toast } from "sonner";
 import ImageGallery from "@/components/image-gallery";
 import { cn } from "@/lib/utils";
 
+// Helper to safely parse dates
+const parseDate = (date: any): Date | null => {
+    if (!date) return null;
+    if (typeof date.toDate === 'function') return date.toDate();
+    if (date instanceof Date) return date;
+    // Handle serialized Timestamp { seconds: number, nanoseconds: number }
+    if (typeof date === 'object' && 'seconds' in date) {
+        return new Date(date.seconds * 1000);
+    }
+    const d = new Date(date);
+    return isNaN(d.getTime()) ? null : d;
+};
+
 export default function AuditActionsPage() {
     const params = useParams();
     const router = useRouter();
@@ -730,6 +743,8 @@ export default function AuditActionsPage() {
                     ...updatedSections[item.sIndex].answers[item.aIndex].actionData!,
                     status: "pending_admin" as const,
                     submittedAt: Timestamp.now(),
+                    // Update note timestamp if note changed or never set
+                    ...(data.note ? { noteUpdatedAt: Timestamp.now() } : {}),
                     storeImages: imageUrls,
                     storeNote: data.note || ""
                 };
@@ -846,16 +861,25 @@ export default function AuditActionsPage() {
                 status: "pending_admin" as const,
             };
 
+            // Calculate allActionsResolved
+            const allResolved = updatedSections.every(section =>
+                section.answers.every(a => {
+                    const isActionNeeded = a.answer === "hayir" || (a.questionType === "checkbox" && a.earnedPoints < a.maxPoints);
+                    if (!isActionNeeded) return true;
+                    return a.actionData?.status === "approved";
+                })
+            );
+
             await updateDoc(doc(db, "audits", auditId), {
                 sections: updatedSections,
                 updatedAt: Timestamp.now(),
-                allActionsResolved: false
+                allActionsResolved: allResolved
             });
 
             setAudit({
                 ...audit,
                 sections: updatedSections,
-                allActionsResolved: false
+                allActionsResolved: allResolved
             });
             toast.success("Reddetme geri alındı");
             setRevertRejectionDialogOpen(false);
@@ -887,16 +911,25 @@ export default function AuditActionsPage() {
                 status: "pending_admin" as const, // Reset to pending_admin (store already submitted)
             };
 
+            // Calculate allActionsResolved
+            const allResolved = updatedSections.every(section =>
+                section.answers.every(a => {
+                    const isActionNeeded = a.answer === "hayir" || (a.questionType === "checkbox" && a.earnedPoints < a.maxPoints);
+                    if (!isActionNeeded) return true;
+                    return a.actionData?.status === "approved";
+                })
+            );
+
             await updateDoc(doc(db, "audits", auditId), {
                 sections: updatedSections,
                 updatedAt: Timestamp.now(),
-                allActionsResolved: false
+                allActionsResolved: allResolved
             });
 
             setAudit({
                 ...audit,
                 sections: updatedSections,
-                allActionsResolved: false
+                allActionsResolved: allResolved
             });
             toast.success("Onay geri alındı - Aksiyon tekrar onay bekliyor");
             setRevertApprovalDialogOpen(false);
@@ -928,27 +961,24 @@ export default function AuditActionsPage() {
             };
 
             // Check if all actions are resolved
-            let allResolved = true;
-            updatedSections.forEach(section => {
-                section.answers.forEach(a => {
-                    if (a.answer === "hayir") {
-                        if (a.actionData?.status !== "approved") {
-                            allResolved = false;
-                        }
-                    }
-                });
-            });
+            const allResolved = updatedSections.every(section =>
+                section.answers.every(a => {
+                    const isActionNeeded = a.answer === "hayir" || (a.questionType === "checkbox" && a.earnedPoints < a.maxPoints);
+                    if (!isActionNeeded) return true;
+                    return a.actionData?.status === "approved";
+                })
+            );
 
             await updateDoc(doc(db, "audits", auditId), {
                 sections: updatedSections,
                 updatedAt: Timestamp.now(),
-                ...(allResolved ? { allActionsResolved: true } : {})
+                allActionsResolved: allResolved
             });
 
             setAudit({
                 ...audit,
                 sections: updatedSections,
-                ...(allResolved ? { allActionsResolved: true } : {})
+                allActionsResolved: allResolved
             });
             // toast.success("Aksiyon onaylandı"); // Removed per user request to reduce noise
             setApproveDialogOpen(false);
@@ -1251,7 +1281,7 @@ export default function AuditActionsPage() {
                                                         <CheckCircle2 className="h-4 w-4 text-primary" />
                                                         Mağaza Cevabı
                                                     </h4>
-                                                    <div className="bg-card border p-4 rounded-lg">
+                                                    <div className="bg-gray-50/80 border p-4 rounded-lg">
                                                         <p className="text-sm whitespace-pre-wrap">{actionData.storeNote}</p>
                                                         {actionData.storeImages && actionData.storeImages.length > 0 && (
                                                             <div className="mt-4">
@@ -1269,10 +1299,34 @@ export default function AuditActionsPage() {
                                                         )}
                                                         <div className="mt-2 text-xs text-muted-foreground text-right">
                                                             {(() => {
-                                                                // Priority: 1. Photo Upload Date, 2. Note Update Date, 3. Submission Date
-                                                                const displayDate = actionData.photoUploadedAt || actionData.noteUpdatedAt || actionData.submittedAt;
-                                                                if (!displayDate) return "Gönderim: -";
-                                                                return `Gönderim: ${displayDate.toDate().toLocaleString("tr-TR")}`;
+                                                                const { photoUploadedAt, noteUpdatedAt, submittedAt, approvedAt, rejectedAt } = actionData || {};
+
+                                                                let dateToUse: any = null;
+                                                                let label = "Gönderim";
+
+                                                                // Logic: Specific action dates first, then submission, then general status dates
+                                                                if (photoUploadedAt) {
+                                                                    dateToUse = photoUploadedAt;
+                                                                    label = "Gönderim";
+                                                                } else if (noteUpdatedAt) {
+                                                                    dateToUse = noteUpdatedAt;
+                                                                    label = "Gönderim";
+                                                                } else if (submittedAt) {
+                                                                    dateToUse = submittedAt;
+                                                                    label = "Gönderim";
+                                                                } else if (approvedAt && status === "approved") {
+                                                                    dateToUse = approvedAt;
+                                                                    label = "Onaylanma";
+                                                                } else if (rejectedAt && (status as string) === "rejected") {
+                                                                    dateToUse = rejectedAt;
+                                                                    label = "Reddedilme";
+                                                                }
+
+                                                                const finalDate = parseDate(dateToUse);
+
+                                                                if (!finalDate) return "Tarih bilgisi yok";
+
+                                                                return `${label}: ${finalDate.toLocaleString("tr-TR")}`;
                                                             })()}
                                                         </div>
                                                     </div>

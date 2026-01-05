@@ -140,7 +140,7 @@ export default function CancelledAuditsPage() {
                                                     placeholder="Mağaza ara..."
                                                     value={searchTerm}
                                                     onChange={(e) => setSearchTerm(e.target.value)}
-                                                    className="pl-9"
+                                                    className="pl-9 focus-visible:ring-0 focus-visible:border-input"
                                                 />
                                             </div>
                                             <DateRangePicker value={dateRange} onChange={setDateRange} />

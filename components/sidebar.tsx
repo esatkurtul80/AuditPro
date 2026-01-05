@@ -39,10 +39,10 @@ function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar }: 
     const { userProfile, loading } = useAuth();
     const pathname = usePathname();
     const searchParams = useSearchParams();
-    const [isAuditMenuOpen, setIsAuditMenuOpen] = useState(true);
-    const [isDenetmenAuditMenuOpen, setIsDenetmenAuditMenuOpen] = useState(true);
-    const [isActionsMenuOpen, setIsActionsMenuOpen] = useState(true);
-    const [isReportsMenuOpen, setIsReportsMenuOpen] = useState(true);
+    const [isAuditMenuOpen, setIsAuditMenuOpen] = useState(false);
+    const [isDenetmenAuditMenuOpen, setIsDenetmenAuditMenuOpen] = useState(false);
+    const [isActionsMenuOpen, setIsActionsMenuOpen] = useState(false);
+    const [isReportsMenuOpen, setIsReportsMenuOpen] = useState(false);
     const [unreadCount, setUnreadCount] = useState(0);
 
     // Close submenus when sidebar is collapsed
@@ -86,7 +86,7 @@ function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar }: 
     ];
 
     const reportsSubLinks = [
-        { label: "Puan Raporu", icon: BarChart3 },
+        { label: "Puan Raporu", icon: BarChart3, href: "/admin/reports/puan-raporu" },
         { label: "Mağaza Raporu", icon: BarChart3 },
         { label: "Mağaza Aksiyon Raporu", icon: BarChart3 },
         { label: "Tekrarlanan Eksik Raporu", icon: BarChart3 },

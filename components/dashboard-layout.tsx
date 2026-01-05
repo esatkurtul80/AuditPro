@@ -68,7 +68,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
             {/* Main Content */}
             <main className={`${mainPadding} transition-all duration-300`}>
                 {/* Top Header - Only show on desktop */}
-                <div className="hidden lg:block">
+                <div className="hidden lg:block sticky top-0 z-40">
                     <TopHeader toggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)} isCollapsed={isSidebarCollapsed} />
                 </div>
 

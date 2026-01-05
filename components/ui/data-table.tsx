@@ -47,6 +47,8 @@ interface DataTableProps<TData, TValue> {
     initialColumnVisibility?: VisibilityState
     initialSorting?: SortingState
     rowClassName?: string
+    pageSizeOptions?: number[]
+    defaultPageSize?: number
 }
 
 export function DataTable<TData, TValue>({
@@ -61,6 +63,8 @@ export function DataTable<TData, TValue>({
     initialColumnVisibility = {},
     initialSorting = [],
     rowClassName,
+    pageSizeOptions = [10, 20, 30, 40, 50],
+    defaultPageSize = 10,
 }: DataTableProps<TData, TValue>) {
     const [sorting, setSorting] = React.useState<SortingState>(initialSorting)
     const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
@@ -69,6 +73,10 @@ export function DataTable<TData, TValue>({
     const [columnVisibility, setColumnVisibility] =
         React.useState<VisibilityState>(initialColumnVisibility)
     const [rowSelection, setRowSelection] = React.useState({})
+    const [pagination, setPagination] = React.useState({
+        pageIndex: 0,
+        pageSize: defaultPageSize,
+    })
 
     // Hide specified columns on mobile by default
     React.useEffect(() => {
@@ -101,11 +109,13 @@ export function DataTable<TData, TValue>({
         getFacetedUniqueValues: getFacetedUniqueValues(),
         onColumnVisibilityChange: setColumnVisibility,
         onRowSelectionChange: setRowSelection,
+        onPaginationChange: setPagination,
         state: {
             sorting,
             columnFilters,
             columnVisibility,
             rowSelection,
+            pagination,
         },
     })
 
@@ -119,7 +129,7 @@ export function DataTable<TData, TValue>({
                         onChange={(event) =>
                             table.getColumn(searchKey)?.setFilterValue(event.target.value)
                         }
-                        className="w-full md:max-w-sm"
+                        className="w-full md:max-w-sm focus-visible:ring-0 focus-visible:border-input"
                     />
                 )}
                 <div className="flex flex-col md:flex-row gap-4 flex-1">
@@ -182,7 +192,7 @@ export function DataTable<TData, TValue>({
                                     key={row.id}
                                     data-state={row.getIsSelected() && "selected"}
                                     onClick={() => onRowClick?.(row.original)}
-                                    className={cn(onRowClick ? "cursor-pointer hover:bg-muted/50" : "", rowClassName)}
+                                    className={cn("group", onRowClick ? "cursor-pointer hover:bg-muted/50" : "", rowClassName)}
                                 >
                                     {row.getVisibleCells().map((cell) => (
                                         <TableCell key={cell.id}>
@@ -221,7 +231,7 @@ export function DataTable<TData, TValue>({
                             }}
                             className="h-8 w-[70px] rounded-md border border-input bg-background px-2 text-sm"
                         >
-                            {[10, 20, 30, 40, 50].map((pageSize) => (
+                            {pageSizeOptions.map((pageSize) => (
                                 <option key={pageSize} value={pageSize}>
                                     {pageSize}
                                 </option>

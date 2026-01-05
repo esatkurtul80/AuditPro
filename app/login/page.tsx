@@ -7,12 +7,14 @@ import { useAuth } from "@/components/auth-provider";
 import { Button } from "@/components/ui/button";
 import { Loader2, Users, ListPlus, ClipboardCheck, WifiOff, Camera, FileText, LayoutDashboard } from "lucide-react";
 import { toast } from "sonner";
+import { useTheme } from "next-themes";
 // DiagnosticPanel kaldırıldı, sorun tespit edildi.
 
 export default function LoginPage() {
   const { signInWithGoogle, user, loading: authLoading } = useAuth();
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const { theme } = useTheme();
 
   useEffect(() => {
     if (user) {
@@ -25,7 +27,6 @@ export default function LoginPage() {
       setLoading(true);
       await signInWithGoogle();
       // Redirect olduğu için burası çalışıp sayfa yenilenebilir.
-      toast.info("Google'a yönlendiriliyor...");
     } catch (error) {
       console.error("Login error:", error);
       toast.error("Giriş yapılırken bir hata oluştu");
@@ -37,27 +38,27 @@ export default function LoginPage() {
   // Bu, "Rendered more hooks" hatasını da engeller
   if (authLoading || user) {
     return (
-      <div className="flex items-center justify-center h-screen w-full bg-white">
+      <div className="flex items-center justify-center h-screen w-full bg-white dark:bg-slate-950">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="ml-2 text-slate-500 text-sm">Yükleniyor...</p>
+        <p className="ml-2 text-slate-500 dark:text-slate-400 text-sm">Yükleniyor...</p>
       </div>
     );
   }
 
   return (
-    <div className="flex h-screen w-full font-sans antialiased text-slate-900 bg-white overflow-hidden">
+    <div className="flex h-screen w-full font-sans antialiased text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-950 overflow-hidden">
       {/* Left side - Login Form */}
-      <div className="relative flex flex-col justify-center w-full xl:w-[800px] h-full px-8 py-12 bg-white border-r border-slate-200 z-20 shadow-xl xl:shadow-none">
+      <div className="relative flex flex-col justify-center w-full xl:w-[800px] h-full px-8 py-12 bg-white dark:bg-slate-950 border-r border-slate-200 dark:border-slate-800 z-20 shadow-xl xl:shadow-none">
         <div className="w-full max-w-[400px] mx-auto">
 
           <div className="mb-8">
-            <h1 className="text-3xl font-bold tracking-tight text-slate-900 text-center">Hoş Geldiniz</h1>
-            <h2 className="mt-4 text-xl font-medium tracking-tight text-slate-900 text-center font-playwrite-norge xl:hidden leading-snug">
-              <span className="text-red-500">Denetim</span>, sürdürülebilir <br /> başarının sigortasıdır
+            <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white text-center">Hoş Geldiniz</h1>
+            <h2 className="mt-4 text-xl font-medium tracking-tight text-slate-900 dark:text-slate-200 text-center font-playwrite-norge xl:hidden leading-snug">
+              <span className="text-red-500">Denetim</span>, sürdürülebilir <br />başarının sigortasıdır
             </h2>
             <div className="flex justify-center mt-6">
               <Image
-                src="/login-assets-new/welcome-image.jpg"
+                src={theme === 'dark' ? "/login-assets-new/auditpro-beyaz.png" : "/login-assets-new/welcome-image.jpg"}
                 alt="Login Illustration"
                 width={400}
                 height={400}
@@ -104,7 +105,7 @@ export default function LoginPage() {
               )}
             </Button>
 
-            <p className="text-center text-xs text-slate-500 mt-4">
+            <p className="text-center text-xs text-slate-500 dark:text-slate-400 mt-4">
               Giriş yaparak{" "}
               <a href="#" className="font-medium text-primary hover:underline underline-offset-4">
                 Kullanım Koşulları
@@ -122,7 +123,7 @@ export default function LoginPage() {
       </div>
 
       {/* Right side - Info & Features */}
-      <div className="relative hidden xl:flex flex-1 flex-col h-full overflow-hidden bg-slate-50 z-10">
+      <div className="relative hidden xl:flex flex-1 flex-col h-full overflow-hidden bg-slate-50 dark:bg-slate-900 z-10">
         <div className="absolute inset-0 z-0">
           <Image
             src="/login-assets-new/logo.png"
@@ -131,12 +132,12 @@ export default function LoginPage() {
             className="object-contain opacity-10 p-20"
             priority
           />
-          <div className="absolute inset-0 bg-gradient-to-br from-blue-50/40 to-white/60"></div>
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-50/40 to-white/60 dark:from-slate-800/40 dark:to-slate-900/60"></div>
         </div>
 
         <div className="relative z-10 flex flex-col justify-center h-full px-12 xl:px-24 overflow-y-auto py-10 custom-scrollbar">
           <div className="max-w-2xl">
-            <h2 className="text-3xl xl:text-4xl font-extrabold tracking-tight text-slate-900 mb-2 leading-tight">
+            <h2 className="text-3xl xl:text-4xl font-extrabold tracking-tight text-slate-900 dark:text-white mb-2 leading-tight">
               <span className="text-red-400">Denetim</span>, sürdürülebilir
             </h2>
             <h2 className="text-3xl xl:text-4xl font-extrabold tracking-tight text-primary mb-10 leading-tight">
@@ -154,12 +155,12 @@ export default function LoginPage() {
                 { icon: LayoutDashboard, title: "Yönetici Paneli (Dashboard)", desc: "Mağaza, kullanıcı ve denetim tiplerinin tek bir yerden yönetimi." }
               ].map((feature, i) => (
                 <div key={i} className="flex items-start gap-4 group">
-                  <div className="mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-primary shadow-sm group-hover:border-primary/30 group-hover:shadow-md transition-all duration-300">
+                  <div className="mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 shadow-sm group-hover:border-primary/30 group-hover:shadow-md transition-all duration-300">
                     <feature.icon className="h-[22px] w-[22px]" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-slate-900 text-base">{feature.title}</h3>
-                    <p className="text-sm text-slate-500 leading-relaxed mt-1">{feature.desc}</p>
+                    <h3 className="font-semibold text-slate-900 dark:text-white text-base">{feature.title}</h3>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed mt-1">{feature.desc}</p>
                   </div>
                 </div>
               ))}
@@ -178,7 +179,7 @@ export default function LoginPage() {
             className="object-cover"
           />
         </div>
-        <span className="text-lg font-bold tracking-tight text-slate-900">AuditPro</span>
+        <span className="text-lg font-bold tracking-tight text-slate-900 dark:text-white">AuditPro</span>
       </div>
     </div>
   );

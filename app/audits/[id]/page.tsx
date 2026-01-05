@@ -213,21 +213,51 @@ export default function AuditPage() {
             setIsDirty(true);
         }
 
-        // Time Tracking Logic
-        // Calculate duration based on time elapsed since last action
         const now = Date.now();
         const currentAnswer = audit.sections[sectionIndex].answers[answerIndex];
 
-        // Check if this is the first time answering this question
-        // Logic: No answer set AND duration is 0 (or undefined)
-        // If updating an existing answer (e.g. changing yes to no), we don't change duration
+        // First answer logic check
         const isFirstAnswer = (!currentAnswer.answer || currentAnswer.answer === "") && (!currentAnswer.durationSeconds || currentAnswer.durationSeconds === 0);
 
         const updatedAudit = { ...audit };
-        updatedAudit.sections[sectionIndex].answers[answerIndex] = {
+        // Shallow copy answer then apply updates
+        let newAnswer = {
             ...updatedAudit.sections[sectionIndex].answers[answerIndex],
             ...updates,
         };
+
+        // If answer changed to "evet" or "muaf", OR if checkbox points are max (implicitly via updates), 
+        // we should remove existing actionData to prevent stale "approved" status on next "saveAndNotify".
+
+        // Helper to check if given ALL fields, action is needed
+        const isActionNeeded = (ans: AuditAnswer) => {
+            if (ans.answer === "hayir") return true;
+            if (ans.questionType === "checkbox" && ans.earnedPoints < ans.maxPoints) return true;
+            return false;
+        };
+
+        // Note: 'updates' might only have 'answer', so we merged it into newAnswer above.
+        // We also need to apply point logic here before checking isActionNeeded because updates might be "evet" but points not set yet in 'updates'?
+        // Wait, logic below "Puanı güncelle" sets earnedPoints. relying on that order is safer.
+
+        // Let's re-order: Apply logic first, then check actionData cleanup.
+
+        if (updates.answer) {
+            if (updates.answer === "evet") {
+                newAnswer.earnedPoints = newAnswer.maxPoints;
+            } else if (updates.answer === "hayir") {
+                newAnswer.earnedPoints = 0;
+            } else if (updates.answer === "muaf") {
+                newAnswer.earnedPoints = newAnswer.maxPoints;
+            }
+        }
+
+        // NOW check action requirement
+        if (!isActionNeeded(newAnswer)) {
+            delete newAnswer.actionData;
+        }
+
+        updatedAudit.sections[sectionIndex].answers[answerIndex] = newAnswer;
 
         // Only update duration if it's the first time answering
         if (isFirstAnswer) {
@@ -241,19 +271,13 @@ export default function AuditPage() {
         // Always update lastActionTime on any interaction
         lastActionTime.current = now;
 
-        // Puanı güncelle
-        if (updates.answer) {
-            const answer = updatedAudit.sections[sectionIndex].answers[answerIndex];
-            if (updates.answer === "evet") {
-                answer.earnedPoints = answer.maxPoints;
-            } else if (updates.answer === "hayir") {
-                answer.earnedPoints = 0;
-            } else if (updates.answer === "muaf") {
-                answer.earnedPoints = answer.maxPoints;
-            }
-        }
+        // Note: Puanı güncelle logic was duplicated above to ensure newAnswer is consistent. Removed/Redundant below? 
+        // We already updated newAnswer above. But we need to make sure logic flow is correct.
+        // The previous code block updated points on `updatedAudit` directly later. 
+        // We updated `newAnswer` and assigned it. So we can skip the manual update below or keep it?
+        // Let's remove the redundant block below since we moved it up.
 
-        // Bölüm ortalaması hesapla - sadece cevaplanmış bölümleri dahil et
+        // Section Score Calculation
         const sectionScores: number[] = [];
 
         updatedAudit.sections.forEach(section => {
@@ -262,18 +286,15 @@ export default function AuditPage() {
 
             section.answers.forEach(answer => {
                 // Sadece cevaplanmış soruları hesaba kat
-                // MUAF soruları hesaplamaya dahil etme
                 if (answer.answer && answer.answer.trim() !== "" && answer.answer !== "muaf") {
                     sectionEarned += answer.earnedPoints;
                     sectionMax += answer.maxPoints;
                 }
             });
 
-            // Eğer bölümde en az bir cevap varsa
             if (sectionMax > 0) {
                 const sectionScore = (sectionEarned / sectionMax) * 100;
                 sectionScores.push(sectionScore);
-
             }
         });
 
@@ -282,8 +303,6 @@ export default function AuditPage() {
             ? sectionScores.reduce((sum, score) => sum + score, 0) / sectionScores.length
             : 0;
 
-        console.log(`BÖLÜM ORTALAMASI: ${Math.round(finalScore)}% (${sectionScores.length} bölüm)`);
-
         updatedAudit.totalScore = Math.round(finalScore);
         updatedAudit.updatedAt = Timestamp.now();
 
@@ -291,19 +310,13 @@ export default function AuditPage() {
         setAudit(updatedAudit);
 
         // If in edit mode, DON'T save to Firebase (only save when clicking "Kaydet")
-        // Check mode directly from searchParams to be safe
         const currentMode = new URLSearchParams(window.location.search).get('mode');
         const isInEditMode = currentMode === 'edit' && audit.status === 'tamamlandi';
 
-        console.log('🔍 updateAnswer - mode:', currentMode, 'status:', audit.status, 'isInEditMode:', isInEditMode);
-
         if (isInEditMode) {
-            console.log('✋ Edit modunda - Firebase\'e kaydedilmiyor (sadece local state güncellendi)');
             return;
         }
 
-        console.log('💾 Firebase\'e kaydediliyor...');
-        // Then save to Firebase in background (only for non-edit mode)
         try {
             // Filter out local:// URLs before saving to Firestore
             const sectionsToSave = updatedAudit.sections.map(section => ({
@@ -319,7 +332,6 @@ export default function AuditPage() {
                 totalScore: updatedAudit.totalScore,
                 updatedAt: updatedAudit.updatedAt,
             });
-            console.log('✅ Firebase\'e kaydedildi');
         } catch (error) {
             console.error("Error updating answer:", error);
             toast.error("Cevap kaydedilirken hata oluştu");
@@ -471,15 +483,6 @@ export default function AuditPage() {
             const newScore = audit.totalScore || 0;
             const scoreChanged = newScore !== originalScore;
 
-            // Update audit
-            await updateDoc(doc(db, "audits", auditId), {
-                sections: audit.sections,
-                totalScore: audit.totalScore,
-                updatedAt: Timestamp.now(),
-            });
-
-            // Create notification for all admins if score changed or answers changed
-
             // Calculate detailed changes
             const changes: Array<{
                 sectionName: string;
@@ -491,33 +494,134 @@ export default function AuditPage() {
                 newScore: number;
             }> = [];
 
+            // Prepare updated sections with proper actionData handling
+            // We clone deep to avoid mutating the current state prematurely
+            let updatedSections = JSON.parse(JSON.stringify(audit.sections));
+
             if (originalAudit) {
-                audit.sections.forEach((section, sIndex) => {
-                    section.answers.forEach((answer, aIndex) => {
-                        const originalSection = originalAudit.sections.find(s => s.sectionId === section.sectionId || s.sectionName === section.sectionName);
-                        if (!originalSection) return;
+                updatedSections = updatedSections.map((section: any) => ({
+                    ...section,
+                    answers: section.answers.map((answer: any) => {
+                        const originalSection = originalAudit.sections.find((s: any) => s.sectionId === section.sectionId || s.sectionName === section.sectionName);
+                        // Fallback safely if original structure differs slightly
+                        const originalAnswer = originalSection?.answers.find((a: any) => a.questionId === answer.questionId || a.questionText === answer.questionText);
 
-                        const originalAnswer = originalSection.answers.find(a => a.questionId === answer.questionId || a.questionText === answer.questionText);
-                        if (!originalAnswer) return;
+                        const newAns = answer.answer || "";
+                        const oldAns = originalAnswer?.answer || "";
+                        const ansChanged = newAns !== oldAns;
+                        const scoreChanged = answer.earnedPoints !== (originalAnswer?.earnedPoints ?? answer.earnedPoints);
 
-                        const ansChanged = (answer.answer || "") !== (originalAnswer.answer || "");
-                        const scoreChanged = answer.earnedPoints !== originalAnswer.earnedPoints;
-
-                        if (ansChanged || scoreChanged) {
+                        // Track changes for notification
+                        if (originalAnswer && (ansChanged || scoreChanged)) {
                             changes.push({
                                 sectionName: section.sectionName,
                                 questionId: answer.questionId,
                                 questionText: answer.questionText,
-                                oldAnswer: originalAnswer.answer || "boş",
-                                newAnswer: answer.answer || "boş",
+                                oldAnswer: oldAns || "boş",
+                                newAnswer: newAns || "boş",
                                 oldScore: originalAnswer.earnedPoints,
                                 newScore: answer.earnedPoints
                             });
                         }
-                    });
-                });
+
+                        // REACTIVATION LOGIC:
+                        // Check if action is currently needed (Hayır OR Checkbox fail)
+                        const isActionCurrentlyNeeded =
+                            newAns === "hayir" ||
+                            (answer.questionType === "checkbox" && answer.earnedPoints < answer.maxPoints);
+
+                        const wasActionNeededBefore = originalAnswer ? (
+                            originalAnswer.answer === "hayir" ||
+                            (originalAnswer.questionType === "checkbox" && originalAnswer.earnedPoints < originalAnswer.maxPoints)
+                        ) : false;
+
+                        if (isActionCurrentlyNeeded) {
+                            const currentStatus = answer.actionData?.status;
+
+                            // Initialize logic:
+                            // 1. If it WASN'T needing action before, but now DOES -> NEW ACTION
+                            // 2. If it DOES need action, but has NO status -> NEW ACTION (fix corrupted state)
+                            // 3. Since updateAnswer now clears status on "evet", a toggle No->Yes->No results in missing status -> NEW ACTION.
+
+                            const isNewAction = !wasActionNeededBefore || !currentStatus;
+
+                            if (isNewAction) {
+                                return {
+                                    ...answer,
+                                    actionData: {
+                                        status: "pending_store" as const,
+                                        // Reset notes/photos for a fresh action start
+                                    }
+                                };
+                            }
+                        }
+
+                        // Cleanup logic: If action NOT needed anymore (e.g. fixed in edit), remove actionData
+                        // This handles the case where updateAnswer might have missed it or logic differs.
+                        if (!isActionCurrentlyNeeded && answer.actionData) {
+                            const { actionData, ...rest } = answer;
+                            return rest;
+                        }
+
+                        return answer;
+                    })
+                }));
             }
 
+            // Recalculate allActionsResolved
+            // An audit is fully resolved if every "Action Needed" answer has an "approved" status
+            const allActionsResolved = updatedSections.every((section: any) =>
+                section.answers.every((answer: any) => {
+                    const isActionNeeded =
+                        answer.answer === "hayir" ||
+                        (answer.questionType === "checkbox" && answer.earnedPoints < answer.maxPoints);
+
+                    if (!isActionNeeded) return true; // Not an action item, so it's "resolved"
+
+                    // If action is needed, it MUST be approved to be resolved
+                    return answer.actionData && answer.actionData.status === "approved";
+                })
+            );
+
+            // Reconstruct Timestamps lost during JSON.parse(JSON.stringify)
+            const restoreTimestamps = (obj: any): any => {
+                if (obj === null || typeof obj !== 'object') return obj;
+
+                // Check if it looks like a serialized Timestamp
+                if ('seconds' in obj && 'nanoseconds' in obj && Object.keys(obj).length === 2) {
+                    return new Timestamp(obj.seconds, obj.nanoseconds);
+                }
+
+                if (Array.isArray(obj)) {
+                    return obj.map(v => restoreTimestamps(v));
+                }
+
+                return Object.entries(obj).reduce((acc, [key, value]) => {
+                    acc[key] = restoreTimestamps(value);
+                    return acc;
+                }, {} as any);
+            };
+
+            const finalSections = restoreTimestamps(updatedSections);
+
+            // Update audit in Firestore
+            await updateDoc(doc(db, "audits", auditId), {
+                sections: finalSections,
+                totalScore: audit.totalScore,
+                updatedAt: Timestamp.now(),
+                allActionsResolved: allActionsResolved
+            });
+
+            // Update local state to reflect these structural changes
+            // For local state we can keep using updatedSections (with plain objects) or finalSections (with Timestamps)
+            // React state usually handles objects fine, but consistent types are better.
+            setAudit(prev => prev ? {
+                ...prev,
+                sections: finalSections,
+                allActionsResolved: allActionsResolved
+            } : null);
+
+            // Create notification for all admins if score changed or answers changed
             if (scoreChanged || changes.length > 0) {
                 const adminsQuery = query(
                     collection(db, "users"),

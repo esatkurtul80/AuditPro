@@ -105,6 +105,23 @@ const calculateDeadlineDate = (startDate: Date) => {
     return date;
 };
 
+// Helper function to safely parse Firestore Timestamp or Date
+const parseDate = (date: any): Date | null => {
+    if (!date) return null;
+    if (typeof date.toDate === 'function') {
+        return date.toDate();
+    }
+    if (date instanceof Date) {
+        return date;
+    }
+    // Handle serialized Timestamp { seconds: number, nanoseconds: number }
+    if (typeof date === 'object' && 'seconds' in date) {
+        return new Date(date.seconds * 1000);
+    }
+    const parsed = new Date(date);
+    return isNaN(parsed.getTime()) ? null : parsed;
+};
+
 // Helper function to calculate store response time (excluding Sundays)
 const getStoreResponseTime = (audit: Audit): number | null => {
     if (!audit.completedAt) return null;
@@ -116,8 +133,8 @@ const getStoreResponseTime = (audit: Audit): number | null => {
         section.answers.forEach(answer => {
             const isActionNeeded = answer.answer === "hayir" || (answer.questionType === "checkbox" && answer.earnedPoints < answer.maxPoints);
             if (isActionNeeded && answer.actionData?.submittedAt) {
-                const submissionDate = answer.actionData.submittedAt.toDate();
-                if (!earliestSubmission || submissionDate < earliestSubmission) {
+                const submissionDate = parseDate(answer.actionData.submittedAt);
+                if (submissionDate && (!earliestSubmission || submissionDate < earliestSubmission)) {
                     earliestSubmission = submissionDate;
                 }
             }
@@ -126,7 +143,10 @@ const getStoreResponseTime = (audit: Audit): number | null => {
 
     if (!earliestSubmission) return null;
 
-    return getWorkingDaysPassed(audit.completedAt.toDate(), earliestSubmission);
+    const completedDate = parseDate(audit.completedAt);
+    if (!completedDate) return null;
+
+    return getWorkingDaysPassed(completedDate, earliestSubmission);
 };
 
 // Helper function to get the latest submission date (Response Date)
@@ -136,8 +156,8 @@ const getLastSubmissionDate = (audit: Audit): Date | null => {
         section.answers.forEach(answer => {
             const isActionNeeded = answer.answer === "hayir" || (answer.questionType === "checkbox" && answer.earnedPoints < answer.maxPoints);
             if (isActionNeeded && answer.actionData?.submittedAt) {
-                const submissionDate = answer.actionData.submittedAt.toDate();
-                if (!latestSubmission || submissionDate > latestSubmission) {
+                const submissionDate = parseDate(answer.actionData.submittedAt);
+                if (submissionDate && (!latestSubmission || submissionDate > latestSubmission)) {
                     latestSubmission = submissionDate;
                 }
             }

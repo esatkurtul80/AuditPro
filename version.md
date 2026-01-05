@@ -1,6 +1,17 @@
 # AuditPro Version History
 
-## v1.10.4 (Current) - "Smart Duration Analysis & Suspicious Detection"
+## v1.10.5 (Current) - "Login Dark Mode & Robust Editing"
+- **Auditor & Action Logic:**
+    - **Reactivation Fix:** Confirmed and optimized logic where Auditor edits (changing answer to "No") correctly trigger action reactivation for Stores.
+    - **Data Integrity:** Implemented `restoreTimestamps` helper to prevent date corruption when editing completed audits.
+- **UI/UX & Dark Mode:**
+    - **Login Page Overhaul:** Added comprehensive Dark Mode support for the Login page (adaptive backgrounds, text, and icons).
+    - **Dynamic Logo:** Login page now switches between "welcome-image.jpg" (Light) and "auditpro-beyaz.png" (Dark).
+    - **Date Display:** Standardized Store action dates to "Gönderim" for clearer history tracking.
+- **Bug Fixes:**
+    - **Runtime Errors:** Resolved `toDate is not a function` errors in Admin and Store panels by enhancing date parsing logic.
+
+## v1.10.4 - "Smart Duration Analysis & Suspicious Detection"
 - **New Feature: Suspicious Answer Detection:**
     - **Smart Analysis:** Automatically compares individual answer duration against the global average for that specific question.
     - **Rounding Tolerance:** Implemented intelligent rounding (no decimals) to prevent false positives (e.g., treating 6.1s and 5.9s as equal '6s').
