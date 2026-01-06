@@ -1,6 +1,25 @@
 # AuditPro Version History
 
-## v1.10.6 (Current) - "PWA Notification Stability & APK Integration"
+## v1.10.8 (Current) - "Audit Card & Action Alert Polish"
+- **UI Refinements:**
+    - **Audit Card:** Optimized layout to remove visual gaps and improved whitespace usage for a cleaner look.
+    - **Action Alerts:** Tweaked styling for better visual integration.
+- **Code Quality:**
+    - **Date Utils:** Minor improvements to date utility functions.
+
+## v1.10.7 - "Store Panel Redesign & PDF Download"
+- **Major Feature: Store User Panel:**
+    - **New Dashboard:** A completely redesigned `/magaza/panel` for store users, featuring a modern welcome header, improved layout, and clear action items.
+    - **Action Alerts:** New banner-style alerts for pending and rejected actions, providing immediate visibility and deep linking.
+    - **Audit Cards:** Premium Shadcn-styled audit cards with score badges, detailed metrics, and direct PDF access.
+- **Reporting & Notifications:**
+    - **PDF Download for Stores:** Store users can now download PDF reports directly from the audit detail page (`/audits/[id]/actions`), ensuring easy access to their audit records.
+    - **Access Control:** Enforced strict store-level permissions on audit viewing pages.
+- **UI/UX Refinements:**
+    - **Action Buttons:** Added distinct "PDF İndir" button to the audit response page.
+    - **Navigation:** Added dedicated "Panel" link to the sidebar for store users.
+
+## v1.10.6 - "PWA Notification Stability & APK Integration"
 - **Android PWA & Notification System:**
     - **APK Native Notifications:** Fixed notifications to appear from "AuditPro" app instead of "Chrome" by adding Android notification channel configuration (`channelId`, `icon`, `color`) to FCM payload.
     - **Permission Flow:** Restored automatic notification permission request on first install while maintaining manual fix button for users who dismiss the initial prompt.

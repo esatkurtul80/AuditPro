@@ -114,7 +114,8 @@ function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar }: 
     ];
 
     const magazaLinks = [
-        { href: "/magaza", label: "Aksiyonlarım", icon: CheckSquare },
+        { href: "/magaza/panel", label: "Panel", icon: LayoutDashboard },
+        { href: "/magaza", label: "Aksiyonlarım", icon: CheckSquare, exact: true },
     ];
 
     const bolgeMuduruLinks = [
@@ -562,7 +563,14 @@ function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar }: 
                     ) : (
                         magazaLinks.map((link) => {
                             const Icon = link.icon;
-                            const isActive = pathname === link.href || pathname.startsWith(link.href + '/');
+                            // @ts-ignore
+                            const isExact = link.exact;
+                            // @ts-ignore
+                            const href = link.href;
+
+                            const isActive = isExact
+                                ? pathname === href
+                                : pathname === href || pathname.startsWith(href + '/');
                             return (
                                 <Link key={link.href} href={link.href} onClick={onLinkClick} title={isCollapsed ? link.label : undefined}>
                                     <div

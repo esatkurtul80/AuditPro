@@ -12,6 +12,7 @@ export interface UserProfile {
     photoURL: string | null;
     role: UserRole;
     storeId?: string; // Sadece magaza rolü için
+    storeName?: string; // Mağaza adı (magaza users için)
     createdAt: Timestamp;
     updatedAt: Timestamp;
 }

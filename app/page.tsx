@@ -21,10 +21,10 @@ export default function HomePage() {
             router.push("/admin/dashboard");
             break;
           case "denetmen":
-            router.push("/denetmen");
+            router.push("/denetmen/panel");
             break;
           case "magaza":
-            router.push("/magaza");
+            router.push("/magaza/panel");
             break;
           case "pending":
             // Pending kullanıcılar bu sayfada kalır, ProtectedRoute UnauthorizedView gösterecek
