@@ -5,22 +5,17 @@ import { useEffect } from "react";
 export function ServiceWorkerUpdater() {
     useEffect(() => {
         // Disabled aggressive auto-update check to prevent loops
-        /*
         if (typeof window !== "undefined" && "serviceWorker" in navigator) {
-            navigator.serviceWorker.ready.then((registration) => {
-                registration.update().then(() => {
-                    console.log("Service Worker updated manually via .ready()");
+            // Register the service worker to ensure PWA functionality works correctly on Android
+            navigator.serviceWorker
+                .register("/firebase-messaging-sw.js")
+                .then((registration) => {
+                    console.log("Service Worker registered with scope:", registration.scope);
+                })
+                .catch((err) => {
+                    console.error("Service Worker registration failed:", err);
                 });
-            });
-
-            navigator.serviceWorker.getRegistrations().then((registrations) => {
-                for (const registration of registrations) {
-                    registration.update();
-                    console.log("Checking update for registration:", registration.scope);
-                }
-            });
         }
-        */
     }, []);
 
     return null;

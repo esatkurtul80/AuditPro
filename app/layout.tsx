@@ -33,7 +33,7 @@ export const metadata: Metadata = {
     statusBarStyle: "default",
   },
   other: {
-    'mobile-web-app-capable': 'no',
+    // 'mobile-web-app-capable': 'no', // Disabled to allow Android PWA to work
   },
 };
 

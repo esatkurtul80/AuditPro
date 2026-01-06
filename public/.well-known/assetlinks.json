@@ -1,0 +1,14 @@
+[
+    {
+        "relation": [
+            "delegate_permission/common.handle_all_urls"
+        ],
+        "target": {
+            "namespace": "android_app",
+            "package_name": "info.tugbadenetim.twa",
+            "sha256_cert_fingerprints": [
+                "89:76:2E:B0:F9:8F:03:06:8C:D0:B2:5B:13:17:76:EF:1B:72:84:9C:D4:07:C1:F4:AA:1B:E5:EB:5F:68:8D:33"
+            ]
+        }
+    }
+]

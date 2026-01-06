@@ -126,6 +126,9 @@ const parseDate = (date: any): Date | null => {
 const getStoreResponseTime = (audit: Audit): number | null => {
     if (!audit.completedAt) return null;
 
+    // If score is 100, response time is 0 days (instant)
+    if (audit.totalScore === 100) return 0;
+
     // Find the first submitted action (when store first responded)
     let earliestSubmission: Date | null = null;
 
@@ -151,6 +154,11 @@ const getStoreResponseTime = (audit: Audit): number | null => {
 
 // Helper function to get the latest submission date (Response Date)
 const getLastSubmissionDate = (audit: Audit): Date | null => {
+    // If score is 100, usage audit completion date as response date
+    if (audit.totalScore === 100 && audit.completedAt) {
+        return parseDate(audit.completedAt);
+    }
+
     let latestSubmission: Date | null = null;
     audit.sections.forEach(section => {
         section.answers.forEach(answer => {

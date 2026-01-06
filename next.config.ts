@@ -4,7 +4,7 @@ const nextConfig: NextConfig = {
   images: {
     unoptimized: true,
   },
-  experimental: {
+  /* experimental: {
     optimizePackageImports: [
       "lucide-react",
       "@radix-ui/react-dialog",
@@ -14,7 +14,7 @@ const nextConfig: NextConfig = {
       "recharts",
       "framer-motion",
     ],
-  },
+  }, */
   // headers removed to fix auth network error
 };
 

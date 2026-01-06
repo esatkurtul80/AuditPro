@@ -81,7 +81,10 @@ export async function POST(req: Request) {
                 notification: {
                     title: title,
                     body: message,
-                    sound: 'default'
+                    sound: 'default',
+                    channelId: 'auditpro_notifications',
+                    icon: 'ic_notification',
+                    color: '#2563eb'
                 }
             },
             // iOS (APNs): Critical settings for PWA

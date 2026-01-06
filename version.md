@@ -1,6 +1,23 @@
 # AuditPro Version History
 
-## v1.10.5 (Current) - "Login Dark Mode & Robust Editing"
+## v1.10.6 (Current) - "PWA Notification Stability & APK Integration"
+- **Android PWA & Notification System:**
+    - **APK Native Notifications:** Fixed notifications to appear from "AuditPro" app instead of "Chrome" by adding Android notification channel configuration (`channelId`, `icon`, `color`) to FCM payload.
+    - **Permission Flow:** Restored automatic notification permission request on first install while maintaining manual fix button for users who dismiss the initial prompt.
+    - **Visual Status Indicator:** Added real-time permission status indicator (🟢 granted / 🔴 denied) next to the "Bildirim gelmiyor mu?" fix button in notification menu.
+    - **Permission Monitoring:** Implemented automatic permission state polling (2s interval) to keep UI status synchronized with device settings.
+- **User Experience:**
+    - **Fix Button Enhancement:** "Tıkla ve Düzelt" button now shows visual feedback with permission state icon, making it clear when notifications are enabled.
+    - **Removed Diagnostic Tool:** Clean UI by removing technical diagnostic button, keeping only essential "Fix" functionality.
+    - **Removed Success Toast:** Eliminated "Cihaz bildirim servisine bağlandı 🟢" toast for cleaner, less intrusive UX.
+- **Bug Fixes:**
+    - **Firebase Permission-Blocked Error:** Fixed diagnostic tool to skip token fetching when permission is denied, preventing `messaging/permission-blocked` errors.
+    - **Permission State Logic:** Resolved infinite permission loops by properly managing `Notification.permission` state transitions.
+- **Technical Improvements:**
+    - **Type Safety:** Fixed TypeScript errors by renaming `Notification` type import to `NotificationModel` to avoid conflicts with global `Notification` API.
+    - **PWA Manifest:** Enhanced with categories, shortcuts, and screenshots for better Play Store presentation.
+
+## v1.10.5 - "Login Dark Mode & Robust Editing"
 - **Auditor & Action Logic:**
     - **Reactivation Fix:** Confirmed and optimized logic where Auditor edits (changing answer to "No") correctly trigger action reactivation for Stores.
     - **Data Integrity:** Implemented `restoreTimestamps` helper to prevent date corruption when editing completed audits.

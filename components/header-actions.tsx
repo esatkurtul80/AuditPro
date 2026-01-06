@@ -10,7 +10,7 @@ import { Button } from "./ui/button";
 import { useState, useEffect } from "react";
 import { collection, query, where, onSnapshot, orderBy, limit } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { Notification } from "@/lib/types";
+import { Notification as NotificationModel } from "@/lib/types";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -31,12 +31,25 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
     const router = useRouter();
     const isOnline = useOnlineStatus();
     const { theme, setTheme } = useTheme();
-    const [notifications, setNotifications] = useState<Notification[]>([]);
+    const [notifications, setNotifications] = useState<NotificationModel[]>([]);
     const [pendingUsers, setPendingUsers] = useState<any[]>([]);
     const [mounted, setMounted] = useState(false);
+    const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>("default");
 
     useEffect(() => {
         setMounted(true);
+
+        // Check notification permission
+        if ("Notification" in window) {
+            setNotificationPermission(Notification.permission);
+
+            // Poll for permission changes (some browsers don't fire events)
+            const interval = setInterval(() => {
+                setNotificationPermission(Notification.permission);
+            }, 2000);
+
+            return () => clearInterval(interval);
+        }
     }, []);
 
     useEffect(() => {
@@ -53,7 +66,7 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
                 const notifs = snapshot.docs.map(doc => ({
                     id: doc.id,
                     ...doc.data()
-                })) as Notification[];
+                })) as NotificationModel[];
                 setNotifications(notifs);
             });
 
@@ -82,7 +95,7 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
 
     const unreadCount = notifications.length + pendingUsers.length;
 
-    const handleNotificationClick = (notification?: Notification) => {
+    const handleNotificationClick = (notification?: NotificationModel) => {
         if (notification) {
             router.push(`/notifications?highlight=${notification.id}`);
         } else {
@@ -113,7 +126,7 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
         return name.substring(0, 2).toUpperCase();
     };
 
-    const getNotificationTypeBadge = (notification: Notification) => {
+    const getNotificationTypeBadge = (notification: NotificationModel) => {
         switch (notification.type) {
             case "audit_edited":
                 return <Badge className="bg-blue-500 text-white text-[10px]">Denetim Düzenlendi</Badge>;
@@ -244,17 +257,38 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
 
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
-                                className="cursor-pointer p-2 text-center justify-center text-xs text-muted-foreground hover:text-primary"
+                                className="cursor-pointer p-2 text-center justify-center text-xs text-muted-foreground hover:text-primary flex items-center gap-2"
                                 onClick={async () => {
-                                    toast.info("Bildirim servisi yenileniyor...");
+                                    toast.info("Bildirim servisi onarılıyor...");
+
+                                    // 1. Request Permission explicitly
+                                    if ("Notification" in window) {
+                                        const permission = await Notification.requestPermission();
+                                        setNotificationPermission(permission);
+                                        if (permission !== "granted") {
+                                            if (permission === "denied") {
+                                                toast.error("İzin REDDEDİLMİŞ! 🚫 Lütfen telefon Ayarlar > Uygulamalar > AuditPro > Bildirimler kısmından izni açın.");
+                                            } else {
+                                                toast.error("İzin verilmedi. Ekrana çıkan kutuya 'İzin Ver' demelisiniz.");
+                                            }
+                                            return;
+                                        }
+                                    }
+
+                                    // 2. Unregister workers
                                     if ('serviceWorker' in navigator) {
                                         const regs = await navigator.serviceWorker.getRegistrations();
                                         for (const reg of regs) await reg.unregister();
                                     }
+
+                                    // 3. Reload to fetch new token with fresh permission
                                     window.location.reload();
                                 }}
                             >
-                                Bildirim gelmiyor mu? Tıkla ve Düzelt
+                                <span className="flex-1">Bildirim gelmiyor mu? Tıkla ve Düzelt</span>
+                                <span className="text-base">
+                                    {notificationPermission === "granted" ? "🟢" : "🔴"}
+                                </span>
                             </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
