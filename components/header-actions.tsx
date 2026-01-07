@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, User, LogOut, Settings } from "lucide-react";
+import { Bell, User, LogOut, Settings, WifiOff } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/components/auth-provider";
 import { useRouter } from "next/navigation";
@@ -146,6 +146,28 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
 
     const iconSize = compact ? "h-4 w-4" : "h-5 w-5";
     const avatarSize = compact ? "h-8 w-8" : "h-10 w-10";
+    const isStoreUser = userProfile?.role === "magaza";
+
+    if (compact && isStoreUser) {
+        return (
+            <Badge
+                variant={isOnline ? "default" : "destructive"}
+                className={`${isOnline ? "bg-green-500 hover:bg-green-600" : "bg-red-500 hover:bg-red-600"} text-white transition-colors`}
+            >
+                {isOnline ? (
+                    <>
+                        <div className="h-2 w-2 rounded-full bg-white mr-1.5 animate-pulse" />
+                        Çevrimiçi
+                    </>
+                ) : (
+                    <>
+                        <WifiOff className="mr-1 h-3 w-3" />
+                        Çevrimdışı
+                    </>
+                )}
+            </Badge>
+        );
+    }
 
     return compact ? (
         <div className="flex items-center gap-2">

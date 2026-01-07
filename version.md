@@ -1,6 +1,11 @@
 # AuditPro Version History
 
-## v1.10.9 (Current) - "Mobile Nav Polish & Persistence"
+## v1.10.10 (Current) - "Streamlined Store Header"
+- **Mobile UX:**
+    - **Header Clean-up:** Removed redundant Notification and Profile buttons from the mobile header for Store users, as these are now accessible via the persistent bottom navigation.
+    - **Online Status:** Added a dedicated "Çevrimiçi/Çevrimdışı" text badge to the top right header for clear connectivity status visibility.
+
+## v1.10.9 - "Mobile Nav Polish & Persistence"
 - **Mobile Experience:**
     - **Persistent Navigation:** Integrated Bottom Navigation into the global Dashboard layout, ensuring it remains visible across all Store pages (including Notifications).
     - **Visual Refinements:** Standardized the "Panel" button style to match other navigation items (removed FAB style) and perfected vertical alignment for a cleaner interface.
