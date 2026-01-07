@@ -22,17 +22,53 @@ import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
+import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
 export default function SettingsPage() {
     const { userProfile, signOut } = useAuth();
     const { theme, setTheme } = useTheme();
     const router = useRouter();
     const [mounted, setMounted] = useState(false);
+    const [displayStoreName, setDisplayStoreName] = useState("");
 
-    // Avoid hydration mismatch
+    // Avoid hydration mismatch and fetch missing store name
     useEffect(() => {
         setMounted(true);
-    }, []);
+
+        const checkStoreName = async () => {
+            if (userProfile?.role === "magaza") {
+                // 1. Use existing persistent name if available
+                if (userProfile.storeName) {
+                    setDisplayStoreName(userProfile.storeName);
+                    return;
+                }
+
+                // 2. If missing but storeId exists, fetch and self-heal
+                if (userProfile.storeId) {
+                    try {
+                        console.log("Fetching missing store name for ID:", userProfile.storeId);
+                        const storeRef = doc(db, "stores", userProfile.storeId);
+                        const storeSnap = await getDoc(storeRef);
+
+                        if (storeSnap.exists()) {
+                            const name = storeSnap.data().name;
+                            setDisplayStoreName(name);
+
+                            // Self-heal: Update profile in Firestore
+                            const userRef = doc(db, "users", userProfile.uid);
+                            await updateDoc(userRef, { storeName: name });
+                            console.log("Self-healed storeName in profile");
+                        }
+                    } catch (error) {
+                        console.error("Error fetching store name:", error);
+                    }
+                }
+            }
+        };
+
+        checkStoreName();
+    }, [userProfile]);
 
     const handleLogout = async () => {
         try {
