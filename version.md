@@ -1,6 +1,12 @@
 # AuditPro Version History
 
-## v1.10.10 (Current) - "Streamlined Store Header"
+## v1.10.11 (Current) - "Profile & Admin Fixes"
+- **Store Settings:**
+    - **Visual Polish:** Removed the unused "Edit" button from the Store Profile card for a cleaner look.
+- **Admin Panel:**
+    - **Data Integrity:** Fixed an issue where assigning a store to a user didn't save the Store Name to the user's profile, causing it to appear blank in the App. (Note: Please re-assign existing users to fix their names).
+
+## v1.10.10 - "Streamlined Store Header"
 - **Mobile UX:**
     - **Header Clean-up:** Removed redundant Notification and Profile buttons from the mobile header for Store users, as these are now accessible via the persistent bottom navigation.
     - **Online Status:** Added a dedicated "Çevrimiçi/Çevrimdışı" text badge to the top right header for clear connectivity status visibility.

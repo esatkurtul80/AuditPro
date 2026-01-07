@@ -259,11 +259,18 @@ function AdminUsersContent() {
         try {
             const userRef = doc(db, "users", userId);
             const updateData: any = { role: newRole };
+            let storeName: string | undefined;
 
             if (newRole === "magaza" && storeId) {
                 updateData.storeId = storeId;
+                const store = stores.find(s => s.id === storeId);
+                if (store) {
+                    updateData.storeName = store.name;
+                    storeName = store.name;
+                }
             } else if (newRole !== "magaza") {
                 updateData.storeId = null;
+                updateData.storeName = null;
             }
 
             await updateDoc(userRef, updateData);
@@ -271,7 +278,7 @@ function AdminUsersContent() {
             setUsers((prev) =>
                 prev.map((user) =>
                     user.uid === userId
-                        ? { ...user, role: newRole, ...(newRole === "magaza" ? { storeId } : { storeId: undefined }) }
+                        ? { ...user, role: newRole, ...(newRole === "magaza" ? { storeId, storeName } : { storeId: undefined, storeName: undefined }) }
                         : user
                 )
             );
@@ -307,11 +314,14 @@ function AdminUsersContent() {
     const assignStore = async (userId: string, storeId: string) => {
         try {
             const userRef = doc(db, "users", userId);
-            await updateDoc(userRef, { storeId });
+            const store = stores.find(s => s.id === storeId);
+            const storeName = store?.name;
+
+            await updateDoc(userRef, { storeId, storeName });
 
             setUsers((prev) =>
                 prev.map((user) =>
-                    user.uid === userId ? { ...user, storeId } : user
+                    user.uid === userId ? { ...user, storeId, storeName } : user
                 )
             );
 

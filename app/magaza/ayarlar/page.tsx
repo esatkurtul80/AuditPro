@@ -74,16 +74,12 @@ export default function SettingsPage() {
                         </div>
                         <div className="flex flex-col flex-1 justify-center overflow-hidden">
                             <p className="text-xl font-bold leading-tight truncate text-gray-900 dark:text-foreground">
-                                {Number(userProfile?.storeId) > 0 ? (userProfile?.storeName || "Mağaza") : (userProfile?.displayName || "Kullanıcı")}
+                                {userProfile?.role === "magaza" ? (userProfile?.storeName || "Mağaza") : (userProfile?.displayName || "Kullanıcı")}
                             </p>
                             <p className="text-gray-500 dark:text-muted-foreground text-sm font-medium truncate">
                                 {userProfile?.email || "email@example.com"}
                             </p>
                         </div>
-                        {/* Edit Button - Disabled/Visual Only as requested */}
-                        <button className="flex items-center justify-center w-10 h-10 rounded-full bg-gray-100 dark:bg-accent text-gray-600 dark:text-muted-foreground opacity-50 cursor-not-allowed">
-                            <Edit size={20} />
-                        </button>
                     </div>
 
                     {/* Appearance Section */}
