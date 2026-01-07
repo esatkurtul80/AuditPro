@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/components/auth-provider";
@@ -7,6 +7,8 @@ import { Toaster } from "@/components/ui/sonner";
 import { OfflineIndicator } from "@/components/offline-indicator";
 import { PageTransition } from "@/components/page-transition";
 import { ServiceWorkerUpdater } from "@/components/service-worker-updater";
+import { GlobalBottomNavWrapper } from "@/components/global-bottom-nav-wrapper";
+import { GlobalHeader } from "@/components/global-header";
 
 import NextTopLoader from "nextjs-toploader";
 
@@ -19,6 +21,17 @@ const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
 });
+
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "white" },
+    { media: "(prefers-color-scheme: dark)", color: "black" },
+  ],
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+};
 
 export const metadata: Metadata = {
   title: "AuditPro",
@@ -63,9 +76,11 @@ export default function RootLayout({
               easing="ease"
               shadow={false}
             />
+            <GlobalHeader />
             <PageTransition>
               {children}
             </PageTransition>
+            <GlobalBottomNavWrapper />
             <Toaster />
             <OfflineIndicator />
             <ServiceWorkerUpdater />

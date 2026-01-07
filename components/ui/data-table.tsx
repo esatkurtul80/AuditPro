@@ -14,6 +14,7 @@ import {
     getPaginationRowModel,
     getSortedRowModel,
     useReactTable,
+    FilterFn,
 } from "@tanstack/react-table"
 import { ChevronDown } from "lucide-react"
 
@@ -41,7 +42,7 @@ interface DataTableProps<TData, TValue> {
     searchKey?: string
     searchPlaceholder?: string
     onRowClick?: (row: TData) => void
-    toolbar?: React.ReactNode
+    toolbar?: React.ReactNode | ((table: import("@tanstack/react-table").Table<TData>) => React.ReactNode)
     actionElement?: React.ReactNode
     mobileHiddenColumns?: string[]
     initialColumnVisibility?: VisibilityState
@@ -49,6 +50,8 @@ interface DataTableProps<TData, TValue> {
     rowClassName?: string
     pageSizeOptions?: number[]
     defaultPageSize?: number
+    enableGlobalFilter?: boolean
+    alignToolbar?: "start" | "end"
 }
 
 export function DataTable<TData, TValue>({
@@ -65,11 +68,14 @@ export function DataTable<TData, TValue>({
     rowClassName,
     pageSizeOptions = [10, 20, 30, 40, 50],
     defaultPageSize = 10,
+    enableGlobalFilter = false,
+    alignToolbar = "start",
 }: DataTableProps<TData, TValue>) {
     const [sorting, setSorting] = React.useState<SortingState>(initialSorting)
     const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
         []
     )
+    const [globalFilter, setGlobalFilter] = React.useState("")
     const [columnVisibility, setColumnVisibility] =
         React.useState<VisibilityState>(initialColumnVisibility)
     const [rowSelection, setRowSelection] = React.useState({})
@@ -96,8 +102,21 @@ export function DataTable<TData, TValue>({
         handleResize();
     }, [mobileHiddenColumns]);
 
+    // Manual Global Filtering (Client-side)
+    // We implement this manually to avoid import issues with 'getGlobalFilteredRowModel'
+    const processedData = React.useMemo(() => {
+        if (!enableGlobalFilter || !globalFilter) return data;
+
+        const lowerFilter = globalFilter.toLowerCase();
+        return data.filter((row) => {
+            return Object.values(row as any).some((value) =>
+                String(value).toLowerCase().includes(lowerFilter)
+            );
+        });
+    }, [data, globalFilter, enableGlobalFilter]);
+
     const table = useReactTable({
-        data,
+        data: processedData,
         columns,
         onSortingChange: setSorting,
         onColumnFiltersChange: setColumnFilters,
@@ -110,9 +129,11 @@ export function DataTable<TData, TValue>({
         onColumnVisibilityChange: setColumnVisibility,
         onRowSelectionChange: setRowSelection,
         onPaginationChange: setPagination,
+        // onGlobalFilterChange: setGlobalFilter, // Managed manually
         state: {
             sorting,
             columnFilters,
+            // globalFilter, // Managed manually
             columnVisibility,
             rowSelection,
             pagination,
@@ -122,7 +143,15 @@ export function DataTable<TData, TValue>({
     return (
         <div className="w-full">
             <div className="flex flex-col md:flex-row items-stretch md:items-center py-4 gap-4">
-                {searchKey && (
+                {enableGlobalFilter && (
+                    <Input
+                        placeholder={searchPlaceholder}
+                        value={globalFilter ?? ""}
+                        onChange={(event) => setGlobalFilter(event.target.value)}
+                        className="w-full md:max-w-sm focus-visible:ring-0 focus-visible:border-input"
+                    />
+                )}
+                {searchKey && !enableGlobalFilter && (
                     <Input
                         placeholder={searchPlaceholder}
                         value={(table.getColumn(searchKey)?.getFilterValue() as string) ?? ""}
@@ -132,8 +161,8 @@ export function DataTable<TData, TValue>({
                         className="w-full md:max-w-sm focus-visible:ring-0 focus-visible:border-input"
                     />
                 )}
-                <div className="flex flex-col md:flex-row gap-4 flex-1">
-                    {toolbar}
+                <div className={cn("flex flex-col md:flex-row gap-4 flex-1", alignToolbar === "end" ? "justify-end items-center" : "")}>
+                    {typeof toolbar === "function" ? toolbar(table) : toolbar}
                 </div>
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>

@@ -146,7 +146,7 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
 
     const iconSize = compact ? "h-4 w-4" : "h-5 w-5";
     const avatarSize = compact ? "h-8 w-8" : "h-10 w-10";
-    const isStoreUser = userProfile?.role === "magaza";
+    const isStoreUser = userProfile?.role === "magaza" || !!userProfile?.storeId;
 
     if (compact && isStoreUser) {
         return (

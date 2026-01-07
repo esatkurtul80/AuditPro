@@ -61,6 +61,7 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Suspense } from "react";
+import { LogoLoader } from "@/components/logo-loader";
 
 const ITEMS_PER_PAGE = 20;
 
@@ -309,7 +310,7 @@ function NotificationsContent() {
     if (loading) {
         return (
             <div className="flex min-h-screen items-center justify-center">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <LogoLoader />
             </div>
         );
     }
@@ -539,7 +540,7 @@ export default function NotificationsPage() {
         <DashboardLayout>
             <Suspense fallback={
                 <div className="flex min-h-screen items-center justify-center">
-                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    <LogoLoader />
                 </div>
             }>
                 <NotificationsContent />

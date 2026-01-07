@@ -91,7 +91,7 @@ function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar }: 
         { label: "Mağaza Aksiyon Raporu", icon: BarChart3 },
         { label: "Tekrarlanan Eksik Raporu", icon: BarChart3 },
         { label: "Bölge Bazlı Rapor", icon: BarChart3 },
-        { label: "Soru Raporu", icon: BarChart3 },
+        { label: "Soru Analiz Raporu", icon: BarChart3, href: "/admin/reports/questions" },
         { label: "Pareto Analiz Raporu", icon: BarChart3 },
         { label: "Düzenleyici Faaliyet Raporu", icon: BarChart3 },
         { label: "Denetçi Performans Raporu", icon: BarChart3, href: "/admin/reports/auditor-performance" },
