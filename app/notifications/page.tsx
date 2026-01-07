@@ -178,6 +178,12 @@ function NotificationsContent() {
 
     const combinedNotifications = useMemo(() => {
         let items: Notification[] = [...notifications];
+
+        // Denetmenler için audit_completed bildirimlerini gizle
+        if (userProfile?.role === "denetmen") {
+            items = items.filter(n => n.type !== "audit_completed");
+        }
+
         // Sort by date desc
         return items.sort((a, b) => {
             const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt as any);
@@ -251,17 +257,20 @@ function NotificationsContent() {
     const getNotificationTypeBadge = (notification: Notification) => {
         switch (notification.type) {
             case "audit_edited":
-                return <Badge className="bg-blue-500">Denetim Düzenlendi</Badge>;
+                return <Badge className="bg-blue-500 dark:bg-blue-900/50 dark:text-blue-100">Denetim Düzenlendi</Badge>;
             case "action_rejected":
-                return <Badge className="bg-red-500">Aksiyon Reddedildi</Badge>;
+            case "rejected_action":
+                return <Badge className="bg-red-500 dark:bg-red-900/50 dark:text-red-100">Aksiyon Reddedildi</Badge>;
             case "action_approved":
-                return <Badge className="bg-green-500">Aksiyon Onaylandı</Badge>;
+                return <Badge className="bg-green-500 dark:bg-green-900/50 dark:text-green-100">Aksiyon Onaylandı</Badge>;
             case "new_audit":
-                return <Badge className="bg-purple-500">Yeni Denetim</Badge>;
+                return <Badge className="bg-purple-500 dark:bg-purple-900/50 dark:text-purple-100">Yeni Denetim</Badge>;
+            case "audit_completed":
+                return <Badge className="bg-emerald-500 dark:bg-emerald-900/50 dark:text-emerald-100">Denetim Tamamlandı</Badge>;
             case "admin_message":
-                return <Badge className="bg-indigo-500">{notification.senderName || "Yönetici Mesajı"}</Badge>;
+                return <Badge className="bg-indigo-500 dark:bg-indigo-900/50 dark:text-indigo-100">{notification.senderName || "Yönetici Mesajı"}</Badge>;
             default:
-                return <Badge variant="outline">{notification.type}</Badge>;
+                return <Badge variant="outline" className="dark:text-slate-300 dark:border-slate-700">{notification.type}</Badge>;
         }
     };
 
@@ -306,7 +315,7 @@ function NotificationsContent() {
     }
 
     return (
-        <div className="container mx-auto py-8 space-y-6">
+        <div className="container mx-auto py-8 px-4 md:px-6 space-y-6">
             <div className="flex items-center justify-end">
                 <div className="flex gap-2">
                     {notifications.some((n) => !n.read) && (
@@ -329,7 +338,7 @@ function NotificationsContent() {
                         <div className="flex items-center gap-2">
                             <Filter className="h-4 w-4 text-muted-foreground" />
                             <Select value={filterType} onValueChange={setFilterType}>
-                                <SelectTrigger className="w-[200px]">
+                                <SelectTrigger className="w-[180px] md:w-[200px]">
                                     <SelectValue placeholder="Filtrele" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -339,6 +348,7 @@ function NotificationsContent() {
                                     <SelectItem value="action_rejected">Aksiyon Reddedildi</SelectItem>
                                     <SelectItem value="action_approved">Aksiyon Onaylandı</SelectItem>
                                     <SelectItem value="new_audit">Yeni Denetim</SelectItem>
+                                    <SelectItem value="audit_completed">Denetim Tamamlandı</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
@@ -365,8 +375,8 @@ function NotificationsContent() {
                                     id={`notification-${notification.id}`}
                                     key={notification.id}
                                     className={`rounded-lg border transition-all ${!notification.read
-                                        ? "bg-blue-50/50 border-blue-200"
-                                        : "bg-background"
+                                        ? "bg-blue-50/50 border-blue-200 dark:bg-blue-900/10 dark:border-blue-800"
+                                        : "bg-background dark:border-slate-800"
                                         }`}
                                 >
                                     <div
@@ -381,7 +391,7 @@ function NotificationsContent() {
                                                 {!notification.read && (
                                                     <Badge
                                                         variant="outline"
-                                                        className="text-[10px] px-1.5 py-0 border-blue-500 text-blue-600"
+                                                        className="text-[10px] px-1.5 py-0 border-blue-500 text-blue-600 dark:border-blue-400 dark:text-blue-400"
                                                     >
                                                         YENİ
                                                     </Badge>
@@ -436,7 +446,7 @@ function NotificationsContent() {
 
                                     {/* Expanded Details */}
                                     {expandedIds.has(notification.id) && notification.changes && (
-                                        <div className="px-4 pb-4 pt-0 border-t bg-muted/20">
+                                        <div className="px-4 pb-4 pt-0 border-t bg-muted/20 dark:border-slate-800">
                                             <div className="mt-4 space-y-4">
                                                 <div className="flex items-center justify-between">
                                                     <div className="flex flex-col">
@@ -480,7 +490,7 @@ function NotificationsContent() {
                                                                         </Badge>
                                                                     </TableCell>
                                                                     <TableCell>
-                                                                        <Badge variant="outline" className="font-normal border-blue-200 bg-blue-50 text-blue-700">
+                                                                        <Badge variant="outline" className="font-normal border-blue-200 bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800">
                                                                             {change.newAnswer}
                                                                         </Badge>
                                                                     </TableCell>

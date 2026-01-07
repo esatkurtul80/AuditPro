@@ -92,6 +92,17 @@ export function useFcm() {
         if (messaging) {
             const unsubscribe = onMessage(messaging, (payload) => {
                 console.log('Message received. ', payload);
+
+                // Denetmenler için audit_completed bildirimlerini (foreground) engelle
+                if (userProfile?.role === "denetmen") {
+                    const title = payload.notification?.title || payload.data?.title;
+                    // Başlık kontrolü yapıyoruz çünkü payload.data.type her zaman gelmeyebilir
+                    if (title && (title === "Denetim Tamamlandı" || title.includes("Tarihli Mağaza Denetimi"))) {
+                        console.log("Blocking audit_completed notification for auditor");
+                        return;
+                    }
+                }
+
                 toast(payload.notification?.title || "Bildirim", {
                     description: payload.notification?.body,
                 });

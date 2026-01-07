@@ -14,7 +14,10 @@ import {
     Timestamp,
     arrayUnion,
     deleteField,
-    onSnapshot
+    onSnapshot,
+    addDoc,
+    query,
+    where
 } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { db, storage } from "@/lib/firebase";
@@ -55,6 +58,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { LogoLoader } from "@/components/logo-loader";
 import { Loader2, ArrowLeft, Upload, CheckCircle2, AlertCircle, Clock, XCircle, Image as ImageIcon, Camera, Send, X, Download } from "lucide-react";
 import {
     savePendingNote,
@@ -69,14 +73,14 @@ import {
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 
 const SECTION_COLORS = [
-    "bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-100",
-    "bg-purple-100 text-purple-800 border-purple-200 hover:bg-purple-100",
-    "bg-pink-100 text-pink-800 border-pink-200 hover:bg-pink-100",
-    "bg-emerald-100 text-emerald-800 border-emerald-200 hover:bg-emerald-100",
-    "bg-amber-100 text-amber-800 border-amber-200 hover:bg-amber-100",
-    "bg-cyan-100 text-cyan-800 border-cyan-200 hover:bg-cyan-100",
-    "bg-rose-100 text-rose-800 border-rose-200 hover:bg-rose-100",
-    "bg-violet-100 text-violet-800 border-violet-200 hover:bg-violet-100",
+    "bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800",
+    "bg-purple-100 text-purple-800 border-purple-200 hover:bg-purple-100 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-800",
+    "bg-pink-100 text-pink-800 border-pink-200 hover:bg-pink-100 dark:bg-pink-900/30 dark:text-pink-300 dark:border-pink-800",
+    "bg-emerald-100 text-emerald-800 border-emerald-200 hover:bg-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800",
+    "bg-amber-100 text-amber-800 border-amber-200 hover:bg-amber-100 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800",
+    "bg-cyan-100 text-cyan-800 border-cyan-200 hover:bg-cyan-100 dark:bg-cyan-900/30 dark:text-cyan-300 dark:border-cyan-800",
+    "bg-rose-100 text-rose-800 border-rose-200 hover:bg-rose-100 dark:bg-rose-900/30 dark:text-rose-300 dark:border-rose-800",
+    "bg-violet-100 text-violet-800 border-violet-200 hover:bg-violet-100 dark:bg-violet-900/30 dark:text-violet-300 dark:border-violet-800",
 ];
 import { toast } from "sonner";
 import ImageGallery from "@/components/image-gallery";
@@ -431,6 +435,24 @@ export default function AuditActionsPage() {
 
     // We remove the old loadAudit and loadDrafts calls from the main useEffect
     // The previous useEffect calling them is deleted/replaced.
+
+    // Handle hash scrolling after audit loads
+    useEffect(() => {
+        if (!loading && audit && typeof window !== 'undefined') {
+            const hash = window.location.hash;
+            if (hash) {
+                // Determine ID from hash (remove #)
+                const id = hash.substring(1);
+                // Wait slightly for rendering
+                setTimeout(() => {
+                    const element = document.getElementById(id);
+                    if (element) {
+                        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                }, 500);
+            }
+        }
+    }, [loading, audit]);
 
 
 
@@ -873,7 +895,66 @@ export default function AuditActionsPage() {
                 sections: updatedSections,
                 ...(hasUnresolvedActions ? { allActionsResolved: false } : {})
             });
-            toast.success("Aksiyon reddedildi");
+            // Send Notification to Store Users
+            try {
+                if (audit.storeId) {
+                    const usersRef = collection(db, "users");
+                    const q = query(usersRef, where("storeId", "==", audit.storeId));
+                    const snapshot = await getDocs(q);
+                    const targetUsers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+
+                    if (targetUsers.length > 0) {
+                        const notificationsRef = collection(db, "notifications");
+                        const questionText = ((updatedSections[sectionIndex].answers[answerIndex] as any).questionText || "").substring(0, 50) + "...";
+                        const notifTitle = "Aksiyon Reddedildi - Düzeltme Gerekli";
+
+                        // Format date for clarity
+                        const auditDate = audit.startedAt ? formatDate(audit.startedAt) : "";
+                        const auditInfo = audit.storeName ? `${audit.storeName} - ${auditDate}` : auditDate;
+
+                        const notifMessage = `${auditInfo} denetimindeki "${questionText}" sorusuna verdiğiniz yanıt reddedildi.\n\nRed Nedeni: ${rejectionReason}\n\nLütfen düzeltici aksiyonunuzu güncelleyiniz.`;
+
+                        const senderName = userProfile
+                            ? (userProfile.firstName && userProfile.lastName
+                                ? `${userProfile.firstName} ${userProfile.lastName}`
+                                : userProfile.displayName)
+                            : "Admin";
+
+                        const batchPromises = targetUsers.map(user => {
+                            return addDoc(notificationsRef, {
+                                userId: user.id,
+                                type: "rejected_action", // Specific type for styling/logic if needed
+                                title: notifTitle,
+                                message: notifMessage,
+                                senderName: senderName,
+                                read: false,
+                                createdAt: Timestamp.now(),
+                                auditId: auditId,
+                                link: `/audits/${auditId}/actions#action-${sectionIndex}-${answerIndex}`
+                            });
+                        });
+
+                        await Promise.all(batchPromises);
+
+                        // Trigger Push API
+                        // We don't await this to keep UI responsive, or we await safely
+                        fetch("/api/send-notification", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                                title: notifTitle,
+                                message: notifMessage,
+                                userIds: targetUsers.map(u => u.id),
+                                url: `/audits/${auditId}/actions#action-${sectionIndex}-${answerIndex}`
+                            })
+                        }).catch(err => console.error("Push API Error:", err));
+                    }
+                }
+            } catch (notifError) {
+                console.error("Notification trigger failed:", notifError);
+            }
+
+            toast.success("Aksiyon reddedildi ve mağazaya bildirim gönderildi");
             setRejectDialogOpen(false);
             setRejectionReason("");
             setSelectedAction(null);
@@ -1352,11 +1433,9 @@ export default function AuditActionsPage() {
 
     if (loading) {
         return (
-            <DashboardLayout>
-                <div className="flex min-h-screen items-center justify-center">
-                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                </div>
-            </DashboardLayout>
+            <div className="flex min-h-screen items-center justify-center">
+                <LogoLoader />
+            </div>
         );
     }
 
@@ -1434,8 +1513,8 @@ export default function AuditActionsPage() {
                                 <div className={cn(
                                     "flex items-center gap-2 px-4 py-2 rounded-lg border",
                                     (audit.allActionsResolved || Timestamp.now().toMillis() < audit.actionDeadline.toMillis())
-                                        ? "bg-blue-50 border-blue-100 text-blue-700"
-                                        : "bg-red-50 border-red-100 text-red-700"
+                                        ? "bg-blue-50 border-blue-100 text-blue-700 dark:bg-blue-900/20 dark:border-blue-800 dark:text-blue-300"
+                                        : "bg-red-50 border-red-100 text-red-700 dark:bg-red-900/20 dark:border-red-800 dark:text-red-300"
                                 )}>
                                     <Clock className="h-5 w-5" />
                                     <div className="flex flex-col">
@@ -1452,7 +1531,7 @@ export default function AuditActionsPage() {
                     </div>
 
                     {isStore && actions.filter(a => a.answer.actionData?.status === "rejected").length > 0 && (
-                        <Alert variant="destructive" className="mb-6 bg-red-50 border-red-200">
+                        <Alert variant="destructive" className="mb-6 bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800 dark:text-red-300">
                             <AlertCircle className="h-5 w-5 text-red-600" />
                             <div className="ml-2">
                                 <AlertTitle className="text-red-800 font-bold">Dikkat</AlertTitle>
@@ -1483,12 +1562,15 @@ export default function AuditActionsPage() {
                                 const currentSubmission = submissionData[submissionKey];
 
                                 return (
-                                    <Card key={submissionKey} className={cn(
-                                        "border-l-4",
-                                        isApproved ? "border-l-green-500 bg-green-50/30" :
-                                            status === "rejected" ? "border-l-red-500" :
-                                                "border-l-yellow-500"
-                                    )}>
+                                    <Card
+                                        key={submissionKey}
+                                        id={`action-${submissionKey}`}
+                                        className={cn(
+                                            "border-l-4",
+                                            isApproved ? "border-l-green-500 bg-green-50/30 dark:bg-green-900/10" :
+                                                status === "rejected" ? "border-l-red-500" :
+                                                    "border-l-yellow-500"
+                                        )}>
                                         <CardHeader>
                                             <div className="flex justify-between items-start gap-4">
                                                 <div>
@@ -1504,7 +1586,7 @@ export default function AuditActionsPage() {
                                                                 Reddedildi - Tekrar gönderim gerekli
                                                             </Badge>
                                                         ) : isApproved ? (
-                                                            <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200">
+                                                            <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800">
                                                                 <CheckCircle2 className="h-3 w-3 mr-1" />
                                                                 Onaylandı
                                                             </Badge>
@@ -1526,7 +1608,7 @@ export default function AuditActionsPage() {
                                                                 {answer.options
                                                                     .filter(opt => !answer.selectedOptions?.includes(opt.id))
                                                                     .map(opt => (
-                                                                        <li key={opt.id} className="flex items-start text-muted-foreground bg-slate-50 p-2 rounded border border-slate-100">
+                                                                        <li key={opt.id} className="flex items-start text-muted-foreground bg-slate-50 p-2 rounded border border-slate-100 dark:bg-slate-800/50 dark:border-slate-700 dark:text-slate-300">
                                                                             <span className="w-1.5 h-1.5 rounded-full bg-red-400 mt-1.5 mr-2 shrink-0" />
                                                                             {opt.text}
                                                                         </li>

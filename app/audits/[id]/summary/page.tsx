@@ -8,7 +8,8 @@ import { useAuth } from "@/components/auth-provider";
 import { Audit } from "@/lib/types";
 import { AuditSummary } from "@/components/audit-summary";
 import { DashboardLayout } from "@/components/dashboard-layout";
-import { Loader2, ArrowLeft } from "lucide-react";
+import { LogoLoader } from "@/components/logo-loader";
+import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
@@ -74,11 +75,9 @@ export default function AuditSummaryPage() {
 
     if (loading) {
         return (
-            <DashboardLayout>
-                <div className="flex h-screen items-center justify-center">
-                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                </div>
-            </DashboardLayout>
+            <div className="flex h-screen items-center justify-center">
+                <LogoLoader />
+            </div>
         );
     }
 
@@ -91,7 +90,13 @@ export default function AuditSummaryPage() {
                     <div
                         role="button"
                         className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 h-9 px-4 py-2 pl-4 bg-blue-600 text-white hover:bg-blue-700 shadow-md shadow-blue-500/20 cursor-pointer"
-                        onClick={() => router.back()}
+                        onClick={() => {
+                            if (userProfile?.role === "magaza") {
+                                router.push("/magaza/panel");
+                            } else {
+                                router.back();
+                            }
+                        }}
                     >
                         <ArrowLeft className="mr-2 h-4 w-4" />
                         Geri Dön

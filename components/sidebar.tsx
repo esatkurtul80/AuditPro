@@ -115,7 +115,6 @@ function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar }: 
 
     const magazaLinks = [
         { href: "/magaza/panel", label: "Panel", icon: LayoutDashboard },
-        { href: "/magaza", label: "Aksiyonlarım", icon: CheckSquare, exact: true },
     ];
 
     const bolgeMuduruLinks = [

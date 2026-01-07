@@ -201,7 +201,7 @@ export interface ActionItem {
 }
 
 // Notification type
-export type NotificationType = "action_rejected" | "action_approved" | "new_audit" | "action_correction" | "audit_edited" | "pending_user" | "admin_message";
+export type NotificationType = "action_rejected" | "action_approved" | "new_audit" | "action_correction" | "audit_edited" | "pending_user" | "admin_message" | "rejected_action" | "audit_completed";
 
 export interface Notification {
     id: string;

@@ -515,19 +515,21 @@ function AdminUsersContent() {
             });
         }
 
-        // Rol Değiştirme ve İşlemler her zaman gösterilir
-        cols.push(
-            {
-                id: "roleAssignment",
-                header: "Rol Değiştir",
-                cell: ({ row }) => (
-                    <RoleAssignmentCell
-                        user={row.original}
-                        onRoleSelect={handleRoleSelect}
-                    />
-                )
-            },
-            {
+        // Rol Değiştirme her zaman gösterilir
+        cols.push({
+            id: "roleAssignment",
+            header: "Rol Değiştir",
+            cell: ({ row }) => (
+                <RoleAssignmentCell
+                    user={row.original}
+                    onRoleSelect={handleRoleSelect}
+                />
+            )
+        });
+
+        // İşlemler menüsü - Denetmen sekmesinde GÖSTERİLMEZ
+        if (activeTab !== "denetmen") {
+            cols.push({
                 id: "actions",
                 enableHiding: false,
                 cell: ({ row }) => {
@@ -558,8 +560,8 @@ function AdminUsersContent() {
                         </DropdownMenu>
                     );
                 }
-            }
-        );
+            });
+        }
 
         return cols;
     }, [activeTab, stores, assignStore, handleRoleSelect, handleDeleteClick, openEditUserDialog]);

@@ -17,6 +17,7 @@ import {
     Card,
     CardContent,
 } from "@/components/ui/card";
+import { LogoLoader } from "@/components/logo-loader";
 import {
     Loader2,
     ClipboardList,
@@ -94,11 +95,9 @@ export default function CancelledAuditsPage() {
     if (loading) {
         return (
             <ProtectedRoute allowedRoles={["denetmen"]}>
-                <DashboardLayout>
-                    <div className="flex min-h-screen items-center justify-center">
-                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                    </div>
-                </DashboardLayout>
+                <div className="flex min-h-screen items-center justify-center">
+                    <LogoLoader />
+                </div>
             </ProtectedRoute>
         );
     }

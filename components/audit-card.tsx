@@ -149,21 +149,21 @@ export function AuditCard({
         if (approved > 0 && rejected > 0) {
             return {
                 text: `${approved} Soru Onaylandı, ${rejected} Soru Reddedildi ve tekrar dönüş bekliyor`,
-                color: "text-red-700 bg-red-50 border-red-200"
+                color: "text-red-700 bg-red-50 border-red-200 dark:bg-red-900/40 dark:text-red-300 dark:border-red-800"
             };
         }
 
         if (rejected > 0) {
             return {
                 text: `${rejected} aksiyon reddedildi, tekrar dönüş bekliyor`,
-                color: "text-red-700 bg-red-50 border-red-200"
+                color: "text-red-700 bg-red-50 border-red-200 dark:bg-red-900/40 dark:text-red-300 dark:border-red-800"
             };
         }
 
         if (pending_store > 0) {
             return {
                 text: "Aksiyon Gerekiyor",
-                color: "text-orange-700 bg-orange-50 border-orange-200 animate-pulse"
+                color: "text-orange-700 bg-orange-50 border-orange-200 animate-pulse dark:bg-orange-900/40 dark:text-orange-300 dark:border-orange-800"
             };
         }
 
@@ -278,10 +278,10 @@ export function AuditCard({
                         <div className={cn(
                             "flex items-center gap-2 p-2.5 rounded-md border text-sm font-medium mb-3",
                             deadlineInfo.status === 'overdue'
-                                ? "bg-red-50 text-red-700 border-red-200"
+                                ? "bg-red-50 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800"
                                 : deadlineInfo.status === 'warning'
-                                    ? "bg-orange-50 text-orange-700 border-orange-200"
-                                    : "bg-green-50 text-green-700 border-green-200"
+                                    ? "bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-800"
+                                    : "bg-green-50 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800"
                         )}>
                             <Clock className={cn("h-4 w-4", deadlineInfo.status === 'overdue' && "animate-pulse")} />
                             <span>
@@ -315,7 +315,7 @@ export function AuditCard({
                                 // Calculate how many days late (excluding Sundays)
                                 const daysLate = calculateDaysExcludingSundays(deadlineDate, submissionDate);
                                 return (
-                                    <div className="flex items-center gap-2 p-2.5 rounded-md border text-sm font-medium mb-3 bg-red-50 text-red-700 border-red-200">
+                                    <div className="flex items-center gap-2 p-2.5 rounded-md border text-sm font-medium mb-3 bg-red-50 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800">
                                         <Clock className="h-4 w-4" />
                                         <span>Dönüş: {daysLate > 0 ? `${daysLate} gün geç yapıldı` : "Geç yapıldı"}</span>
                                     </div>
@@ -325,7 +325,7 @@ export function AuditCard({
                                 const displayDays = daysTaken === 0 ? 1 : daysTaken;
 
                                 return (
-                                    <div className="flex items-center gap-2 p-2.5 rounded-md border text-sm font-medium mb-3 bg-green-50 text-green-700 border-green-200">
+                                    <div className="flex items-center gap-2 p-2.5 rounded-md border text-sm font-medium mb-3 bg-green-50 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800">
                                         <Clock className="h-4 w-4" />
                                         <span>Dönüş: {daysTaken === 0 ? "Aynı gün" : `${displayDays} gün içinde`} yapıldı</span>
                                     </div>
@@ -384,8 +384,8 @@ export function AuditCard({
                     className={cn(
                         "shadow-sm justify-center",
                         hasAnyActions || !isPerfectScore
-                            ? "flex-1 bg-slate-900 hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200"
-                            : "w-full bg-slate-900 hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200"
+                            ? "flex-1 bg-slate-900 hover:bg-slate-800 dark:bg-blue-600 dark:text-white dark:hover:bg-blue-700 border border-transparent"
+                            : "w-full bg-slate-900 hover:bg-slate-800 dark:bg-blue-600 dark:text-white dark:hover:bg-blue-700 border border-transparent"
                     )}
                     onClick={onClick}
                 >

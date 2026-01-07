@@ -41,6 +41,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { LogoLoader } from "@/components/logo-loader";
 import {
     Plus,
     Loader2,
@@ -306,11 +307,9 @@ export default function DenetmenPage() {
     if (loading) {
         return (
             <ProtectedRoute allowedRoles={["denetmen"]}>
-                <DashboardLayout>
-                    <div className="flex min-h-screen items-center justify-center">
-                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                    </div>
-                </DashboardLayout>
+                <div className="flex min-h-screen items-center justify-center">
+                    <LogoLoader />
+                </div>
             </ProtectedRoute>
         );
     }

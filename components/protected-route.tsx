@@ -3,7 +3,7 @@
 import { useAuth } from "@/components/auth-provider";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
-import { Loader2 } from "lucide-react";
+import { LogoLoader } from "@/components/logo-loader";
 import { UserRole } from "@/lib/types";
 import { toast } from "sonner";
 import { UnauthorizedView } from "@/components/unauthorized-view";
@@ -30,7 +30,7 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
     if (loading) {
         return (
             <div className="flex min-h-screen items-center justify-center">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <LogoLoader />
             </div>
         );
     }

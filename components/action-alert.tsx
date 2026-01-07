@@ -30,7 +30,7 @@ export function ActionAlert({ type, count, link, hideViewButton }: ActionAlertPr
         rejected: {
             icon: AlertTriangle,
             title: "Düzeltme Gerekiyor",
-            description: "Admin tarafından reddedilen ve düzeltme bekleyen aksiyonlarınız var.",
+            description: "Reddedilen ve düzeltme bekleyen aksiyonlarınız var.",
             bgClass: "bg-red-50 dark:bg-red-950/30",
             borderClass: "border-red-200 dark:border-red-800",
             iconClass: "text-red-600 dark:text-red-400",

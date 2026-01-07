@@ -1,6 +1,25 @@
 import type { NextConfig } from "next";
+import fs from 'fs';
+import path from 'path';
+
+// Get version from version.md
+let appVersion = "v0.0.0";
+try {
+  const versionFile = fs.readFileSync(path.join(process.cwd(), 'version.md'), 'utf8');
+  // Look for the first line starting with ## v
+  const match = versionFile.match(/^## (v\d+\.\d+\.\d+)/m);
+  if (match && match[1]) {
+    appVersion = match[1];
+    console.log(`Build Version: ${appVersion}`);
+  }
+} catch (error) {
+  console.warn("Could not read version.md file", error);
+}
 
 const nextConfig: NextConfig = {
+  env: {
+    NEXT_PUBLIC_APP_VERSION: appVersion,
+  },
   images: {
     unoptimized: true,
   },

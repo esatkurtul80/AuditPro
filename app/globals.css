@@ -124,3 +124,22 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* 2. Slide Down (Yukarıdan Kayma) - Custom User Request */
+@keyframes slideDownIn { 
+    from { transform: translateY(-20px); opacity: 0; } 
+    to { transform: translateY(0); opacity: 1; } 
+}
+
+@keyframes slideDownOut { 
+    from { transform: translateY(0); opacity: 1; } 
+    to { transform: translateY(-20px); opacity: 0; } 
+}
+
+.anim-slide-down-in[data-state='open'] { 
+    animation: slideDownIn 0.4s ease-out forwards; 
+}
+
+.anim-slide-down-out[data-state='closed'] { 
+    animation: slideDownOut 0.3s ease-in forwards; 
+}

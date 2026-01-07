@@ -2,8 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useAuth } from "@/components/auth-provider";
-import { DashboardLayout } from "@/components/dashboard-layout";
-import { ProtectedRoute } from "@/components/protected-route";
 import { db } from "@/lib/firebase";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { AuditCard, ActionStats } from "@/components/audit-card";
@@ -232,121 +230,117 @@ export default function StorePanelPage() {
     };
 
     return (
-        <ProtectedRoute allowedRoles={["magaza"]}>
-            <DashboardLayout>
-                <div className="min-h-screen bg-slate-50/50 dark:bg-slate-950/50">
-                    <div className="container max-w-7xl mx-auto py-4 px-4 md:px-6 space-y-5">
+        <div className="min-h-screen bg-slate-50/50 dark:bg-slate-950/50">
+            <div className="container max-w-7xl mx-auto py-4 px-4 md:px-6 space-y-5">
 
-                        {/* Hero / Welcome Section */}
-                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-200 dark:border-slate-800">
-                            <div className="space-y-1">
-                                <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-slate-900 dark:text-white flex items-center gap-3">
-                                    <StoreIcon className="h-8 w-8 text-primary" />
-                                    {userProfile?.storeName || "Mağaza Paneli"}
-                                </h1>
-                                <p className="text-base md:text-lg text-slate-500 dark:text-slate-400">
-                                    Denetim performansınızı ve aksiyon durumlarınızı buradan takip edebilirsiniz.
-                                </p>
-                            </div>
-                        </div>
-
-                        {/* Missing Store Name Warning */}
-                        {!loading && !userProfile?.storeId && (
-                            <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-md">
-                                <div className="flex">
-                                    <div className="flex-shrink-0">
-                                        <AlertCircle className="h-5 w-5 text-yellow-500" />
-                                    </div>
-                                    <div className="ml-3">
-                                        <h3 className="text-sm font-medium text-yellow-800">
-                                            Mağaza Tanımlaması Eksik
-                                        </h3>
-                                        <div className="mt-2 text-sm text-yellow-700">
-                                            <p>
-                                                Kullanıcı profilinizde atanmış bir mağaza bulunamadı. Lütfen yöneticinizle iletişime geçerek hesabınıza doğru mağazanın tanımlanmasını isteyin.
-                                            </p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Notifications Area */}
-                        {!loading && (rejectedActionsCount > 0 || pendingActionsCount > 0 || overdueAuditsCount > 0) && (
-                            <div className="space-y-4 max-w-4xl animate-in slide-in-from-top-4 fade-in duration-500">
-                                <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider pl-1">
-                                    Önemli Bildirimler
-                                </h2>
-                                <div className="grid gap-3">
-                                    {/* Overdue Alert */}
-                                    {overdueAuditsCount > 0 && (
-                                        <ActionAlert
-                                            type="overdue"
-                                            count={overdueAuditsCount}
-                                            link="/magaza"
-                                            hideViewButton={true}
-                                        />
-                                    )}
-
-                                    {/* Rejected Alert */}
-                                    {rejectedActionsCount > 0 && (
-                                        <ActionAlert
-                                            type="rejected"
-                                            count={rejectedActionsCount}
-                                            link="/magaza"
-                                            hideViewButton={true}
-                                        />
-                                    )}
-
-                                    {/* Pending alert removed by user request (Task #51) */}
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Main Content: Audits Grid */}
-                        <div className="space-y-5">
-                            {loading ? (
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                    {[1, 2, 3].map((i) => (
-                                        <Skeleton key={i} className="h-[280px] w-full rounded-xl" />
-                                    ))}
-                                </div>
-                            ) : audits.length === 0 ? (
-                                <div className="flex flex-col items-center justify-center py-24 px-4 text-center bg-white dark:bg-slate-900 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700">
-                                    <div className="h-20 w-20 bg-slate-50 dark:bg-slate-800 rounded-full flex items-center justify-center mb-4">
-                                        <Sparkles className="h-10 w-10 text-slate-400" />
-                                    </div>
-                                    <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-2">
-                                        Henüz Hiç Denetim Yok
-                                    </h3>
-                                    <p className="max-w-md text-slate-500 dark:text-slate-400 mb-6">
-                                        Mağazanız için tamamlanmış bir denetim raporu sistemde bulunamadı. Denetimler tamamlandığında burada listelenecektir.
-                                    </p>
-                                </div>
-                            ) : (
-                                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 animate-in fade-in duration-700">
-                                    {audits.map((audit) => (
-                                        <AuditCard
-                                            key={audit.id}
-                                            auditId={audit.id}
-                                            storeName={audit.storeName}
-                                            auditorName={audit.auditorName}
-                                            auditType={audit.auditType}
-                                            completedAt={audit.completedAt}
-                                            score={audit.score}
-                                            totalScore={audit.totalScore}
-                                            hasActions={audit.hasActions}
-                                            actionStats={audit.actionStats}
-                                            lastSubmittedAt={audit.lastSubmittedAt}
-                                            onClick={() => handleAuditClick(audit.id)}
-                                        />
-                                    ))}
-                                </div>
-                            )}
-                        </div>
+                {/* Hero / Welcome Section */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-200 dark:border-slate-800">
+                    <div className="space-y-1">
+                        <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-slate-900 dark:text-white flex items-center gap-3">
+                            <StoreIcon className="h-8 w-8 text-primary" />
+                            {userProfile?.storeName || "Mağaza Paneli"}
+                        </h1>
+                        <p className="text-base md:text-lg text-slate-500 dark:text-slate-400">
+                            Denetim performansınızı ve aksiyon durumlarınızı buradan takip edebilirsiniz.
+                        </p>
                     </div>
                 </div>
-            </DashboardLayout>
-        </ProtectedRoute>
+
+                {/* Missing Store Name Warning */}
+                {!loading && !userProfile?.storeId && (
+                    <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-md">
+                        <div className="flex">
+                            <div className="flex-shrink-0">
+                                <AlertCircle className="h-5 w-5 text-yellow-500" />
+                            </div>
+                            <div className="ml-3">
+                                <h3 className="text-sm font-medium text-yellow-800">
+                                    Mağaza Tanımlaması Eksik
+                                </h3>
+                                <div className="mt-2 text-sm text-yellow-700">
+                                    <p>
+                                        Kullanıcı profilinizde atanmış bir mağaza bulunamadı. Lütfen yöneticinizle iletişime geçerek hesabınıza doğru mağazanın tanımlanmasını isteyin.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Notifications Area */}
+                {!loading && (rejectedActionsCount > 0 || pendingActionsCount > 0 || overdueAuditsCount > 0) && (
+                    <div className="space-y-4 w-full">
+                        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider pl-1">
+                            Önemli Bildirimler
+                        </h2>
+                        <div className="grid gap-3">
+                            {/* Overdue Alert */}
+                            {overdueAuditsCount > 0 && (
+                                <ActionAlert
+                                    type="overdue"
+                                    count={overdueAuditsCount}
+                                    link="/magaza"
+                                    hideViewButton={true}
+                                />
+                            )}
+
+                            {/* Rejected Alert */}
+                            {rejectedActionsCount > 0 && (
+                                <ActionAlert
+                                    type="rejected"
+                                    count={rejectedActionsCount}
+                                    link="/magaza"
+                                    hideViewButton={true}
+                                />
+                            )}
+
+                            {/* Pending alert removed by user request (Task #51) */}
+                        </div>
+                    </div>
+                )}
+
+                {/* Main Content: Audits Grid */}
+                <div className="space-y-5">
+                    {loading ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {[1, 2, 3].map((i) => (
+                                <Skeleton key={i} className="h-[280px] w-full rounded-xl" />
+                            ))}
+                        </div>
+                    ) : audits.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-24 px-4 text-center bg-white dark:bg-slate-900 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700">
+                            <div className="h-20 w-20 bg-slate-50 dark:bg-slate-800 rounded-full flex items-center justify-center mb-4">
+                                <Sparkles className="h-10 w-10 text-slate-400" />
+                            </div>
+                            <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-2">
+                                Henüz Hiç Denetim Yok
+                            </h3>
+                            <p className="max-w-md text-slate-500 dark:text-slate-400 mb-6">
+                                Mağazanız için tamamlanmış bir denetim raporu sistemde bulunamadı. Denetimler tamamlandığında burada listelenecektir.
+                            </p>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                            {audits.map((audit) => (
+                                <AuditCard
+                                    key={audit.id}
+                                    auditId={audit.id}
+                                    storeName={audit.storeName}
+                                    auditorName={audit.auditorName}
+                                    auditType={audit.auditType}
+                                    completedAt={audit.completedAt}
+                                    score={audit.score}
+                                    totalScore={audit.totalScore}
+                                    hasActions={audit.hasActions}
+                                    actionStats={audit.actionStats}
+                                    lastSubmittedAt={audit.lastSubmittedAt}
+                                    onClick={() => handleAuditClick(audit.id)}
+                                />
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
     );
 }

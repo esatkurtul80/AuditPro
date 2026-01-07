@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, Moon, Sun, User, LogOut, Settings } from "lucide-react";
+import { Bell, User, LogOut, Settings } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/components/auth-provider";
 import { useRouter } from "next/navigation";
@@ -21,7 +21,7 @@ import {
 } from "./ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "./ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useTheme } from "next-themes";
+
 import { toast } from "sonner";
 
 
@@ -30,7 +30,7 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
     const { userProfile, signOut, loading } = useAuth();
     const router = useRouter();
     const isOnline = useOnlineStatus();
-    const { theme, setTheme } = useTheme();
+
     const [notifications, setNotifications] = useState<NotificationModel[]>([]);
     const [pendingUsers, setPendingUsers] = useState<any[]>([]);
     const [mounted, setMounted] = useState(false);
@@ -67,7 +67,13 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
                     id: doc.id,
                     ...doc.data()
                 })) as NotificationModel[];
-                setNotifications(notifs);
+
+                // Denetmenler için audit_completed bildirimlerini gizle
+                const filteredNotifs = userProfile.role === "denetmen"
+                    ? notifs.filter(n => n.type !== "audit_completed")
+                    : notifs;
+
+                setNotifications(filteredNotifs);
             });
 
             // Also listen to pending users if admin
@@ -114,9 +120,7 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
         toast.success("Çıkış yapıldı");
     };
 
-    const toggleTheme = () => {
-        setTheme(theme === "dark" ? "light" : "dark");
-    };
+
 
     const getInitials = (name: string) => {
         const parts = name.split(" ");
@@ -128,8 +132,9 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
 
     const getNotificationTypeBadge = (notification: NotificationModel) => {
         switch (notification.type) {
-            case "audit_edited":
-                return <Badge className="bg-blue-500 text-white text-[10px]">Denetim Düzenlendi</Badge>;
+            case "action_rejected":
+            case "rejected_action":
+                return <Badge className="bg-red-500 text-white text-[10px]">Aksiyon Reddedildi</Badge>;
             case "pending_user":
                 return <Badge className="bg-yellow-500 text-white text-[10px]">Kullanıcı Onayı</Badge>;
             case "admin_message":
@@ -174,7 +179,7 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
                             </Button>
                         </DropdownMenuTrigger>
                         {/* Dropdown Content... */}
-                        <DropdownMenuContent align="end" className="w-80">
+                        <DropdownMenuContent align="end" sideOffset={8} className="w-72 md:w-80 anim-slide-down-in anim-slide-down-out">
                             <DropdownMenuLabel className="flex items-center justify-between">
                                 <Badge
                                     variant="secondary"
@@ -294,21 +299,7 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
                     </DropdownMenu>
                 </div>
 
-                {/* Theme Toggle */}
-                <div className="flex items-center justify-center w-6">
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={toggleTheme}
-                        className="h-8 w-8"
-                        suppressHydrationWarning
-                        title={mounted ? (theme === "dark" ? "Açık Tema" : "Koyu Tema") : "Koyu Tema"}
-                    >
-                        <Sun className={`${iconSize} rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0`} />
-                        <Moon className={`absolute ${iconSize} rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100`} />
-                        <span className="sr-only">Tema değiştir</span>
-                    </Button>
-                </div>
+
 
 
             </div>
@@ -390,7 +381,7 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
                         )}
                     </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-80">
+                <DropdownMenuContent align="end" sideOffset={8} className="w-72 md:w-80 anim-slide-down-in anim-slide-down-out">
                     <DropdownMenuLabel className="flex items-center justify-between">
                         <Badge
                             variant="secondary"
@@ -473,18 +464,7 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
                 </DropdownMenuContent>
             </DropdownMenu>
 
-            {/* Theme Toggle */}
-            <Button
-                variant="ghost"
-                size="icon"
-                onClick={toggleTheme}
-                suppressHydrationWarning
-                title={theme === "dark" ? "Açık Tema" : "Koyu Tema"}
-            >
-                <Sun className={`${iconSize} rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0`} />
-                <Moon className={`absolute ${iconSize} rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100`} />
-                <span className="sr-only">Tema değiştir</span>
-            </Button>
+
 
             {/* User Menu */}
             <DropdownMenu>

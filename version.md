@@ -1,6 +1,12 @@
 # AuditPro Version History
 
-## v1.10.8 (Current) - "Audit Card & Action Alert Polish"
+## v1.10.9 (Current) - "Mobile Nav Polish & Persistence"
+- **Mobile Experience:**
+    - **Persistent Navigation:** Integrated Bottom Navigation into the global Dashboard layout, ensuring it remains visible across all Store pages (including Notifications).
+    - **Visual Refinements:** Standardized the "Panel" button style to match other navigation items (removed FAB style) and perfected vertical alignment for a cleaner interface.
+    - **Improved Layout:** Switched to a uniform grid layout for equal spacing of all mobile navigation items.
+
+## v1.10.8 - "Audit Card & Action Alert Polish"
 - **UI Refinements:**
     - **Audit Card:** Optimized layout to remove visual gaps and improved whitespace usage for a cleaner look.
     - **Action Alerts:** Tweaked styling for better visual integration.

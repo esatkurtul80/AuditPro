@@ -183,7 +183,9 @@ export default function AuditPage() {
             setCurrentSectionIndex(null);
         } else {
             // Determine back destination based on user role
-            const backDestination = userProfile?.role === 'admin' ? '/admin/dashboard' : '/denetmen/tamamlanan';
+            const backDestination = userProfile?.role === 'admin' ? '/admin/dashboard'
+                : userProfile?.role === 'magaza' ? '/magaza/panel'
+                    : '/denetmen/tamamlanan';
 
             // If in view mode (just viewing completed audit), go directly back without dialog
             if (isViewMode) {
@@ -464,6 +466,74 @@ export default function AuditPage() {
             });
 
             toast.success("Denetim tamamlandı!");
+
+            // Send notification to Store Users
+            try {
+                if (audit.storeId) {
+                    const storeUsersQuery = query(
+                        collection(db, "users"),
+                        where("storeId", "==", audit.storeId),
+                        where("role", "==", "magaza")
+                    );
+                    const storeUsersSnapshot = await getDocs(storeUsersQuery);
+                    // Filter out the current user (auditor) from the notification list
+                    const currentUserId = userProfile?.uid;
+                    const recordedAuditorId = audit.auditorId;
+
+                    const storeUserIds = storeUsersSnapshot.docs
+                        .map(doc => doc.id)
+                        .filter(id => {
+                            // Exclude current user
+                            if (currentUserId && id === currentUserId) return false;
+                            // Exclude the auditor of this audit
+                            if (recordedAuditorId && id === recordedAuditorId) return false;
+                            return true;
+                        });
+
+                    if (storeUserIds.length > 0) {
+                        const score = audit.totalScore || 0;
+                        const auditorName = userProfile?.firstName && userProfile?.lastName
+                            ? `${userProfile.firstName} ${userProfile.lastName}`
+                            : (userProfile?.displayName || "Bir Denetmen");
+
+                        const notificationData = {
+                            userId: "", // Will be set in loop
+                            type: "audit_completed",
+                            title: `${new Date().toLocaleDateString("tr-TR")} Tarihli Mağaza Denetimi`,
+                            message: `${auditorName} tarafından yapılan denetim tamamlandı. Puan: ${score}`,
+                            read: false,
+                            relatedId: auditId,
+                            senderName: auditorName,
+                            createdAt: Timestamp.now(),
+                        };
+
+                        // 1. Create persistent notifications in Firestore
+                        const notificationPromises = storeUserIds.map(userId =>
+                            addDoc(collection(db, "notifications"), {
+                                ...notificationData,
+                                userId: userId
+                            })
+                        );
+                        await Promise.all(notificationPromises);
+
+                        // 2. Send Push Notification
+                        await fetch("/api/send-notification", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                                title: `${new Date().toLocaleDateString("tr-TR")} Tarihli Mağaza Denetimi`,
+                                message: `${auditorName} tarafından yapılan denetim tamamlandı. Puan: ${score}`,
+                                userIds: storeUserIds,
+                                url: `/audits/${auditId}/summary`
+                            })
+                        });
+                        console.log("Store notification sent to:", storeUserIds);
+                    }
+                }
+            } catch (notifyErr) {
+                console.error("Failed to send store notification:", notifyErr);
+                // Non-blocking error
+            }
             // Yönlendirme yerine sayfayı view moduna al (özet ve rapor indirme için)
             router.replace(`/audits/${auditId}?mode=view`);
         } catch (error) {
@@ -721,7 +791,9 @@ export default function AuditPage() {
                             size="lg"
                             className="bg-background hover:bg-muted shadow-sm"
                             onClick={() => {
-                                const backDestination = userProfile?.role === 'admin' ? '/admin/dashboard' : '/denetmen/tamamlanan';
+                                const backDestination = userProfile?.role === 'admin' ? '/admin/dashboard'
+                                    : userProfile?.role === 'magaza' ? '/magaza/panel'
+                                        : '/denetmen/tamamlanan';
                                 if (isViewMode) {
                                     // View mode: navigate directly without dialog
                                     window.location.href = backDestination;
