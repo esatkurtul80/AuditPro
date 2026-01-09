@@ -129,6 +129,7 @@ export default function LoginPage() {
             src="/login-assets-new/logo.png"
             alt="Background"
             fill
+            sizes="50vw"
             className="object-contain opacity-10 p-20"
             priority
           />

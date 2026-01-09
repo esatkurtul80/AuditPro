@@ -19,7 +19,6 @@ import { db } from "@/lib/firebase";
 import { Audit } from "@/lib/types";
 import { format } from "date-fns";
 import { toast } from "sonner";
-import * as XLSX from "xlsx";
 import { DataTable } from "@/components/ui/data-table";
 import { ColumnDef } from "@tanstack/react-table";
 import { DataTableFacetedFilter } from "@/components/ui/data-table-faceted-filter";
@@ -254,7 +253,8 @@ export default function QuestionAnalysisPage() {
         return Array.from(questionMap.values());
     }, [filteredAudits]);
 
-    const exportToExcel = (dataToExport: QuestionStats[]) => {
+    const exportToExcel = async (dataToExport: QuestionStats[]) => {
+        const XLSX = await import("xlsx");
         const ws = XLSX.utils.json_to_sheet(dataToExport.map(s => ({
             "Soru": s.text,
             "Bölüm": s.sectionName,

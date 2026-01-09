@@ -51,6 +51,7 @@ export function DataTableFacetedFilter<TData, TValue>({
                     )}
                 >
                     <ListFilter className="h-4 w-4" />
+                    <span className="sr-only">{title}</span>
                 </Button>
             </PopoverTrigger>
             <PopoverContent className="w-[200px] p-0" align="start">

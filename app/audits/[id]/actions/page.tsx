@@ -22,8 +22,6 @@ import {
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { db, storage } from "@/lib/firebase";
 import imageCompression from "browser-image-compression";
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import { Audit, AuditAnswer, ActionDataStatus } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -1173,6 +1171,8 @@ export default function AuditActionsPage() {
 
             await Promise.all(photoPromises);
 
+            const jsPDF = (await import('jspdf')).default;
+            const autoTable = (await import('jspdf-autotable')).default;
             const doc = new jsPDF('p', 'mm', 'a4');
 
             if (fontBase64) {

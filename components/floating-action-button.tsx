@@ -114,10 +114,10 @@ export function FloatingActionButton() {
                 )}
             </AnimatePresence>
 
-            <div className="fixed bottom-8 right-8 z-50 flex flex-col items-end gap-3">
+            <div className="fixed bottom-12 right-12 z-50 flex flex-col items-end gap-4">
                 <AnimatePresence>
                     {isOpen && (
-                        <div className="flex flex-col items-end gap-3 mb-2">
+                        <div className="flex flex-col items-end gap-4 mb-3">
                             {/* WhatsApp Share Button */}
                             <motion.div
                                 custom={2}
@@ -128,16 +128,16 @@ export function FloatingActionButton() {
                             >
                                 <Button
                                     variant="default"
-                                    className="h-14 pr-6 pl-2 rounded-full bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 shadow-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-750 flex items-center gap-3 group transition-all"
+                                    className="h-20 pr-8 pl-3 rounded-full bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 shadow-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-750 flex items-center gap-4 group transition-all"
                                     onClick={() => {
                                         setIsWhatsAppOpen(true);
                                         setIsOpen(false);
                                     }}
                                 >
-                                    <div className="flex items-center justify-center w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/50 text-green-600 dark:text-green-500 group-hover:scale-110 transition-transform">
-                                        <MessageCircle className="h-5 w-5" />
+                                    <div className="flex items-center justify-center w-14 h-14 rounded-full bg-green-100 dark:bg-green-900/50 text-green-600 dark:text-green-500 group-hover:scale-110 transition-transform">
+                                        <MessageCircle className="h-7 w-7" />
                                     </div>
-                                    <span className="font-semibold text-base">WhatsApp ile Paylaş</span>
+                                    <span className="font-semibold text-xl">WhatsApp ile Paylaş</span>
                                 </Button>
                             </motion.div>
 
@@ -151,16 +151,16 @@ export function FloatingActionButton() {
                             >
                                 <Button
                                     variant="default"
-                                    className="h-14 pr-6 pl-2 rounded-full bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 shadow-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-750 flex items-center gap-3 group transition-all"
+                                    className="h-20 pr-8 pl-3 rounded-full bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 shadow-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-750 flex items-center gap-4 group transition-all"
                                     onClick={() => {
                                         console.log("Bildirim Yap clicked");
                                         setIsOpen(false);
                                     }}
                                 >
-                                    <div className="flex items-center justify-center w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-500 group-hover:scale-110 transition-transform">
-                                        <Bell className="h-5 w-5" />
+                                    <div className="flex items-center justify-center w-14 h-14 rounded-full bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-500 group-hover:scale-110 transition-transform">
+                                        <Bell className="h-7 w-7" />
                                     </div>
-                                    <span className="font-semibold text-base">Bildirim Yap</span>
+                                    <span className="font-semibold text-xl">Bildirim Yap</span>
                                 </Button>
                             </motion.div>
 
@@ -174,13 +174,13 @@ export function FloatingActionButton() {
                             >
                                 <Button
                                     variant="default"
-                                    className="h-14 pr-6 pl-2 rounded-full bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 shadow-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-750 flex items-center gap-3 group transition-all"
+                                    className="h-20 pr-8 pl-3 rounded-full bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 shadow-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-750 flex items-center gap-4 group transition-all"
                                     onClick={handleNewAuditClick}
                                 >
-                                    <div className="flex items-center justify-center w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-500 group-hover:scale-110 transition-transform">
-                                        <ClipboardPen className="h-5 w-5" />
+                                    <div className="flex items-center justify-center w-14 h-14 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-500 group-hover:scale-110 transition-transform">
+                                        <ClipboardPen className="h-7 w-7" />
                                     </div>
-                                    <span className="font-semibold text-base">Yeni Denetim Yap</span>
+                                    <span className="font-semibold text-xl">Yeni Denetim Yap</span>
                                 </Button>
                             </motion.div>
                         </div>
@@ -188,13 +188,13 @@ export function FloatingActionButton() {
                 </AnimatePresence>
 
                 <motion.button
-                    className="relative flex h-16 w-16 items-center justify-center rounded-full bg-indigo-600 text-white shadow-2xl hover:bg-indigo-700 hover:scale-105 transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-indigo-300 dark:bg-indigo-600 dark:hover:bg-indigo-700 dark:focus:ring-indigo-800 z-50"
+                    className="relative flex h-24 w-24 items-center justify-center rounded-full bg-indigo-600 text-white shadow-2xl hover:bg-indigo-700 hover:scale-105 transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-indigo-300 dark:bg-indigo-600 dark:hover:bg-indigo-700 dark:focus:ring-indigo-800 z-50"
                     onClick={toggleOpen}
                     variants={buttonVariants}
                     animate={isOpen ? "open" : "closed"}
                     whileTap={{ scale: 0.90 }}
                 >
-                    <Plus className="h-8 w-8" />
+                    <Plus className="h-12 w-12" />
                 </motion.button>
             </div>
         </>

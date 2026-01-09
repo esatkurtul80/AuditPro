@@ -2,6 +2,23 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* iOS Safe Area Support */
+:root {
+  --sat: env(safe-area-inset-top);
+  --sar: env(safe-area-inset-right);
+  --sab: env(safe-area-inset-bottom);
+  --sal: env(safe-area-inset-left);
+}
+
+body {
+  padding-top: var(--sat);
+  padding-bottom: var(--sab);
+  padding-left: var(--sal);
+  padding-right: var(--sar);
+  min-height: 100vh;
+  /* Ensure full height */
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
@@ -59,7 +76,7 @@
   --secondary: hsl(0 0% 96.1%);
   --secondary-foreground: hsl(0 0% 9%);
   --muted: hsl(0 0% 96.1%);
-  --muted-foreground: hsl(0 0% 45.1%);
+  --muted-foreground: hsl(0 0% 40%);
   --accent: hsl(0 0% 96.1%);
   --accent-foreground: hsl(0 0% 9%);
   --destructive: hsl(0 84.2% 60.2%);
@@ -126,20 +143,34 @@
 }
 
 /* 2. Slide Down (Yukarıdan Kayma) - Custom User Request */
-@keyframes slideDownIn { 
-    from { transform: translateY(-20px); opacity: 0; } 
-    to { transform: translateY(0); opacity: 1; } 
+@keyframes slideDownIn {
+  from {
+    transform: translateY(-20px);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
 
-@keyframes slideDownOut { 
-    from { transform: translateY(0); opacity: 1; } 
-    to { transform: translateY(-20px); opacity: 0; } 
+@keyframes slideDownOut {
+  from {
+    transform: translateY(0);
+    opacity: 1;
+  }
+
+  to {
+    transform: translateY(-20px);
+    opacity: 0;
+  }
 }
 
-.anim-slide-down-in[data-state='open'] { 
-    animation: slideDownIn 0.4s ease-out forwards; 
+.anim-slide-down-in[data-state='open'] {
+  animation: slideDownIn 0.4s ease-out forwards;
 }
 
-.anim-slide-down-out[data-state='closed'] { 
-    animation: slideDownOut 0.3s ease-in forwards; 
+.anim-slide-down-out[data-state='closed'] {
+  animation: slideDownOut 0.3s ease-in forwards;
 }

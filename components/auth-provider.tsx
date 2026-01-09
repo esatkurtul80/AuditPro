@@ -199,9 +199,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         try {
             // HYBRID STRATEGY: 
-            // Localhost: Use Popup (More stable, avoids domain issues)
+            // Localhost/Local Network: Use Popup (More stable, avoids domain issues)
             // Production/PWA: Use Redirect (Required for PWA/Mobile user experience)
-            if (window.location.hostname === 'localhost') {
+            if (window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168.') || window.location.hostname === '127.0.0.1') {
                 await signInWithPopup(auth, provider);
                 // Notification permission logic logic is handled in onAuthStateChanged
             } else {

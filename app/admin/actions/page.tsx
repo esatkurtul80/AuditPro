@@ -40,40 +40,7 @@ import {
     PopoverTrigger,
 } from "@/components/ui/popover";
 
-// Helper component for column header with sorting and faceted filtering
-const DataTableColumnHeader = ({ column, title }: { column: any; title: string }) => {
-    // Generate unique options from the column data for the faceted filter
-    const facets = column.getFacetedUniqueValues();
-    const options = Array.from(facets.keys())
-        .filter((key) => key !== undefined && key !== null && key !== "")
-        .sort()
-        .map((key) => ({
-            label: String(key),
-            value: String(key),
-        }));
-
-    return (
-        <div className="flex items-center space-x-2">
-            <Button
-                variant="ghost"
-                size="sm"
-                className="-ml-3 h-8 data-[state=open]:bg-accent"
-                onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-            >
-                <span>{title}</span>
-                <ArrowUpDown className="ml-2 h-4 w-4" />
-            </Button>
-            {/* Use the new Faceted Filter component with ListFilter icon styled trigger */}
-            <div className="flex items-center">
-                <DataTableFacetedFilter
-                    column={column}
-                    title={title}
-                    options={options}
-                />
-            </div>
-        </div>
-    );
-};
+import { DataTableColumnHeader } from "@/components/ui/data-table-column-header";
 
 // Helper function to calculate working days passed (excluding Sundays)
 const getWorkingDaysPassed = (startDate: Date, endDate: Date) => {
@@ -315,43 +282,42 @@ function AdminActionsContent() {
         return true;
     });
 
+    // Imported at the top: import { DataTableColumnHeader } from "@/components/ui/data-table-column-header";
+
     const columns: ColumnDef<Audit>[] = [
         {
             accessorKey: "storeName",
             meta: { title: "Mağaza Adı" },
-            header: ({ column }: { column: any }) => <DataTableColumnHeader column={column} title="Mağaza Adı" />,
-            cell: ({ row }: { row: any }) => <span className="text-base font-medium">{row.original.storeName}</span>
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Mağaza Adı" />,
+            cell: ({ row }) => <span className="text-base font-medium">{row.original.storeName}</span>,
+            filterFn: (row, id, value) => {
+                return Array.isArray(value) && value.includes(row.getValue(id));
+            },
         },
         {
             accessorKey: "auditorName",
             meta: { title: "Denetmen" },
-            header: ({ column }: { column: any }) => <DataTableColumnHeader column={column} title="Denetmen" />,
-            cell: ({ row }: { row: any }) => <span className="text-base">{row.original.auditorName}</span>
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Denetmen" />,
+            cell: ({ row }) => <span className="text-base">{row.original.auditorName}</span>,
+            filterFn: (row, id, value) => {
+                return Array.isArray(value) && value.includes(row.getValue(id));
+            },
         },
         {
             accessorKey: "auditTypeName",
             meta: { title: "Denetim Türü" },
-            header: ({ column }: { column: any }) => <DataTableColumnHeader column={column} title="Denetim Türü" />,
-            cell: ({ row }: { row: any }) => <span className="font-medium text-base">{row.original.auditTypeName}</span>
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Denetim Türü" />,
+            cell: ({ row }) => <span className="font-medium text-base">{row.original.auditTypeName}</span>,
+            filterFn: (row, id, value) => {
+                return Array.isArray(value) && value.includes(row.getValue(id));
+            },
         },
         {
             id: "auditDate",
             meta: { title: "Denetim Tarihi" },
-            header: ({ column }: { column: any }) => {
-                return (
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        className="-ml-3 h-8 data-[state=open]:bg-accent"
-                        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-                    >
-                        <span>Denetim Tarihi</span>
-                        <ArrowUpDown className="ml-2 h-4 w-4" />
-                    </Button>
-                )
-            },
-            accessorFn: (row: any) => row.completedAt?.toMillis() ?? 0,
-            cell: ({ row }: { row: any }) => {
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Denetim Tarihi" showFilter={false} />,
+            accessorFn: (row) => row.completedAt?.toMillis() ?? 0,
+            cell: ({ row }) => {
                 if (!row.original.completedAt) return "-";
                 return (
                     <span className="text-base">
@@ -367,21 +333,9 @@ function AdminActionsContent() {
         {
             id: "returnDate",
             meta: { title: "Dönüş Tarihi" },
-            header: ({ column }: { column: any }) => {
-                return (
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        className="-ml-3 h-8 data-[state=open]:bg-accent"
-                        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-                    >
-                        <span>Dönüş Tarihi</span>
-                        <ArrowUpDown className="ml-2 h-4 w-4" />
-                    </Button>
-                )
-            },
-            accessorFn: (row: any) => getLastSubmissionDate(row)?.getTime() ?? 0,
-            cell: ({ row }: { row: any }) => {
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Dönüş Tarihi" showFilter={false} />,
+            accessorFn: (row) => getLastSubmissionDate(row)?.getTime() ?? 0,
+            cell: ({ row }) => {
                 const date = getLastSubmissionDate(row.original);
                 if (!date) return "-";
                 return (
@@ -398,24 +352,12 @@ function AdminActionsContent() {
         {
             id: "responseTime",
             meta: { title: "Dönüş Süresi" },
-            header: ({ column }: { column: any }) => {
-                return (
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        className="-ml-3 h-8 data-[state=open]:bg-accent"
-                        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-                    >
-                        <span>Dönüş Süresi</span>
-                        <ArrowUpDown className="ml-2 h-4 w-4" />
-                    </Button>
-                )
-            },
-            accessorFn: (row: any) => {
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Dönüş Süresi" showFilter={false} />,
+            accessorFn: (row) => {
                 const responseTime = getStoreResponseTime(row);
                 return responseTime ?? -1; // Use -1 for sorting null values to the end
             },
-            cell: ({ row }: { row: any }) => {
+            cell: ({ row }) => {
                 const responseTime = getStoreResponseTime(row.original);
 
                 if (responseTime === null) {
@@ -446,25 +388,13 @@ function AdminActionsContent() {
         {
             id: "deadline",
             meta: { title: "Son Dönüş Tarihi" },
-            accessorFn: (row: any) => {
+            accessorFn: (row) => {
                 if (row.allActionsResolved) return Number.MAX_SAFE_INTEGER;
                 if (!row.completedAt) return Number.MAX_SAFE_INTEGER;
                 return calculateDeadlineDate(row.completedAt.toDate()).getTime();
             },
-            header: ({ column }: { column: any }) => {
-                return (
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        className="-ml-3 h-8 data-[state=open]:bg-accent"
-                        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-                    >
-                        <span>Son Dönüş Tarihi</span>
-                        <ArrowUpDown className="ml-2 h-4 w-4" />
-                    </Button>
-                )
-            },
-            cell: ({ row }: { row: any }) => {
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Son Dönüş Tarihi" showFilter={false} />,
+            cell: ({ row }) => {
                 const audit = row.original;
                 if (!audit.completedAt) return "-";
 
@@ -501,7 +431,7 @@ function AdminActionsContent() {
         {
             id: "actions",
             header: "Aksiyon",
-            cell: ({ row }: { row: any }) => {
+            cell: ({ row }) => {
                 const audit = row.original;
                 let totalActions = 0;
                 audit.sections.forEach((s: any) => s.answers.forEach((a: any) => {
@@ -522,8 +452,8 @@ function AdminActionsContent() {
         {
             accessorKey: "totalScore",
             meta: { title: "Puan" },
-            header: "Puan",
-            cell: ({ row }: { row: any }) => {
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Puan" showFilter={false} />,
+            cell: ({ row }) => {
                 const score = row.original.totalScore || 0;
                 const badgeClass = score >= 80
                     ? "bg-green-100 text-green-800 hover:bg-green-100"
@@ -537,7 +467,7 @@ function AdminActionsContent() {
         {
             id: "status",
             meta: { title: "Durum" },
-            accessorFn: (row: any) => {
+            accessorFn: (row) => {
                 const audit = row;
                 let totalActions = 0;
                 let approvedActions = 0;
@@ -564,8 +494,8 @@ function AdminActionsContent() {
                 if (pendingStoreActions === totalActions) return "Dönüş Yapılmadı";
                 return "Mağaza Bekleniyor";
             },
-            header: "Durum",
-            cell: ({ row }: { row: any }) => {
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Durum" />,
+            cell: ({ row }) => {
                 const status = row.getValue("status") as string;
                 // We can use the status string directly or recalculate if we need counts.
                 // Re-calculating counts for detailed display:
@@ -631,7 +561,10 @@ function AdminActionsContent() {
                         <span className="text-xs text-muted-foreground">{pendingStoreActions} cevaplanmadı</span>
                     </div>
                 );
-            }
+            },
+            filterFn: (row, id, value) => {
+                return Array.isArray(value) && value.includes(row.getValue(id));
+            },
         }
     ].filter(column => {
         // Durum sütununu 'approved' ve 'pending_store' sekmelerinde gizle

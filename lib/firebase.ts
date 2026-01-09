@@ -9,9 +9,9 @@ import { getMessaging } from "firebase/messaging";
 // Your web app's Firebase configuration
 const firebaseConfig = {
     apiKey: "AIzaSyAWNOeyW0mHSqhjcLqdhPoL4TmOzyP7f6w",
-    // Dynamic Auth Domain: Use 'firebaseapp.com' for Localhost to prevent CORS/Auth errors,
+    // Dynamic Auth Domain: Use 'firebaseapp.com' for Localhost and Local IPs to prevent CORS/Auth errors,
     // Use 'tugbadenetim.info' for Production/PWA to ensure First-Party Cookies and Trust.
-    authDomain: (typeof window !== 'undefined' && window.location.hostname === 'localhost')
+    authDomain: (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168.') || window.location.hostname === '127.0.0.1'))
         ? "tugba-auditpro.firebaseapp.com"
         : "tugbadenetim.info",
     projectId: "tugba-auditpro",

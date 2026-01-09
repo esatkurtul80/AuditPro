@@ -1,10 +1,10 @@
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import { Audit, UserProfile } from "@/lib/types";
 import { doc as firestoreDoc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
 export async function generateAuditPDF(audit: Audit) {
+    const jsPDF = (await import("jspdf")).default;
+    const autoTable = (await import("jspdf-autotable")).default;
     const doc = new jsPDF();
 
     // Başlık

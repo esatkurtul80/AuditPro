@@ -1,6 +1,29 @@
 # AuditPro Version History
 
-## v1.10.11 (Current) - "Profile & Admin Fixes"
+## v1.11.1 (Current) - "Schedule UI Refinements"
+- **Schedule Sidebar Redesign:**
+    - **Custom Tailwind Header:** Replaced Shadcn Tabs with a bespoke, fixed-height (69px) header for perfect alignment.
+    - **Modern Segmented Control:** Implemented "App-like" pill switcher for Smart/Standard suggestions.
+    - **Excel-like Table:** Converted suggestion cards into a dense, information-rich table layout.
+- **Drag & Drop Improvements:**
+    - **Precision Targeting:** Switched to `pointerWithin` collision detection to solve drag offset issues.
+    - **Visual Polish:** Drag preview now exactly matches the table row style and dimensions.
+- **Table Refinements:**
+    - **Readable Typography:** Increased font sizes and row heights for better legibility.
+    - **Smart Data:** "Last Audit Date" now shows a single, clear date instead of a list.
+
+## v1.11.0 - "Admin AI Analysis"
+- **New Feature: AI Store Analysis:**
+    - **Header Integration:** Added "AI Analiz" button to the admin header next to "Bildirim Gönder".
+    - **Smart Dialog:** Select a store to generate a detailed performance report.
+    - **Gemini Integration:** Uses Google's Gemini 2.5 Flash model for deep analysis.
+    - **Advanced Algorithm:**
+        - **SWOT Analysis:** Automatically generates Strengths, Weaknesses, Opportunities, and Threats.
+        - **Streak Detection:** Identifies chronic failures (3+ consecutive errors).
+        - **Action Performance:** Analyzes store response time and compliance discipline.
+        - **Consolidated Notes:** Summarizes auditor notes for context.
+
+## v1.10.11 - "Profile & Admin Fixes"
 - **Store Settings:**
     - **Visual Polish:** Removed the unused "Edit" button from the Store Profile card for a cleaner look.
 - **Admin Panel:**

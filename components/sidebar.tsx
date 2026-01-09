@@ -20,6 +20,7 @@ import {
     PlayCircle,
     CheckCircle,
     XCircle,
+    CalendarDays,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, useEffect, Suspense } from "react";
@@ -76,6 +77,7 @@ function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar }: 
 
         // Aksiyonlar removed from here to be its own section
         // Raporlar removed from here to be its own section
+        { href: "/admin/schedule", label: "Denetim Programı", icon: CalendarDays },
         { href: "/admin/cop-kutusu", label: "Çöp Kutusu", icon: Trash2 },
     ];
 
@@ -200,7 +202,8 @@ function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar }: 
                             {/* Send Notification Button for Mobile/Sidebar Usage */}
                             <SendNotificationDialog
                                 trigger={
-                                    <div
+                                    <button
+                                        type="button"
                                         onClick={() => {
                                             // Optional: Close sidebar on mobile if needed, but Dialog acts as overlay
                                         }}
@@ -220,7 +223,7 @@ function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar }: 
                                         )}>
                                             Bildirim Gönder
                                         </span>
-                                    </div>
+                                    </button>
                                 }
                             />
 

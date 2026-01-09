@@ -4,7 +4,6 @@ import "./globals.css";
 import { AuthProvider } from "@/components/auth-provider";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
-import { OfflineIndicator } from "@/components/offline-indicator";
 import { PageTransition } from "@/components/page-transition";
 import { ServiceWorkerUpdater } from "@/components/service-worker-updater";
 import { GlobalBottomNavWrapper } from "@/components/global-bottom-nav-wrapper";
@@ -29,8 +28,7 @@ export const viewport: Viewport = {
   ],
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
+  maximumScale: 5,
 };
 
 export const metadata: Metadata = {
@@ -82,7 +80,6 @@ export default function RootLayout({
             </PageTransition>
             <GlobalBottomNavWrapper />
             <Toaster />
-            <OfflineIndicator />
             <ServiceWorkerUpdater />
           </AuthProvider>
         </ThemeProvider>

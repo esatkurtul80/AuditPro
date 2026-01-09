@@ -11,7 +11,7 @@ export function OnlineStatusBadge({ isOnline, compact = false }: OnlineStatusBad
         <>
             {compact && (
                 <div
-                    className={`md:hidden h-2.5 w-2.5 rounded-full ${isOnline ? "bg-green-500" : "bg-red-500"
+                    className={`md:hidden h-2.5 w-2.5 rounded-full ${isOnline ? "bg-green-700" : "bg-red-600"
                         }`}
                     title={isOnline ? "Çevrimiçi" : "Çevrimdışı"}
                 />
@@ -19,7 +19,7 @@ export function OnlineStatusBadge({ isOnline, compact = false }: OnlineStatusBad
 
             <Badge
                 variant={isOnline ? "default" : "destructive"}
-                className={`${compact ? "hidden md:flex" : "flex"} ${isOnline ? "bg-green-500 hover:bg-green-600" : "bg-red-500 hover:bg-red-600"
+                className={`${compact ? "hidden md:flex" : "flex"} ${isOnline ? "bg-green-700 hover:bg-green-800" : "bg-red-600 hover:bg-red-700"
                     } text-white`}
             >
                 {isOnline ? (

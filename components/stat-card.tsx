@@ -54,7 +54,7 @@ export function StatCard({
                 {description && (
                     <div className="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2">
                         <div className={cn("w-1.5 h-1.5 rounded-full", iconColor.replace("text-", "bg-"))} />
-                        <p className="text-xs font-medium text-muted-foreground/80">
+                        <p className="text-xs font-medium text-muted-foreground">
                             {description}
                         </p>
                     </div>

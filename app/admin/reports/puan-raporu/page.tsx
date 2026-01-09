@@ -16,7 +16,6 @@ import { db } from "@/lib/firebase";
 import { Store, Audit, DateRangeFilter } from "@/lib/types";
 import { Loader2, Search, CheckCircle2, ThumbsUp, MinusCircle, AlertCircle, Calendar, FileSpreadsheet } from "lucide-react";
 import { cn } from "@/lib/utils";
-import * as XLSX from "xlsx";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis, Line, LineChart } from "recharts";
 import { LineChart as LineChartIcon, ListPlus, ChevronLeft, ChevronRight } from "lucide-react";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
@@ -266,7 +265,8 @@ export default function PuanRaporuPage() {
     }, [auditData, stores, selectedYear, loading]);
 
     // --- Export Functions ---
-    const handleExportScores = () => {
+    const handleExportScores = async () => {
+        const XLSX = await import("xlsx");
         const dataToExport = scoreRows.map(row => ({
             "Mağaza Adı": row.storeName,
             "1. Puan": row.score1 !== undefined ? row.score1.toFixed(0) : "-",
@@ -286,7 +286,8 @@ export default function PuanRaporuPage() {
         XLSX.writeFile(wb, "Son_Denetim_Puanlari.xlsx");
     };
 
-    const handleExportMonthly = () => {
+    const handleExportMonthly = async () => {
+        const XLSX = await import("xlsx");
         const dataToExport = monthlyRows.map(row => {
             const rowData: any = { "Mağaza Adı": row.storeName };
             MONTH_NAMES.forEach((month, index) => {
@@ -400,6 +401,26 @@ export default function PuanRaporuPage() {
                         <div className={cn("flex items-center gap-2 px-3 py-1 rounded-md border text-white text-sm font-bold border-0", badgeInfo.color)}>
                             <Icon className="w-4 h-4" />
                             {avg.toFixed(0)}
+                        </div>
+                    </div>
+                );
+            }
+        },
+        {
+            id: "status",
+            header: () => <div className="text-center font-bold">Durum</div>,
+            meta: { title: "Durum" },
+            cell: ({ row }) => {
+                if (!row.original.hasAudits) return <div className="text-center">-</div>;
+                const avg = row.original.average;
+                const badgeInfo = getScoreBadge(avg);
+                const Icon = badgeInfo.icon;
+
+                return (
+                    <div className="flex justify-center">
+                        <div className={cn("flex items-center gap-2 px-3 py-1 rounded-md border text-white text-sm font-bold border-0", badgeInfo.color)}>
+                            <Icon className="w-4 h-4" />
+                            {badgeInfo.label}
                         </div>
                     </div>
                 );

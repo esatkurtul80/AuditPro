@@ -11,8 +11,6 @@ import { Button } from "@/components/ui/button";
 import { Star, FileText, Image as ImageIcon, ChevronDown, ChevronUp, CheckCircle2, XCircle, AlertCircle, Download } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 
 interface AuditSummaryProps { audit: Audit; }
 
@@ -554,6 +552,8 @@ export function AuditSummary({ audit }: AuditSummaryProps) {
       await Promise.all(photoPromises);
       console.log(`Successfully loaded ${Object.keys(photoMap).length} out of ${allPhotos.length} photos`);
 
+      const jsPDF = (await import('jspdf')).default;
+      const autoTable = (await import('jspdf-autotable')).default;
       const doc = new jsPDF('p', 'mm', 'a4');
 
       if (fontBase64) {

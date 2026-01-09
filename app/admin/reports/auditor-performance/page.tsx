@@ -67,9 +67,6 @@ import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { DataTable } from "@/components/ui/data-table";
 import { ColumnDef } from "@tanstack/react-table";
 import { DateRangeFilter } from "@/lib/types";
-import * as XLSX from 'xlsx';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 
 // Types for our calculated metrics
 interface HawkDoveMetric {
@@ -148,7 +145,8 @@ interface QuestionDetail {
 }
 
 // Export fonksiyonları
-const exportToExcel = (data: QuestionDetail[], storeName: string, auditorName: string, date: string) => {
+const exportToExcel = async (data: QuestionDetail[], storeName: string, auditorName: string, date: string) => {
+    const XLSX = await import('xlsx');
     // Veriyi Excel formatına uygun şekilde düzenle
     const excelData = data.map(item => ({
         'Bölüm': item.sectionName,
@@ -190,6 +188,8 @@ const exportToPDF = async (
     startTime?: Date,
     endTime?: Date
 ) => {
+    const jsPDF = (await import('jspdf')).default;
+    const autoTable = (await import('jspdf-autotable')).default;
     const doc = new jsPDF();
 
     try {

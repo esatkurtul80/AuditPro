@@ -250,7 +250,7 @@ function RegionalManagerContent() {
                                                         Sürüyor
                                                     </Badge>
                                                 ) : (
-                                                    <Badge className="bg-green-500">
+                                                    <Badge className="bg-green-700 hover:bg-green-800 text-white">
                                                         <CheckCircle2 className="mr-1 h-3 w-3" />
                                                         Tamamlandı
                                                     </Badge>
