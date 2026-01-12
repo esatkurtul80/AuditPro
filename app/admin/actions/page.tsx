@@ -26,7 +26,7 @@ import { AlertTriangle, Check, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useRouter, useSearchParams } from "next/navigation";
 import { DataTable } from "@/components/ui/data-table";
-import { ColumnDef } from "@tanstack/react-table";
+import { ColumnDef, Column, Row } from "@tanstack/react-table";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ArrowUpDown, Search, XCircle, ListFilter } from "lucide-react";
@@ -288,36 +288,36 @@ function AdminActionsContent() {
         {
             accessorKey: "storeName",
             meta: { title: "Mağaza Adı" },
-            header: ({ column }) => <DataTableColumnHeader column={column} title="Mağaza Adı" />,
-            cell: ({ row }) => <span className="text-base font-medium">{row.original.storeName}</span>,
-            filterFn: (row, id, value) => {
+            header: ({ column }: { column: Column<Audit> }) => <DataTableColumnHeader column={column} title="Mağaza Adı" />,
+            cell: ({ row }: { row: Row<Audit> }) => <span className="text-base font-medium">{row.original.storeName}</span>,
+            filterFn: (row: Row<Audit>, id: string, value: string[]) => {
                 return Array.isArray(value) && value.includes(row.getValue(id));
             },
         },
         {
             accessorKey: "auditorName",
             meta: { title: "Denetmen" },
-            header: ({ column }) => <DataTableColumnHeader column={column} title="Denetmen" />,
-            cell: ({ row }) => <span className="text-base">{row.original.auditorName}</span>,
-            filterFn: (row, id, value) => {
+            header: ({ column }: { column: Column<Audit> }) => <DataTableColumnHeader column={column} title="Denetmen" />,
+            cell: ({ row }: { row: Row<Audit> }) => <span className="text-base">{row.original.auditorName}</span>,
+            filterFn: (row: Row<Audit>, id: string, value: string[]) => {
                 return Array.isArray(value) && value.includes(row.getValue(id));
             },
         },
         {
             accessorKey: "auditTypeName",
             meta: { title: "Denetim Türü" },
-            header: ({ column }) => <DataTableColumnHeader column={column} title="Denetim Türü" />,
-            cell: ({ row }) => <span className="font-medium text-base">{row.original.auditTypeName}</span>,
-            filterFn: (row, id, value) => {
+            header: ({ column }: { column: Column<Audit> }) => <DataTableColumnHeader column={column} title="Denetim Türü" />,
+            cell: ({ row }: { row: Row<Audit> }) => <span className="font-medium text-base">{row.original.auditTypeName}</span>,
+            filterFn: (row: Row<Audit>, id: string, value: string[]) => {
                 return Array.isArray(value) && value.includes(row.getValue(id));
             },
         },
         {
             id: "auditDate",
             meta: { title: "Denetim Tarihi" },
-            header: ({ column }) => <DataTableColumnHeader column={column} title="Denetim Tarihi" showFilter={false} />,
-            accessorFn: (row) => row.completedAt?.toMillis() ?? 0,
-            cell: ({ row }) => {
+            header: ({ column }: { column: Column<Audit> }) => <DataTableColumnHeader column={column} title="Denetim Tarihi" showFilter={false} />,
+            accessorFn: (row: Audit) => row.completedAt?.toMillis() ?? 0,
+            cell: ({ row }: { row: Row<Audit> }) => {
                 if (!row.original.completedAt) return "-";
                 return (
                     <span className="text-base">
@@ -333,9 +333,9 @@ function AdminActionsContent() {
         {
             id: "returnDate",
             meta: { title: "Dönüş Tarihi" },
-            header: ({ column }) => <DataTableColumnHeader column={column} title="Dönüş Tarihi" showFilter={false} />,
-            accessorFn: (row) => getLastSubmissionDate(row)?.getTime() ?? 0,
-            cell: ({ row }) => {
+            header: ({ column }: { column: Column<Audit> }) => <DataTableColumnHeader column={column} title="Dönüş Tarihi" showFilter={false} />,
+            accessorFn: (row: Audit) => getLastSubmissionDate(row)?.getTime() ?? 0,
+            cell: ({ row }: { row: Row<Audit> }) => {
                 const date = getLastSubmissionDate(row.original);
                 if (!date) return "-";
                 return (
@@ -352,12 +352,12 @@ function AdminActionsContent() {
         {
             id: "responseTime",
             meta: { title: "Dönüş Süresi" },
-            header: ({ column }) => <DataTableColumnHeader column={column} title="Dönüş Süresi" showFilter={false} />,
-            accessorFn: (row) => {
+            header: ({ column }: { column: Column<Audit> }) => <DataTableColumnHeader column={column} title="Dönüş Süresi" showFilter={false} />,
+            accessorFn: (row: Audit) => {
                 const responseTime = getStoreResponseTime(row);
                 return responseTime ?? -1; // Use -1 for sorting null values to the end
             },
-            cell: ({ row }) => {
+            cell: ({ row }: { row: Row<Audit> }) => {
                 const responseTime = getStoreResponseTime(row.original);
 
                 if (responseTime === null) {
@@ -388,13 +388,13 @@ function AdminActionsContent() {
         {
             id: "deadline",
             meta: { title: "Son Dönüş Tarihi" },
-            accessorFn: (row) => {
+            accessorFn: (row: Audit) => {
                 if (row.allActionsResolved) return Number.MAX_SAFE_INTEGER;
                 if (!row.completedAt) return Number.MAX_SAFE_INTEGER;
                 return calculateDeadlineDate(row.completedAt.toDate()).getTime();
             },
-            header: ({ column }) => <DataTableColumnHeader column={column} title="Son Dönüş Tarihi" showFilter={false} />,
-            cell: ({ row }) => {
+            header: ({ column }: { column: Column<Audit> }) => <DataTableColumnHeader column={column} title="Son Dönüş Tarihi" showFilter={false} />,
+            cell: ({ row }: { row: Row<Audit> }) => {
                 const audit = row.original;
                 if (!audit.completedAt) return "-";
 
@@ -431,7 +431,7 @@ function AdminActionsContent() {
         {
             id: "actions",
             header: "Aksiyon",
-            cell: ({ row }) => {
+            cell: ({ row }: { row: Row<Audit> }) => {
                 const audit = row.original;
                 let totalActions = 0;
                 audit.sections.forEach((s: any) => s.answers.forEach((a: any) => {
@@ -452,8 +452,8 @@ function AdminActionsContent() {
         {
             accessorKey: "totalScore",
             meta: { title: "Puan" },
-            header: ({ column }) => <DataTableColumnHeader column={column} title="Puan" showFilter={false} />,
-            cell: ({ row }) => {
+            header: ({ column }: { column: Column<Audit> }) => <DataTableColumnHeader column={column} title="Puan" showFilter={false} />,
+            cell: ({ row }: { row: Row<Audit> }) => {
                 const score = row.original.totalScore || 0;
                 const badgeClass = score >= 80
                     ? "bg-green-100 text-green-800 hover:bg-green-100"
@@ -467,7 +467,7 @@ function AdminActionsContent() {
         {
             id: "status",
             meta: { title: "Durum" },
-            accessorFn: (row) => {
+            accessorFn: (row: Audit) => {
                 const audit = row;
                 let totalActions = 0;
                 let approvedActions = 0;
@@ -494,8 +494,8 @@ function AdminActionsContent() {
                 if (pendingStoreActions === totalActions) return "Dönüş Yapılmadı";
                 return "Mağaza Bekleniyor";
             },
-            header: ({ column }) => <DataTableColumnHeader column={column} title="Durum" />,
-            cell: ({ row }) => {
+            header: ({ column }: { column: Column<Audit> }) => <DataTableColumnHeader column={column} title="Durum" />,
+            cell: ({ row }: { row: Row<Audit> }) => {
                 const status = row.getValue("status") as string;
                 // We can use the status string directly or recalculate if we need counts.
                 // Re-calculating counts for detailed display:
@@ -562,7 +562,7 @@ function AdminActionsContent() {
                     </div>
                 );
             },
-            filterFn: (row, id, value) => {
+            filterFn: (row: Row<Audit>, id: string, value: string[]) => {
                 return Array.isArray(value) && value.includes(row.getValue(id));
             },
         }

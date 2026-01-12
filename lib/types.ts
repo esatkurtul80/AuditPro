@@ -250,3 +250,22 @@ export interface DateRangeFilter {
     from: Date | undefined;
     to: Date | undefined;
 }
+
+export interface LeaveType {
+    id: string;
+    name: string;
+    color: string;
+    isDefault?: boolean;
+    order?: number;
+    createdAt: Timestamp;
+    updatedAt: Timestamp;
+}
+
+export interface AccommodationType {
+    id: string;
+    name: string;
+    icon: string;
+    order?: number;
+    createdAt: Timestamp;
+    updatedAt: Timestamp;
+}

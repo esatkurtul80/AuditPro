@@ -26,6 +26,7 @@ body {
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-outfit: var(--font-outfit);
   --font-playwrite-norge: "Playwrite NO", cursive;
   --font-inter: "Inter", sans-serif;
   --color-sidebar-ring: var(--sidebar-ring);

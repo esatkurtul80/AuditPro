@@ -61,7 +61,7 @@ import {
 import { softDeleteAudit } from "@/lib/firebase-utils";
 import { toast } from "sonner";
 import { DataTable } from "@/components/ui/data-table";
-import { ColumnDef } from "@tanstack/react-table";
+import { ColumnDef, Column, Row } from "@tanstack/react-table";
 import { DataTableColumnHeader } from "@/components/ui/data-table-column-header";
 
 export default function AdminDashboard() {
@@ -189,27 +189,27 @@ export default function AdminDashboard() {
         {
             accessorKey: "auditTypeName",
             meta: { title: "Denetim Türü", filterOptions: auditTypes.map(type => ({ value: type.name, label: type.name })) },
-            header: ({ column }) => <DataTableColumnHeader column={column} title="Denetim Türü" />,
-            cell: ({ row }) => <span className="font-medium">{row.original.auditTypeName}</span>,
-            filterFn: (row, id, value) => {
+            header: ({ column }: { column: Column<Audit> }) => <DataTableColumnHeader column={column} title="Denetim Türü" />,
+            cell: ({ row }: { row: Row<Audit> }) => <span className="font-medium">{row.original.auditTypeName}</span>,
+            filterFn: (row: Row<Audit>, id: string, value: string[]) => {
                 return Array.isArray(value) && value.includes(row.getValue(id));
             },
         },
         {
             accessorKey: "storeName",
             meta: { title: "Mağaza", filterOptions: stores.map(store => ({ value: store.name, label: store.name })) },
-            header: ({ column }) => <DataTableColumnHeader column={column} title="Mağaza" />,
-            cell: ({ row }) => <span>{row.original.storeName}</span>,
-            filterFn: (row, id, value) => {
+            header: ({ column }: { column: Column<Audit> }) => <DataTableColumnHeader column={column} title="Mağaza" />,
+            cell: ({ row }: { row: Row<Audit> }) => <span>{row.original.storeName}</span>,
+            filterFn: (row: Row<Audit>, id: string, value: string[]) => {
                 return Array.isArray(value) && value.includes(row.getValue(id));
             },
         },
         {
             accessorKey: "auditorName",
             meta: { title: "Denetmen" },
-            header: ({ column }) => <DataTableColumnHeader column={column} title="Denetmen" />,
-            cell: ({ row }) => <span className="text-sm text-muted-foreground">{row.original.auditorName || "Bilinmeyen Kullanıcı"}</span>,
-            filterFn: (row, id, value) => {
+            header: ({ column }: { column: Column<Audit> }) => <DataTableColumnHeader column={column} title="Denetmen" />,
+            cell: ({ row }: { row: Row<Audit> }) => <span className="text-sm text-muted-foreground">{row.original.auditorName || "Bilinmeyen Kullanıcı"}</span>,
+            filterFn: (row: Row<Audit>, id: string, value: string[]) => {
                 return Array.isArray(value) && value.includes(row.getValue(id));
             },
         },
@@ -223,8 +223,8 @@ export default function AdminDashboard() {
                     { value: "iptal_edildi", label: "İptal Edildi" },
                 ]
             },
-            header: ({ column }) => <DataTableColumnHeader column={column} title="Durum" />,
-            cell: ({ row }) => {
+            header: ({ column }: { column: Column<Audit> }) => <DataTableColumnHeader column={column} title="Durum" />,
+            cell: ({ row }: { row: Row<Audit> }) => {
                 const status = row.original.status;
                 if (status === "devam_ediyor") {
                     return (
@@ -249,43 +249,43 @@ export default function AdminDashboard() {
                     </Badge>
                 );
             },
-            filterFn: (row, id, value) => {
+            filterFn: (row: Row<Audit>, id: string, value: string[]) => {
                 return Array.isArray(value) && value.includes(row.getValue(id));
             },
         },
         {
             accessorKey: "totalScore",
             meta: { title: "Puan" },
-            header: ({ column }) => <DataTableColumnHeader column={column} title="Puan" showFilter={false} />,
-            cell: ({ row }) => <span className="font-semibold">{row.original.totalScore || 0}</span>,
+            header: ({ column }: { column: Column<Audit> }) => <DataTableColumnHeader column={column} title="Puan" showFilter={false} />,
+            cell: ({ row }: { row: Row<Audit> }) => <span className="font-semibold">{row.original.totalScore || 0}</span>,
         },
         {
             id: "createdAt",
             meta: { title: "Tarih" },
-            header: ({ column }) => <DataTableColumnHeader column={column} title="Tarih" showFilter={false} />,
-            accessorFn: (row) => row.createdAt?.toMillis() || 0,
-            cell: ({ row }) => <span className="text-sm">{row.original.createdAt?.toDate().toLocaleDateString("tr-TR")}</span>,
+            header: ({ column }: { column: Column<Audit> }) => <DataTableColumnHeader column={column} title="Tarih" showFilter={false} />,
+            accessorFn: (row: Audit) => row.createdAt?.toMillis() || 0,
+            cell: ({ row }: { row: Row<Audit> }) => <span className="text-sm">{row.original.createdAt?.toDate().toLocaleDateString("tr-TR")}</span>,
         },
         {
             id: "startedAt",
             meta: { title: "Başlangıç" },
-            header: ({ column }) => <DataTableColumnHeader column={column} title="Başlangıç" showFilter={false} />,
-            accessorFn: (row) => row.startedAt?.toMillis() || 0,
-            cell: ({ row }) => <span className="text-sm">{row.original.startedAt?.toDate().toLocaleTimeString("tr-TR", { hour: '2-digit', minute: '2-digit' }) || "-"}</span>,
+            header: ({ column }: { column: Column<Audit> }) => <DataTableColumnHeader column={column} title="Başlangıç" showFilter={false} />,
+            accessorFn: (row: Audit) => row.startedAt?.toMillis() || 0,
+            cell: ({ row }: { row: Row<Audit> }) => <span className="text-sm">{row.original.startedAt?.toDate().toLocaleTimeString("tr-TR", { hour: '2-digit', minute: '2-digit' }) || "-"}</span>,
         },
         {
             id: "completedAt",
             meta: { title: "Bitiş" },
-            header: ({ column }) => <DataTableColumnHeader column={column} title="Bitiş" showFilter={false} />,
-            accessorFn: (row) => row.completedAt?.toMillis() || 0,
-            cell: ({ row }) => <span className="text-sm">{row.original.completedAt?.toDate().toLocaleTimeString("tr-TR", { hour: '2-digit', minute: '2-digit' }) || "-"}</span>,
+            header: ({ column }: { column: Column<Audit> }) => <DataTableColumnHeader column={column} title="Bitiş" showFilter={false} />,
+            accessorFn: (row: Audit) => row.completedAt?.toMillis() || 0,
+            cell: ({ row }: { row: Row<Audit> }) => <span className="text-sm">{row.original.completedAt?.toDate().toLocaleTimeString("tr-TR", { hour: '2-digit', minute: '2-digit' }) || "-"}</span>,
         },
         {
             id: "duration",
             meta: { title: "Süre" },
-            header: ({ column }) => <DataTableColumnHeader column={column} title="Süre" showFilter={false} />,
-            accessorFn: (row) => (row.completedAt && row.startedAt) ? (row.completedAt.toMillis() - row.startedAt.toMillis()) : 0,
-            cell: ({ row }) => <span className="text-sm font-medium">{calculateDuration(row.original.startedAt || null, row.original.completedAt || null)}</span>,
+            header: ({ column }: { column: Column<Audit> }) => <DataTableColumnHeader column={column} title="Süre" showFilter={false} />,
+            accessorFn: (row: Audit) => (row.completedAt && row.startedAt) ? (row.completedAt.toMillis() - row.startedAt.toMillis()) : 0,
+            cell: ({ row }: { row: Row<Audit> }) => <span className="text-sm font-medium">{calculateDuration(row.original.startedAt || null, row.original.completedAt || null)}</span>,
         },
         {
             id: "actions",

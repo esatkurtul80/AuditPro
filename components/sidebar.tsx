@@ -21,6 +21,7 @@ import {
     CheckCircle,
     XCircle,
     CalendarDays,
+    Hotel,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, useEffect, Suspense } from "react";
@@ -44,6 +45,7 @@ function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar }: 
     const [isDenetmenAuditMenuOpen, setIsDenetmenAuditMenuOpen] = useState(false);
     const [isActionsMenuOpen, setIsActionsMenuOpen] = useState(false);
     const [isReportsMenuOpen, setIsReportsMenuOpen] = useState(false);
+    const [isScheduleMenuOpen, setIsScheduleMenuOpen] = useState(false);
     const [unreadCount, setUnreadCount] = useState(0);
 
     // Close submenus when sidebar is collapsed
@@ -53,6 +55,7 @@ function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar }: 
             setIsDenetmenAuditMenuOpen(false);
             setIsActionsMenuOpen(false);
             setIsReportsMenuOpen(false);
+            setIsScheduleMenuOpen(false);
         }
     }, [isCollapsed]);
 
@@ -74,11 +77,13 @@ function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar }: 
         { href: "/admin/dashboard", label: "Panel", icon: LayoutDashboard },
         { href: "/admin/users", label: "Kullanıcılar", icon: Users },
         { href: "/admin/stores", label: "Mağazalar", icon: Store },
-
-        // Aksiyonlar removed from here to be its own section
-        // Raporlar removed from here to be its own section
-        { href: "/admin/schedule", label: "Denetim Programı", icon: CalendarDays },
         { href: "/admin/cop-kutusu", label: "Çöp Kutusu", icon: Trash2 },
+    ];
+
+    const scheduleSubLinks = [
+        { href: "/admin/schedule", label: "Program", icon: CalendarDays },
+        { href: "/admin/schedule/leave-types", label: "İzin Türleri", icon: ClipboardList },
+        { href: "/admin/schedule/accommodation-types", label: "Konaklama Türleri", icon: Hotel },
     ];
 
     const auditSubLinks = [
@@ -226,6 +231,70 @@ function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar }: 
                                     </button>
                                 }
                             />
+
+
+                            {/* Denetim Programı Dropdown */}
+                            <div className="space-y-1">
+                                <Button
+                                    variant="ghost"
+                                    onClick={() => {
+                                        if (isCollapsed && toggleSidebar) {
+                                            toggleSidebar();
+                                            setTimeout(() => setIsScheduleMenuOpen(true), 100);
+                                        } else {
+                                            setIsScheduleMenuOpen(!isScheduleMenuOpen);
+                                        }
+                                    }}
+                                    className={cn(
+                                        "w-full h-11 px-4 font-medium transition-all duration-500",
+                                        isCollapsed ? "justify-center px-2" : "justify-start",
+                                        pathname.startsWith("/admin/schedule")
+                                            ? "bg-blue-600 text-white hover:bg-blue-700 shadow-md shadow-blue-500/20"
+                                            : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-100"
+                                    )}
+                                    title={isCollapsed ? "Denetim Programı" : undefined}
+                                >
+                                    <CalendarDays className={cn(
+                                        "h-5 w-5 transition-transform duration-500 shrink-0",
+                                        pathname.startsWith("/admin/schedule") && "scale-110"
+                                    )} />
+                                    <div className={cn(
+                                        "flex-1 flex items-center justify-between whitespace-nowrap transition-all duration-500 ease-in-out overflow-hidden origin-left",
+                                        isCollapsed ? "max-w-0 opacity-0 ml-0" : "max-w-[200px] opacity-100 ml-3"
+                                    )}>
+                                        <span className="text-sm text-left">Denetim Programı</span>
+                                        <ChevronDown className={cn(
+                                            "h-4 w-4 transition-transform duration-500 shrink-0 ml-2",
+                                            isScheduleMenuOpen && "rotate-180"
+                                        )} />
+                                    </div>
+                                </Button>
+
+                                {/* Sub Menu Items */}
+                                {isScheduleMenuOpen && !isCollapsed && (
+                                    <div className="ml-4 space-y-1 border-l-2 border-slate-200 dark:border-slate-700 pl-2">
+                                        {scheduleSubLinks.map((link) => {
+                                            const Icon = link.icon;
+                                            const isActive = pathname === link.href;
+                                            return (
+                                                <Link key={link.href} href={link.href} onClick={onLinkClick}>
+                                                    <div
+                                                        className={cn(
+                                                            "w-full justify-start h-10 px-3 font-medium transition-all duration-500 flex items-center rounded-md cursor-pointer",
+                                                            isActive
+                                                                ? "bg-blue-600 text-white hover:bg-blue-700 shadow-sm"
+                                                                : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100"
+                                                        )}
+                                                    >
+                                                        <Icon className="h-4 w-4 shrink-0 mr-3" />
+                                                        <span className="text-sm">{link.label}</span>
+                                                    </div>
+                                                </Link>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </div>
 
                             {/* Aksiyonlar Dropdown */}
                             <div className="space-y-1">

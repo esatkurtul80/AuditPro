@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
-    CalendarDays, Save, Send, ChevronLeft, ChevronRight, Search, Sparkles, ChevronDown
+    CalendarDays, Save, Send, ChevronLeft, ChevronRight, Search, Plus, X, Sparkles, ChevronDown
 } from "lucide-react";
 import {
     NavigationMenu,
@@ -19,7 +19,7 @@ import {
     addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, differenceInDays, isSameMonth, subDays, getISOWeek
 } from "date-fns";
 import { tr } from "date-fns/locale";
-import { collection, query, where, getDocs, doc, setDoc, deleteDoc, updateDoc, Timestamp, deleteField } from "firebase/firestore";
+import { collection, query, where, getDocs, doc, setDoc, deleteDoc, Timestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { UserProfile, Store } from "@/lib/types";
 import { toast } from "sonner";
@@ -66,23 +66,10 @@ import {
     ContextMenuContent,
     ContextMenuItem,
     ContextMenuTrigger,
-    ContextMenuSub,
-    ContextMenuSubContent,
-    ContextMenuSubTrigger,
-    ContextMenuSeparator,
 } from "@/components/ui/context-menu";
 import { StoreAuditHistoryDialog } from "@/components/admin/schedule/store-audit-history-dialog";
-import {
-    Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
-    DialogTrigger,
-} from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
-import {
-    Info, Calendar as CalendarIcon, ClipboardList, StickyNote, Hotel,
-    Plus, Pencil, Trash2, X, Check
-} from "lucide-react";
-import { LeaveType, AccommodationType } from "@/lib/types";
-import { ACCOMMODATION_ICONS } from "@/lib/constants";
+import { Info, Calendar as CalendarIcon, ClipboardList } from "lucide-react";
+import { LeaveType } from "@/lib/types";
 
 // Interface for a schedule item
 interface ScheduleItem {
@@ -95,8 +82,6 @@ interface ScheduleItem {
     type?: 'audit' | 'leave' | 'blocked';
     leaveTypeId?: string;
     leaveColor?: string;
-    note?: string;
-    accommodationTypeId?: string;
 }
 
 type SuggestionItem = Store & { suggestionType: 'target' | 'repeat' | 'new'; lastScore?: number };
@@ -222,13 +207,7 @@ function DroppableCell({
     stores,
     isWeekPublished,
     leaveTypes,
-    handleAddLeave,
-    isSelected,
-    onCellClick,
-    selectedCells,
-    setNoteDialog,
-    accommodationTypes,
-    handleUpdateScheduleItem
+    handleAddLeave
 }: {
     dropId: string;
     isToday: boolean;
@@ -243,12 +222,6 @@ function DroppableCell({
     isWeekPublished: boolean;
     leaveTypes: LeaveType[];
     handleAddLeave: (auditorId: string, date: Date, leaveType: LeaveType) => Promise<void>;
-    isSelected: boolean;
-    onCellClick: (id: string, isMulti: boolean) => void;
-    selectedCells: Set<string>;
-    setNoteDialog: (state: { open: boolean, itemId: string | null, note: string }) => void;
-    accommodationTypes: AccommodationType[];
-    handleUpdateScheduleItem: (itemId: string, updates: Partial<ScheduleItem>) => Promise<void>;
 }) {
     // Filter out blocked items for display
     const filteredItems = rawItems.filter(i => i.type !== 'blocked');
@@ -258,289 +231,140 @@ function DroppableCell({
         disabled: isWeekPublished || hasLeave
     });
 
-    const handleContextMenuAddLeave = async (leaveType: LeaveType) => {
-        // Decide targets: if current cell is selected, use all selected cells. Otherwise just current.
-        const targets = isSelected ? Array.from(selectedCells) : [dropId];
-
-        try {
-            await Promise.all(targets.map(id => {
-                const lastSeparator = id.lastIndexOf('___');
-                const auditorId = id.substring(0, lastSeparator);
-                const dateStr = id.substring(lastSeparator + 3);
-                return handleAddLeave(auditorId, new Date(dateStr), leaveType);
-            }));
-
-            // Optional: visual feedback or toast could go here
-        } catch (error) {
-            console.error("Bulk add failed", error);
-        }
+    const handleContextMenuAddLeave = (leaveType: LeaveType) => {
+        const lastSeparator = dropId.lastIndexOf('___');
+        const auditorId = dropId.substring(0, lastSeparator);
+        const dateStr = dropId.substring(lastSeparator + 3);
+        handleAddLeave(auditorId, new Date(dateStr), leaveType);
     };
-
-    const cell = (
-        <td
-            ref={setNodeRef}
-            className={cn(
-                "p-1 border-r border-b border-slate-100/50 align-top min-h-[4rem] relative transition-all duration-200 hover:z-[20]",
-                isSelected ? "bg-blue-100/40 ring-2 ring-inset ring-blue-500 z-10" : (isToday ? "bg-blue-50/20" : "hover:bg-slate-50/40"),
-                isOver && "bg-blue-50/80 ring-2 ring-blue-100 ring-inset"
-            )}
-            onClick={(e) => {
-                // Prevent triggering when clicking inside popover or existing item if needed, 
-                // but usually cell click is fine.
-                // Check for modifier key (Ctrl or Meta/Command)
-                onCellClick(dropId, e.ctrlKey || e.metaKey);
-            }}
-            onContextMenu={(e) => {
-                setOpenPopoverId(null);
-            }}
-        >
-            <div className="flex flex-col gap-1 h-full overflow-visible relative">
-                {filteredItems.map((item) => {
-                    if (item.type === 'leave') {
-                        const content = (
-                            <div
-                                key={item.id}
-                                className={cn(
-                                    "absolute inset-0 m-1 rounded-lg shadow-sm select-none transition-all flex items-center justify-center cursor-default z-10 hover:z-[100] group/item overflow-visible hover:shadow-md hover:scale-[1.02] duration-200",
-                                    "text-white font-bold border border-white/10 backdrop-blur-sm"
-                                )}
-                                style={{ backgroundColor: item.leaveColor || '#64748B' }}
-                            >
-                                <div className="flex flex-col items-center justify-center w-full h-full p-1">
-                                    {item.note && (
-                                        <div className="absolute top-1 left-1">
-                                            <StickyNote className="h-3 w-3 text-white/90 fill-white/20" />
-                                        </div>
-                                    )}
-                                    <span className="w-full block text-center shadow-black/10 drop-shadow-md px-1 whitespace-normal leading-tight break-words text-xs">
-                                        {item.storeName}
-                                    </span>
-                                </div>
-
-                                {item.status === 'draft' && (
-                                    <button
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleRemoveStore(item.id);
-                                        }}
-                                        className="absolute -right-2 -top-2 p-1 rounded-full bg-red-600 text-white border border-red-700 shadow-xl z-[110] transition-all hover:bg-red-700 cursor-pointer opacity-0 group-hover/item:opacity-100"
-                                    >
-                                        <X className="h-2 w-2" />
-                                    </button>
-                                )}
-                            </div>
-                        );
-
-                        if (isWeekPublished) return content;
-
-                        return (
-                            <ContextMenu key={item.id}>
-                                <ContextMenuTrigger asChild>
-                                    {content}
-                                </ContextMenuTrigger>
-                                <ContextMenuContent>
-                                    {item.note ? (
-                                        <>
-                                            <ContextMenuItem onClick={() => setNoteDialog({ open: true, itemId: item.id, note: item.note || "" })}>
-                                                <Pencil className="mr-2 h-4 w-4" /> Düzenle
-                                            </ContextMenuItem>
-                                            <ContextMenuItem onClick={() => handleUpdateScheduleItem(item.id, { note: "" })} className="text-red-600">
-                                                <Trash2 className="mr-2 h-4 w-4" /> Notu Sil
-                                            </ContextMenuItem>
-                                        </>
-                                    ) : (
-                                        <ContextMenuItem onClick={() => setNoteDialog({ open: true, itemId: item.id, note: "" })}>
-                                            <Plus className="mr-2 h-4 w-4" /> Not Ekle
-                                        </ContextMenuItem>
-                                    )}
-                                </ContextMenuContent>
-                            </ContextMenu>
-                        );
-                    }
-
-                    const violation = getViolation(item);
-
-                    const content = (
-                        <div
-                            key={item.id}
-                            onClick={() => {
-                                if (violation) setViolationAlert(violation);
-                            }}
-                            title={violation || item.storeName}
-                            className={cn(
-                                "group/item text-xs px-1.5 py-0.5 rounded border shadow-sm select-none transition-all relative flex items-center justify-between flex-1 min-h-0 cursor-pointer",
-                                violation
-                                    ? "bg-red-50 border-red-200 text-red-700 font-medium"
-                                    : item.status === 'published'
-                                        ? "bg-blue-50 border-blue-200 text-blue-700 font-medium"
-                                        : "bg-white border-slate-300 text-slate-700 font-medium"
-                            )}
-                        >
-                            <div className="flex items-center gap-1 min-w-0">
-                                {item.note && <StickyNote className="h-3 w-3 text-yellow-500 fill-yellow-100 shrink-0" />}
-                                <span className="truncate w-full block text-center uppercase">{item.storeName}</span>
-                            </div>
-
-                            {violation && (
-                                <span className="flex h-1.5 w-1.5 shrink-0 ml-1">
-                                    <span className="animate-ping absolute inline-flex h-1.5 w-1.5 rounded-full bg-red-400 opacity-75"></span>
-                                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-500"></span>
-                                </span>
-                            )}
-
-                            {item.accommodationTypeId && (() => {
-                                const type = accommodationTypes.find(t => t.id === item.accommodationTypeId);
-                                if (type) {
-                                    const Icon = ACCOMMODATION_ICONS[type.icon] || Hotel;
-                                    return (
-                                        <div className="absolute -bottom-1 -right-1 p-0.5 bg-white rounded-full border shadow-sm z-10" title={type.name}>
-                                            <Icon className="h-3 w-3 text-blue-600" />
-                                        </div>
-                                    );
-                                }
-                                return null;
-                            })()}
-
-                            {item.status === 'draft' && (
-                                <button
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleRemoveStore(item.id);
-                                    }}
-                                    className="absolute -right-2 -top-2 p-0.5 rounded-full bg-red-600 text-white border border-red-700 opacity-0 group-hover/item:opacity-100 shadow-sm z-50 transition-all hover:bg-red-700 scale-110 cursor-pointer"
-                                >
-                                    <X className="h-2.5 w-2.5" />
-                                </button>
-                            )}
-                        </div>
-                    );
-
-                    if (isWeekPublished) return content;
-
-                    return (
-                        <ContextMenu key={item.id}>
-                            <ContextMenuTrigger asChild>
-                                {content}
-                            </ContextMenuTrigger>
-                            <ContextMenuContent className="w-56">
-                                {/* Note Actions */}
-                                {item.note ? (
-                                    <>
-                                        <ContextMenuItem onClick={() => setNoteDialog({ open: true, itemId: item.id, note: item.note || "" })}>
-                                            <Pencil className="mr-2 h-4 w-4" /> Düzenle
-                                        </ContextMenuItem>
-                                        <ContextMenuItem onClick={() => handleUpdateScheduleItem(item.id, { note: "" })} className="text-red-600">
-                                            <Trash2 className="mr-2 h-4 w-4" /> Notu Sil
-                                        </ContextMenuItem>
-                                    </>
-                                ) : (
-                                    <ContextMenuItem onClick={() => setNoteDialog({ open: true, itemId: item.id, note: "" })}>
-                                        <Plus className="mr-2 h-4 w-4" /> Not Ekle
-                                    </ContextMenuItem>
-                                )}
-                                <ContextMenuSeparator />
-
-                                {/* Accommodation Actions */}
-                                <ContextMenuSub>
-                                    <ContextMenuSubTrigger>
-                                        <Hotel className="mr-2 h-4 w-4" /> Konaklama
-                                    </ContextMenuSubTrigger>
-                                    <ContextMenuSubContent className="w-48">
-                                        {accommodationTypes.length === 0 ? (
-                                            <ContextMenuItem disabled>Tanımlı tür yok</ContextMenuItem>
-                                        ) : (
-                                            accommodationTypes.map(type => {
-                                                const Icon = ACCOMMODATION_ICONS[type.icon] || Hotel;
-                                                const isSelected = item.accommodationTypeId === type.id;
-                                                return (
-                                                    <ContextMenuItem
-                                                        key={type.id}
-                                                        onClick={() => handleUpdateScheduleItem(item.id, { accommodationTypeId: type.id })}
-                                                        className="flex items-center justify-between"
-                                                    >
-                                                        <div className="flex items-center">
-                                                            <Icon className="mr-2 h-4 w-4" /> {type.name}
-                                                        </div>
-                                                        {isSelected && <Check className="h-4 w-4 text-blue-600" />}
-                                                    </ContextMenuItem>
-                                                );
-                                            })
-                                        )}
-                                        <ContextMenuSeparator />
-                                        <ContextMenuItem onClick={() => handleUpdateScheduleItem(item.id, { accommodationTypeId: deleteField() as unknown as string })} className="text-red-600">
-                                            <X className="mr-2 h-4 w-4" /> Konaklamayı Kaldır
-                                        </ContextMenuItem>
-                                    </ContextMenuSubContent>
-                                </ContextMenuSub>
-                            </ContextMenuContent>
-                        </ContextMenu>
-                    );
-                })}
-
-                {/* Empty State / Add Trigger - Only show if < 2 items AND not published AND no Leave present */}
-                {!isWeekPublished && filteredItems.length < 2 && !hasLeave && (
-                    <Popover
-                        open={openPopoverId === dropId}
-                        onOpenChange={(isOpen) => {
-                            if (isOpen) setOpenPopoverId(dropId);
-                            else setOpenPopoverId(null);
-                        }}
-                    >
-                        <PopoverTrigger asChild>
-                            <button
-                                onClick={(e) => {
-                                    if (e.ctrlKey || e.metaKey) {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                        onCellClick(dropId, true);
-                                    }
-                                }}
-                                className={cn(
-                                    "flex-1 m-0.5 min-h-[1.5rem] rounded border border-dashed border-transparent hover:border-slate-300 hover:bg-slate-50 flex items-center justify-center text-slate-300 hover:text-slate-500 transition-all",
-                                    filteredItems.length > 0 ? "h-8 min-h-0 text-xs w-auto" : "flex-1",
-                                    isSelected && "pointer-events-none"
-                                )}>
-                                <Plus className="h-4 w-4" />
-                            </button>
-                        </PopoverTrigger>
-                        <PopoverContent className="p-0 w-[300px]" align="start">
-                            <Command>
-                                <CommandInput placeholder="Mağaza ara..." autoFocus />
-                                <CommandList>
-                                    <CommandEmpty>Uygun mağaza bulunamadı.</CommandEmpty>
-                                    <CommandGroup heading="Mağazalar">
-                                        {stores.map((store) => (
-                                            <CommandItem
-                                                key={store.id}
-                                                onSelect={() => {
-                                                    const lastSeparator = dropId.lastIndexOf('___');
-                                                    const auditorId = dropId.substring(0, lastSeparator);
-                                                    const dateStr = dropId.substring(lastSeparator + 3);
-                                                    handleAddStore(auditorId, new Date(dateStr), store.id, store.name);
-                                                    setOpenPopoverId(null);
-                                                }}
-                                            >
-                                                {store.name}
-                                            </CommandItem>
-                                        ))}
-                                    </CommandGroup>
-                                </CommandList>
-                            </Command>
-                        </PopoverContent>
-                    </Popover>
-                )}
-            </div>
-        </td>
-    );
-
-    if (isWeekPublished) {
-        return cell;
-    }
 
     return (
         <ContextMenu>
             <ContextMenuTrigger asChild>
-                {cell}
+                <td
+                    ref={setNodeRef}
+                    className={cn(
+                        "p-1 border-r border-slate-100 align-top min-h-[4rem] relative transition-colors hover:z-[20]",
+                        isToday ? "bg-blue-50/10" : "hover:bg-slate-50",
+                        isOver && "bg-blue-100/50 ring-2 ring-blue-400 ring-inset"
+                    )}
+                >
+                    <div className="flex flex-col gap-1 h-full overflow-visible relative">
+                        {filteredItems.map((item) => {
+                            if (item.type === 'leave') {
+                                return (
+                                    <div
+                                        key={item.id}
+                                        className={cn(
+                                            "absolute inset-0 m-0.5 rounded-md shadow-sm select-none transition-all flex items-center justify-center cursor-default z-10 hover:z-[100] group/item overflow-visible",
+                                            "text-white font-bold border border-white/20 shadow-sm"
+                                        )}
+                                        style={{ backgroundColor: item.leaveColor || '#64748B' }}
+                                    >
+                                        <span className="w-full block text-center shadow-black/10 drop-shadow-md px-1 whitespace-normal leading-tight break-words">{item.storeName}</span>
+                                        {item.status === 'draft' && (
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleRemoveStore(item.id);
+                                                }}
+                                                className="absolute -right-2 -top-2 p-1 rounded-full bg-red-600 text-white border border-red-700 shadow-xl z-[110] transition-all hover:bg-red-700 cursor-pointer opacity-0 group-hover/item:opacity-100"
+                                            >
+                                                <X className="h-2 w-2" />
+                                            </button>
+                                        )}
+                                    </div>
+                                );
+                            }
+
+                            const violation = getViolation(item);
+                            return (
+                                <div
+                                    key={item.id}
+                                    onClick={() => {
+                                        if (violation) setViolationAlert(violation);
+                                    }}
+                                    title={violation || item.storeName}
+                                    className={cn(
+                                        "group/item text-xs px-1.5 py-0.5 rounded border shadow-sm select-none transition-all relative flex items-center justify-between flex-1 min-h-0 cursor-pointer",
+                                        violation
+                                            ? "bg-red-50 border-red-200 text-red-700 font-medium"
+                                            : item.status === 'published'
+                                                ? "bg-blue-50 border-blue-200 text-blue-700 font-medium"
+                                                : "bg-white border-slate-300 text-slate-700 font-medium"
+                                    )}
+                                >
+                                    <span className="truncate w-full block text-center uppercase">{item.storeName}</span>
+
+                                    {/* Violation Indicator */}
+                                    {violation && (
+                                        <span className="flex h-1.5 w-1.5 shrink-0 ml-1">
+                                            <span className="animate-ping absolute inline-flex h-1.5 w-1.5 rounded-full bg-red-400 opacity-75"></span>
+                                            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-500"></span>
+                                        </span>
+                                    )}
+
+                                    {/* Delete Action */}
+                                    {item.status === 'draft' && (
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleRemoveStore(item.id);
+                                            }}
+                                            className="absolute -right-2 -top-2 p-0.5 rounded-full bg-red-600 text-white border border-red-700 opacity-0 group-hover/item:opacity-100 shadow-sm z-50 transition-all hover:bg-red-700 scale-110 cursor-pointer"
+                                        >
+                                            <X className="h-2.5 w-2.5" />
+                                        </button>
+                                    )}
+                                </div>
+                            );
+                        })}
+
+                        {/* Empty State / Add Trigger - Only show if < 2 items AND not published AND no Leave present */}
+                        {!isWeekPublished && filteredItems.length < 2 && !hasLeave && (
+                            <Popover
+                                open={openPopoverId === dropId}
+                                onOpenChange={(isOpen) => {
+                                    if (isOpen) setOpenPopoverId(dropId);
+                                    else setOpenPopoverId(null);
+                                }}
+                            >
+                                <PopoverTrigger asChild>
+                                    <button className={cn(
+                                        "flex-1 m-0.5 min-h-[1.5rem] rounded border border-dashed border-transparent hover:border-slate-300 hover:bg-slate-50 flex items-center justify-center text-slate-300 hover:text-slate-500 transition-all",
+                                        filteredItems.length > 0 ? "h-8 min-h-0 text-xs w-auto" : "flex-1"
+                                    )}>
+                                        <Plus className="h-4 w-4" />
+                                    </button>
+                                </PopoverTrigger>
+                                <PopoverContent className="p-0 w-[300px]" align="start">
+                                    <Command>
+                                        <CommandInput placeholder="Mağaza ara..." autoFocus />
+                                        <CommandList>
+                                            <CommandEmpty>Uygun mağaza bulunamadı.</CommandEmpty>
+                                            <CommandGroup heading="Mağazalar">
+                                                {stores.map((store) => (
+                                                    <CommandItem
+                                                        key={store.id}
+                                                        onSelect={() => {
+                                                            const lastSeparator = dropId.lastIndexOf('___');
+                                                            const auditorId = dropId.substring(0, lastSeparator);
+                                                            const dateStr = dropId.substring(lastSeparator + 3);
+                                                            handleAddStore(auditorId, new Date(dateStr), store.id, store.name);
+                                                            setOpenPopoverId(null);
+                                                        }}
+                                                    >
+                                                        {store.name}
+                                                    </CommandItem>
+                                                ))}
+                                            </CommandGroup>
+                                        </CommandList>
+                                    </Command>
+                                </PopoverContent>
+                            </Popover>
+                        )}
+                    </div>
+                </td>
             </ContextMenuTrigger>
             <ContextMenuContent>
                 <div className="px-2 py-1.5 text-xs font-semibold text-slate-500">
@@ -569,88 +393,6 @@ export default function SchedulePage() {
     const [auditors, setAuditors] = useState<UserProfile[]>([]);
     const [stores, setStores] = useState<Store[]>([]);
     const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
-    const [accommodationTypes, setAccommodationTypes] = useState<AccommodationType[]>([]);
-
-    // Note Dialog State
-    const [noteDialog, setNoteDialog] = useState<{ open: boolean, itemId: string | null, note: string }>({
-        open: false,
-        itemId: null,
-        note: ""
-    });
-
-    const handleSaveNote = async () => {
-        if (!noteDialog.itemId) return;
-
-        // Optimistic Update
-        setSchedule(prev => prev.map(item =>
-            item.id === noteDialog.itemId
-                ? { ...item, note: noteDialog.note }
-                : item
-        ));
-
-        try {
-            const docRef = doc(db, "audit_schedules", noteDialog.itemId);
-            await setDoc(docRef, { note: noteDialog.note }, { merge: true });
-            // toast.success("Not kaydedildi.");
-            setNoteDialog(prev => ({ ...prev, open: false }));
-        } catch (error) {
-            console.error("Error saving note:", error);
-            // toast.error("Not kaydedilemedi.");
-        }
-    };
-
-
-
-
-    // Sidebar Resize State
-    const [sidebarWidth, setSidebarWidth] = useState(500);
-    const [isResizing, setIsResizing] = useState(false);
-
-    // Refs for delta calculation to ensure 1:1 movement without jumps
-    const dragStartRef = useRef<{ x: number, w: number } | null>(null);
-
-    useEffect(() => {
-        const handleMouseMove = (e: MouseEvent) => {
-            if (!isResizing || !dragStartRef.current) return;
-
-            const { x: startX, w: startWidth } = dragStartRef.current;
-
-            // Calculate Delta: How much did the mouse move LEFT?
-            // If moved Left (smaller X), Width should INCREASE.
-            // Delta = StartX - CurrentX
-            const delta = startX - e.clientX;
-
-            let newWidth = startWidth + delta;
-
-            // Constraints
-            if (newWidth < 300) newWidth = 300;
-            if (newWidth > 1200) newWidth = 1200;
-
-            // Snap to default Reference Point (500px) - Increased threshold for better feel
-            if (Math.abs(newWidth - 500) < 30) {
-                newWidth = 500;
-            }
-
-            setSidebarWidth(newWidth);
-        };
-
-        const handleMouseUp = () => {
-            setIsResizing(false);
-            dragStartRef.current = null;
-            document.body.style.cursor = 'default';
-        };
-
-        if (isResizing) {
-            window.addEventListener('mousemove', handleMouseMove);
-            window.addEventListener('mouseup', handleMouseUp);
-            document.body.style.cursor = 'col-resize';
-        }
-
-        return () => {
-            window.removeEventListener('mousemove', handleMouseMove);
-            window.removeEventListener('mouseup', handleMouseUp);
-        };
-    }, [isResizing]);
     const [schedule, setSchedule] = useState<ScheduleItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -666,28 +408,6 @@ export default function SchedulePage() {
         storeId: null,
         storeName: ""
     });
-
-    // Bulk Selection State
-    const [selectedCells, setSelectedCells] = useState<Set<string>>(new Set());
-
-    const handleCellClick = (dropId: string, isMulti: boolean) => {
-        if (!isMulti) {
-            // If Ctrl is not pressed, clear selection completely.
-            // Do not select the current cell either, as requested.
-            setSelectedCells(new Set());
-            return;
-        }
-
-        setSelectedCells(prev => {
-            const newSet = new Set(prev);
-            if (newSet.has(dropId)) {
-                newSet.delete(dropId);
-            } else {
-                newSet.add(dropId);
-            }
-            return newSet;
-        });
-    };
 
     // Calculate week start (Monday)
     const [viewMode, setViewMode] = useState<'week' | 'month'>('week');
@@ -727,14 +447,7 @@ export default function SchedulePage() {
             const auditorsQuery = query(collection(db, "users"), where("role", "==", "denetmen"));
             const auditorsSnap = await getDocs(auditorsQuery);
             const auditorsData = auditorsSnap.docs.map(doc => ({ uid: doc.id, ...doc.data() })) as UserProfile[];
-
-            // Deduplicate by UID just in case
-            const uniqueAuditors = Array.from(new Map(auditorsData.map(item => [item.uid, item])).values());
-
-            // Sort alphabetically
-            uniqueAuditors.sort((a, b) => (a.firstName || '').localeCompare(b.firstName || ''));
-
-            setAuditors(uniqueAuditors);
+            setAuditors(auditorsData);
 
             // 2. Fetch Stores
             const storesSnap = await getDocs(collection(db, "stores"));
@@ -744,14 +457,7 @@ export default function SchedulePage() {
             // 3. Fetch Leave Types
             const leaveTypesSnap = await getDocs(collection(db, "leave_types"));
             const leaveTypesData = leaveTypesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as LeaveType));
-            leaveTypesData.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
             setLeaveTypes(leaveTypesData);
-
-            // 4. Accommodation Types
-            const accSnap = await getDocs(collection(db, "accommodation_types"));
-            const accData = accSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as AccommodationType));
-            accData.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-            setAccommodationTypes(accData);
         } catch (error) {
             console.error("Error fetching static data:", error);
         }
@@ -993,44 +699,14 @@ export default function SchedulePage() {
     };
 
     const handleAddLeave = async (auditorId: string, date: Date, leaveType: LeaveType) => {
-        // 1. DELETE logic is handled below with DB calls.
-        // UI update is handled in single batch at the end.
+        // Validation: Max 2 items per cell (counting leaves too)
+        const existingItemsInCell = schedule.filter(s =>
+            s.auditorId === auditorId &&
+            isSameDay(s.date, date)
+        );
 
-        // Delete from DB in background (Robust Method: Query fresh to ensure nothing is missed)
-        // This fixes the issue where stale local state causes items to persist in DB
-        try {
-            const dayStart = startOfDay(date);
-            // const dayEnd = endOfDay(date);
+        if (existingItemsInCell.length >= 2) return;
 
-            // Query for ANY items for this auditor on this day
-            // We use client-side filtering on a broader query if needed, or composite index
-            // But since we don't know if composite index exists, we can try to rely on the ID if we knew it.
-            // BETTER: Use the existing logic but ensure we catch everything by iterating the PREVIOUS state if possible?
-            // React state setters don't generic callbacks for side effects.
-            // So we will stick to the 'schedule' closure but also try to force a cleanup of the *previous* leave if it exists in DB.
-
-            // To be 100% safe without relying on 'schedule' closure:
-            // Query Firestore: collection('audit_schedules').where('auditorId', '==', auditorId).where('date', '==', Timestamp)
-            // Note: Exact date match might be tricky with Timestamps.
-
-            // Fallback: We will trust 'schedule' but we will also iterate and delete *aggressively*.
-            // The user says "Rapor" comes back. That means it wasn't deleted.
-            const existingItemsInCell = schedule.filter(s =>
-                s.auditorId === auditorId &&
-                isSameDay(s.date, date)
-            );
-
-            for (const item of existingItemsInCell) {
-                if (item.id && !item.id.includes('virtual___')) {
-                    await deleteDoc(doc(db, "audit_schedules", item.id));
-                }
-            }
-
-        } catch (e) {
-            console.error("Error clearing existing items:", e);
-        }
-
-        // 2. Add the NEW leave item
         const id = crypto.randomUUID();
         const newItem: ScheduleItem = {
             id,
@@ -1045,7 +721,7 @@ export default function SchedulePage() {
         };
 
         // Optimistic UI
-        setSchedule(prev => [...prev.filter(s => !(s.auditorId === auditorId && isSameDay(s.date, date))), newItem]);
+        setSchedule(prev => [...prev, newItem]);
 
         try {
             await setDoc(doc(db, "audit_schedules", id), {
@@ -1054,9 +730,7 @@ export default function SchedulePage() {
             });
         } catch (error) {
             console.error("Error adding leave item:", error);
-            // Revert (this is tricky with multiple deletes, but acceptable for now to just re-fetch or leave it)
-            // A perfect revert would need to restore deleted items, but for this use case, 
-            // the user intent is "Replace with Leave", so failure just means "No Leave", which is fine.
+            // Revert
             setSchedule(prev => prev.filter(i => i.id !== id));
         }
     };
@@ -1099,134 +773,15 @@ export default function SchedulePage() {
         const itemToRemove = schedule.find(i => i.id === itemId);
         if (!itemToRemove) return;
 
-        // Optimistic Delete
         setSchedule(prev => prev.filter(item => item.id !== itemId));
 
         try {
             await deleteDoc(doc(db, "audit_schedules", itemId));
-
-
-            const dayOfWeek = itemToRemove.date.getDay();
-            const isWeekend = dayOfWeek === 0 || dayOfWeek === 6; // 0=Sun, 6=Sat
-
-            if (isWeekend) {
-                // Check if any OTHER items remain for this auditor/date? 
-                // Since we just optimistically filtered, we check the *new* state relative to that cell.
-                // Or simpler: Just always block. If there's another item, the block is fine (invisible usually).
-                // But let's be cleaner: Create block only.
-
-                const blockedId = crypto.randomUUID();
-                const blockedItem: ScheduleItem = {
-                    id: blockedId,
-                    auditorId: itemToRemove.auditorId,
-                    date: itemToRemove.date,
-                    storeName: 'BLOCKED',
-                    status: 'draft',
-                    type: 'blocked'
-                };
-
-                // Add block to UI
-                setSchedule(prev => [...prev, blockedItem]);
-
-                // Add block to DB
-                await setDoc(doc(db, "audit_schedules", blockedId), {
-                    ...blockedItem,
-                    date: Timestamp.fromDate(blockedItem.date),
-                    type: 'blocked'
-                });
-            }
-
+            // toast.success("Silindi");
         } catch (error) {
             console.error("Delete error:", error);
-            setSchedule(prev => [...prev, itemToRemove]); // Revert delete
-        }
-    };
-
-
-    const handleRemoveStoreV2 = async (itemId: string) => {
-        // Handle Virtual Default Leave Deletion
-        if (itemId.startsWith('virtual___')) {
-            const parts = itemId.split('___');
-            const audId = parts[1];
-            const dateStr = parts[2];
-            const blockedId = crypto.randomUUID();
-
-            const blockedItem: ScheduleItem = {
-                id: blockedId,
-                auditorId: audId,
-                date: new Date(dateStr),
-                storeName: 'BLOCKED',
-                status: 'draft',
-                type: 'blocked'
-            };
-
-            setSchedule(prev => [...prev, blockedItem]);
-
-            try {
-                await setDoc(doc(db, "audit_schedules", blockedId), {
-                    ...blockedItem,
-                    date: Timestamp.fromDate(blockedItem.date),
-                    type: 'blocked'
-                });
-            } catch (error) {
-                console.error("Error creating blocked item:", error);
-                setSchedule(prev => prev.filter(i => i.id !== blockedId));
-            }
-            return;
-        }
-
-        // Handle Real Item Deletion
-        const itemToRemove = schedule.find(i => i.id === itemId);
-        if (!itemToRemove) return;
-
-        // Prepare Blocking Logic (Atomic)
-        const dayOfWeek = itemToRemove.date.getDay();
-        const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-
-        let blockedItem: ScheduleItem | undefined;
-        let blockedId: string | undefined;
-
-        if (isWeekend) {
-            blockedId = crypto.randomUUID();
-            blockedItem = {
-                id: blockedId,
-                auditorId: itemToRemove.auditorId,
-                date: itemToRemove.date,
-                storeName: 'BLOCKED',
-                status: 'draft',
-                type: 'blocked'
-            };
-        }
-
-        // ATOMIC UI UPDATE: Swap item with block (if needed) in one go
-        setSchedule(prev => {
-            const filtered = prev.filter(item => item.id !== itemId);
-            if (blockedItem) {
-                return [...filtered, blockedItem];
-            }
-            return filtered;
-        });
-
-        try {
-            await deleteDoc(doc(db, "audit_schedules", itemId));
-
-            if (blockedItem && blockedId) {
-                await setDoc(doc(db, "audit_schedules", blockedId), {
-                    ...blockedItem,
-                    date: Timestamp.fromDate(blockedItem.date),
-                    type: 'blocked'
-                });
-            }
-        } catch (error) {
-            console.error("Delete error:", error);
-            // Revert UI if DB fails
-            setSchedule(prev => {
-                let finalState = prev;
-                if (blockedId) {
-                    finalState = finalState.filter(i => i.id !== blockedId);
-                }
-                return [...finalState, itemToRemove];
-            });
+            // toast.error("Silinemedi!");
+            setSchedule(prev => [...prev, itemToRemove]); // Revert
         }
     };
 
@@ -1354,7 +909,6 @@ export default function SchedulePage() {
         // 1. Validation Check (Only for Publish)
         const violations: string[] = [];
         if (actionType === 'publish') {
-            // 1. Existing Violation Checks
             currentWeekItems.forEach(item => {
                 const violation = getViolation(item);
                 if (violation) {
@@ -1362,24 +916,6 @@ export default function SchedulePage() {
                     const msgs = violation.split('\n\n').map(v => v.replace('• ', '').trim());
                     violations.push(...msgs.map(m => `${item.storeName}: ${m}`));
                 }
-            });
-
-            // 2. Empty Day Check (New)
-            // Iterate all auditors and all days in the view
-            auditors.forEach(auditor => {
-                weekDays.forEach(date => {
-                    // Check if this auditor has ANY item (store, leave, or blocked) on this date
-                    const hasItem = currentWeekItems.some(item =>
-                        item.auditorId === auditor.uid &&
-                        isSameDay(item.date, date)
-                    );
-
-                    if (!hasItem) {
-                        const dayName = format(date, "EEEE", { locale: tr });
-                        const dateStr = format(date, "dd MMMM", { locale: tr });
-                        violations.push(`${auditor.firstName} ${auditor.lastName}: ${dateStr} (${dayName}) için hiçbir atama yapılmamış.`);
-                    }
-                });
             });
         }
 
@@ -1420,61 +956,6 @@ export default function SchedulePage() {
         return schedule.filter(item =>
             item.auditorId === auditorId && isSameDay(item.date, date)
         );
-    };
-
-    const handleUpdateScheduleItem = async (itemId: string, updates: Partial<ScheduleItem>) => {
-        // If updating accommodation, we need to sync it with ALL items on the same day for this auditor
-        if ('accommodationTypeId' in updates) {
-            const currentItem = schedule.find(i => i.id === itemId);
-            if (currentItem) {
-                // Find all sibling items (same auditor, same day)
-                const siblingItems = schedule.filter(i =>
-                    i.auditorId === currentItem.auditorId &&
-                    isSameDay(i.date, currentItem.date)
-                );
-
-                // Optimistic Update for ALL siblings
-                setSchedule(prev => prev.map(item =>
-                    (item.auditorId === currentItem.auditorId && isSameDay(item.date, currentItem.date))
-                        ? { ...item, ...updates }
-                        : item
-                ));
-
-                // DB Update for ALL siblings
-                try {
-                    const batchPromises = siblingItems.map(item => {
-                        // Only update if it's a real document (not blocked/virtual if any) - though blocked usually don't have accommodation
-                        // Just in case, check ID format if needed, but standard updateDoc handles existing docs.
-                        if (item.type === 'audit') {
-                            const docRef = doc(db, "audit_schedules", item.id);
-                            // If we are deleting the field (deleteField()), we handle that
-                            return updateDoc(docRef, updates);
-                        }
-                        return Promise.resolve();
-                    });
-                    await Promise.all(batchPromises);
-                } catch (error) {
-                    console.error("Error syncing accommodation type:", error);
-                    toast.error("Konaklama türü güncellenirken hata oluştu.");
-                    // Revert (approximated)
-                    setSchedule(prev => prev.map(item =>
-                        (item.auditorId === currentItem.auditorId && isSameDay(item.date, currentItem.date))
-                            ? { ...item, accommodationTypeId: currentItem.accommodationTypeId } // Revert to old value
-                            : item
-                    ));
-                }
-                return; // Exit early since we handled everything
-            }
-        }
-
-        // Standard update for other fields (like note) or if item not found
-        setSchedule(prev => prev.map(item => item.id === itemId ? { ...item, ...updates } : item));
-        try {
-            const docRef = doc(db, "audit_schedules", itemId);
-            await updateDoc(docRef, updates);
-        } catch (error) {
-            console.error("Error updating schedule item:", error);
-        }
     };
 
     // Helper to color code score
@@ -1696,8 +1177,6 @@ export default function SchedulePage() {
                                             </button>
                                         </div>
                                     </NavigationMenuItem>
-
-
                                 </NavigationMenuList>
                             </NavigationMenu>
 
@@ -1721,37 +1200,38 @@ export default function SchedulePage() {
                             </div>
                         </div>
 
-                        <div className="flex-1 overflow-auto rounded-xl border shadow-sm bg-white/50 backdrop-blur-sm relative scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
-                            <table className={cn("w-full h-full border-separate border-spacing-0 text-sm text-left", viewMode === 'week' ? "table-fixed" : "table-auto min-w-max")}>
-                                <thead className="bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60 sticky top-0 z-40 border-b border-slate-200/60 shadow-sm">
+                        <div className="flex-1 overflow-auto relative [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
+                            <table className={cn("w-full h-full border-collapse text-sm text-left", viewMode === 'week' ? "table-fixed" : "table-auto min-w-max")}>
+                                <thead className="bg-white/80 backdrop-blur-md sticky top-0 z-20 border-b border-slate-200 shadow-sm">
                                     <tr>
-                                        <th className="w-[200px] min-w-[200px] p-4 text-left font-bold text-slate-700 tracking-tight text-sm uppercase bg-slate-50/90 backdrop-blur border-b border-slate-200/60 sticky left-0 z-50 align-middle">
-                                            <span className="text-slate-900">Denetmen</span>
+                                        <th className="p-4 border-b border-r border-slate-100 w-60 sticky left-0 bg-white/95 backdrop-blur z-30 text-center align-middle">
+                                            <span className="text-lg font-extrabold text-slate-800 uppercase tracking-tight">Denetmen</span>
                                         </th>
                                         {weekDays.map((date, i) => {
                                             const isToday = isSameDay(date, new Date());
                                             return (
                                                 <th key={i} className={cn(
-                                                    "min-w-[140px] p-0 font-medium text-slate-500 border-b border-slate-200/60 transition-colors uppercase tracking-wider text-xs",
-                                                    !isSameDay(date, new Date()) && "hover:bg-slate-50/50",
-                                                    isSameDay(date, new Date()) ? "bg-blue-50/40" : ""
+                                                    "p-3 text-center border-b border-r border-slate-100 last:border-r-0 transition-colors",
+                                                    viewMode === 'month' ? "min-w-[100px]" : "w-auto",
+                                                    isToday ? "bg-blue-50/30" : "hover:bg-slate-50/50"
                                                 )}>
-                                                    <div className="flex flex-col items-center justify-center py-4">
+                                                    <div className="flex flex-col items-center gap-1.5">
                                                         <span className={cn(
-                                                            "font-outfit text-sm font-medium mb-1 uppercase tracking-[0.2em]",
-                                                            isToday ? "text-blue-600" : "text-slate-400"
+                                                            "text-xs font-medium uppercase tracking-widest",
+                                                            isToday ? "text-blue-600" : "text-slate-500"
                                                         )}>
                                                             {format(date, "EEEE", { locale: tr })}
                                                         </span>
 
-                                                        <span className={cn(
-                                                            "font-outfit text-3xl font-bold tracking-tight flex items-center justify-center transition-all duration-300",
-                                                            isToday
-                                                                ? "w-11 h-11 rounded-full bg-blue-600 text-white shadow-md shadow-blue-200 text-xl"
-                                                                : "text-slate-700"
-                                                        )}>
-                                                            {format(date, "d")}
-                                                        </span>
+                                                        {isToday ? (
+                                                            <span className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center text-lg font-medium shadow-md shadow-blue-200">
+                                                                {format(date, "d")}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-xl font-light text-slate-700 h-8 flex items-center justify-center">
+                                                                {format(date, "d")}
+                                                            </span>
+                                                        )}
                                                     </div>
                                                 </th>
                                             );
@@ -1771,7 +1251,7 @@ export default function SchedulePage() {
                                     ) : (
                                         auditors.map((auditor) => (
                                             <tr key={auditor.uid} className="group hover:bg-slate-50/30">
-                                                <td className="p-3 border-r sticky left-0 bg-white group-hover:bg-slate-50 transition-colors z-50 border-slate-100">
+                                                <td className="p-3 border-r sticky left-0 bg-white group-hover:bg-slate-50 transition-colors z-10 border-slate-100">
                                                     <div className="flex items-center gap-3">
                                                         <div className="flex-shrink-0 h-8 w-8 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-xs font-semibold text-slate-600">
                                                             {auditor.displayName?.substring(0, 2).toUpperCase() || "DE"}
@@ -1824,18 +1304,12 @@ export default function SchedulePage() {
                                                             setViolationAlert={setViolationAlert}
                                                             setOpenPopoverId={setOpenPopoverId}
                                                             openPopoverId={openPopoverId}
-                                                            handleRemoveStore={handleRemoveStoreV2}
+                                                            handleRemoveStore={handleRemoveStore}
                                                             handleAddStore={handleAddStore}
                                                             stores={stores}
                                                             isWeekPublished={isWeekPublished || isMonthView} // Lock cell in month view
                                                             leaveTypes={leaveTypes}
                                                             handleAddLeave={handleAddLeave}
-                                                            isSelected={selectedCells.has(dropId)}
-                                                            onCellClick={handleCellClick}
-                                                            selectedCells={selectedCells}
-                                                            setNoteDialog={setNoteDialog}
-                                                            accommodationTypes={accommodationTypes}
-                                                            handleUpdateScheduleItem={handleUpdateScheduleItem}
                                                         />
                                                     );
                                                 })}
@@ -1848,37 +1322,8 @@ export default function SchedulePage() {
                     </div>
                 </div>
 
-                {/* Resizer Handle */}
-                <div
-                    className={cn(
-                        "w-4 bg-transparent hover:bg-blue-500/10 cursor-col-resize z-50 flex items-center justify-center transition-colors group/resizer -ml-2 -mr-2 relative rounded-full",
-                        isResizing && "bg-blue-500/20"
-                    )}
-                    onMouseDown={(e) => {
-                        e.preventDefault();
-                        setIsResizing(true);
-                        // Store initial values
-                        dragStartRef.current = {
-                            x: e.clientX,
-                            w: sidebarWidth
-                        };
-                    }}
-                >
-                    <div className={cn(
-                        "w-1 h-8 rounded-full transition-all duration-200",
-                        sidebarWidth === 500
-                            ? "bg-emerald-500 h-16 w-2 shadow-[0_0_15px_rgba(16,185,129,0.6)]" // Thicker green bar for better rounding visibility
-                            : isResizing
-                                ? "bg-blue-600 w-1.5 h-12"
-                                : "bg-slate-300 group-hover/resizer:bg-blue-400"
-                    )} />
-                </div>
-
-                {/* Right: Suggestions Sidebar (Resizable) */}
-                <Card
-                    className="min-h-0 flex flex-col bg-slate-50 dark:bg-slate-900 border overflow-hidden shrink-0 lg:border-l shadow-2xl z-10 transition-[width] duration-0 will-change-[width]"
-                    style={{ width: sidebarWidth }}
-                >
+                {/* Right: Suggestions Sidebar (Fixed width on desktop) */}
+                <Card className="w-full lg:w-[650px] min-h-0 flex flex-col bg-slate-50 dark:bg-slate-900 border overflow-hidden shrink-0 lg:border-l shadow-2xl z-10">
                     {/* Suggestions Sidebar - Redesigned with Tabs */}
                     <div className="flex flex-col h-full w-full bg-white">
 
@@ -1941,7 +1386,7 @@ export default function SchedulePage() {
 
                                         return sorted.map((store, index) => (
                                             <DraggableStoreRow
-                                                key={`${store.suggestionType}-${store.id}-${index}`}
+                                                key={`${store.suggestionType}-${store.id}`}
                                                 store={store}
                                                 auditInfo={getStoreAuditInfo(store.id)}
                                                 index={index}
@@ -1963,7 +1408,7 @@ export default function SchedulePage() {
                                             const suggestionItem = { ...store, suggestionType: 'target' as const };
                                             return (
                                                 <DraggableStoreRow
-                                                    key={`std-${store.id}-${index}`}
+                                                    key={`std-${store.id}`}
                                                     store={suggestionItem}
                                                     auditInfo={getStoreAuditInfo(store.id)}
                                                     index={index}
@@ -2064,42 +1509,12 @@ export default function SchedulePage() {
                     </AlertDialogContent>
                 </AlertDialog>
 
-                {/* Note Dialog */}
-                <Dialog open={noteDialog.open} onOpenChange={(open) => setNoteDialog(prev => ({ ...prev, open }))}>
-                    <DialogContent className="sm:max-w-[425px]">
-                        <DialogHeader>
-                            <DialogTitle className="flex items-center gap-2">
-                                <StickyNote className="h-5 w-5 text-blue-600" />
-                                Not Ekle / Düzenle
-                            </DialogTitle>
-                            <DialogDescription>
-                                Bu planlama için bir not ekleyin. (Örn: Araç ile gidilecek)
-                            </DialogDescription>
-                        </DialogHeader>
-                        <div className="grid gap-4 py-4">
-                            <Textarea
-                                id="note"
-                                placeholder="Notunuzu buraya yazın..."
-                                value={noteDialog.note}
-                                onChange={(e) => setNoteDialog(prev => ({ ...prev, note: e.target.value }))}
-                                className="col-span-3 min-h-[100px]"
-                            />
-                        </div>
-                        <DialogFooter>
-                            <Button onClick={handleSaveNote} className="bg-blue-600 hover:bg-blue-700 text-white">Kaydet</Button>
-                        </DialogFooter>
-                    </DialogContent>
-                </Dialog>
-
-
-
                 {/* Audit History Dialog */}
                 <StoreAuditHistoryDialog
                     open={historyDialogState.open}
                     onOpenChange={(open) => setHistoryDialogState(prev => ({ ...prev, open }))}
                     storeId={historyDialogState.storeId}
                     storeName={historyDialogState.storeName}
-                    auditors={auditors}
                 />
             </div >
 

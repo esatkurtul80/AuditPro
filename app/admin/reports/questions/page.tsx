@@ -20,7 +20,7 @@ import { Audit } from "@/lib/types";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { DataTable } from "@/components/ui/data-table";
-import { ColumnDef } from "@tanstack/react-table";
+import { ColumnDef, Row, Column } from "@tanstack/react-table";
 import { DataTableFacetedFilter } from "@/components/ui/data-table-faceted-filter";
 import { Input } from "@/components/ui/input";
 import { Search } from "lucide-react";
@@ -273,22 +273,22 @@ export default function QuestionAnalysisPage() {
         {
             accessorKey: "sectionName",
             meta: { title: "Bölüm" },
-            header: ({ column }: { column: any }) => <DataTableColumnHeader column={column} title="Bölüm" showFilter={true} />,
+            header: ({ column }: { column: Column<QuestionStats> }) => <DataTableColumnHeader column={column} title="Bölüm" showFilter={true} />,
             cell: ({ row }) => <div className="text-muted-foreground text-xs whitespace-nowrap font-medium">{row.original.sectionName}</div>,
-            filterFn: (row, id, value) => {
+            filterFn: (row: Row<QuestionStats>, id: string, value: string[]) => {
                 return Array.isArray(value) && value.includes(row.getValue(id));
             },
         },
         {
             accessorKey: "text",
             meta: { title: "Soru Metni" },
-            header: ({ column }: { column: any }) => <DataTableColumnHeader column={column} title="Soru Metni" showFilter={true} />,
+            header: ({ column }: { column: Column<QuestionStats> }) => <DataTableColumnHeader column={column} title="Soru Metni" showFilter={true} />,
             cell: ({ row }) => (
                 <div className="font-medium text-xs md:text-sm whitespace-normal break-words min-w-[400px] max-w-[700px]">
                     {row.original.text}
                 </div>
             ),
-            filterFn: (row, id, value) => {
+            filterFn: (row: Row<QuestionStats>, id: string, value: string[]) => {
                 return Array.isArray(value) && value.includes(row.getValue(id));
             },
         },
