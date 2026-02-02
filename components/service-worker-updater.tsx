@@ -51,11 +51,10 @@ export function ServiceWorkerUpdater() {
             }
         };
 
-        // Check immediately and every 5 minutes
+        // Check immediately on mount (only once)
         checkVersion();
-        const interval = setInterval(checkVersion, 5 * 60 * 1000);
-
-        return () => clearInterval(interval);
+        
+        // Removed periodic check as per user request
 
     }, []);
 

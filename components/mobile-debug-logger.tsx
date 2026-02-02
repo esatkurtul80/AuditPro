@@ -54,19 +54,22 @@ export function MobileDebugLogger({ open, onClose }: MobileDebugLoggerProps) {
                 )
                 .join(" ");
 
-            setLogs((prev) => {
-                const newLogs = [
-                    ...prev,
-                    {
-                        timestamp: new Date(),
-                        level,
-                        message,
-                        data: args.length > 0 ? args : undefined,
-                    },
-                ];
-                // Keep only last 100 logs
-                return newLogs.slice(-100);
-            });
+            // Defer update to avoid "Cannot update during render" error
+            setTimeout(() => {
+                setLogs((prev) => {
+                    const newLogs = [
+                        ...prev,
+                        {
+                            timestamp: new Date(),
+                            level,
+                            message,
+                            data: args.length > 0 ? args : undefined,
+                        },
+                    ];
+                    // Keep only last 100 logs
+                    return newLogs.slice(-100);
+                });
+            }, 0);
         };
 
         // Override console methods
