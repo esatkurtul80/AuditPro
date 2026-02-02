@@ -114,7 +114,7 @@ export function DashboardLayout({ children, forceStoreLayout }: { children: Reac
                 </div>
 
                 {/* Page Content */}
-                <div className="h-[calc(100vh-64px)] lg:h-[calc(100vh-64px)] overflow-y-auto overscroll-y-contain pb-20 lg:pb-0">
+                <div id="main-content-scroll-area" className="h-[calc(100vh-64px)] lg:h-[calc(100vh-64px)] overflow-y-auto overscroll-y-contain pb-20 lg:pb-0">
                     {children}
                 </div>
 

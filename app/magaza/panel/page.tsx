@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useLayoutEffect } from "react";
 import { StoreHomeView } from "@/components/store/store-home-view";
 import { StoreReportsView } from "@/components/store/store-reports-view";
 import { StoreNotificationsView } from "@/components/store/store-notifications-view";
@@ -15,9 +15,19 @@ export default function StoreDashboardView() {
     const { userProfile } = useAuth();
     const [unreadCount, setUnreadCount] = useState(0);
 
-    // Scroll to top on tab change
-    useEffect(() => {
-        window.scrollTo({ top: 0, behavior: 'instant' });
+    // Scroll to top INSTANTLY on tab change
+    // useLayoutEffect ensures this runs BEFORE the browser paints the new screen
+    useLayoutEffect(() => {
+        // 1. Try scrolling the specific layout container (Primary Fix)
+        const scrollContainer = document.getElementById('main-content-scroll-area');
+        if (scrollContainer) {
+            scrollContainer.scrollTop = 0;
+        }
+        
+        // 2. Fallback to window/body scroll
+        window.scrollTo(0, 0);
+        document.body.scrollTop = 0; 
+        document.documentElement.scrollTop = 0;
     }, [activeTab]);
 
     // Track unread notifications for badge
