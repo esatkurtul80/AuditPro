@@ -27,6 +27,7 @@ import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { NotificationFeed } from "@/components/announcements/notification-feed";
 
 // Helper function to calculate days excluding Sundays
 const calculateDaysExcludingSundays = (fromDate: Date, toDate: Date): number => {
@@ -280,6 +281,11 @@ export default function MagazaPage() {
                         <p className="text-muted-foreground mt-2">
                             Mağazanız için aksiyon gerektiren denetimler
                         </p>
+                    </div>
+
+                    {/* Notifications */}
+                    <div className="mb-6">
+                        <NotificationFeed />
                     </div>
 
                     {/* Urgent notification */}

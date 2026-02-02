@@ -23,6 +23,12 @@ import {
     BarChart3,
     LogOut,
     Menu,
+    CalendarDays,
+    CalendarOff,
+    Home,
+    Clock,
+    AlertCircle,
+    CheckCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -34,7 +40,7 @@ export function MainNav() {
         { href: "/admin/dashboard", label: "Panel", icon: LayoutDashboard },
         { href: "/admin/users", label: "Kullanıcılar", icon: Users },
         { href: "/admin/stores", label: "Mağazalar", icon: Store },
-        { href: "/admin/actions", label: "Aksiyonlar", icon: CheckSquare },
+        // { href: "/admin/actions", label: "Aksiyonlar", icon: CheckSquare }, // Moved to Dropdown
         { href: "/admin/reports/stores", label: "Raporlar", icon: BarChart3 },
     ];
 
@@ -91,6 +97,74 @@ export function MainNav() {
                                     </Link>
                                 );
                             })}
+
+                            {/* Aksiyonlar Dropdown */}
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button
+                                        variant={pathname.startsWith("/admin/actions") ? "default" : "ghost"}
+                                        size="sm"
+                                        className="gap-2"
+                                    >
+                                        <CheckSquare className="h-4 w-4" />
+                                        Aksiyonlar
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                    <DropdownMenuItem asChild>
+                                        <Link href="/admin/actions?tab=pending_store" className="flex items-center gap-2">
+                                            <Clock className="h-4 w-4" />
+                                            Dönüş Yapmayanlar
+                                        </Link>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem asChild>
+                                        <Link href="/admin/actions?tab=pending_admin" className="flex items-center gap-2">
+                                            <AlertCircle className="h-4 w-4" />
+                                            Onay Bekleyenler
+                                        </Link>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem asChild>
+                                        <Link href="/admin/actions?tab=approved" className="flex items-center gap-2">
+                                            <CheckCircle className="h-4 w-4" />
+                                            Onaylananlar
+                                        </Link>
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+
+                            {/* Denetim Programı Dropdown */}
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button
+                                        variant={pathname.startsWith("/admin/schedule") ? "default" : "ghost"}
+                                        size="sm"
+                                        className="gap-2"
+                                    >
+                                        <CalendarDays className="h-4 w-4" />
+                                        Denetim Programı
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                    <DropdownMenuItem asChild>
+                                        <Link href="/admin/schedule" className="flex items-center gap-2">
+                                            <CalendarDays className="h-4 w-4" />
+                                            Program
+                                        </Link>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem asChild>
+                                        <Link href="/admin/schedule/leave-types" className="flex items-center gap-2">
+                                            <CalendarOff className="h-4 w-4" />
+                                            İzin Türleri
+                                        </Link>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem asChild>
+                                        <Link href="/admin/schedule/accommodation-types" className="flex items-center gap-2">
+                                            <Home className="h-4 w-4" />
+                                            Konaklama Türleri
+                                        </Link>
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
 
                             {/* Denetim Dropdown */}
                             <DropdownMenu>

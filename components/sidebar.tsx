@@ -21,6 +21,7 @@ import {
     CheckCircle,
     XCircle,
     CalendarDays,
+    Calendar,
     Hotel,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -43,41 +44,24 @@ function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar }: 
     const searchParams = useSearchParams();
     const [isAuditMenuOpen, setIsAuditMenuOpen] = useState(false);
     const [isDenetmenAuditMenuOpen, setIsDenetmenAuditMenuOpen] = useState(false);
+    const [isProgramMenuOpen, setIsProgramMenuOpen] = useState(false);
     const [isActionsMenuOpen, setIsActionsMenuOpen] = useState(false);
     const [isReportsMenuOpen, setIsReportsMenuOpen] = useState(false);
     const [isScheduleMenuOpen, setIsScheduleMenuOpen] = useState(false);
     const [unreadCount, setUnreadCount] = useState(0);
 
-    // Close submenus when sidebar is collapsed
-    useEffect(() => {
-        if (isCollapsed) {
-            setIsAuditMenuOpen(false);
-            setIsDenetmenAuditMenuOpen(false);
-            setIsActionsMenuOpen(false);
-            setIsReportsMenuOpen(false);
-            setIsScheduleMenuOpen(false);
-        }
-    }, [isCollapsed]);
+    // Define links and active states FIRST  
+    const auditSubLinks = [
+        { href: "/admin/audit-types", label: "Denetim Formları", icon: LayoutList },
+        { href: "/admin/sections", label: "Denetim Bölümleri", icon: ClipboardList },
+        { href: "/admin/questions", label: "Denetim Soruları", icon: FileQuestion },
+    ];
 
-    useEffect(() => {
-        if (userProfile?.uid) {
-            const notifQuery = query(
-                collection(db, "notifications"),
-                where("userId", "==", userProfile.uid),
-                where("read", "==", false)
-            );
-            const unsubscribe = onSnapshot(notifQuery, (snapshot) => {
-                setUnreadCount(snapshot.docs.length);
-            });
-            return () => unsubscribe();
-        }
-    }, [userProfile]);
-
-    const adminLinks = [
-        { href: "/admin/dashboard", label: "Panel", icon: LayoutDashboard },
-        { href: "/admin/users", label: "Kullanıcılar", icon: Users },
-        { href: "/admin/stores", label: "Mağazalar", icon: Store },
-        { href: "/admin/cop-kutusu", label: "Çöp Kutusu", icon: Trash2 },
+    const reportsSubLinks = [
+        { href: "/admin/reports/puan-raporu", label: "Puan Raporu", icon: BarChart3 },
+        { href: "/admin/reports/questions", label: "Soru Raporları", icon: FileQuestion },
+        { href: "/admin/reports/auditor-performance", label: "Denetçi Performansı", icon: Users },
+        { href: "/admin/reports/auditor-timesheet", label: "Denetmen Puantajı", icon: Calendar },
     ];
 
     const scheduleSubLinks = [
@@ -86,32 +70,18 @@ function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar }: 
         { href: "/admin/schedule/accommodation-types", label: "Konaklama Türleri", icon: Hotel },
     ];
 
-    const auditSubLinks = [
-        { href: "/admin/questions", label: "Sorular", icon: FileQuestion },
-        { href: "/admin/sections", label: "Bölümler", icon: LayoutList },
-        { href: "/admin/audit-types", label: "Denetim Formları", icon: ClipboardList },
-    ];
-
-    const reportsSubLinks = [
-        { label: "Puan Raporu", icon: BarChart3, href: "/admin/reports/puan-raporu" },
-        { label: "Mağaza Raporu", icon: BarChart3 },
-        { label: "Mağaza Aksiyon Raporu", icon: BarChart3 },
-        { label: "Tekrarlanan Eksik Raporu", icon: BarChart3 },
-        { label: "Bölge Bazlı Rapor", icon: BarChart3 },
-        { label: "Soru Analiz Raporu", icon: BarChart3, href: "/admin/reports/questions" },
-        { label: "Pareto Analiz Raporu", icon: BarChart3 },
-        { label: "Düzenleyici Faaliyet Raporu", icon: BarChart3 },
-        { label: "Denetçi Performans Raporu", icon: BarChart3, href: "/admin/reports/auditor-performance" },
-    ];
-
     const actionsSubLinks = [
         { href: "/admin/actions?tab=pending_store", label: "Dönüş Yapmayanlar", icon: XCircle },
-        { href: "/admin/actions?tab=pending_admin", label: "Onay Bekleyenler", icon: PlayCircle }, // Using PlayCircle as a placeholder for waiting
+        { href: "/admin/actions?tab=pending_admin", label: "Onay Bekleyenler", icon: PlayCircle },
         { href: "/admin/actions?tab=approved", label: "Onaylananlar", icon: CheckCircle },
     ];
 
     const denetmenLinks = [
         { href: "/denetmen/panel", label: "Panel", icon: LayoutDashboard },
+    ];
+
+    const programSubLinks = [
+        { href: "/denetmen/program/haftalik", label: "Denetim Programı", icon: CalendarDays },
     ];
 
     const denetimSubLinks = [
@@ -135,6 +105,70 @@ function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar }: 
     const isDenetmenAuditSectionActive = denetimSubLinks.some(
         link => pathname === link.href || pathname.startsWith(link.href + '/')
     );
+
+    const isProgramSectionActive = programSubLinks.some(
+        link => pathname === link.href || pathname.startsWith(link.href + '/')
+    );
+
+    // Close submenus when sidebar is collapsed
+    useEffect(() => {
+        if (isCollapsed) {
+            setIsAuditMenuOpen(false);
+            setIsDenetmenAuditMenuOpen(false);
+            setIsProgramMenuOpen(false);
+            setIsActionsMenuOpen(false);
+            setIsReportsMenuOpen(false);
+            setIsScheduleMenuOpen(false);
+        }
+    }, [isCollapsed]);
+
+    // Auto-open menus based on active path
+    useEffect(() => {
+        if (isAuditSectionActive) {
+            setIsAuditMenuOpen(true);
+        }
+        if (isDenetmenAuditSectionActive) {
+            setIsDenetmenAuditMenuOpen(true);
+        }
+        if (isProgramSectionActive) {
+            setIsProgramMenuOpen(true);
+        }
+        // Auto-open Actions menu if on any actions page
+        if (pathname.startsWith('/admin/actions')) {
+            setIsActionsMenuOpen(true);
+        }
+
+        // Auto-open Reports menu if on any reports page
+        if (pathname.startsWith('/admin/reports')) {
+            setIsReportsMenuOpen(true);
+        }
+
+        // Auto-open Schedule menu if on any schedule page
+        if (pathname.startsWith('/admin/schedule') || pathname.startsWith('/admin/create-auditor-schedule')) {
+            setIsScheduleMenuOpen(true);
+        }
+    }, [pathname, isAuditSectionActive, isDenetmenAuditSectionActive, isProgramSectionActive]);
+
+    useEffect(() => {
+        if (userProfile?.uid) {
+            const notifQuery = query(
+                collection(db, "notifications"),
+                where("userId", "==", userProfile.uid),
+                where("read", "==", false)
+            );
+            const unsubscribe = onSnapshot(notifQuery, (snapshot) => {
+                setUnreadCount(snapshot.docs.length);
+            });
+            return () => unsubscribe();
+        }
+    }, [userProfile]);
+
+    const adminLinks = [
+        { href: "/admin/dashboard", label: "Panel", icon: LayoutDashboard },
+        { href: "/admin/users", label: "Kullanıcılar", icon: Users },
+        { href: "/admin/stores", label: "Mağazalar", icon: Store },
+        { href: "/admin/cop-kutusu", label: "Çöp Kutusu", icon: Trash2 },
+    ];
 
     return (
         <div className={cn("flex flex-col h-screen border-r bg-gradient-to-b from-slate-50 to-white dark:from-slate-950 dark:to-slate-900 transition-all duration-500", className)}>
@@ -570,6 +604,31 @@ function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar }: 
                                 );
                             })}
 
+                            {/* Denetim Programı Single Button */}
+                            <Link href="/denetmen/program/haftalik" onClick={onLinkClick} title={isCollapsed ? "Denetim Programı" : undefined}>
+                                <div
+                                    className={cn(
+                                        "w-full h-11 px-4 font-medium transition-all duration-500 flex items-center rounded-md cursor-pointer",
+                                        isCollapsed ? "justify-center px-2" : "justify-start",
+                                        pathname.startsWith("/denetmen/program")
+                                            ? "bg-blue-600 text-white hover:bg-blue-700 shadow-md shadow-blue-500/20"
+                                            : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100"
+                                    )}
+                                >
+                                    <CalendarDays className={cn(
+                                        "h-5 w-5 transition-transform duration-500 shrink-0",
+                                        pathname.startsWith("/denetmen/program") && "scale-110"
+                                    )} />
+                                    <span className={cn(
+                                        "text-sm whitespace-nowrap transition-all duration-500 ease-in-out overflow-hidden origin-left",
+                                        isCollapsed ? "max-w-0 opacity-0 ml-0" : "max-w-[200px] opacity-100 ml-3"
+                                    )}>
+                                        Denetim Programı
+                                    </span>
+                                </div>
+                            </Link>
+
+                            {/* Denetimlerim Dropdown */}
                             <div className="space-y-1">
                                 <Button
                                     variant="ghost"

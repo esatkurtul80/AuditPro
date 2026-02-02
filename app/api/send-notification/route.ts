@@ -18,11 +18,69 @@ export async function POST(req: Request) {
         const messaging = adminMessaging();
         const db = adminDb();
 
-        const { title, message, userIds, url } = await req.json();
+        const body = await req.json();
+        const { title, message, url, recipients, userIds: legacyUserIds } = body;
 
-        if (!title || !message || !userIds || !Array.isArray(userIds) || userIds.length === 0) {
-            return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+        // Validate: Need either userIds (legacy) or recipients
+        let targetUserIds: string[] = [];
+        
+        if (!title || !message) {
+             return NextResponse.json({ error: "Missing required fields (title, message)" }, { status: 400 });
         }
+
+        // --- RESOLVE RECIPIENTS IF PROVIDED ---
+        if (recipients && Array.isArray(recipients)) {
+             const resolvedIds = new Set<string>();
+             
+             for (const recipient of recipients) {
+                if (recipient.type === "user") {
+                    resolvedIds.add(recipient.id);
+                } else if (recipient.type === "role_group") {
+                     let role = "";
+                     if (recipient.value === "denetmen") role = "denetmen";
+                     if (recipient.value === "magaza") role = "magaza";
+                     if (recipient.value === "bolge-muduru") role = "bolge-muduru";
+                     if (recipient.value === "admin") role = "admin";
+
+                     if (role) {
+                         const snap = await db.collection("users").where("role", "==", role).get();
+                         snap.forEach(d => resolvedIds.add(d.id));
+                     } else if (recipient.value === "all") {
+                         const snap = await db.collection("users").get();
+                         snap.forEach(d => resolvedIds.add(d.id));
+                     }
+                } else if (recipient.type === "store") {
+                     const snap = await db.collection("users").where("storeId", "==", recipient.id).get();
+                     snap.forEach(d => resolvedIds.add(d.id));
+                } else if (recipient.id.startsWith("city_")) {
+                     // Resolve stores in city, then users
+                     const storeSnap = await db.collection("stores").where("city", "==", recipient.value).get();
+                     const storeIds = storeSnap.docs.map(d => d.id);
+                     if (storeIds.length > 0) {
+                         // Firestore in query limited to 10/30. Better to just query users via storeId if valid?
+                         // Or query users where role=magaza and filter?
+                         // Admin SDK can filter manually faster.
+                         const usersSnap = await db.collection("users").where("role", "==", "magaza").get();
+                         usersSnap.forEach(d => {
+                             const data = d.data();
+                             if (storeIds.includes(data.storeId)) {
+                                 resolvedIds.add(d.id);
+                             }
+                         });
+                     }
+                }
+             }
+             targetUserIds = Array.from(resolvedIds);
+        } else if (legacyUserIds && Array.isArray(legacyUserIds)) {
+            targetUserIds = legacyUserIds;
+        }
+
+        if (targetUserIds.length === 0) {
+             return NextResponse.json({ message: "No target users found" }); // Not an error, just empty
+        }
+
+        const userIds = targetUserIds; // Alias for rest of logic
+
 
         // 1. Fetch tokens for users
         const tokens: string[] = [];

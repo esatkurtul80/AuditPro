@@ -1034,31 +1034,31 @@ export function AuditSummary({ audit }: AuditSummaryProps) {
       </Card>
 
       <Tabs defaultValue="all" value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="w-full">
-        <div className="flex items-center justify-between mb-6 gap-4 flex-wrap">
-          <TabsList className="grid grid-cols-3 h-auto p-1 bg-slate-100 dark:bg-slate-900 rounded-xl flex-1 min-w-[280px]">
-            <TabsTrigger
+        <div className="flex flex-col sm:flex-row items-center justify-between mb-6 gap-4">
+          <TabsList className="grid w-full grid-cols-3 !h-auto p-1 bg-muted rounded-xl">
+             <TabsTrigger
               value="all"
-              className="flex flex-col sm:flex-row items-center gap-1.5 py-3 px-2 rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-sm transition-all text-slate-500 dark:text-slate-400 data-[state=active]:text-slate-900 dark:data-[state=active]:text-white"
+              className="flex items-center justify-center gap-2 py-3 px-2 rounded-lg data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm transition-all"
             >
               <FileText className="h-4 w-4" />
-              <span className="font-semibold text-xs sm:text-sm">Tüm Sorular</span>
-              <Badge variant="secondary" className="ml-1 font-bold">{getCount('all')}</Badge>
+              <span className="font-semibold text-xs sm:text-sm truncate">Tümü</span>
+              <Badge variant="secondary" className="ml-1 px-1.5 py-0.5 text-[10px] sm:text-xs">{getCount('all')}</Badge>
             </TabsTrigger>
             <TabsTrigger
               value="incomplete"
-              className="flex flex-col sm:flex-row items-center gap-1.5 py-3 px-2 rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-sm transition-all text-slate-500 dark:text-slate-400 data-[state=active]:text-slate-900 dark:data-[state=active]:text-white"
+              className="flex items-center justify-center gap-2 py-3 px-2 rounded-lg data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm transition-all"
             >
               <XCircle className="h-4 w-4" />
-              <span className="font-semibold text-xs sm:text-sm">Eksikler</span>
-              <Badge variant="destructive" className="ml-1 font-bold">{getCount('incomplete')}</Badge>
+              <span className="font-semibold text-xs sm:text-sm truncate">Eksikler</span>
+              <Badge variant="destructive" className="ml-1 px-1.5 py-0.5 text-[10px] sm:text-xs">{getCount('incomplete')}</Badge>
             </TabsTrigger>
             <TabsTrigger
               value="incomplete-notes"
-              className="flex flex-col sm:flex-row items-center gap-1.5 py-3 px-2 rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-sm transition-all text-slate-500 dark:text-slate-400 data-[state=active]:text-slate-900 dark:data-[state=active]:text-white"
+              className="flex items-center justify-center gap-2 py-3 px-2 rounded-lg data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm transition-all"
             >
               <AlertCircle className="h-4 w-4" />
-              <span className="font-semibold text-xs sm:text-sm">Notlular</span>
-              <Badge variant="outline" className="ml-1 font-bold">{getCount('incomplete-notes')}</Badge>
+              <span className="font-semibold text-xs sm:text-sm truncate">Notlular</span>
+              <Badge variant="outline" className="ml-1 px-1.5 py-0.5 text-[10px] sm:text-xs">{getCount('incomplete-notes')}</Badge>
             </TabsTrigger>
           </TabsList>
 

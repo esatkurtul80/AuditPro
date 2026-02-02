@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Sidebar } from "@/components/sidebar";
 import { TopHeader } from "@/components/top-header";
 import { HeaderActions } from "@/components/header-actions";
@@ -8,11 +8,33 @@ import { Button } from "@/components/ui/button";
 import { Menu, X } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
 import { FloatingActionButton } from "@/components/floating-action-button";
+import { usePathname } from "next/navigation";
+import { MobileDebugLogger } from "@/components/mobile-debug-logger";
 
 export function DashboardLayout({ children, forceStoreLayout }: { children: React.ReactNode, forceStoreLayout?: boolean }) {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
     const { userProfile, loading } = useAuth();
+    const pathname = usePathname();
+    
+    // Mobile Debug Logger activation (10 taps)
+    const [tapCount, setTapCount] = useState(0);
+    const [showDebugger, setShowDebugger] = useState(false);
+    const tapTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
+
+    const handleLogoTap = () => {
+        if (tapTimeoutRef.current) {
+            clearTimeout(tapTimeoutRef.current);
+        }
+        const newCount = tapCount + 1;
+        setTapCount(newCount);
+        if (newCount >= 10) {
+            setShowDebugger(true);
+            setTapCount(0);
+        } else {
+            tapTimeoutRef.current = setTimeout(() => setTapCount(0), 3000);
+        }
+    };
 
     // Determine if we should show store layout (no hamburger, no sidebar overlay on mobile)
     // Only consider not a store user if loading is done and we confirm it
@@ -25,7 +47,7 @@ export function DashboardLayout({ children, forceStoreLayout }: { children: Reac
     const mainPadding = isSidebarCollapsed ? "lg:pl-[70px]" : "lg:pl-64";
 
     return (
-        <div className="min-h-screen bg-background pb-16 lg:pb-0">
+        <div className="h-screen overflow-hidden bg-background">
             {/* Desktop Sidebar - Fixed Position */}
             <aside className={`hidden lg:fixed lg:inset-y-0 lg:left-0 lg:z-50 lg:flex ${sidebarWidth} lg:flex-col transition-all duration-300`}>
                 <Sidebar
@@ -46,8 +68,12 @@ export function DashboardLayout({ children, forceStoreLayout }: { children: Reac
                         )}
                     </div>
 
-                    {/* Center: Logo (Always Centered) */}
-                    <div className="absolute left-1/2 -translate-x-1/2 pointer-events-none">
+                    {/* Center: Logo (Always Centered) - Tap 10x for Debug Logger */}
+                    <div 
+                        className="absolute left-1/2 -translate-x-1/2 cursor-pointer select-none"
+                        onClick={handleLogoTap}
+                        onTouchEnd={(e) => { e.preventDefault(); handleLogoTap(); }}
+                    >
                         <span className="text-2xl font-playwrite-norge text-black dark:text-white">AuditPro</span>
                     </div>
 
@@ -88,13 +114,16 @@ export function DashboardLayout({ children, forceStoreLayout }: { children: Reac
                 </div>
 
                 {/* Page Content */}
-                <div className="min-h-screen">
+                <div className="h-[calc(100vh-64px)] lg:h-[calc(100vh-64px)] overflow-y-auto overscroll-y-contain pb-20 lg:pb-0">
                     {children}
                 </div>
 
-                {/* Role-specific Floating Button */}
-                {userProfile?.role === "denetmen" && <FloatingActionButton />}
+                {/* Role-specific Floating Button - Show if denetmen OR if loading and we think it's denetmen route */}
+                {(userProfile?.role === "denetmen" || (loading && pathname?.startsWith("/denetmen"))) && <FloatingActionButton />}
             </main>
+            
+            {/* Mobile Debug Logger Modal */}
+            <MobileDebugLogger open={showDebugger} onClose={() => setShowDebugger(false)} />
         </div>
     );
 }

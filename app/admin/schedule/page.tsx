@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
-    CalendarDays, Save, Send, ChevronLeft, ChevronRight, Search, Sparkles, ChevronDown
+    CalendarDays, Save, Send, ChevronLeft, ChevronRight, Search, Sparkles, ChevronDown, Ban
 } from "lucide-react";
 import {
     NavigationMenu,
@@ -14,15 +14,14 @@ import {
     NavigationMenuList,
     NavigationMenuTrigger,
 } from "@/components/ui/navigation-menu";
-import {
-    format, addDays, startOfWeek, endOfWeek, isSameDay, subWeeks, addWeeks, startOfDay,
-    addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, differenceInDays, isSameMonth, subDays, getISOWeek
-} from "date-fns";
+import { startOfWeek, endOfWeek, eachDayOfInterval, format, isSameDay, addDays, startOfMonth, endOfMonth, startOfDay, subWeeks, addWeeks, subMonths, addMonths, differenceInDays, isBefore, subDays, getISOWeek } from "date-fns";
 import { tr } from "date-fns/locale";
-import { collection, query, where, getDocs, doc, setDoc, deleteDoc, updateDoc, Timestamp, deleteField } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { Timestamp, collection, doc, getDocs, query, setDoc, where, deleteDoc, updateDoc, deleteField } from "firebase/firestore";
+import { db } from "@/lib/firebase"; // Adjust path as needed
 import { UserProfile, Store } from "@/lib/types";
 import { toast } from "sonner";
+
+
 import {
     Popover,
     PopoverContent,
@@ -72,6 +71,7 @@ import {
     ContextMenuSeparator,
 } from "@/components/ui/context-menu";
 import { StoreAuditHistoryDialog } from "@/components/admin/schedule/store-audit-history-dialog";
+import { StoreSelectorDialog } from "@/components/admin/schedule/add-store-dialog";
 import {
     Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
     DialogTrigger,
@@ -79,10 +79,23 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import {
     Info, Calendar as CalendarIcon, ClipboardList, StickyNote, Hotel,
-    Plus, Pencil, Trash2, X, Check
+    Plus, Pencil, Trash2, X, Check, RefreshCw
 } from "lucide-react";
 import { LeaveType, AccommodationType } from "@/lib/types";
 import { ACCOMMODATION_ICONS } from "@/lib/constants";
+
+// Robust UUID Generator (Polyfill)
+function generateUUID() {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+        return crypto.randomUUID();
+    }
+    // Fallback for environments where crypto.randomUUID is not available
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        const r = Math.random() * 16 | 0;
+        const v = c === 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+    });
+}
 
 // Interface for a schedule item
 interface ScheduleItem {
@@ -96,7 +109,7 @@ interface ScheduleItem {
     leaveTypeId?: string;
     leaveColor?: string;
     note?: string;
-    accommodationTypeId?: string;
+    accommodationTypeId?: string | null;
 }
 
 type SuggestionItem = Store & { suggestionType: 'target' | 'repeat' | 'new'; lastScore?: number };
@@ -228,7 +241,8 @@ function DroppableCell({
     selectedCells,
     setNoteDialog,
     accommodationTypes,
-    handleUpdateScheduleItem
+    handleUpdateScheduleItem,
+    onStoreAction
 }: {
     dropId: string;
     isToday: boolean;
@@ -238,7 +252,7 @@ function DroppableCell({
     setOpenPopoverId: (id: string | null) => void;
     openPopoverId: string | null;
     handleRemoveStore: (id: string) => Promise<void>;
-    handleAddStore: (auditorId: string, date: Date, storeId: string, storeName: string) => Promise<void>;
+    handleAddStore: (auditorId: string, date: Date, storeId: string, storeName: string, accommodationTypeId?: string | null) => Promise<void>;
     stores: Store[];
     isWeekPublished: boolean;
     leaveTypes: LeaveType[];
@@ -249,13 +263,14 @@ function DroppableCell({
     setNoteDialog: (state: { open: boolean, itemId: string | null, note: string }) => void;
     accommodationTypes: AccommodationType[];
     handleUpdateScheduleItem: (itemId: string, updates: Partial<ScheduleItem>) => Promise<void>;
+    onStoreAction: (action: 'add' | 'change' | 'replace_leave', date: Date, auditorId: string, item?: ScheduleItem) => void;
 }) {
     // Filter out blocked items for display
     const filteredItems = rawItems.filter(i => i.type !== 'blocked');
     const hasLeave = filteredItems.some(i => i.type === 'leave');
     const { setNodeRef, isOver } = useDroppable({
         id: dropId,
-        disabled: isWeekPublished || hasLeave
+        disabled: hasLeave // Unlock for published week (was: isWeekPublished || hasLeave)
     });
 
     const handleContextMenuAddLeave = async (leaveType: LeaveType) => {
@@ -285,6 +300,8 @@ function DroppableCell({
                 isOver && "bg-blue-50/80 ring-2 ring-blue-100 ring-inset"
             )}
             onClick={(e) => {
+                const isPublishedContext = isWeekPublished || filteredItems.some(i => i.status === 'published');
+                if (isPublishedContext) return;
                 // Prevent triggering when clicking inside popover or existing item if needed, 
                 // but usually cell click is fine.
                 // Check for modifier key (Ctrl or Meta/Command)
@@ -375,10 +392,15 @@ function DroppableCell({
                                         ? "bg-blue-50 border-blue-200 text-blue-700 font-medium"
                                         : "bg-white border-slate-300 text-slate-700 font-medium"
                             )}
+                            onContextMenu={(e) => {
+                                // Prevent default context menu to allow our custom one
+                                // But Radix ContextMenu handles this via trigger.
+                                // Just ensuring no native menu interferes if needed.
+                            }}
                         >
-                            <div className="flex items-center gap-1 min-w-0">
+                            <div className="flex items-center justify-center gap-1 min-w-0 flex-1">
                                 {item.note && <StickyNote className="h-3 w-3 text-yellow-500 fill-yellow-100 shrink-0" />}
-                                <span className="truncate w-full block text-center uppercase">{item.storeName}</span>
+                                <span className="truncate block text-center uppercase">{item.storeName}</span>
                             </div>
 
                             {violation && (
@@ -415,7 +437,85 @@ function DroppableCell({
                         </div>
                     );
 
-                    if (isWeekPublished) return content;
+                    if (isWeekPublished) {
+                        return (
+                            <ContextMenu key={item.id}>
+                                <ContextMenuTrigger asChild>
+                                    {content}
+                                </ContextMenuTrigger>
+                                <ContextMenuContent className="w-56">
+                                    <div className="px-2 py-1.5 text-xs font-semibold text-amber-600 bg-amber-50 rounded-sm mb-1">
+                                        Acil Durum Yönetimi
+                                    </div>
+                                    <ContextMenuItem onClick={() => onStoreAction('change', item.date, item.auditorId, item)}>
+                                        <RefreshCw className="mr-2 h-4 w-4" /> Mağazayı Değiştir
+                                    </ContextMenuItem>
+                                    <ContextMenuItem onClick={() => onStoreAction('add', item.date, item.auditorId)}>
+                                        <Plus className="mr-2 h-4 w-4" /> İkinci Mağazayı Ekle
+                                    </ContextMenuItem>
+
+                                    {/* Accommodation Actions - Copied for Published Items */}
+                                    <ContextMenuSub>
+                                        <ContextMenuSubTrigger>
+                                            <Hotel className="mr-2 h-4 w-4" /> Konaklama
+                                        </ContextMenuSubTrigger>
+                                        <ContextMenuSubContent className="w-48">
+                                            {accommodationTypes.length === 0 ? (
+                                                <ContextMenuItem disabled>Tanımlı tür yok</ContextMenuItem>
+                                            ) : (
+                                                accommodationTypes.map(type => {
+                                                    const Icon = ACCOMMODATION_ICONS[type.icon] || Hotel;
+                                                    const isSelected = item.accommodationTypeId === type.id;
+                                                    return (
+                                                        <ContextMenuItem
+                                                            key={type.id}
+                                                            onClick={() => handleUpdateScheduleItem(item.id, { accommodationTypeId: type.id })}
+                                                            className="flex items-center justify-between"
+                                                        >
+                                                            <div className="flex items-center">
+                                                                <Icon className="mr-2 h-4 w-4" /> {type.name}
+                                                            </div>
+                                                            {isSelected && <Check className="h-4 w-4 text-blue-600" />}
+                                                        </ContextMenuItem>
+                                                    );
+                                                })
+                                            )}
+                                            <ContextMenuSeparator />
+                                            <ContextMenuItem onClick={() => handleUpdateScheduleItem(item.id, { accommodationTypeId: deleteField() as unknown as string })} className="text-red-600">
+                                                <X className="mr-2 h-4 w-4" /> Konaklamayı Kaldır
+                                            </ContextMenuItem>
+                                        </ContextMenuSubContent>
+                                    </ContextMenuSub>
+
+                                    <ContextMenuSub>
+                                        <ContextMenuSubTrigger>
+                                            <Hotel className="mr-2 h-4 w-4" /> İzin ile Değiştir
+                                        </ContextMenuSubTrigger>
+                                        <ContextMenuSubContent className="w-48">
+                                            {leaveTypes.map(type => (
+                                                <ContextMenuItem
+                                                    key={type.id}
+                                                    onClick={() => {
+                                                        const lastSeparator = dropId.lastIndexOf('___');
+                                                        const auditorId = dropId.substring(0, lastSeparator);
+                                                        const dateStr = dropId.substring(lastSeparator + 3);
+                                                        handleAddLeave(auditorId, new Date(dateStr), type);
+                                                    }}
+                                                >
+                                                    <div className="w-3 h-3 rounded-full mr-2 border border-slate-200" style={{ backgroundColor: type.color }} />
+                                                    {type.name}
+                                                </ContextMenuItem>
+                                            ))}
+                                        </ContextMenuSubContent>
+                                    </ContextMenuSub>
+
+                                    <ContextMenuItem onClick={() => handleRemoveStore(item.id)} className="text-red-600">
+                                        <Trash2 className="mr-2 h-4 w-4" /> Havuza Gönder (İptal)
+                                    </ContextMenuItem>
+                                </ContextMenuContent>
+                            </ContextMenu>
+                        );
+                    }
 
                     return (
                         <ContextMenu key={item.id}>
@@ -427,7 +527,7 @@ function DroppableCell({
                                 {item.note ? (
                                     <>
                                         <ContextMenuItem onClick={() => setNoteDialog({ open: true, itemId: item.id, note: item.note || "" })}>
-                                            <Pencil className="mr-2 h-4 w-4" /> Düzenle
+                                            <Pencil className="mr-2 h-4 w-4" /> Notu Düzenle
                                         </ContextMenuItem>
                                         <ContextMenuItem onClick={() => handleUpdateScheduleItem(item.id, { note: "" })} className="text-red-600">
                                             <Trash2 className="mr-2 h-4 w-4" /> Notu Sil
@@ -477,8 +577,11 @@ function DroppableCell({
                     );
                 })}
 
-                {/* Empty State / Add Trigger - Only show if < 2 items AND not published AND no Leave present */}
-                {!isWeekPublished && filteredItems.length < 2 && !hasLeave && (
+                {/* Empty State / Add Trigger 
+                    Draft: Show if < 2 items.
+                    Published: HIDE ALWAYS (Clean UI). User must right-click to Add.
+                */}
+                {!hasLeave && !isWeekPublished && !filteredItems.some(i => i.status === 'published') && filteredItems.length < 2 && (
                     <Popover
                         open={openPopoverId === dropId}
                         onOpenChange={(isOpen) => {
@@ -534,7 +637,77 @@ function DroppableCell({
     );
 
     if (isWeekPublished) {
-        return cell;
+        return (
+            <ContextMenu>
+                <ContextMenuTrigger asChild>
+                    {cell}
+                </ContextMenuTrigger>
+                <ContextMenuContent>
+                    <div className="px-2 py-1.5 text-xs font-semibold text-amber-600 bg-amber-50 rounded-sm mb-1">
+                        Acil Durum Yönetimi
+                    </div>
+
+                    {/* Only allow deleting leave if leave exists */}
+                    {hasLeave && (
+                        <>
+                            {filteredItems.filter(i => i.type === 'leave').map(leaveItem => (
+                                <ContextMenuItem
+                                    key={leaveItem.id}
+                                    onClick={() => handleRemoveStore(leaveItem.id)}
+                                    className="text-red-600"
+                                >
+                                    <Trash2 className="mr-2 h-4 w-4" /> İzni Sil
+                                </ContextMenuItem>
+                            ))}
+                            <ContextMenuItem onClick={() => {
+                                // For leaves, we need to know existing item details to replace it, or just use the dropId context to add new after delete
+                                const leaveItem = filteredItems.find(i => i.type === 'leave');
+                                if (leaveItem) {
+                                    onStoreAction('replace_leave', leaveItem.date, leaveItem.auditorId, leaveItem);
+                                }
+                            }}>
+                                <RefreshCw className="mr-2 h-4 w-4" /> Mağaza Ata
+                            </ContextMenuItem>
+                            <Separator className="my-1" />
+                        </>
+                    )}
+
+                    {!hasLeave && (
+                        <>
+                            <div className="px-2 py-1.5 text-xs font-semibold text-slate-500">
+                                Acil Ekleme
+                            </div>
+                            <ContextMenuItem onClick={() => {
+                                const lastSeparator = dropId.lastIndexOf('___');
+                                const auditorId = dropId.substring(0, lastSeparator);
+                                const dateStr = dropId.substring(lastSeparator + 3);
+                                onStoreAction('add', new Date(dateStr), auditorId);
+                            }}>
+                                <Plus className="mr-2 h-4 w-4" /> Mağaza Ekle
+                            </ContextMenuItem>
+                            <Separator className="my-1" />
+
+                            <div className="px-2 py-1.5 text-xs font-semibold text-slate-500">
+                                İzin Ekle (Hastalık vb.)
+                            </div>
+                            <Separator className="my-1" />
+                            {leaveTypes.length === 0 ? (
+                                <div className="px-2 py-1 text-xs text-slate-400 italic">Tanımlı izin yok</div>
+                            ) : (
+                                leaveTypes.map(type => (
+                                    <ContextMenuItem key={type.id} onClick={() => handleContextMenuAddLeave(type)}>
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-3 h-3 rounded-full border border-slate-200 shadow-sm" style={{ backgroundColor: type.color }} />
+                                            <span>{type.name}</span>
+                                        </div>
+                                    </ContextMenuItem>
+                                ))
+                            )}
+                        </>
+                    )}
+                </ContextMenuContent>
+            </ContextMenu>
+        );
     }
 
     return (
@@ -666,6 +839,113 @@ export default function SchedulePage() {
         storeId: null,
         storeName: ""
     });
+
+    // Reassign Dialog State
+    const [reassignDialogState, setReassignDialogState] = useState<{
+        open: boolean;
+        item: { id: string; storeName: string; currentAuditorId: string; currentDate: Date } | null;
+    }>({ open: false, item: null });
+
+    const handleReassignOpen = (item: ScheduleItem) => {
+        setReassignDialogState({
+            open: true,
+            item: {
+                id: item.id,
+                storeName: item.storeName,
+                currentAuditorId: item.auditorId,
+                currentDate: item.date
+            }
+        });
+    };
+
+    const handleReassignConfirm = async (newAuditorId: string, newDate: Date) => {
+        const item = reassignDialogState.item;
+        if (!item) return;
+
+        // Optimistic Update
+        // Remove from old slot, Add to new slot (by changing auditorId and date)
+        setSchedule(prev => prev.map(s => {
+            if (s.id === item.id) {
+                return {
+                    ...s,
+                    auditorId: newAuditorId,
+                    date: startOfDay(newDate) // Update to new date
+                };
+            }
+            return s;
+        }));
+
+        try {
+            const docRef = doc(db, "audit_schedules", item.id);
+            await updateDoc(docRef, {
+                auditorId: newAuditorId,
+                date: Timestamp.fromDate(startOfDay(newDate))
+            });
+            toast.success("Atama başarıyla güncellendi.");
+        } catch (error) {
+            console.error("Reassign error:", error);
+            toast.error("Atama güncellenemedi.");
+            // Revert would be complex here, assuming success for MVP or relying on refresh
+        }
+    };
+
+    // Unified Store Selection State
+    const [storeSelector, setStoreSelector] = useState<{
+        open: boolean;
+        mode: 'add' | 'change' | 'replace_leave';
+        auditorId: string;
+        date: Date | null;
+        targetItem?: ScheduleItem;
+    }>({
+        open: false,
+        mode: 'add',
+        auditorId: "",
+        date: null
+    });
+
+    const handleStoreAction = (action: 'add' | 'change' | 'replace_leave', date: Date, auditorId: string, item?: ScheduleItem) => {
+        setStoreSelector({
+            open: true,
+            mode: action,
+            date,
+            auditorId,
+            targetItem: item
+        });
+    };
+
+    const handleStoreSelectConfirm = async (storeId: string, storeName: string) => {
+        const { mode, date, auditorId, targetItem } = storeSelector;
+        if (!date) return;
+
+        try {
+            if (mode === 'add') {
+                // Check if existing items have accommodation
+                const existingItems = schedule.filter(s =>
+                    s.auditorId === auditorId &&
+                    isSameDay(s.date, date) &&
+                    s.accommodationTypeId
+                );
+                const inheritedAccommodation = existingItems.length > 0 ? existingItems[0].accommodationTypeId : undefined;
+
+                await handleAddStore(auditorId, date, storeId, storeName, inheritedAccommodation);
+            } else if (mode === 'change' && targetItem) {
+                // Update local first
+                setSchedule(prev => prev.map(s => s.id === targetItem.id ? { ...s, storeId, storeName } : s));
+                // Update db
+                await updateDoc(doc(db, "audit_schedules", targetItem.id), { storeId, storeName });
+                toast.success("Mağaza değiştirildi.");
+            } else if (mode === 'replace_leave' && targetItem) {
+                // Delete leave first
+                await deleteDoc(doc(db, "audit_schedules", targetItem.id));
+                setSchedule(prev => prev.filter(s => s.id !== targetItem.id));
+                // Add new store
+                await handleAddStore(auditorId, date, storeId, storeName);
+            }
+        } catch (error) {
+            console.error("Store action failed", error);
+            toast.error("İşlem başarısız.");
+        }
+    };
 
     // Bulk Selection State
     const [selectedCells, setSelectedCells] = useState<Set<string>>(new Set());
@@ -952,7 +1232,19 @@ export default function SchedulePage() {
     const handlePreviousWeek = () => setCurrentDate(subWeeks(currentDate, 1));
     const handleNextWeek = () => setCurrentDate(addWeeks(currentDate, 1));
 
-    const handleAddStore = async (auditorId: string, date: Date, storeId: string, storeName: string) => {
+    // Calculate current view's status (Moved up for availability in handlers)
+    const currentWeekItems = schedule.filter(item => {
+        const itemDate = item.date;
+        const weekStart = weekDays[0];
+        const weekEnd = weekDays[weekDays.length - 1];
+        return itemDate >= startOfDay(weekStart) && itemDate <= startOfDay(weekEnd);
+    });
+
+    const isWeekPublished = currentWeekItems.length > 0 && currentWeekItems.every(i => i.status === 'published');
+
+
+
+    const handleAddStore = async (auditorId: string, date: Date, storeId: string, storeName: string, accommodationTypeId?: string | null) => {
         // Validation: Max 2 items per cell
         const existingItemsInCell = schedule.filter(s =>
             s.auditorId === auditorId &&
@@ -960,21 +1252,24 @@ export default function SchedulePage() {
         );
 
         if (existingItemsInCell.length >= 2) {
-            // Cannot add 3rd item
-            // Since toasts are off, we can maybe add a shake animation or just do nothing
-            // For now, strict blocking.
             return;
         }
 
-        const id = crypto.randomUUID();
+        // --- NEW: Live Publish Logic ---
+        // If the *week* (or explicit context) is published, new items must be published too.
+        // We use 'isWeekPublished' derived from the visual state.
+        const status = isWeekPublished ? 'published' : 'draft';
+
+        const id = generateUUID();
         const newItem: ScheduleItem = {
             id,
             auditorId,
             storeId,
             storeName,
             date: startOfDay(date),
-            status: 'draft',
-            type: 'audit'
+            status: status, // Dynamic Status
+            type: 'audit',
+            accommodationTypeId: accommodationTypeId || null
         };
 
         // Optimistic UI
@@ -985,36 +1280,17 @@ export default function SchedulePage() {
                 ...newItem,
                 date: Timestamp.fromDate(newItem.date)
             });
+            if (status === 'published') toast.success("Mağaza plana eklendi (Yayında)");
         } catch (error) {
             console.error("Error adding schedule item:", error);
-            // Revert on error
             setSchedule(prev => prev.filter(i => i.id !== id));
         }
     };
 
     const handleAddLeave = async (auditorId: string, date: Date, leaveType: LeaveType) => {
-        // 1. DELETE logic is handled below with DB calls.
-        // UI update is handled in single batch at the end.
-
-        // Delete from DB in background (Robust Method: Query fresh to ensure nothing is missed)
-        // This fixes the issue where stale local state causes items to persist in DB
+        // ... (Existing deletion logic)
         try {
-            const dayStart = startOfDay(date);
-            // const dayEnd = endOfDay(date);
-
-            // Query for ANY items for this auditor on this day
-            // We use client-side filtering on a broader query if needed, or composite index
-            // But since we don't know if composite index exists, we can try to rely on the ID if we knew it.
-            // BETTER: Use the existing logic but ensure we catch everything by iterating the PREVIOUS state if possible?
-            // React state setters don't generic callbacks for side effects.
-            // So we will stick to the 'schedule' closure but also try to force a cleanup of the *previous* leave if it exists in DB.
-
-            // To be 100% safe without relying on 'schedule' closure:
-            // Query Firestore: collection('audit_schedules').where('auditorId', '==', auditorId).where('date', '==', Timestamp)
-            // Note: Exact date match might be tricky with Timestamps.
-
-            // Fallback: We will trust 'schedule' but we will also iterate and delete *aggressively*.
-            // The user says "Rapor" comes back. That means it wasn't deleted.
+            // (Same clean logic as before)
             const existingItemsInCell = schedule.filter(s =>
                 s.auditorId === auditorId &&
                 isSameDay(s.date, date)
@@ -1030,15 +1306,18 @@ export default function SchedulePage() {
             console.error("Error clearing existing items:", e);
         }
 
+        // Live Publish Check
+        const status = isWeekPublished ? 'published' : 'draft';
+
         // 2. Add the NEW leave item
-        const id = crypto.randomUUID();
+        const id = generateUUID();
         const newItem: ScheduleItem = {
             id,
             auditorId,
             // storeId: "", // Not used for leave
             storeName: leaveType.name,
             date: startOfDay(date),
-            status: 'draft',
+            status: status, // Dynamic Status
             type: 'leave',
             leaveTypeId: leaveType.id,
             leaveColor: leaveType.color
@@ -1052,11 +1331,9 @@ export default function SchedulePage() {
                 ...newItem,
                 date: Timestamp.fromDate(newItem.date)
             });
+            if (status === 'published') toast.success("İzin plana eklendi (Yayında)");
         } catch (error) {
             console.error("Error adding leave item:", error);
-            // Revert (this is tricky with multiple deletes, but acceptable for now to just re-fetch or leave it)
-            // A perfect revert would need to restore deleted items, but for this use case, 
-            // the user intent is "Replace with Leave", so failure just means "No Leave", which is fine.
             setSchedule(prev => prev.filter(i => i.id !== id));
         }
     };
@@ -1068,7 +1345,7 @@ export default function SchedulePage() {
             const parts = itemId.split('___');
             const audId = parts[1];
             const dateStr = parts[2];
-            const blockedId = crypto.randomUUID();
+            const blockedId = generateUUID();
 
             const blockedItem: ScheduleItem = {
                 id: blockedId,
@@ -1115,7 +1392,7 @@ export default function SchedulePage() {
                 // Or simpler: Just always block. If there's another item, the block is fine (invisible usually).
                 // But let's be cleaner: Create block only.
 
-                const blockedId = crypto.randomUUID();
+                const blockedId = generateUUID();
                 const blockedItem: ScheduleItem = {
                     id: blockedId,
                     auditorId: itemToRemove.auditorId,
@@ -1149,7 +1426,7 @@ export default function SchedulePage() {
             const parts = itemId.split('___');
             const audId = parts[1];
             const dateStr = parts[2];
-            const blockedId = crypto.randomUUID();
+            const blockedId = generateUUID();
 
             const blockedItem: ScheduleItem = {
                 id: blockedId,
@@ -1187,13 +1464,13 @@ export default function SchedulePage() {
         let blockedId: string | undefined;
 
         if (isWeekend) {
-            blockedId = crypto.randomUUID();
+            blockedId = generateUUID();
             blockedItem = {
                 id: blockedId,
                 auditorId: itemToRemove.auditorId,
                 date: itemToRemove.date,
                 storeName: 'BLOCKED',
-                status: 'draft',
+                status: itemToRemove.status, // Inherit status (keep published if it was published)
                 type: 'blocked'
             };
         }
@@ -1251,21 +1528,51 @@ export default function SchedulePage() {
         const itemMonthStart = startOfMonth(item.date);
         const itemMonthEnd = endOfMonth(item.date);
 
-        const monthlyAudits = audits.filter(a =>
+        const monthlyAuditsList = audits.filter(a =>
             a.storeId === item.storeId &&
             a.createdAt >= itemMonthStart &&
             a.createdAt <= itemMonthEnd
-        ).length;
+        );
 
-        const monthlySchedule = schedule.filter(s =>
+        const monthlyScheduleList = schedule.filter(s =>
             s.id !== item.id &&
             s.storeId === item.storeId &&
             s.date >= itemMonthStart &&
             s.date <= itemMonthEnd
-        ).length;
+        );
 
-        if ((monthlyAudits + monthlySchedule + 1) > 2) {
-            errors.push("Ayda en fazla 2 denetim limiti aşıldı!");
+        if ((monthlyAuditsList.length + monthlyScheduleList.length + 1) > 2) {
+             let errorMsg = "Ayda en fazla 2 denetim limiti aşıldı!\n";
+             
+             // List Completed Audits
+             if (monthlyAuditsList.length > 0) {
+                 errorMsg += "\nTamamlananlar:\n";
+                 monthlyAuditsList.forEach(a => {
+                    // Try to find auditor name if not in audit object (though audit usually has it, fallback to lookup)
+                    let auditorName = a.auditorName || "Bilinmiyor";
+                    if (!a.auditorName && a.auditorId) {
+                        const aud = auditors.find(u => u.uid === a.auditorId);
+                        if (aud) auditorName = `${aud.firstName} ${aud.lastName}`;
+                    }
+                    errorMsg += `• ${format(a.createdAt, 'dd.MM.yyyy')} - ${auditorName}\n`;
+                 });
+             }
+
+             // List Scheduled Items
+             if (monthlyScheduleList.length > 0) {
+                 errorMsg += "\nPlanlananlar:\n";
+                 monthlyScheduleList.forEach(s => {
+                     const aud = auditors.find(u => u.uid === s.auditorId);
+                     const auditorName = aud ? `${aud.firstName || ''} ${aud.lastName || ''}`.trim() || aud.email || "Bilinmiyor" : "Bilinmiyor";
+                     errorMsg += `• ${format(s.date, 'dd.MM.yyyy')} - ${auditorName}\n`;
+                 });
+             }
+             
+             // Total Count
+             const total = monthlyAuditsList.length + monthlyScheduleList.length;
+             errorMsg += `\nToplam: ${total} (Mevcut) + 1 (Yeni) = ${total + 1}`;
+             
+             errors.push(errorMsg);
         }
 
         // 3. 12-Day Rule Check
@@ -1328,15 +1635,8 @@ export default function SchedulePage() {
     };
 
 
-    // Calculate current view's status
-    const currentWeekItems = schedule.filter(item => {
-        const itemDate = item.date;
-        const weekStart = weekDays[0];
-        const weekEnd = weekDays[weekDays.length - 1];
-        return itemDate >= startOfDay(weekStart) && itemDate <= startOfDay(weekEnd);
-    });
 
-    const isWeekPublished = currentWeekItems.length > 0 && currentWeekItems.every(i => i.status === 'published');
+
     const hasItems = currentWeekItems.length > 0;
 
     // Confirmation Dialog State
@@ -1393,21 +1693,72 @@ export default function SchedulePage() {
 
     const executePublishAction = async () => {
         setSaving(true);
-        const newStatus = confirmDialog.type === 'publish' ? 'published' : 'draft';
+        const newStatus: 'published' | 'draft' = confirmDialog.type === 'publish' ? 'published' : 'draft';
 
         try {
+            // 1. Update existing items
             const batchPromises = currentWeekItems.map(async (item) => {
                 const docRef = doc(db, "audit_schedules", item.id);
                 await setDoc(docRef, { status: newStatus }, { merge: true });
             });
 
+            // 2. Insert missing weekend holidays (ONLY if publishing)
+            const newGeneratedItems: ScheduleItem[] = [];
+
+            if (newStatus === 'published') {
+                const defaultLeave = leaveTypes.find(t => t.isDefault);
+
+                if (defaultLeave) {
+                    for (const auditor of auditors) {
+                        for (const date of weekDays) {
+                            // Check if weekend
+                            const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+                            if (!isWeekend) continue;
+
+                            // Check collision with EXISTING items (not virtual ones)
+                            // We need real items from schedule state
+                            const rawItems = schedule.filter(item =>
+                                item.auditorId === auditor.uid && isSameDay(item.date, date)
+                            );
+                            const hasBlocked = rawItems.some(i => i.type === 'blocked');
+
+                            // If empty and weekend, create item
+                            if (rawItems.length === 0 && !hasBlocked) {
+                                const id = generateUUID();
+                                const newItem: ScheduleItem = {
+                                    id,
+                                    auditorId: auditor.uid,
+                                    date: startOfDay(date),
+                                    storeName: defaultLeave.name,
+                                    status: 'published',
+                                    type: 'leave',
+                                    leaveTypeId: defaultLeave.id,
+                                    leaveColor: defaultLeave.color
+                                };
+
+                                newGeneratedItems.push(newItem);
+                                batchPromises.push(
+                                    setDoc(doc(db, "audit_schedules", id), {
+                                        ...newItem,
+                                        date: Timestamp.fromDate(newItem.date)
+                                    })
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+
             await Promise.all(batchPromises);
 
-            setSchedule(prev => prev.map(item =>
-                (currentWeekItems.find(w => w.id === item.id))
-                    ? { ...item, status: newStatus }
-                    : item
-            ));
+            setSchedule(prev => {
+                const updatedExisting = prev.map(item =>
+                    (currentWeekItems.find(w => w.id === item.id))
+                        ? { ...item, status: newStatus }
+                        : item
+                );
+                return [...updatedExisting, ...newGeneratedItems];
+            });
         } catch (error) {
             console.error("Publish error:", error);
         } finally {
@@ -1443,12 +1794,13 @@ export default function SchedulePage() {
                 // DB Update for ALL siblings
                 try {
                     const batchPromises = siblingItems.map(item => {
-                        // Only update if it's a real document (not blocked/virtual if any) - though blocked usually don't have accommodation
-                        // Just in case, check ID format if needed, but standard updateDoc handles existing docs.
-                        if (item.type === 'audit') {
+                        // Only update if it's a real document (audit or unspecified/legacy)
+                        // Ignore 'leave' or 'blocked' virtual types unless explicitly handled
+                        if (item.type === 'audit' || !item.type) {
                             const docRef = doc(db, "audit_schedules", item.id);
-                            // If we are deleting the field (deleteField()), we handle that
-                            return updateDoc(docRef, updates);
+                            // Use setDoc with merge: true instead of updateDoc for better reliability
+                            // This handles 'undefined' better (ignores it) whereas updateDoc throws
+                            return setDoc(docRef, updates, { merge: true });
                         }
                         return Promise.resolve();
                     });
@@ -1716,7 +2068,17 @@ export default function SchedulePage() {
                                             : "bg-slate-900 hover:bg-slate-800 text-white"
                                     )}
                                 >
-                                    {isWeekPublished ? "Yayından Kaldır" : "Yayınla"}
+                                    {isWeekPublished ? (
+                                        <>
+                                            <Ban className="mr-2 h-4 w-4" />
+                                            Yayından Kaldır
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Send className="mr-2 h-4 w-4" />
+                                            Yayınla
+                                        </>
+                                    )}
                                 </Button>
                             </div>
                         </div>
@@ -1835,7 +2197,9 @@ export default function SchedulePage() {
                                                             selectedCells={selectedCells}
                                                             setNoteDialog={setNoteDialog}
                                                             accommodationTypes={accommodationTypes}
+
                                                             handleUpdateScheduleItem={handleUpdateScheduleItem}
+                                                            onStoreAction={handleStoreAction}
                                                         />
                                                     );
                                                 })}
@@ -2102,6 +2466,14 @@ export default function SchedulePage() {
                     auditors={auditors}
                 />
             </div >
+
+            <StoreSelectorDialog
+                open={storeSelector.open}
+                onOpenChange={(open) => setStoreSelector(prev => ({ ...prev, open }))}
+                title={storeSelector.mode === 'add' ? "Mağaza Ekle" : (storeSelector.mode === 'change' ? "Mağazayı Değiştir" : "Mağaza Ata")}
+                stores={stores}
+                onConfirm={handleStoreSelectConfirm}
+            />
 
             {/* Drag Overlay - Shows dragged item above everything */}
             < DragOverlay dropAnimation={null} modifiers={[snapCenterToCursor]} >

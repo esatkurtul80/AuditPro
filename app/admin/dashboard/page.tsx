@@ -45,6 +45,7 @@ import {
     Trash2,
     X,
     Loader2,
+    Pencil,
 } from "lucide-react";
 import {
     collection,
@@ -63,6 +64,7 @@ import { toast } from "sonner";
 import { DataTable } from "@/components/ui/data-table";
 import { ColumnDef, Column, Row } from "@tanstack/react-table";
 import { DataTableColumnHeader } from "@/components/ui/data-table-column-header";
+import { NotificationFeed } from "@/components/announcements/notification-feed";
 
 export default function AdminDashboard() {
 
@@ -306,6 +308,12 @@ export default function AdminDashboard() {
                                     Görüntüle
                                 </Link>
                             </DropdownMenuItem>
+                            <DropdownMenuItem asChild>
+                                <Link href={`/audits/${row.original.id}?mode=edit`} className="cursor-pointer">
+                                    <Pencil className="mr-2 h-4 w-4" />
+                                    Düzenle
+                                </Link>
+                            </DropdownMenuItem>
                             <DropdownMenuItem
                                 className="text-red-600 cursor-pointer"
                                 onClick={() => {
@@ -383,6 +391,9 @@ export default function AdminDashboard() {
     return (
         <>
             <div className="container mx-auto py-4 md:py-8 px-4 md:px-6 space-y-6">
+
+                {/* Notifications */}
+                <NotificationFeed />
 
                 {/* Dashboard Statistics */}
                 <GridFadeIn className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

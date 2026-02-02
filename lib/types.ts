@@ -269,3 +269,27 @@ export interface AccommodationType {
     createdAt: Timestamp;
     updatedAt: Timestamp;
 }
+
+export interface Announcement {
+    id: string;
+    title: string;
+    content: string;
+    senderId: string;
+    senderName: string;
+    recipients: any[]; // RecipientOption[]
+    targetType: "all" | "group" | "specific";
+    createdAt: Timestamp;
+    stats?: { total: number; sent: number };
+    read?: boolean; // Client-side prop
+    
+    // Server-side read tracking
+    readBy?: Array<{
+        userId: string;
+        userName: string;
+        readAt: Timestamp;
+    }>;
+    
+    labels?: string[];
+    isArchived?: boolean;
+    isDeleted?: boolean;
+}

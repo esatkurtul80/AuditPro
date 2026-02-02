@@ -538,11 +538,7 @@ function NotificationsContent() {
 export default function NotificationsPage() {
     return (
         <DashboardLayout>
-            <Suspense fallback={
-                <div className="flex min-h-screen items-center justify-center">
-                    <LogoLoader />
-                </div>
-            }>
+            <Suspense fallback={null}>
                 <NotificationsContent />
             </Suspense>
         </DashboardLayout>

@@ -25,31 +25,45 @@ const firebaseConfig = {
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
 
 // Initialize Firebase services
+// Initialize Firebase services
 export const auth = getAuth(app);
 export const db = initializeFirestore(app, {
-    localCache: persistentLocalCache({
-        tabManager: persistentMultipleTabManager()
-    })
+    localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
 });
 export const storage = getStorage(app);
 export const functions = getFunctions(app);
+
 let messaging: any = null;
-if (typeof window !== "undefined" && typeof navigator !== "undefined" && "serviceWorker" in navigator) {
-    try {
-        // Register Service Worker FIRST
-        navigator.serviceWorker.register('/firebase-messaging-sw.js')
-            .then((registration) => {
-                console.log('✅ Service Worker registered:', registration.scope);
-                // Only initialize messaging after SW is registered
-                messaging = getMessaging(app);
-            })
-            .catch((err) => {
-                console.error('❌ Service Worker registration failed:', err);
-            });
-    } catch (e) {
-        console.error("Firebase messaging support error", e);
-    }
+
+if (typeof window !== "undefined" && typeof navigator !== "undefined") {
+    // Dynamic import to avoid SSR/build issues and ensure we check support
+    import("firebase/messaging").then(async ({ getMessaging, isSupported }) => {
+        try {
+            if (await isSupported()) {
+                 if ("serviceWorker" in navigator) {
+                     // Register Service Worker provided by the app
+                     // Note: Firebase usually registers its own SW if not provided, but we are explicit here
+                     navigator.serviceWorker.register('/firebase-messaging-sw.js')
+                     .then((registration) => {
+                         console.log('✅ Service Worker registered:', registration.scope);
+                         messaging = getMessaging(app);
+                     })
+                     .catch((err) => {
+                         console.log('ℹ️ SW registration skipped or failed:', err);
+                         // Fallback: try getting messaging without explicit SW registration if it fails?
+                         // actually getMessaging() might work if SW is already registered by browser
+                         messaging = getMessaging(app);
+                     });
+                 }
+            } else {
+                console.log("ℹ️ Firebase Messaging not supported in this browser.");
+            }
+        } catch (e) {
+             console.error("Firebase messaging initialization error", e);
+        }
+    });
 }
+
 export { messaging };
 
 export default app;

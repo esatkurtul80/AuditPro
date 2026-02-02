@@ -28,9 +28,13 @@ import { db } from "@/lib/firebase";
 import { UserProfile, NotificationType } from "@/lib/types";
 import { useAuth } from "@/components/auth-provider";
 
-export function SendNotificationDialog({ trigger }: { trigger?: React.ReactNode }) {
+export function SendNotificationDialog({ trigger, open: controlledOpen, onOpenChange: setControlledOpen }: { trigger?: React.ReactNode, open?: boolean, onOpenChange?: (open: boolean) => void }) {
     const { userProfile } = useAuth();
-    const [open, setOpen] = useState(false);
+    const [internalOpen, setInternalOpen] = useState(false);
+
+    const isControlled = controlledOpen !== undefined;
+    const open = isControlled ? controlledOpen : internalOpen;
+    const setOpen = isControlled ? setControlledOpen! : setInternalOpen;
     const [loading, setLoading] = useState(false);
     const [title, setTitle] = useState("");
     const [message, setMessage] = useState("");

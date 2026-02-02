@@ -27,6 +27,12 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
         }
     }, [user, userProfile, loading, allowedRoles, router]);
 
+    // SPA Optimization: If we already have a user and profile, render immediately
+    // ignoring the 'loading' state that might trigger on re-focus or navigation
+    if (user && userProfile && userProfile.role !== "pending" && allowedRoles.includes(userProfile.role)) {
+        return <>{children}</>;
+    }
+
     if (loading) {
         return (
             <div className="flex min-h-screen items-center justify-center">
@@ -35,8 +41,16 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
         );
     }
 
-    if (!user || !userProfile) {
-        return null;
+    if (!user) {
+        return null; // Redirecting to login
+    }
+
+    if (!userProfile) {
+         return (
+            <div className="flex min-h-screen items-center justify-center bg-background">
+                 <LogoLoader />
+            </div>
+         );
     }
 
     if (userProfile.role === "pending") {

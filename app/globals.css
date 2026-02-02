@@ -1,5 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Playwrite+NO:wght@100..400&family=Inter:wght@400;500;600;700;800&display=swap');
 @import "tailwindcss";
+@plugin "@tailwindcss/typography";
 @import "tw-animate-css";
 
 /* iOS Safe Area Support */
@@ -8,6 +9,7 @@
   --sar: env(safe-area-inset-right);
   --sab: env(safe-area-inset-bottom);
   --sal: env(safe-area-inset-left);
+  --brand: oklch(0.623 0.214 259.815);
 }
 
 body {
@@ -62,6 +64,7 @@ body {
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+  --color-brand: var(--brand);
 }
 
 :root {
@@ -131,6 +134,7 @@ body {
   --sidebar-accent-foreground: hsl(240 4.8% 95.9%);
   --sidebar-border: hsl(240 3.7% 15.9%);
   --sidebar-ring: hsl(217.2 91.2% 59.8%);
+  --brand: oklch(0.707 0.165 254.624);
 }
 
 @layer base {
@@ -140,6 +144,12 @@ body {
 
   body {
     @apply bg-background text-foreground;
+  }
+
+  /* Override generic prose h2 style */
+  .prose h2 {
+    border-bottom: none !important;
+    text-decoration: none !important;
   }
 }
 

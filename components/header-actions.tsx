@@ -1,6 +1,7 @@
 "use client";
 
-import { Bell, User, LogOut, Settings, WifiOff } from "lucide-react";
+import { Bell, User, LogOut, Settings, WifiOff, CheckSquare, Clock, AlertCircle, CheckCircle, CalendarDays, CalendarOff, Home, Sparkles, Send } from "lucide-react";
+import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/components/auth-provider";
 import { useRouter } from "next/navigation";
@@ -123,9 +124,10 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
 
 
     const getInitials = (name: string) => {
-        const parts = name.split(" ");
+        if (!name) return "U";
+        const parts = name.trim().split(/\s+/);
         if (parts.length >= 2) {
-            return (parts[0][0] + parts[1][0]).toUpperCase();
+            return ((parts[0]?.[0] || "") + (parts[1]?.[0] || "")).toUpperCase();
         }
         return name.substring(0, 2).toUpperCase();
     };
@@ -178,6 +180,8 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
                 <div className="flex items-center justify-center w-6 md:w-auto md:mr-2">
                     <OnlineStatusBadge isOnline={isOnline} compact={compact} />
                 </div>
+
+
 
 
 
@@ -496,7 +500,7 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
                         className={`relative ${avatarSize} rounded-full p-0`}
                         suppressHydrationWarning
                     >
-                        {loading ? (
+                        {loading && !userProfile ? (
                             <Skeleton className={`${avatarSize} rounded-full`} />
                         ) : (
                             <Avatar className={avatarSize}>

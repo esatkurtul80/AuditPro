@@ -14,5 +14,8 @@ export function GlobalBottomNavWrapper() {
     // Don't show on login page (just in case)
     if (pathname === "/login") return null;
 
+    // Don't show on the new single-view store panel (it has its own nav)
+    if (pathname === "/magaza/panel") return null;
+
     return <BottomNav />;
 }
