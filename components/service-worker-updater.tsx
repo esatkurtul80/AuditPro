@@ -27,24 +27,34 @@ export function ServiceWorkerUpdater() {
                 const localVersion = process.env.NEXT_PUBLIC_APP_VERSION;
 
                 if (serverVersion && localVersion && serverVersion !== localVersion) {
-                    console.log(`Version mismatch! Local: ${localVersion}, Server: ${serverVersion}. Reloading...`);
-                    
-                    // Unregister all service workers
-                    if ('serviceWorker' in navigator) {
-                        const registrations = await navigator.serviceWorker.getRegistrations();
-                        for (const registration of registrations) {
-                            await registration.unregister();
+                    const reloadKey = `reload_attempt_${serverVersion}`;
+                    const hasReloaded = sessionStorage.getItem(reloadKey);
+
+                    if (!hasReloaded) {
+                        console.log(`Version mismatch! Local: ${localVersion}, Server: ${serverVersion}. Reloading...`);
+                        
+                        // Mark as reloaded for this specific server version
+                        sessionStorage.setItem(reloadKey, 'true');
+
+                        // Unregister all service workers
+                        if ('serviceWorker' in navigator) {
+                            const registrations = await navigator.serviceWorker.getRegistrations();
+                            for (const registration of registrations) {
+                                await registration.unregister();
+                            }
                         }
-                    }
 
-                    // Clear cache storage
-                    if ('caches' in window) {
-                        const cacheNames = await caches.keys();
-                        await Promise.all(cacheNames.map(name => caches.delete(name)));
-                    }
+                        // Clear cache storage
+                        if ('caches' in window) {
+                            const cacheNames = await caches.keys();
+                            await Promise.all(cacheNames.map(name => caches.delete(name)));
+                        }
 
-                    // Hard reload
-                    window.location.reload();
+                        // Hard reload
+                        window.location.reload();
+                    } else {
+                        console.warn(`Version mismatch (${localVersion} vs ${serverVersion}) detected but already reloaded once. Stopping loop.`);
+                    }
                 }
             } catch (error) {
                 console.error("Failed to check version:", error);
