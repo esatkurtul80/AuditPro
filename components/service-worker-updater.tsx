@@ -61,11 +61,20 @@ export function ServiceWorkerUpdater() {
             }
         };
 
-        // Check immediately on mount (only once)
+        // Check immediately on mount
         checkVersion();
-        
-        // Removed periodic check as per user request
 
+        // Check when app comes to foreground (APK Re-open)
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === "visible") {
+                checkVersion();
+            }
+        };
+        document.addEventListener("visibilitychange", handleVisibilityChange);
+        
+        return () => {
+            document.removeEventListener("visibilitychange", handleVisibilityChange);
+        };
     }, []);
 
     return null;

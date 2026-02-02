@@ -14,18 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { AuditCard } from "@/components/audit-card";
 import { useRouter } from "next/navigation";
-import {
-    LineChart,
-    Line,
-    XAxis,
-    YAxis,
-    CartesianGrid,
-    Tooltip,
-    ResponsiveContainer,
-    BarChart,
-    Bar,
-    Legend
-} from "recharts";
+
 
 export function StoreReportsView() {
     const [selectedYear, setSelectedYear] = useState("2026");
