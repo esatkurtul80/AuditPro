@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import { BarChart3, AlertTriangle, FileText, Calendar } from "lucide-react";
 import { useStoreData } from "@/hooks/use-store-data";
+import { cn } from "@/lib/utils";
 import {
     Select,
     SelectContent,
@@ -12,7 +13,7 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { AuditCard } from "@/components/audit-card";
+import { ReportAuditCard } from "@/components/report-audit-card";
 import { useRouter } from "next/navigation";
 
 
@@ -104,20 +105,20 @@ export function StoreReportsView() {
                     ) : (
                         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                              {filteredAudits.map((audit) => (
-                                <AuditCard
-                                    key={audit.id}
-                                    auditId={audit.id}
-                                    storeName={audit.storeName}
-                                    auditorName={audit.auditorName}
-                                    auditType={audit.auditType}
-                                    completedAt={audit.completedAt}
-                                    score={audit.score}
-                                    totalScore={audit.totalScore}
-                                    hasActions={audit.hasActions}
-                                    actionStats={audit.actionStats}
-                                    lastSubmittedAt={audit.lastSubmittedAt}
-                                    onClick={() => handleAuditClick(audit.id)}
-                                />
+                                    <ReportAuditCard
+                                        key={audit.id}
+                                        auditId={audit.id}
+                                        storeName={audit.storeName}
+                                        auditorName={audit.auditorName || "Sistem"}
+                                        auditType={audit.auditType || "Genel Denetim"}
+                                        completedAt={audit.completedAt}
+                                        score={audit.score}
+                                        totalScore={audit.totalScore}
+                                        hasActions={audit.hasActions}
+                                        actionStats={audit.actionStats}
+                                        lastSubmittedAt={audit.lastSubmittedAt}
+                                        onClick={() => handleAuditClick(audit.id)}
+                                    />
                             ))}
                         </div>
                     )}
@@ -263,7 +264,12 @@ export function StoreReportsView() {
                         <Card>
                              <CardHeader className="pb-2">
                                 <CardDescription>Yıllık Ortalama</CardDescription>
-                                <CardTitle className="text-3xl font-bold text-primary">88.5</CardTitle>
+                                <CardTitle className={cn(
+                                    "text-3xl font-bold",
+                                    88.5 >= 90 ? "text-emerald-600" :
+                                    88.5 >= 75 ? "text-blue-600" :
+                                    88.5 >= 60 ? "text-orange-600" : "text-red-600"
+                                )}>88.5</CardTitle>
                              </CardHeader>
                         </Card>
                         <Card>

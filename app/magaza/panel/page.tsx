@@ -1,30 +1,51 @@
 "use client";
 
 import { useState, useEffect, useLayoutEffect } from "react";
+import { useSearchParams, useRouter, usePathname } from "next/navigation"; // Add router/pathname
 import { StoreHomeView } from "@/components/store/store-home-view";
 import { StoreReportsView } from "@/components/store/store-reports-view";
 import { StoreNotificationsView } from "@/components/store/store-notifications-view";
-import { StoreSettingsView } from "@/components/store/store-settings-view"; // Import Settings
+import { StoreSettingsView } from "@/components/store/store-settings-view";
 import { StoreBottomNav } from "@/components/store/store-bottom-nav";
 import { useAuth } from "@/components/auth-provider";
 import { collection, query, where, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
 export default function StoreDashboardView() {
-    const [activeTab, setActiveTab] = useState<'panel' | 'reports' | 'notifications' | 'settings'>('panel');
+    const searchParams = useSearchParams();
+    const router = useRouter();
+    const pathname = usePathname();
     const { userProfile } = useAuth();
+    
+    // Initialize from URL or default to 'panel'
+    const initialTab = (searchParams.get('tab') as 'panel' | 'reports' | 'notifications' | 'settings') || 'panel';
+    const [activeTab, setActiveTab] = useState<'panel' | 'reports' | 'notifications' | 'settings'>(initialTab);
     const [unreadCount, setUnreadCount] = useState(0);
 
-    // Scroll to top INSTANTLY on tab change
-    // useLayoutEffect ensures this runs BEFORE the browser paints the new screen
+    // Sync state when URL updates (e.g. back button or external navigation)
+    useEffect(() => {
+        const tab = searchParams.get('tab') as 'panel' | 'reports' | 'notifications' | 'settings';
+        if (tab && ['panel', 'reports', 'notifications', 'settings'].includes(tab)) {
+            setActiveTab(tab);
+        }
+    }, [searchParams]);
+
+    // Handle Tab Change with URL update
+    const handleTabChange = (tab: 'panel' | 'reports' | 'notifications' | 'settings') => {
+        setActiveTab(tab);
+        // Shallow update checking to avoid unnecessary router pushes if already there
+        const currentTab = searchParams.get('tab');
+        if (currentTab !== tab) {
+            router.push(`${pathname}?tab=${tab}`, { scroll: false });
+        }
+    };
+
+    // Scroll to top on tab change
     useLayoutEffect(() => {
-        // 1. Try scrolling the specific layout container (Primary Fix)
         const scrollContainer = document.getElementById('main-content-scroll-area');
         if (scrollContainer) {
             scrollContainer.scrollTop = 0;
         }
-        
-        // 2. Fallback to window/body scroll
         window.scrollTo(0, 0);
         document.body.scrollTop = 0; 
         document.documentElement.scrollTop = 0;
@@ -69,7 +90,7 @@ export default function StoreDashboardView() {
             {/* Custom Bottom Nav */}
             <StoreBottomNav 
                 activeTab={activeTab} 
-                onTabChange={setActiveTab}
+                onTabChange={handleTabChange}
                 notificationCount={unreadCount}
             />
         </div>

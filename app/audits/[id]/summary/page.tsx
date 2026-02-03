@@ -87,9 +87,8 @@ export default function AuditSummaryPage() {
         <DashboardLayout>
             <div className="container mx-auto py-6 max-w-5xl px-4 md:px-6">
                 <div className="mb-6">
-                    <div
-                        role="button"
-                        className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 h-9 px-4 py-2 pl-4 bg-blue-600 text-white hover:bg-blue-700 shadow-md shadow-blue-500/20 cursor-pointer"
+                    <Button
+                        className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-md shadow-purple-500/20"
                         onClick={() => {
                             if (userProfile?.role === "magaza") {
                                 router.push("/magaza/panel");
@@ -100,9 +99,8 @@ export default function AuditSummaryPage() {
                     >
                         <ArrowLeft className="mr-2 h-4 w-4" />
                         Geri Dön
-                    </div>
+                    </Button>
                 </div>
-
                 <AuditSummary audit={audit} />
             </div>
         </DashboardLayout>

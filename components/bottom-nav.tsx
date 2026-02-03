@@ -33,32 +33,49 @@ export function BottomNav() {
 
     const items = [
         {
-            href: "/magaza/raporlar",
+            href: "/magaza/panel?tab=reports", // URL Parameter Navigation
             label: "Raporlar",
             icon: BarChart3,
         },
         {
-            href: "/magaza/panel",
+            href: "/magaza/panel?tab=panel",
             label: "Panel",
             icon: Home,
         },
         {
-            href: "/notifications",
+            href: "/magaza/panel?tab=notifications",
             label: "Bildirimler",
             icon: Bell,
             badge: unreadCount
         },
         {
-            href: "/magaza/ayarlar",
+            href: "/magaza/panel?tab=settings",
             label: "Ayarlar",
             icon: Settings,
         },
     ];
 
+    const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams();
+    const currentTab = searchParams.get('tab');
+
     const activeIndex = items.findIndex(item => {
-        return item.href === "/magaza/panel"
-            ? (pathname === "/magaza/panel" || pathname === "/magaza")
-            : pathname.startsWith(item.href);
+        if (pathname === '/magaza/panel') {
+            // If we are on the panel, check the tab param
+            if (item.href.includes('?tab=')) {
+                const itemTab = item.href.split('tab=')[1];
+                return currentTab === itemTab || (!currentTab && itemTab === 'panel');
+            }
+            return item.href === '/magaza/panel?tab=panel' || item.href === '/magaza/panel';
+        }
+        // Fallback for other routes (though GlobalBottomNavWrapper hides this on panel usually, wait... GlobalBottomNavWrapper logic might need update if we want to show THIS nav on panel too? No, panel has StoreBottomNav)
+        // Since GlobalBottomNavWrapper returns NULL on /magaza/panel, this BottomNav is ONLY visible when NOT on /magaza/panel.
+        // So checking tab params here is only relevant if we are navigating TO the panel.
+        // But if we are NOT on the panel, none of these should be active effectively, except maybe if we want to highlight "Panel" generically?
+        
+        // Actually, if we are on /audits/..., none of these are active. And that's correct.
+        // But the user clicks them to go TO the panel.
+        
+        return pathname.startsWith(item.href.split('?')[0]);
     });
 
     return (

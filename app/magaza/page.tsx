@@ -13,15 +13,16 @@ import {
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Audit, UserProfile } from "@/lib/types";
-import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-} from "@/components/ui/card";
+// import {
+//     Card,
+//     CardContent,
+//     CardDescription,
+//     CardHeader,
+//     CardTitle,
+// } from "@/components/ui/card";
+// Removed Card usage
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, AlertCircle, AlertTriangle, Eye } from "lucide-react";
+import { Loader2, AlertCircle, AlertTriangle, BarChart3 } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
@@ -109,10 +110,10 @@ const hasSubmittedReturn = (audit: Audit): boolean => {
 };
 
 // Helper function to get audit status
-const getAuditStatus = (audit: Audit): { text: string; color: string } => {
+const getAuditStatus = (audit: Audit): { text: string; color: string; badgeVariant: "default" | "secondary" | "destructive" | "outline" } => {
     // Check if all actions resolved
     if (audit.allActionsResolved) {
-        return { text: "Onaylandı", color: "bg-green-100 text-green-800 border-green-200" };
+        return { text: "Tamamlandı", color: "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20", badgeVariant: "outline" };
     }
 
     // Count actions by status
@@ -136,16 +137,17 @@ const getAuditStatus = (audit: Audit): { text: string; color: string } => {
 
     if (rejectedCount > 0) {
         return {
-            text: `${rejectedCount} soru iptal edildi tekrar dönülmesi gerekiyor`,
-            color: "bg-red-100 text-red-800 border-red-200"
+            text: `${rejectedCount} Red`,
+            color: "bg-red-100 text-red-700 border-red-200 dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/20",
+            badgeVariant: "destructive"
         };
     }
 
     if (pendingApprovalCount > 0) {
-        return { text: "Onay Bekliyor", color: "bg-yellow-100 text-yellow-800 border-yellow-200" };
+        return { text: "Onay Bekliyor", color: "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20", badgeVariant: "secondary" };
     }
 
-    return { text: "Aksiyon Bekleniyor", color: "bg-blue-100 text-blue-800 border-blue-200" };
+    return { text: "Aksiyon Bekleniyor", color: "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20", badgeVariant: "default" };
 };
 
 export default function MagazaPage() {
@@ -183,53 +185,42 @@ export default function MagazaPage() {
                     );
                 })
                 .sort((a, b) => {
-                    // Sort by deadline priority: overdue > warning > ok
                     const deadlineA = getReturnDeadline(a.completedAt);
                     const deadlineB = getReturnDeadline(b.completedAt);
 
                     if (!deadlineA || !deadlineB) return 0;
 
-                    // Priority order: overdue (3), warning (2), ok (1)
                     const priorityMap = { overdue: 3, warning: 2, ok: 1 };
                     const priorityA = priorityMap[deadlineA.status];
                     const priorityB = priorityMap[deadlineB.status];
 
-                    // Sort descending by priority (most urgent first)
                     if (priorityA !== priorityB) {
                         return priorityB - priorityA;
                     }
 
-                    // If same priority, sort by days remaining
                     if (deadlineA.status === 'overdue') {
-                        return deadlineA.daysRemaining - deadlineB.daysRemaining; // More overdue first
+                        return deadlineA.daysRemaining - deadlineB.daysRemaining;
                     } else {
-                        return deadlineB.daysRemaining - deadlineA.daysRemaining; // Less time remaining first
+                        return deadlineB.daysRemaining - deadlineA.daysRemaining;
                     }
                 });
 
             setAuditsWithActions(auditsData);
 
-            // Fetch auditor profiles to get firstName + lastName
             const uniqueAuditorIds = [...new Set(auditsData.map(audit => audit.auditorId))];
             const profilesMap = new Map<string, UserProfile>();
-
-
 
             for (const auditorId of uniqueAuditorIds) {
                 try {
                     const userDoc = await getDocs(query(collection(db, "users"), where("uid", "==", auditorId)));
                     if (!userDoc.empty) {
                         const profile = userDoc.docs[0].data() as UserProfile;
-
                         profilesMap.set(auditorId, profile);
-                    } else {
-
                     }
                 } catch (err) {
                     console.error(`❌ Error fetching auditor ${auditorId}:`, err);
                 }
             }
-
 
             setAuditorProfiles(profilesMap);
         } catch (error) {
@@ -241,18 +232,17 @@ export default function MagazaPage() {
     };
 
     const formatDate = (timestamp: any) => {
-        return timestamp?.toDate().toLocaleDateString("tr-TR", {
+        if (!timestamp) return "-";
+        return timestamp.toDate().toLocaleDateString("tr-TR", {
             day: "numeric",
             month: "long",
             year: "numeric",
         });
     };
 
-    // Aktif ve geçmiş aksiyonları ayır
     const activeAudits = auditsWithActions.filter(audit => !audit.allActionsResolved);
     const completedAudits = auditsWithActions.filter(audit => audit.allActionsResolved);
 
-    // Check for urgent audits (last day or overdue, without submitted return) - sadece aktif aksiyonlarda
     const urgentAudits = activeAudits.filter(audit => {
         const deadlineInfo = getReturnDeadline(audit.completedAt);
         const isUrgent = deadlineInfo && (deadlineInfo.status === 'warning' || deadlineInfo.status === 'overdue');
@@ -277,281 +267,249 @@ export default function MagazaPage() {
             <DashboardLayout>
                 <div className="container mx-auto py-4 px-2 md:py-8 md:px-6 max-w-[1600px]">
                     <div className="mb-4 md:mb-8">
-                        <h1 className="text-2xl sm:text-4xl font-bold">Denetim Dönüşleri</h1>
-                        <p className="text-muted-foreground mt-2">
+                        <h1 className="text-2xl sm:text-4xl font-bold tracking-tight bg-gradient-to-r from-gray-900 to-gray-600 dark:from-gray-100 dark:to-gray-400 bg-clip-text text-transparent">Denetim Dönüşleri</h1>
+                        <p className="text-muted-foreground mt-2 font-medium">
                             Mağazanız için aksiyon gerektiren denetimler
                         </p>
                     </div>
 
-                    {/* Notifications */}
-                    <div className="mb-6">
+                    <div className="mb-8">
                         <NotificationFeed />
                     </div>
 
-                    {/* Urgent notification */}
                     {urgentAudits.length > 0 && (
-                        <Alert variant="destructive" className="mb-6">
-                            <AlertTriangle className="h-4 w-4" />
-                            <AlertTitle>Acil Dönüş Gerekiyor!</AlertTitle>
-                            <AlertDescription>
-                                {urgentAudits.length} adet denetim için son gün veya geç dönüş durumunda. Lütfen acilen dönüş yapınız.
-                            </AlertDescription>
-                        </Alert>
+                        <div className="mb-8 rounded-xl border-l-4 border-l-red-500 bg-red-50 dark:bg-red-900/10 p-4 shadow-sm">
+                           <div className="flex items-start gap-4">
+                                <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400 mt-0.5" />
+                                <div>
+                                    <h3 className="font-semibold text-red-900 dark:text-red-300">Acil Dönüş Gerekiyor!</h3>
+                                    <p className="text-sm text-red-700 dark:text-red-400 mt-1">
+                                        {urgentAudits.length} adet denetim için son gün veya geç dönüş durumunda. Lütfen acilen inceleyiniz.
+                                    </p>
+                                </div>
+                           </div>
+                        </div>
                     )}
 
-                    <Card>
-                        <CardHeader>
-                            <div>
-                                <CardTitle>Denetim Aksiyonları</CardTitle>
-                                <CardDescription>
-                                    Aksiyonlarınızı takip edin ve yönetin
-                                </CardDescription>
-                            </div>
-                        </CardHeader>
-                        <CardContent>
-                            <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'active' | 'completed')} className="w-full">
-                                <TabsList className="grid w-full grid-cols-2 mb-4">
-                                    <TabsTrigger value="active" className="relative">
-                                        Aktif Aksiyonlarım
-                                        {activeAudits.length > 0 && (
-                                            <span className="ml-2 inline-flex items-center justify-center min-w-[24px] h-6 px-2 rounded-full bg-blue-500 text-sm font-semibold text-white">
-                                                {activeAudits.length}
-                                            </span>
-                                        )}
-                                    </TabsTrigger>
-                                    <TabsTrigger value="completed">
-                                        Geçmiş Aksiyonlarım
-                                    </TabsTrigger>
-                                </TabsList>
+                    <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'active' | 'completed')} className="w-full">
+                        <TabsList className="grid w-full grid-cols-2 mb-8 p-1 h-auto bg-slate-100 dark:bg-slate-800 rounded-xl">
+                            <TabsTrigger 
+                                value="active" 
+                                className="rounded-lg py-2.5 text-sm font-medium transition-all data-[state=active]:bg-white data-[state=active]:text-slate-900 dark:data-[state=active]:bg-slate-950 dark:data-[state=active]:text-slate-50 data-[state=active]:shadow-sm"
+                            >
+                                Aktif Aksiyonlarım
+                                {activeAudits.length > 0 && (
+                                    <span className="ml-2 inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400 text-xs font-bold">
+                                        {activeAudits.length}
+                                    </span>
+                                )}
+                            </TabsTrigger>
+                            <TabsTrigger 
+                                value="completed"
+                                className="rounded-lg py-2.5 text-sm font-medium transition-all data-[state=active]:bg-white data-[state=active]:text-slate-900 dark:data-[state=active]:bg-slate-950 dark:data-[state=active]:text-slate-50 data-[state=active]:shadow-sm"
+                            >
+                                Geçmiş Aksiyonlarım
+                            </TabsTrigger>
+                        </TabsList>
 
-                                <TabsContent value="active" className="mt-0">
-                                    {activeAudits.length === 0 ? (
-                                        <div className="flex flex-col items-center justify-center py-12 text-center">
-                                            <AlertCircle className="h-16 w-16 text-muted-foreground mb-4" />
-                                            <h3 className="text-lg font-semibold">Aktif aksiyon yok</h3>
-                                            <p className="text-muted-foreground mt-2">
-                                                Harika! Şu anda aksiyon gerektiren denetim bulunmuyor.
-                                            </p>
-                                        </div>
-                                    ) : (
-                                        <GridFadeIn className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 px-0 py-4 sm:px-4">
-                                            {activeAudits.map((audit) => {
-                                                const deadlineInfo = getReturnDeadline(audit.completedAt);
-                                                const statusInfo = getAuditStatus(audit);
-                                                const profile = auditorProfiles.get(audit.auditorId);
+                        <TabsContent value="active" className="mt-0 focus-visible:outline-none">
+                            {activeAudits.length === 0 ? (
+                                <div className="flex flex-col items-center justify-center py-16 text-center bg-slate-50 dark:bg-slate-950/50 rounded-2xl border border-dashed">
+                                    <div className="h-20 w-20 bg-emerald-100 dark:bg-emerald-500/10 rounded-full flex items-center justify-center mb-4">
+                                        <AlertCircle className="h-10 w-10 text-emerald-600 dark:text-emerald-400" />
+                                    </div>
+                                    <h3 className="text-xl font-bold text-slate-900 dark:text-slate-50">Aktif aksiyon yok</h3>
+                                    <p className="text-muted-foreground mt-2 max-w-sm">
+                                        Şu anda aksiyon gerektiren herhangi bir denetim bulunmuyor. Harika gidiyorsunuz!
+                                    </p>
+                                </div>
+                            ) : (
+                                <GridFadeIn className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                    {activeAudits.map((audit) => {
+                                        const deadlineInfo = getReturnDeadline(audit.completedAt);
+                                        const statusInfo = getAuditStatus(audit);
+                                        const profile = auditorProfiles.get(audit.auditorId);
+                                        
+                                        const percentage = (audit.totalScore / audit.maxScore) * 100;
+                                        
+                                        // Colors based on score
+                                        let scoreClass = "";
+                                        if (percentage < 70) scoreClass = "text-red-600 bg-red-50 border-red-200 dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/20";
+                                        else if (percentage < 85) scoreClass = "text-orange-600 bg-orange-50 border-orange-200 dark:bg-orange-500/10 dark:text-orange-400 dark:border-orange-500/20";
+                                        else if (percentage < 93) scoreClass = "text-amber-600 bg-amber-50 border-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20";
+                                        else scoreClass = "text-emerald-600 bg-emerald-50 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20";
 
-                                                // Get auditor name - prefer full name, but check for single-letter errors
-                                                let auditorName;
-                                                if (profile?.firstName && profile?.lastName) {
-                                                    // Check if firstName or lastName are single characters (likely database error)
-                                                    if (profile.firstName.trim().length > 1 && profile.lastName.trim().length > 1) {
-                                                        auditorName = `${profile.firstName} ${profile.lastName}`;
-                                                    } else {
-                                                        // Fall back to displayName if names are suspiciously short
-                                                        auditorName = profile.displayName || audit.auditorName;
-                                                    }
-                                                } else {
-                                                    auditorName = profile?.displayName || audit.auditorName;
+                                        // Auditor name logic
+                                        const firstName = profile?.firstName || "";
+                                        const lastName = profile?.lastName || "";
+                                        const auditorName = (firstName.length > 1 && lastName.length > 1) 
+                                            ? `${firstName} ${lastName}`
+                                            : (profile?.displayName || audit.auditorName || "Denetmen");
+
+                                        // Initials for avatar
+                                        const initials = auditorName
+                                            .split(" ")
+                                            .map((n: string) => n[0])
+                                            .join("")
+                                            .toUpperCase()
+                                            .slice(0, 2);
+
+                                        // Calculate counts
+                                        let pendingActionCount = 0;
+                                        audit.sections.forEach(s => s.answers.forEach(a => {
+                                            const isActionNeeded = a.answer === "hayir" || (a.questionType === "checkbox" && a.earnedPoints < a.maxPoints);
+                                            if (isActionNeeded) {
+                                                const status = a.actionData?.status;
+                                                if (!status || status === "pending_store" || status === "rejected") {
+                                                    pendingActionCount++;
                                                 }
+                                            }
+                                        }));
 
-                                                const percentage = (audit.totalScore / audit.maxScore) * 100;
-                                                let scoreBgColor = "";
-
-                                                if (percentage < 70) {
-                                                    scoreBgColor = "bg-red-100 text-red-800 border-red-200";
-                                                } else if (percentage < 85) {
-                                                    scoreBgColor = "bg-orange-100 text-orange-800 border-orange-200";
-                                                } else if (percentage < 93) {
-                                                    scoreBgColor = "bg-orange-50 text-orange-700 border-orange-200";
-                                                } else {
-                                                    scoreBgColor = "bg-green-100 text-green-800 border-green-200";
-                                                }
-
-                                                // Calculate action counts
-                                                let pendingActionCount = 0;
-                                                let pendingAdminCount = 0;
-                                                audit.sections.forEach(s => s.answers.forEach(a => {
-                                                    const isActionNeeded = a.answer === "hayir" || (a.questionType === "checkbox" && a.earnedPoints < a.maxPoints);
-                                                    if (isActionNeeded) {
-                                                        const status = a.actionData?.status;
-                                                        // Count if no status (initial), pending_store (draft), or rejected (needs fix)
-                                                        if (!status || status === "pending_store" || status === "rejected") {
-                                                            pendingActionCount++;
-                                                        } else if (status === "pending_admin") {
-                                                            pendingAdminCount++;
-                                                        }
-                                                    }
-                                                }));
-
-                                                return (
-                                                    <GridItem key={audit.id}>
-                                                        <div className="border rounded-lg p-4 hover:shadow-md transition-shadow h-full">
-                                                            <div className="flex items-start justify-between mb-3">
-                                                                <div className="flex-1">
-                                                                    <h4 className="font-semibold text-sm mb-1">{auditorName}</h4>
-                                                                    <p className="text-xs text-muted-foreground">{formatDate(audit.completedAt)}</p>
-                                                                </div>
-                                                                <Badge variant="outline" className={`${scoreBgColor} text-base font-semibold px-3 py-1`}>
-                                                                    {audit.totalScore}
-                                                                </Badge>
+                                        return (
+                                            <GridItem key={audit.id}>
+                                                <div className="group relative bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 hover:shadow-xl hover:shadow-slate-200/50 dark:hover:shadow-black/50 transition-all duration-300 flex flex-col h-full">
+                                                    {/* Header */}
+                                                    <div className="flex items-start justify-between mb-4">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="h-10 w-10 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-sm font-bold text-slate-700 dark:text-slate-300">
+                                                                {initials}
                                                             </div>
-
-                                                            <div className="space-y-2 mb-3">
-                                                                {deadlineInfo && (
-                                                                    <div className="flex items-center gap-2">
-                                                                        <span className="text-xs text-muted-foreground">Dönüş:</span>
-                                                                        <Badge
-                                                                            variant="outline"
-                                                                            className={`text-xs ${deadlineInfo.status === 'overdue'
-                                                                                ? "bg-red-100 text-red-800 border-red-200 animate-pulse"
-                                                                                : deadlineInfo.status === 'warning'
-                                                                                    ? "bg-orange-100 text-orange-800 border-orange-200"
-                                                                                    : "bg-green-100 text-green-800 border-green-200"
-                                                                                }`}
-                                                                        >
-                                                                            {deadlineInfo.status === 'overdue'
-                                                                                ? `${Math.abs(deadlineInfo.daysRemaining)} gün geç`
-                                                                                : deadlineInfo.status === 'warning'
-                                                                                    ? "Son gün"
-                                                                                    : `${deadlineInfo.daysRemaining} gün kaldı`
-                                                                            }
-                                                                        </Badge>
-                                                                    </div>
-                                                                )}
-
-                                                                {/* Action Item Count for Active Audits */}
-                                                                <div className="flex items-center gap-2">
-                                                                    <span className="text-xs text-muted-foreground">Yapılacak:</span>
-                                                                    {pendingActionCount > 0 ? (
-                                                                        <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
-                                                                            {pendingActionCount} Madde
-                                                                        </Badge>
-                                                                    ) : (
-                                                                        <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
-                                                                            Tümü Yapıldı
-                                                                        </Badge>
-                                                                    )}
-                                                                </div>
-
-                                                                <div className="flex items-start gap-2">
-                                                                    <span className="text-xs text-muted-foreground shrink-0">Durum:</span>
-                                                                    <Badge variant="outline" className={`text-xs ${statusInfo.color} whitespace-normal h-auto text-left leading-tight py-1 break-words max-w-full flex-1`}>
-                                                                        {statusInfo.text}
-                                                                    </Badge>
-                                                                </div>
+                                                            <div>
+                                                                <h4 className="font-bold text-slate-900 dark:text-slate-100 text-sm leading-tight">{auditorName}</h4>
+                                                                <span className="text-xs text-muted-foreground font-medium">{formatDate(audit.completedAt)}</span>
                                                             </div>
-
-                                                            <Link href={`/audits/${audit.id}/actions`} className="w-full">
-                                                                <Button
-                                                                    className={`w-full h-8 text-xs text-white shadow-lg ${pendingActionCount > 0
-                                                                        ? "bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-                                                                        : "bg-gray-600 hover:bg-gray-700"
-                                                                        }`}
-                                                                >
-                                                                    {pendingActionCount > 0 ? (
-                                                                        "Dönüş Yap"
-                                                                    ) : (
-                                                                        <>
-                                                                            <Eye className="mr-2 h-3 w-3" />
-                                                                            Aksiyonu Gör
-                                                                        </>
-                                                                    )}
-                                                                </Button>
-                                                            </Link>
                                                         </div>
-                                                    </GridItem>
-                                                );
-                                            })}
-                                        </GridFadeIn>
-                                    )}
-                                </TabsContent>
-
-                                <TabsContent value="completed" className="mt-0">
-                                    {completedAudits.length === 0 ? (
-                                        <div className="flex flex-col items-center justify-center py-12 text-center">
-                                            <AlertCircle className="h-16 w-16 text-muted-foreground mb-4" />
-                                            <h3 className="text-lg font-semibold">Geçmiş aksiyon yok</h3>
-                                            <p className="text-muted-foreground mt-2">
-                                                Henüz tamamlanmış aksiyonunuz bulunmuyor.
-                                            </p>
-                                        </div>
-                                    ) : (
-                                        <GridFadeIn className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 px-0 py-4 sm:px-4">
-                                            {completedAudits.map((audit) => {
-                                                const profile = auditorProfiles.get(audit.auditorId);
-
-                                                // Get auditor name - same logic as active audits tab
-                                                let auditorName;
-                                                if (profile?.firstName && profile?.lastName) {
-                                                    if (profile.firstName.trim().length > 1 && profile.lastName.trim().length > 1) {
-                                                        auditorName = `${profile.firstName} ${profile.lastName}`;
-                                                    } else {
-                                                        auditorName = profile.displayName || audit.auditorName;
-                                                    }
-                                                } else {
-                                                    auditorName = profile?.displayName || audit.auditorName;
-                                                }
-
-                                                const percentage = (audit.totalScore / audit.maxScore) * 100;
-                                                let scoreBgColor = "";
-                                                let totalActionCount = 0;
-                                                audit.sections.forEach(s => s.answers.forEach(a => {
-                                                    if (a.answer === "hayir" || (a.questionType === "checkbox" && a.earnedPoints < a.maxPoints)) totalActionCount++;
-                                                }));
-
-                                                if (percentage < 70) {
-                                                    scoreBgColor = "bg-red-100 text-red-800 border-red-200";
-                                                } else if (percentage < 85) {
-                                                    scoreBgColor = "bg-orange-100 text-orange-800 border-orange-200";
-                                                } else if (percentage < 93) {
-                                                    scoreBgColor = "bg-orange-50 text-orange-700 border-orange-200";
-                                                } else {
-                                                    scoreBgColor = "bg-green-100 text-green-800 border-green-200";
-                                                }
-                                                return (
-                                                    <GridItem key={audit.id}>
-                                                        <div className="border rounded-lg p-4 hover:shadow-md transition-shadow h-full">
-                                                            <div className="flex items-start justify-between mb-3">
-                                                                <div className="flex-1">
-                                                                    <h4 className="font-semibold text-sm mb-1">{auditorName}</h4>
-                                                                    <p className="text-xs text-muted-foreground">{formatDate(audit.completedAt)}</p>
-                                                                </div>
-                                                                <Badge variant="outline" className={`${scoreBgColor} text-base font-semibold px-3 py-1`}>
-                                                                    {audit.totalScore}
-                                                                </Badge>
-                                                            </div>
-
-                                                            <div className="space-y-2 mb-3">
-                                                                {/* Total Action Count for Completed Audits */}
-                                                                <div className="flex items-center gap-2">
-                                                                    <span className="text-xs text-muted-foreground">İşlem Yapılan:</span>
-                                                                    <Badge variant="outline" className="text-xs bg-gray-100 text-gray-700 border-gray-200">
-                                                                        {totalActionCount} Madde
-                                                                    </Badge>
-                                                                </div>
-
-                                                                <div className="flex items-center gap-2">
-                                                                    <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200 text-xs">
-                                                                        ✓ Tamamlandı
-                                                                    </Badge>
-                                                                </div>
-                                                            </div>
-
-                                                            <Link href={`/audits/${audit.id}/summary`} className="w-full">
-                                                                <Button className="w-full h-8 text-xs bg-green-600 hover:bg-green-700 text-white">
-                                                                    Detay Gör
-                                                                </Button>
-                                                            </Link>
+                                                        <div className={`px-2.5 py-1 rounded-md border text-xs font-bold leading-none ${scoreClass}`}>
+                                                            {percentage.toFixed(0)} Puan
                                                         </div>
-                                                    </GridItem>
-                                                );
-                                            })}
-                                        </GridFadeIn>
-                                    )}
-                                </TabsContent>
-                            </Tabs>
-                        </CardContent>
-                    </Card>
+                                                    </div>
+
+                                                    {/* Body */}
+                                                    <div className="flex-1 space-y-3 mb-5">
+                                                        {deadlineInfo && (
+                                                            <div className={`flex items-center gap-2 text-xs font-medium px-3 py-2 rounded-lg ${
+                                                                deadlineInfo.status === 'overdue' ? 'bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-400' :
+                                                                deadlineInfo.status === 'warning' ? 'bg-orange-50 text-orange-700 dark:bg-orange-500/10 dark:text-orange-400' :
+                                                                'bg-slate-50 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+                                                            }`}>
+                                                                <AlertCircle className="h-3.5 w-3.5" />
+                                                                <span>
+                                                                    {deadlineInfo.status === 'overdue' ? `${Math.abs(deadlineInfo.daysRemaining)} Gün Gecikti` :
+                                                                     deadlineInfo.status === 'warning' ? 'Son Gün' :
+                                                                     `${deadlineInfo.daysRemaining} Gün Kaldı`}
+                                                                </span>
+                                                            </div>
+                                                        )}
+
+                                                        <div className="grid grid-cols-2 gap-2">
+                                                            <div className="bg-slate-50 dark:bg-slate-800 p-2 rounded-lg border border-slate-100 dark:border-slate-800/50">
+                                                                <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold block mb-0.5">Yapılacak</span>
+                                                                <span className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                                                                    {pendingActionCount > 0 ? `${pendingActionCount} Madde` : "0 Madde"}
+                                                                </span>
+                                                            </div>
+                                                            <div className={`p-2 rounded-lg border ${statusInfo.color.replace('bg-', 'bg-opacity-20 ')}`}>
+                                                                <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold block mb-0.5">Durum</span>
+                                                                <span className="text-xs font-bold truncate block" title={statusInfo.text}>
+                                                                    {statusInfo.text}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Footer */}
+                                                    <Link href={`/audits/${audit.id}/actions`} className="w-full mt-auto">
+                                                        <Button className="w-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-slate-200 rounded-xl py-5 font-semibold shadow-sm transition-all active:scale-[0.98]">
+                                                            İncele
+                                                        </Button>
+                                                    </Link>
+                                                </div>
+                                            </GridItem>
+                                        );
+                                    })}
+                                </GridFadeIn>
+                            )}
+                        </TabsContent>
+
+                        <TabsContent value="completed" className="mt-0 focus-visible:outline-none">
+                            {completedAudits.length === 0 ? (
+                                <div className="flex flex-col items-center justify-center py-16 text-center bg-slate-50 dark:bg-slate-950/50 rounded-2xl border border-dashed">
+                                    <div className="h-20 w-20 bg-slate-200 dark:bg-slate-800 rounded-full flex items-center justify-center mb-4">
+                                        <BarChart3 className="h-10 w-10 text-slate-400" />
+                                    </div>
+                                    <h3 className="text-xl font-bold text-slate-900 dark:text-slate-50">Geçmiş aksiyon yok</h3>
+                                    <p className="text-muted-foreground mt-2">
+                                        Tamamlanmış aksiyonlarınız burada listelenecektir.
+                                    </p>
+                                </div>
+                            ) : (
+                                <GridFadeIn className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                    {completedAudits.map((audit) => {
+                                        const profile = auditorProfiles.get(audit.auditorId);
+                                        const percentage = (audit.totalScore / audit.maxScore) * 100;
+                                        
+                                        // Colors
+                                        let scoreClass = "";
+                                        if (percentage < 70) scoreClass = "text-red-600 bg-red-50 border-red-200 dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/20";
+                                        else if (percentage < 85) scoreClass = "text-orange-600 bg-orange-50 border-orange-200 dark:bg-orange-500/10 dark:text-orange-400 dark:border-orange-500/20";
+                                        else if (percentage < 93) scoreClass = "text-amber-600 bg-amber-50 border-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20";
+                                        else scoreClass = "text-emerald-600 bg-emerald-50 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20";
+
+                                        // Name logic
+                                        const firstName = profile?.firstName || "";
+                                        const lastName = profile?.lastName || "";
+                                        const auditorName = (firstName.length > 1 && lastName.length > 1) 
+                                            ? `${firstName} ${lastName}`
+                                            : (profile?.displayName || audit.auditorName || "Denetmen");
+                                            
+                                        const initials = auditorName.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2);
+
+                                        let doneCount = 0;
+                                        audit.sections.forEach(s => s.answers.forEach(a => {
+                                            if (a.answer === "hayir" || (a.questionType === "checkbox" && a.earnedPoints < a.maxPoints)) doneCount++;
+                                        }));
+
+                                        return (
+                                            <GridItem key={audit.id}>
+                                               <div className="group relative bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 hover:shadow-xl hover:shadow-slate-200/50 dark:hover:shadow-black/50 transition-all duration-300 flex flex-col h-full opacity-75 hover:opacity-100 grayscale hover:grayscale-0">
+                                                    <div className="flex items-start justify-between mb-4">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="h-10 w-10 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-sm font-bold text-slate-500">
+                                                                {initials}
+                                                            </div>
+                                                            <div>
+                                                                <h4 className="font-bold text-slate-800 dark:text-slate-200 text-sm">{auditorName}</h4>
+                                                                <span className="text-xs text-muted-foreground">{formatDate(audit.completedAt)}</span>
+                                                            </div>
+                                                        </div>
+                                                        <div className={`px-2.5 py-1 rounded-md border text-xs font-bold leading-none ${scoreClass}`}>
+                                                            {percentage.toFixed(0)} Puan
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="flex-1 space-y-3 mb-5">
+                                                        <div className="flex items-center justify-center p-3 bg-emerald-50 dark:bg-emerald-500/10 rounded-lg border border-emerald-100 dark:border-emerald-500/20">
+                                                            <div className="text-center">
+                                                                <span className="text-emerald-700 dark:text-emerald-400 text-xs font-bold uppercase tracking-wider block mb-0.5">Tamamlanan</span>
+                                                                <span className="text-emerald-800 dark:text-emerald-300 font-bold text-sm">{doneCount} Aksiyon</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    <Link href={`/audits/${audit.id}/summary`} className="w-full mt-auto">
+                                                        <Button variant="outline" className="w-full border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl py-5 font-semibold">
+                                                            İncele
+                                                        </Button>
+                                                    </Link>
+                                                </div>
+                                            </GridItem>
+                                        );
+                                    })}
+                                </GridFadeIn>
+                            )}
+                        </TabsContent>
+                    </Tabs>
                 </div>
             </DashboardLayout>
         </ProtectedRoute>

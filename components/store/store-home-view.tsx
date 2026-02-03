@@ -109,6 +109,7 @@ export function StoreHomeView() {
                                 actionStats={audit.actionStats}
                                 lastSubmittedAt={audit.lastSubmittedAt}
                                 onClick={() => handleAuditClick(audit.id)}
+                                onActionClick={() => router.push(`/audits/${audit.id}/actions`)}
                             />
                         ))}
                     </div>
