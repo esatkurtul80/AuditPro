@@ -72,7 +72,7 @@ export function StoreAnalysisDialog({ storeId, storeName, isOpen, onClose }: Sto
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-            <DialogContent className="max-w-4xl h-[85vh] overflow-hidden flex flex-col p-0 gap-0">
+            <DialogContent className="w-[95vw] max-w-7xl sm:max-w-7xl md:max-w-7xl lg:max-w-7xl h-[85vh] overflow-hidden flex flex-col p-0 gap-0">
                 <DialogHeader className="p-6 pb-4 border-b bg-slate-50/50 shrink-0 pr-12">
                     <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
                         <div>

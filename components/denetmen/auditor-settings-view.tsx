@@ -97,8 +97,24 @@ export function AuditorSettingsView() {
             <div className="relative flex flex-col w-full max-w-md mx-auto min-h-screen overflow-x-hidden">
 
 
+
+                {/* Sticky Header with Back Button */}
+                <div className="sticky top-0 z-50 bg-white dark:bg-background border-b border-gray-200 dark:border-border">
+                    <div className="flex items-center justify-between px-4 py-3">
+                        <button
+                            onClick={() => router.push("/denetmen/panel")}
+                            className="flex items-center gap-2 text-gray-700 dark:text-foreground hover:text-gray-900 dark:hover:text-white transition-colors"
+                        >
+                            <ChevronLeft size={24} />
+                            <span className="font-medium">Geri</span>
+                        </button>
+                        <h1 className="text-lg font-semibold text-gray-900 dark:text-foreground">Ayarlar</h1>
+                        <div className="w-16"></div> {/* Spacer for centering */}
+                    </div>
+                </div>
+
                 {/* Scrollable Content */}
-                <div className="flex flex-col gap-6 px-4 pt-20 pb-24">
+                <div className="flex flex-col gap-6 px-4 pt-6 pb-24">
 
                     {/* Profile Section */}
                     <div className="flex items-center gap-4 p-4 bg-white dark:bg-card rounded-2xl shadow-sm border border-gray-100 dark:border-border">

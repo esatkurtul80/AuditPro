@@ -56,8 +56,8 @@ export function DashboardLayout({ children, forceStoreLayout }: { children: Reac
                 />
             </aside>
 
-            {/* Mobile Header with all elements in one row - HIDDEN FOR STORE USERS AND AUDITORS (GlobalHeader used instead) */}
-            {!loading && !isStoreUser && userProfile?.role !== "denetmen" && (
+            {/* Mobile Header with all elements in one row - HIDDEN FOR STORE USERS (GlobalHeader used instead) */}
+            {!loading && !isStoreUser && (
                 <div className="lg:hidden flex items-center justify-between gap-2 p-3 border-b bg-background/95 backdrop-blur sticky top-0 z-40 relative">
                     {/* Left Area: Hamburger (Hidden for Store Users) - Keep div for spacing */}
                     <div className="flex items-center gap-2">
