@@ -1,50 +1,41 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Download } from "lucide-react";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { Download, Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-    // 3. Auto-Reload on Version Mismatch (Silent or with small toast)
+export function ServiceWorkerUpdater() {
+    const [updating, setUpdating] = useState(false);
+    const [showManualButton, setShowManualButton] = useState(false);
+
+    // 3. Auto-Reload on Version Mismatch
     useEffect(() => {
         const checkVersion = async () => {
             try {
-                // Avoid checking on localhost to prevent annoying loops during dev
+                // Avoid checking on localhost to prevent annoyance
                 if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') return;
-                
+
                 const response = await fetch('/api/version?t=' + new Date().getTime());
                 if (!response.ok) return;
-                
+
                 const data = await response.json();
                 const serverVersion = data.version;
-                const localVersion = process.env.NEXT_PUBLIC_APP_VERSION;
+                const localVersion = process.env.NEXT_PUBLIC_APP_VERSION; // This should be provided by build time env
 
-                if (serverVersion && localVersion && serverVersion !== localVersion) {
-                    console.log(`🚀 Update detected: ${localVersion} -> ${serverVersion}`);
-                    
-                    // Simple logic: Just reload the page.
-                    // The new page load will fetch the new index.html which references the new JS bundles.
-                    // We can add a small "Updating..." visual if needed, but instant reload is cleaner for "Force Update"
-                    
-                    // Prevent infinite loops if server version is somehow broken or misconfigured
-                    const lastReload = sessionStorage.getItem('last_version_reload');
-                    const now = Date.now();
-                    if (lastReload && (now - parseInt(lastReload)) < 10000) {
-                        console.warn("Rapid reload detected, pausing update loop.");
-                        return;
-                    }
+                // If localVersion is undefined (dev mode), skip
+                if (!localVersion) return;
 
-                    sessionStorage.setItem('last_version_reload', now.toString());
+                // Normalize versions for comparison (remove 'v' prefix if exists)
+                const cleanServer = serverVersion.replace(/^v/, '');
+                const cleanLocal = localVersion.replace(/^v/, '');
+
+                if (cleanServer !== cleanLocal) {
+                    console.log(`🚀 Update detected: ${cleanLocal} -> ${cleanServer}`);
                     
-                    // Clear SW cache explicitly before reload to ensure fresh assets
+                    // Trigger Update Mode
+                    setUpdating(true);
+
+                    // 1. Clear Caches immediately
                     if ('serviceWorker' in navigator) {
                         const regs = await navigator.serviceWorker.getRegistrations();
                         for (const reg of regs) await reg.unregister();
@@ -54,18 +45,30 @@ import { Button } from "@/components/ui/button";
                          await Promise.all(keys.map(key => caches.delete(key)));
                     }
 
-                    window.location.reload();
+                    // 2. Set timeout for 10 seconds to show manual button if auto-reload fails/hangs
+                    setTimeout(() => {
+                        setShowManualButton(true);
+                    }, 10000);
+
+                    // 3. Attempt immediate reload after a short delay to let UI render
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1000); // 1s delay to show "Updating" screen
                 }
             } catch (e) {
                 console.error("Version check failed", e);
             }
         };
 
+        // Check immediately on mount
         checkVersion();
-        const interval = setInterval(checkVersion, 60 * 1000); // Check every minute
         
+        // Check every minute
+        const interval = setInterval(checkVersion, 60 * 1000); 
+        
+        // Check on visibility change (re-opening app)
         const handleVisibility = () => {
-            if (document.visibilityState === 'visible') checkVersion();
+             if (document.visibilityState === 'visible') checkVersion();
         };
         document.addEventListener('visibilitychange', handleVisibility);
 
@@ -75,5 +78,42 @@ import { Button } from "@/components/ui/button";
         };
     }, []);
 
-    return null; // Invisible component
+    if (updating) {
+        return (
+            <div className="fixed inset-0 z-[99999] bg-black/90 flex flex-col items-center justify-center p-4 text-center animate-in fade-in duration-300">
+                <div className="bg-white dark:bg-slate-900 p-8 rounded-2xl shadow-2xl max-w-sm w-full space-y-6 border border-white/10">
+                    <div className="mx-auto w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
+                        <RefreshCw className={`h-8 w-8 text-blue-600 dark:text-blue-400 ${!showManualButton ? 'animate-spin' : ''}`} />
+                    </div>
+                   
+                    <div className="space-y-2">
+                        <h2 className="text-xl font-bold text-slate-900 dark:text-white">
+                            Güncelleme Mevcut
+                        </h2>
+                        <p className="text-sm text-slate-600 dark:text-slate-400">
+                           Yeni versiyon yükleniyor, lütfen bekleyin...
+                        </p>
+                    </div>
+
+                    {showManualButton && (
+                        <div className="pt-2 animate-in slide-in-from-bottom-2">
+                             <Button 
+                                onClick={() => window.location.reload()} 
+                                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                                size="lg"
+                            >
+                                <Download className="mr-2 h-4 w-4" />
+                                Şimdi Güncelle
+                            </Button>
+                            <p className="text-xs text-muted-foreground mt-3">
+                                Otomatik güncelleme tamamlanamadıysa butona tıklayın.
+                            </p>
+                        </div>
+                    )}
+                </div>
+            </div>
+        );
+    }
+
+    return null; 
 }

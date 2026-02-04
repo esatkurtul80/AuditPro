@@ -23,11 +23,11 @@ export async function GET() {
         }
         
         // 3. Fallback default
-        return NextResponse.json({ version: 'v2.2.2' });
+        return NextResponse.json({ version: 'v2.2.3' });
     } catch (error) {
         console.error("Version read error:", error);
         // Fallback to a safe version that won't trigger infinite update loop if possible, 
         // or just return current known version
-        return NextResponse.json({ version: 'v2.2.2' });
+        return NextResponse.json({ version: 'v2.2.3' });
     }
 }
