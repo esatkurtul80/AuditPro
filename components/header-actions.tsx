@@ -309,71 +309,7 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
                                 </div>
                             )}
 
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                                className="cursor-pointer p-2 text-center justify-center text-xs text-muted-foreground hover:text-primary flex items-center gap-2"
-                                onClick={async (e) => {
-                                    e.preventDefault();
-                                    
-                                    if (notificationPermission === 'denied') {
-                                        toast.error("İzin REDDEDİLMİŞ! 🚫 Ayarlar > Uygulamalar > AuditPro > Bildirimler kısmından izni açın.");
-                                        return;
-                                    }
 
-                                    if (isPushEnabled) {
-                                        // Disable logic
-                                        if ('serviceWorker' in navigator) {
-                                            const regs = await navigator.serviceWorker.getRegistrations();
-                                            for (const reg of regs) await reg.unregister();
-                                        }
-                                        localStorage.setItem("notifications_manual_off", "true");
-                                        setIsPushEnabled(false);
-                                        toast.success("Bildirimler kapatıldı.");
-                                    } else {
-                                        // Enable logic
-                                        toast.info("Bildirim servisi başlatılıyor...");
-                                        
-                                        const perm = await Notification.requestPermission();
-                                        setNotificationPermission(perm);
-                                        
-                                        if (perm === 'granted') {
-                                            localStorage.removeItem("notifications_manual_off");
-                                            toast.loading("Yapılandırılıyor...");
-                                            if ('serviceWorker' in navigator) {
-                                                await navigator.serviceWorker.register('/firebase-messaging-sw.js');
-                                            }
-                                            setTimeout(() => window.location.reload(), 1000);
-                                        } else {
-                                            toast.error("İzin verilmedi.");
-                                        }
-                                    }
-                                }}
-                            >
-                                <div className="flex items-center gap-3 w-full">
-                                    {/* Large Circular Status Badge */}
-                                    <div className={cn(
-                                        "w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 shrink-0",
-                                        isPushEnabled 
-                                            ? "bg-green-500 shadow-lg shadow-green-500/50" 
-                                            : notificationPermission === 'denied'
-                                            ? "bg-red-500 shadow-lg shadow-red-500/50"
-                                            : "bg-gray-400 shadow-lg shadow-gray-400/50"
-                                    )}>
-                                        <Bell className={cn(
-                                            "h-5 w-5 text-white",
-                                            isPushEnabled && "animate-pulse"
-                                        )} />
-                                    </div>
-                                    <div className="flex-1">
-                                        <div className="font-medium text-sm">
-                                            {isPushEnabled ? "Bildirimler Açık" : notificationPermission === 'denied' ? "Bildirimler Kapalı" : "İzin Verilmedi"}
-                                        </div>
-                                        <div className="text-xs text-muted-foreground">
-                                            {isPushEnabled ? "Bildirimler alınıyor" : "Bildirimleri aç"}
-                                        </div>
-                                    </div>
-                                </div>
-                            </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
                 </div>

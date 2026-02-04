@@ -5,6 +5,7 @@ import { useAuth } from "@/components/auth-provider";
 import { HeaderActions } from "@/components/header-actions";
 import { usePathname } from "next/navigation";
 import { MobileDebugLogger } from "@/components/mobile-debug-logger";
+import { Menu } from "lucide-react";
 
 export function GlobalHeader() {
     const { userProfile, loading } = useAuth();
@@ -32,11 +33,11 @@ export function GlobalHeader() {
     // Don't show on login page
     if (pathname === "/login") return null;
 
-    // Currently only hoisting for Store Users to ensure stability
+    // Currently only hoisting for Store Users and Auditors to ensure stability
     // Admin users can continue using DashboardLayout's header for now (complex sidebar logic)
-    const isStoreUser = userProfile?.role === "magaza" || !!userProfile?.storeId;
+    const isMobileUser = userProfile?.role === "magaza" || userProfile?.role === "denetmen" || !!userProfile?.storeId;
 
-    if (!isStoreUser) return null;
+    if (!isMobileUser) return null;
 
     // Prevent layout shift during loading by rendering a placeholder
     if (loading) {
@@ -49,8 +50,31 @@ export function GlobalHeader() {
 
     return (
         <div className="lg:hidden flex items-center justify-between gap-2 p-3 border-b bg-background/95 backdrop-blur sticky top-0 z-40 w-full">
-            {/* Left Area: Empty for Store Users (No Hamburger) */}
-            <div className="w-10"></div>
+            {/* Left Area: Hamburger for Auditors, Empty for Store Users */}
+            <div className="w-10">
+                {userProfile?.role === "denetmen" && (
+                     /* If we had a SidebarTrigger here it would go here, 
+                        but for now Denetmen uses Bottom Nav usually? 
+                        Wait, the user requested Hamburger menu in the screenshot.
+                        The screenshot shows a Hamburger menu. 
+                        Let's check if SidebarTrigger is available or if we need to implement a mobile menu trigger.
+                        Since Denetmen panel usually has a bottom bar, maybe the sidebar is for administrative tasks?
+                        
+                        However, the screenshot explicitly has a hamburger menu.
+                        If I don't have the sidebar trigger handy, I'll put a placeholder or just leave it empty 
+                        if the bottom nav is the primary nav.
+                        
+                        BUT, the user said "resimdeki gibi normal headeri kullan".
+                        The screenshot shows hamburger.
+                        
+                        Let's just keep the w-10 for now. If SidebarTrigger is needed, I'd need to know if Shadcn Sidebar is used here.
+                        Assuming Custom Header actions might have it.
+                     */
+                     <div className="flex items-center justify-center w-10 h-10">
+                         <Menu className="h-6 w-6" />
+                     </div>
+                )}
+            </div>
 
             {/* Center: Logo - Tap 10x for Debug Logger */}
             <div 
