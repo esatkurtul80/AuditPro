@@ -30,6 +30,17 @@ export function useFcm() {
         }
     };
 
+    // Auto-request permission on mount if default
+    useEffect(() => {
+        if (!userProfile) return;
+        
+        if (typeof window !== "undefined" && "Notification" in window) {
+            if (Notification.permission === "default") {
+                requestPermission();
+            }
+        }
+    }, [userProfile]);
+
     const retrieveToken = async () => {
         try {
             if (!messaging) {
@@ -104,26 +115,12 @@ export function useFcm() {
     }, [userProfile]);
 
     // Separate effect to handle "waiting_for_user" state with a user-friendly Toast
-    useEffect(() => {
-        if (status === 'waiting_for_user' && typeof window !== 'undefined') {
-            // Prevent spamming
-            if (sessionStorage.getItem('fcm_prompt_shown')) return;
-            
-            sessionStorage.setItem('fcm_prompt_shown', 'true');
-
-            // Small delay to let the app settle
-            setTimeout(() => {
-                toast("Bildirim İzni", {
-                    description: "Bildirimleri alabilmek için izin vermelisiniz.",
-                    action: {
-                        label: "İzin Ver",
-                        onClick: () => requestPermission()
-                    },
-                    duration: 10000, // Stay longer
-                });
-            }, 3000);
-        }
-    }, [status]);
+    // Separate effect to handle "waiting_for_user" state - REMOVED preferring auto-prompt
+    // useEffect(() => {
+    //     if (status === 'waiting_for_user' && typeof window !== 'undefined') {
+    //         ...
+    //     }
+    // }, [status]);
 
     useEffect(() => {
         if (messaging) {

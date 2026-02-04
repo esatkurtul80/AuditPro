@@ -46,12 +46,19 @@ export function StoreSettingsView() {
         // 2. Check Service Worker Subscription
         if ('serviceWorker' in navigator && perm === 'granted') {
             try {
+                // Wait for SW to be ready (up to 2s timeout) to avoid race conditions on reload
+                const swReady = await Promise.race([
+                    navigator.serviceWorker.ready,
+                    new Promise((_, reject) => setTimeout(() => reject('timeout'), 2000))
+                ]).catch(() => null);
+
+                if (!swReady) {
+                    // console.warn("SW not ready yet, skipping check");
+                    return; 
+                }
+
                 const reg = await navigator.serviceWorker.getRegistration();
                 if (reg && reg.active) {
-                     // If we have an active worker, we assume "ON" for the app's internal logic.
-                     // Ideally we check reg.pushManager.getSubscription() but simple presence check 
-                     // is often enough for "is the app trying to listen?".
-                     // Let's go deeper:
                      const sub = await reg.pushManager.getSubscription();
                      setIsPushEnabled(!!sub);
                 } else {
@@ -298,8 +305,13 @@ export function StoreSettingsView() {
                                             }
 
                                             // 2. Register/Update logic
+                                            // 2. Register/Update logic
                                             localStorage.removeItem("notifications_manual_off"); // Clear opt-out
-                                            window.location.href = window.location.origin + window.location.pathname + '?update_t=' + Date.now();
+                                            toast.loading("Uygulama yapılandırılıyor...");
+                                            
+                                            setTimeout(() => {
+                                                window.location.href = window.location.origin + window.location.pathname + '?update_t=' + Date.now();
+                                            }, 1000);
                                             
                                         } else {
                                             // Turn OFF Logic
