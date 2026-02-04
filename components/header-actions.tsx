@@ -230,13 +230,20 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
                         {/* Dropdown Content... */}
                         <DropdownMenuContent align="end" sideOffset={8} className="w-72 md:w-80 anim-slide-down-in anim-slide-down-out">
                             <DropdownMenuLabel className="flex items-center justify-between">
-                                <Badge
-                                    variant="secondary"
-                                    className="cursor-pointer hover:bg-secondary/80"
-                                    onClick={() => router.push("/notifications")}
-                                >
-                                    Bildirimler
-                                </Badge>
+                                <div className="flex items-center gap-2">
+                                    {/* Status Circle */}
+                                    <div className={cn(
+                                        "w-2 h-2 rounded-full",
+                                        isPushEnabled ? "bg-green-500 animate-pulse" : "bg-red-500"
+                                    )} />
+                                    <Badge
+                                        variant="secondary"
+                                        className="cursor-pointer hover:bg-secondary/80"
+                                        onClick={() => router.push("/notifications")}
+                                    >
+                                        Bildirimler
+                                    </Badge>
+                                </div>
                                 {unreadCount > 0 && (
                                     <span className="text-xs font-normal text-muted-foreground">
                                         {unreadCount} yeni
@@ -450,13 +457,20 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" sideOffset={8} className="w-72 md:w-80 anim-slide-down-in anim-slide-down-out">
                     <DropdownMenuLabel className="flex items-center justify-between">
-                        <Badge
-                            variant="secondary"
-                            className="cursor-pointer hover:bg-secondary/80"
-                            onClick={() => router.push("/notifications")}
-                        >
-                            Bildirimler
-                        </Badge>
+                        <div className="flex items-center gap-2">
+                            {/* Status Circle */}
+                            <div className={cn(
+                                "w-2 h-2 rounded-full",
+                                isPushEnabled ? "bg-green-500 animate-pulse" : "bg-red-500"
+                            )} />
+                            <Badge
+                                variant="secondary"
+                                className="cursor-pointer hover:bg-secondary/80"
+                                onClick={() => router.push("/notifications")}
+                            >
+                                Bildirimler
+                            </Badge>
+                        </div>
                         {unreadCount > 0 && (
                             <span className="text-xs font-normal text-muted-foreground">
                                 {unreadCount} yeni

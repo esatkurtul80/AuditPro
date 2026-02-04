@@ -30,13 +30,27 @@ export function useFcm() {
         }
     };
 
-    // Auto-request permission on mount if default
+    // Auto-request permission on mount if needed
     useEffect(() => {
         if (!userProfile) return;
         
         if (typeof window !== "undefined" && "Notification" in window) {
+            const manuallyDisabled = localStorage.getItem("notifications_manual_off") === "true";
+            
+            // If user manually disabled, respect that
+            if (manuallyDisabled) {
+                console.log("📴 Notifications manually disabled by user");
+                return;
+            }
+
+            // Auto-prompt if permission is default (fresh install or never asked)
             if (Notification.permission === "default") {
+                console.log("🔔 First launch or default permission, requesting...");
                 requestPermission();
+            } else if (Notification.permission === "granted") {
+                // Permission granted but might not have subscription yet
+                console.log("✅ Permission granted, ensuring token...");
+                retrieveToken();
             }
         }
     }, [userProfile]);
@@ -44,11 +58,35 @@ export function useFcm() {
     const retrieveToken = async () => {
         try {
             if (!messaging) {
+                console.error("❌ Messaging not initialized");
                 setStatus("messaging_init_failed");
                 return;
             }
 
+            // CRITICAL: Ensure SW is registered before getting token
+            if ('serviceWorker' in navigator) {
+                let registration = await navigator.serviceWorker.getRegistration();
+                
+                if (!registration) {
+                    console.log("🔧 No SW found, registering firebase-messaging-sw.js...");
+                    try {
+                        registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+                        console.log("✅ SW registered successfully");
+                        // Wait for SW to activate
+                        await navigator.serviceWorker.ready;
+                    } catch (swError) {
+                        console.error("❌ SW registration failed:", swError);
+                        setStatus("sw_registration_failed");
+                        toast.error("Bildirim servisi başlatılamadı.");
+                        return;
+                    }
+                } else {
+                    console.log("✅ SW already registered");
+                }
+            }
+
             setStatus("getting_token");
+            console.log("🔑 Requesting FCM token...");
             const currentToken = await getToken(messaging, {
                 vapidKey: 'BP2IptNxmsaooq_2x5kUt6_AJkDxbM6y4a0D8Nsq6HACu4_ix3HLZOQLLEZ5BWtG_EeB-XOf3rsYb60E7quU2Bc'
             });
@@ -93,20 +131,28 @@ export function useFcm() {
 
         const checkPermissionAndInit = async () => {
             if (typeof window !== "undefined" && (!('serviceWorker' in navigator) || !('PushManager' in window))) {
+                console.warn("⚠️ Push notifications not supported");
                 setStatus("unsupported");
                 return;
             }
 
             if (!messaging) {
+                console.error("❌ Messaging not initialized");
                 setStatus("messaging_init_failed");
                 return;
             }
 
-            if (Notification.permission === 'granted') {
+            const perm = Notification.permission;
+            console.log("🔍 Current permission:", perm);
+
+            if (perm === 'granted') {
+                console.log("✅ Permission granted, retrieving token...");
                 await retrieveToken();
-            } else if (Notification.permission === 'denied') {
+            } else if (perm === 'denied') {
+                console.warn("🚫 Permission denied by user");
                 setStatus("permission_denied");
             } else {
+                console.log("❓ Permission default, waiting for user action");
                 setStatus("waiting_for_user");
             }
         };

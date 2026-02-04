@@ -12,6 +12,10 @@ export function ServiceWorkerUpdater() {
     useEffect(() => {
         const checkVersion = async () => {
             try {
+                // Skip if running as PWA (PWA has its own service worker update mechanism)
+                const isPWA = window.matchMedia('(display-mode: standalone)').matches;
+                if (isPWA) return;
+
                 // Avoid checking on localhost to prevent annoyance
                 if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') return;
 
@@ -60,22 +64,8 @@ export function ServiceWorkerUpdater() {
             }
         };
 
-        // Check immediately on mount
+        // Check only once on mount (when app first opens)
         checkVersion();
-        
-        // Check every minute
-        const interval = setInterval(checkVersion, 60 * 1000); 
-        
-        // Check on visibility change (re-opening app)
-        const handleVisibility = () => {
-             if (document.visibilityState === 'visible') checkVersion();
-        };
-        document.addEventListener('visibilitychange', handleVisibility);
-
-        return () => {
-            clearInterval(interval);
-            document.removeEventListener('visibilitychange', handleVisibility);
-        };
     }, []);
 
     if (updating) {
