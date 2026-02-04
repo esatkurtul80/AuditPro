@@ -93,24 +93,12 @@ export function AuditorSettingsView() {
     if (!mounted) return null;
 
     return (
-        <div className="min-h-screen bg-[#f6f8f6] dark:bg-background transition-colors duration-200 font-sans pb-24">
+        <div className="min-h-screen bg-[#f6f8f6] dark:bg-background transition-colors duration-200 font-sans">
             <div className="relative flex flex-col w-full max-w-md mx-auto min-h-screen overflow-x-hidden">
 
-                {/* Header */}
-                <div className="sticky top-0 z-10 bg-white/95 dark:bg-card/95 backdrop-blur border-b border-gray-100 dark:border-border">
-                    <div className="flex items-center gap-3 p-4">
-                        <button
-                            onClick={() => router.back()}
-                            className="p-2 hover:bg-gray-100 dark:hover:bg-accent rounded-lg transition-colors"
-                        >
-                            <ChevronLeft className="h-5 w-5" />
-                        </button>
-                        <h1 className="text-xl font-bold">Ayarlar</h1>
-                    </div>
-                </div>
 
                 {/* Scrollable Content */}
-                <div className="flex flex-col gap-6 px-4 mt-2">
+                <div className="flex flex-col gap-6 px-4 pt-20 pb-24">
 
                     {/* Profile Section */}
                     <div className="flex items-center gap-4 p-4 bg-white dark:bg-card rounded-2xl shadow-sm border border-gray-100 dark:border-border">
