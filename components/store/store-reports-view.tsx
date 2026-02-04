@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { BarChart3, AlertTriangle, FileText, Calendar } from "lucide-react";
+import { BarChart3, AlertTriangle, FileText, Calendar, Store, AlertCircle, X, XCircle } from "lucide-react";
 import { useStoreData } from "@/hooks/use-store-data";
 import { cn } from "@/lib/utils";
 import {
@@ -15,47 +15,170 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ReportAuditCard } from "@/components/report-audit-card";
 import { useRouter } from "next/navigation";
+import { format } from "date-fns";
+import { tr } from "date-fns/locale";
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogClose,
+} from "@/components/ui/dialog";
 
+interface RecurringFailureDetail {
+    date: Date;
+    failType: "Hayır" | "Eksik Puan";
+    actionData?: any;
+    auditId: string;
+    auditorNotes?: string[];
+    auditorPhotos?: string[];
+}
+
+interface ExpandedRecurringIssue {
+    id: string;
+    question: string;
+    count: number;
+    lastDate: string;
+    failures: RecurringFailureDetail[];
+}
 
 export function StoreReportsView() {
     const [selectedYear, setSelectedYear] = useState("2026");
+    const [selectedImage, setSelectedImage] = useState<string | null>(null);
     const { audits, loading } = useStoreData();
     const router = useRouter();
 
-    // Years to display
-    const years = ["2026", "2027", "2028"];
+    // Years to display (2026 to 2036)
+    const years = Array.from({ length: 11 }, (_, i) => (2026 + i).toString());
 
-    // Filter audits by year (Mocking year filtering for now as most data is recent/test)
-    // In production, parse audit.createdAt or completedAt dates
+    // 1. Filter audits by year (Real Logic)
     const filteredAudits = useMemo(() => {
-        // Since we don't have real 2026 data yet, we might show all for demo
-        // or filter strictly. Let's filter strictly if date strings available.
-        return audits; 
+        if (!audits) return [];
+        return audits.filter(audit => {
+            const auditDate = audit.completedAt instanceof Date 
+                ? audit.completedAt 
+                : (audit.completedAt?.toDate ? audit.completedAt.toDate() : new Date(audit.completedAt));
+            
+            return auditDate.getFullYear().toString() === selectedYear;
+        });
     }, [audits, selectedYear]);
 
-    // Mock Data for "Sürekli Hayırlar" (Persistent Failures)
-    const persistentFailures = [
-        { id: 1, question: "Mağaza temizliği ve düzeni uygun mu?", count: 3, lastDate: "12.01.2026" },
-        { id: 2, question: "Personel kılık kıyafet yönetmeliğine uyuyor mu?", count: 2, lastDate: "05.01.2026" },
-        { id: 3, question: "Fiyat etiketleri güncel mi?", count: 2, lastDate: "28.12.2025" },
-    ];
+    // 2. Calculate "Sürekli Hayırlar" (Persistent Failures) with details
+    const persistentFailures = useMemo(() => {
+        const failureMap = new Map<string, ExpandedRecurringIssue>();
 
-    // Mock Data for "Puan Özeti" (Score Summary)
-    const scoreData = [
-        { name: 'Ocak', puan: 85 },
-        { name: 'Şubat', puan: 92 },
-        { name: 'Mart', puan: 78 },
-        { name: 'Nisan', puan: 88 },
-        { name: 'Mayıs', puan: 95 },
-        { name: 'Haziran', puan: 90 },
-    ];
+        filteredAudits.forEach(audit => {
+            if (!audit.sections) return;
+            const auditDate = audit.completedAt instanceof Date 
+                ? audit.completedAt 
+                : (audit.completedAt?.toDate ? audit.completedAt.toDate() : new Date(audit.completedAt));
+
+            audit.sections.forEach((section: any) => {
+                section.answers?.forEach((answer: any) => {
+                    const isFailure = answer.answer === "hayir" || (answer.questionType === "checkbox" && answer.earnedPoints < (answer.maxPoints || 0));
+                    
+                    if (isFailure) {
+                        const existing = failureMap.get(answer.questionId);
+                        const detail: RecurringFailureDetail = {
+                            date: auditDate,
+                            failType: answer.answer === "hayir" ? "Hayır" : "Eksik Puan",
+                            actionData: answer.actionData,
+                            auditId: audit.id,
+                            auditorNotes: answer.notes,
+                            auditorPhotos: answer.photos
+                        };
+
+                        if (existing) {
+                            existing.count++;
+                            existing.failures.push(detail);
+                        } else {
+                            failureMap.set(answer.questionId, {
+                                id: answer.questionId,
+                                question: answer.questionText,
+                                count: 1,
+                                lastDate: format(auditDate, "dd.MM.yyyy"),
+                                failures: [detail]
+                            });
+                        }
+                    }
+                });
+            });
+        });
+
+        return Array.from(failureMap.values())
+            .map(issue => {
+                issue.failures.sort((a, b) => b.date.getTime() - a.date.getTime());
+                issue.lastDate = format(issue.failures[0].date, "dd.MM.yyyy");
+                return issue;
+            })
+            .sort((a, b) => b.count - a.count)
+            .slice(0, 50);
+    }, [filteredAudits]);
+
+    // 3. Calculate "Puan Özeti" (Score Summary) - Monthly Avgs
+    const scoreData = useMemo(() => {
+        const months = [
+            'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 
+            'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'
+        ];
+        
+        const monthlyStats = new Map<number, { total: number, count: number }>();
+        const currentMonth = new Date().getMonth();
+        const currentYear = new Date().getFullYear().toString();
+
+        filteredAudits.forEach(audit => {
+             const auditDate = audit.completedAt instanceof Date 
+                ? audit.completedAt 
+                : (audit.completedAt?.toDate ? audit.completedAt.toDate() : new Date(audit.completedAt));
+            
+            const monthIdx = auditDate.getMonth();
+            const current = monthlyStats.get(monthIdx) || { total: 0, count: 0 };
+            
+            monthlyStats.set(monthIdx, {
+                total: current.total + audit.score,
+                count: current.count + 1
+            });
+        });
+
+        return months.map((name, index) => {
+            const hasData = monthlyStats.has(index);
+            const isFutureMonthInCurrentYear = selectedYear === currentYear && index > currentMonth;
+            const isFutureYear = parseInt(selectedYear) > parseInt(currentYear);
+
+            if (!hasData && (isFutureMonthInCurrentYear || isFutureYear)) {
+                return null;
+            }
+
+            const stats = monthlyStats.get(index);
+            const avg = stats && stats.count > 0 ? Math.round(stats.total / stats.count) : 0;
+
+            return {
+                name,
+                puan: avg,
+                hasData: !!stats
+            };
+        }).filter(Boolean) as { name: string, puan: number, hasData: boolean }[];
+
+    }, [filteredAudits, selectedYear]);
+
+    // Calculate YTD Average for the selected year
+    const yearlyAverage = useMemo(() => {
+        if (filteredAudits.length === 0) return "0";
+        const total = filteredAudits.reduce((acc, curr) => acc + curr.score, 0);
+        return (total / filteredAudits.length).toFixed(1);
+    }, [filteredAudits]);
+
 
     const handleAuditClick = (auditId: string) => {
         router.push(`/audits/${auditId}/summary`);
     };
 
+    if (loading) {
+        return <div className="h-40 flex items-center justify-center text-muted-foreground">Yükleniyor...</div>;
+    }
+
     return (
-        <div className="container mx-auto py-6 px-4 md:px-6 space-y-6 mb-20">
+        <div className="container mx-auto py-6 px-4 md:px-6 space-y-6 mb-20 relative">
             {/* Header & Year Filter */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div>
@@ -124,36 +247,125 @@ export function StoreReportsView() {
                     )}
                 </TabsContent>
 
-                {/* Tab: Sürekli Hayırlar (Persistent Failures) */}
+                {/* Tab: Sürekli Hayırlar (Detailed Persistent Failures) */}
                 <TabsContent value="failures" className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
                     <Card>
                         <CardHeader>
                             <CardTitle className="text-lg flex items-center gap-2">
                                 <AlertTriangle className="h-5 w-5 text-orange-500" />
-                                En Çok Tekrarlanan Hayırlar
+                                Tekrarlanan Başarısızlıklar
                             </CardTitle>
                             <CardDescription>
-                                {selectedYear} yılında yapılan denetimlerde en sık "Hayır" yanıtı alınan maddeler.
+                                {selectedYear} yılında yapılan denetimlerde en sık "Hayır" alınan veya eksik puan alınan maddeler ve detayları.
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
-                            <div className="space-y-4">
-                                {persistentFailures.map((item, index) => (
-                                    <div key={item.id} className="flex items-start gap-4 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors">
-                                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red-100 text-red-600 font-bold text-sm">
-                                            {index + 1}
-                                        </div>
-                                        <div className="flex-1 space-y-1">
-                                            <p className="font-medium text-sm leading-none">{item.question}</p>
-                                            <div className="flex items-center gap-4 text-xs text-muted-foreground pt-1">
-                                                <span className="flex items-center gap-1 font-semibold text-red-600">
-                                                    <AlertTriangle className="h-3 w-3" /> {item.count} Tekrar
-                                                </span>
-                                                <span>Son Görülme: {item.lastDate}</span>
+                            <div className="space-y-6">
+                                {persistentFailures.length === 0 ? (
+                                    <p className="text-center text-muted-foreground py-8">Kayıt bulunamadı.</p>
+                                ) : (
+                                    persistentFailures.map((item, index) => (
+                                        <div key={item.id} className="rounded-xl border bg-card p-4 shadow-sm">
+                                            <div className="flex items-start gap-3 mb-4">
+                                                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red-100 text-red-600 font-bold text-sm">
+                                                    {index + 1}
+                                                </div>
+                                                <div className="flex-1">
+                                                     <h4 className="font-semibold text-base leading-tight">{item.question}</h4>
+                                                     <div className="mt-1 flex items-center gap-2">
+                                                        <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700 ring-1 ring-inset ring-red-600/10">
+                                                            {item.count} Kez Tekrarlandı
+                                                        </span>
+                                                     </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Failure History Details */}
+                                            <div className="pl-11 space-y-3">
+                                                {item.failures.map((fail, fIdx) => (
+                                                    <div key={`${fail.auditId}-${fIdx}`} className="bg-slate-50 dark:bg-slate-900 rounded-lg p-3 text-sm border border-slate-100 dark:border-slate-800">
+                                                        <div className="flex items-center justify-between mb-2">
+                                                            <div className="flex items-center gap-2">
+                                                                <Calendar className="h-3.5 w-3.5 text-slate-500" />
+                                                                <span className="font-medium text-slate-700 dark:text-slate-300">
+                                                                    {format(fail.date, "d MMMM yyyy", { locale: tr })}
+                                                                </span>
+                                                            </div>
+                                                            <span className="text-xs font-medium text-red-600 bg-red-50 px-2 py-0.5 rounded">
+                                                                {fail.failType}
+                                                            </span>
+                                                        </div>
+
+                                                        {/* Auditor Findings (Notes & Photos) */}
+                                                        {((fail.auditorNotes && fail.auditorNotes.length > 0) || (fail.auditorPhotos && fail.auditorPhotos.length > 0)) && (
+                                                            <div className="mb-3 pb-3 border-b border-slate-200 dark:border-slate-800 flex flex-col gap-2">
+                                                                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Denetmen Tespiti</div>
+                                                                
+                                                                {fail.auditorNotes && fail.auditorNotes.length > 0 && (
+                                                                    <div className="space-y-1">
+                                                                        {fail.auditorNotes.map((note, noteIdx) => (
+                                                                            <div key={noteIdx} className="flex gap-2">
+                                                                                <FileText className="h-3.5 w-3.5 text-red-500 shrink-0 mt-0.5" />
+                                                                                <p className="text-slate-700 dark:text-slate-300">{note}</p>
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                )}
+                                                                
+                                                                {fail.auditorPhotos && fail.auditorPhotos.length > 0 && (
+                                                                    <div className="flex gap-2 overflow-x-auto pb-1 mt-1">
+                                                                        {fail.auditorPhotos.map((img: string, i: number) => (
+                                                                            <img 
+                                                                                key={i} 
+                                                                                src={img} 
+                                                                                alt="Denetmen Fotoğrafı" 
+                                                                                className="h-20 w-20 object-cover rounded-md border cursor-pointer hover:opacity-80 transition-opacity" 
+                                                                                onClick={() => setSelectedImage(img)}
+                                                                            />
+                                                                        ))}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        )}
+
+                                                        {/* Store Action Data Display */}
+                                                        <div className="flex flex-col gap-2">
+                                                             <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Mağaza Aksiyonu</div>
+                                                            {fail.actionData && (fail.actionData.storeNote || (fail.actionData.storeImages && fail.actionData.storeImages.length > 0)) ? (
+                                                                <div className="flex flex-col gap-2">
+                                                                    {fail.actionData.storeNote && (
+                                                                        <div className="flex gap-2">
+                                                                            <Store className="h-3.5 w-3.5 text-blue-500 shrink-0 mt-0.5" />
+                                                                            <p className="text-slate-600 dark:text-slate-400 italic">"{fail.actionData.storeNote}"</p>
+                                                                        </div>
+                                                                    )}
+                                                                    {fail.actionData.storeImages && fail.actionData.storeImages.length > 0 && (
+                                                                        <div className="flex gap-2 overflow-x-auto pb-1 mt-1">
+                                                                            {fail.actionData.storeImages.map((img: string, i: number) => (
+                                                                                <img 
+                                                                                    key={i} 
+                                                                                    src={img} 
+                                                                                    alt="Aksiyon" 
+                                                                                    className="h-16 w-16 object-cover rounded-md border cursor-pointer hover:opacity-80 transition-opacity"
+                                                                                    onClick={() => setSelectedImage(img)}
+                                                                                />
+                                                                            ))}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            ) : (
+                                                                <div className="flex items-center gap-2 text-xs text-slate-400 italic">
+                                                                    <AlertCircle className="h-3 w-3" />
+                                                                    Mağaza henüz aksiyon almadı veya not girmedi.
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                ))}
                                             </div>
                                         </div>
-                                    </div>
-                                ))}
+                                    ))
+                                )}
                             </div>
                         </CardContent>
                     </Card>
@@ -169,7 +381,7 @@ export function StoreReportsView() {
                                 Puan Performans Tablosu
                             </CardTitle>
                             <CardDescription>
-                                {selectedYear} yılı aylık denetim puanları listesi.
+                                {selectedYear} yılı aylık ortalama denetim puanları.
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
@@ -178,23 +390,33 @@ export function StoreReportsView() {
                                     <thead>
                                         <tr className="border-b bg-muted/50 hover:bg-muted/50">
                                             <th className="h-10 px-4 text-left align-middle font-medium text-muted-foreground w-1/2">Ay</th>
-                                            <th className="h-10 px-4 text-right align-middle font-medium text-muted-foreground w-1/2">Puan</th>
+                                            <th className="h-10 px-4 text-right align-middle font-medium text-muted-foreground w-1/2">Ortalama Puan</th>
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {scoreData.map((item, index) => (
-                                            <tr key={index} className="border-b last:border-0 hover:bg-muted/50 transition-colors">
-                                                <td className="p-4 align-middle font-medium">{item.name}</td>
-                                                <td className="p-4 align-middle text-right">
-                                                    <span className={`inline-flex items-center justify-center rounded-full px-2.5 py-0.5 text-sm font-bold
-                                                        ${item.puan >= 85 ? 'bg-green-100 text-green-700' : 
-                                                          item.puan >= 70 ? 'bg-yellow-100 text-yellow-700' : 
-                                                          'bg-red-100 text-red-700'}`}>
-                                                        {item.puan}
-                                                    </span>
-                                                </td>
+                                        {scoreData.length === 0 ? (
+                                            <tr>
+                                                <td colSpan={2} className="p-4 text-center text-muted-foreground">Veri bulunamadı.</td>
                                             </tr>
-                                        ))}
+                                        ) : (
+                                            scoreData.map((item, index) => (
+                                                <tr key={index} className="border-b last:border-0 hover:bg-muted/50 transition-colors">
+                                                    <td className="p-4 align-middle font-medium">{item.name}</td>
+                                                    <td className="p-4 align-middle text-right">
+                                                        {item.hasData ? (
+                                                            <span className={`inline-flex items-center justify-center rounded-full px-2.5 py-0.5 text-sm font-bold
+                                                                ${item.puan >= 85 ? 'bg-green-100 text-green-700' : 
+                                                                  item.puan >= 70 ? 'bg-yellow-100 text-yellow-700' : 
+                                                                  'bg-red-100 text-red-700'}`}>
+                                                                {item.puan}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-muted-foreground text-xs">-</span>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            ))
+                                        )}
                                     </tbody>
                                 </table>
                             </div>
@@ -230,12 +452,18 @@ export function StoreReportsView() {
                                                 </td>
                                             </tr>
                                         ) : (
-                                            filteredAudits.map((audit) => (
-                                                <tr key={audit.id} className="border-b last:border-0 hover:bg-muted/50 transition-colors">
+                                            filteredAudits
+                                                .sort((a, b) => {
+                                                    const dateA = a.completedAt instanceof Date ? a.completedAt : (a.completedAt?.toDate ? a.completedAt.toDate() : new Date());
+                                                    const dateB = b.completedAt instanceof Date ? b.completedAt : (b.completedAt?.toDate ? b.completedAt.toDate() : new Date());
+                                                    return dateB.getTime() - dateA.getTime();
+                                                })
+                                                .map((audit) => (
+                                                <tr key={audit.id} className="border-b last:border-0 hover:bg-muted/50 transition-colors cursor-pointer" onClick={() => handleAuditClick(audit.id)}>
                                                     <td className="p-4 align-middle font-medium">
-                                                        {audit.completedAt?.toDate ? 
-                                                            audit.completedAt.toDate().toLocaleDateString('tr-TR') : 
-                                                            new Date().toLocaleDateString('tr-TR')}
+                                                        {audit.completedAt instanceof Date 
+                                                            ? audit.completedAt.toLocaleDateString('tr-TR') 
+                                                            : (audit.completedAt?.toDate ? audit.completedAt.toDate().toLocaleDateString('tr-TR') : "-")}
                                                     </td>
                                                     <td className="p-4 align-middle">
                                                         <div className="flex flex-col">
@@ -259,17 +487,17 @@ export function StoreReportsView() {
                             </div>
                         </CardContent>
                     </Card>
-                    
+
                     <div className="grid grid-cols-2 gap-4">
                         <Card>
                              <CardHeader className="pb-2">
                                 <CardDescription>Yıllık Ortalama</CardDescription>
                                 <CardTitle className={cn(
                                     "text-3xl font-bold",
-                                    88.5 >= 90 ? "text-emerald-600" :
-                                    88.5 >= 75 ? "text-blue-600" :
-                                    88.5 >= 60 ? "text-orange-600" : "text-red-600"
-                                )}>88.5</CardTitle>
+                                    parseFloat(yearlyAverage) >= 90 ? "text-emerald-600" :
+                                    parseFloat(yearlyAverage) >= 75 ? "text-blue-600" :
+                                    parseFloat(yearlyAverage) >= 60 ? "text-orange-600" : "text-red-600"
+                                )}>{yearlyAverage}</CardTitle>
                              </CardHeader>
                         </Card>
                         <Card>
@@ -281,6 +509,29 @@ export function StoreReportsView() {
                     </div>
                 </TabsContent>
             </Tabs>
+
+            {/* Lightbox Modal */}
+            {selectedImage && (
+                <div
+                    className="fixed inset-0 bg-black/90 z-[9999] flex items-center justify-center p-4"
+                    onClick={() => setSelectedImage(null)}
+                >
+                    <button
+                        onClick={() => setSelectedImage(null)}
+                        className="absolute top-4 right-4 text-white hover:text-gray-300 transition-colors"
+                        aria-label="Kapat"
+                    >
+                        <XCircle className="h-8 w-8" />
+                    </button>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                        src={selectedImage}
+                        alt="Tam boyut fotoğraf"
+                        className="max-w-full max-h-full object-contain"
+                        onClick={(e) => e.stopPropagation()}
+                    />
+                </div>
+            )}
         </div>
     );
 }

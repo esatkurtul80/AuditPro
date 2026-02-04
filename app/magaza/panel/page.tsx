@@ -30,14 +30,11 @@ export default function StoreDashboardView() {
         }
     }, [searchParams]);
 
-    // Handle Tab Change with URL update
+    // Handle Tab Change (Client-side only to prevent reloads)
     const handleTabChange = (tab: 'panel' | 'reports' | 'notifications' | 'settings') => {
         setActiveTab(tab);
-        // Shallow update checking to avoid unnecessary router pushes if already there
-        const currentTab = searchParams.get('tab');
-        if (currentTab !== tab) {
-            router.push(`${pathname}?tab=${tab}`, { scroll: false });
-        }
+        // We do NOT update URL here to prevent triggering any router/suspense loading states
+        // window.history.replaceState({}, '', url.toString()); 
     };
 
     // Scroll to top on tab change

@@ -20,6 +20,7 @@ export interface Audit {
     hasActions: boolean;
     actionStats: ActionStats;
     lastSubmittedAt?: Date;
+    sections: any; // We include the full sections data for detailed analysis
 }
 
 interface StoreDataCache {
@@ -202,7 +203,8 @@ export function useStoreData() {
                     totalScore: 100,
                     hasActions,
                     actionStats,
-                    lastSubmittedAt
+                    lastSubmittedAt,
+                    sections: auditData.sections
                 };
             });
 

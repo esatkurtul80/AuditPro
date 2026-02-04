@@ -1,5 +1,7 @@
 "use client";
 
+import { startOfDay, endOfDay } from "date-fns";
+
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/auth-provider";
@@ -10,6 +12,8 @@ import {
     Timestamp,
     doc,
     getDoc,
+    query,
+    where,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { AuditType, Store, Audit, Section, Question } from "@/lib/types";
@@ -29,8 +33,10 @@ import {
     FileText,
     Check,
     ChevronsUpDown,
+    CheckCircle2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { Progress } from "@/components/ui/progress";
 import {
     Command,
     CommandEmpty,
@@ -64,11 +70,69 @@ export function CreateAuditDialog({ open, onOpenChange }: CreateAuditDialogProps
     const [step, setStep] = useState(1);
     const [openStoreCombobox, setOpenStoreCombobox] = useState(false);
 
+    const [scheduledStoreId, setScheduledStoreId] = useState<string | null>(null);
+    const [autoStarting, setAutoStarting] = useState(false);
+    const [autoStartProgress, setAutoStartProgress] = useState(0);
+    const [autoStartSuccess, setAutoStartSuccess] = useState(false);
+    const [autoStartStoreName, setAutoStartStoreName] = useState("");
+
     useEffect(() => {
         if (open && userProfile) {
             loadData();
+            checkSchedule();
         }
     }, [open, userProfile]);
+
+    const checkSchedule = async () => {
+        if (!userProfile) return;
+
+        try {
+            const today = new Date();
+            const start = startOfDay(today);
+            const end = endOfDay(today);
+
+            const q = query(
+                collection(db, "audit_schedules"),
+                where("auditorId", "==", userProfile.uid),
+                where("date", ">=", Timestamp.fromDate(start)),
+                where("date", "<=", Timestamp.fromDate(end))
+            );
+
+            const snapshot = await getDocs(q);
+            
+            // Filter locally to be safe and exclude leaves/blocked
+            const validSchedules = snapshot.docs
+                .map(doc => doc.data() as any) // Using any for simplicity as we just need a few fields
+                .filter(data => 
+                    // Ensure it's not a leave or blocked day
+                    (!data.type || data.type === 'audit') && 
+                    // Ensure it has a storeId
+                    data.storeId
+                );
+
+            if (validSchedules.length > 0) {
+                // If multiple stores found, we could either pick the first or let user choose.
+                // For now, let's pick the first one as "Suggested".
+                // If there are multiple, maybe it's safer to NOT auto-select? 
+                // Plan said: "If multiple stores... revert to manual"
+                if (validSchedules.length === 1) {
+                    console.log("Auto-detected scheduled store:", validSchedules[0].storeName);
+                    setScheduledStoreId(validSchedules[0].storeId);
+                } else {
+                    console.log("Multiple schedules found, reverting to manual selection.");
+                    setScheduledStoreId(null);
+                }
+            } else {
+                setScheduledStoreId(null);
+            }
+
+        } catch (error: any) {
+            console.error("Error checking schedule:", error);
+            if (error?.code === 'failed-precondition') {
+                toast.warning("Otomatik plan kontrolü için Firebase İndeksi gerekiyor. Geliştirici konsoluna bakınız.");
+            }
+        }
+    };
 
     const loadData = async () => {
         try {
@@ -94,27 +158,29 @@ export function CreateAuditDialog({ open, onOpenChange }: CreateAuditDialogProps
         }
     };
 
-    const createAudit = async (auditTypeId: string) => {
-        if (!auditTypeId || !selectedStore || !userProfile) {
+    const createAudit = async (auditTypeId: string, storeIdOverride?: string, shouldRedirect: boolean = true): Promise<string | null> => {
+        const targetStoreId = storeIdOverride || selectedStore;
+        
+        if (!auditTypeId || !targetStoreId || !userProfile) {
             setCreating(false);
-            return;
+            return null;
         }
 
         try {
             setCreating(true);
             const auditType = auditTypes.find((at) => at.id === auditTypeId);
-            const store = stores.find((s) => s.id === selectedStore);
+            const store = stores.find((s) => s.id === targetStoreId);
 
             if (!auditType || !store) {
                 toast.error("Seçimler geçerli değil");
                 setCreating(false);
-                return;
+                return null;
             }
 
             if (!auditType.sectionIds || auditType.sectionIds.length === 0) {
                 toast.error("Bu denetim türünde henüz bölüm tanımlanmamış!");
                 setCreating(false);
-                return;
+                return null;
             }
 
             const sectionsPromises = auditType.sectionIds.map(async (sectionId) => {
@@ -130,7 +196,7 @@ export function CreateAuditDialog({ open, onOpenChange }: CreateAuditDialogProps
             if (fetchedSections.length === 0) {
                 toast.error("Bölüm verileri yüklenemedi!");
                 setCreating(false);
-                return;
+                return null;
             }
 
             const auditSectionsPromises = fetchedSections.map(async (section) => {
@@ -194,7 +260,7 @@ export function CreateAuditDialog({ open, onOpenChange }: CreateAuditDialogProps
             if (totalQuestions === 0) {
                 toast.error("Bu denetim türündeki bölümlerde henüz soru tanımlanmamış!");
                 setCreating(false);
-                return;
+                return null;
             }
 
             const maxScore = sections.reduce(
@@ -224,14 +290,70 @@ export function CreateAuditDialog({ open, onOpenChange }: CreateAuditDialogProps
 
             const docRef = await addDoc(collection(db, "audits"), newAudit);
 
-            toast.success(`Denetim oluşturuldu! ${totalQuestions} soru yüklendi.`);
-            onOpenChange(false);
-            router.push(`/audits/${docRef.id}`);
+            if (shouldRedirect) {
+                toast.success(`Denetim oluşturuldu! ${totalQuestions} soru yüklendi.`);
+                onOpenChange(false);
+                router.push(`/audits/${docRef.id}`);
+            }
+            
+            return docRef.id;
         } catch (error) {
             console.error("Error creating audit:", error);
             toast.error("Denetim oluşturulurken hata oluştu");
+            return null;
         } finally {
-            setCreating(false);
+            if (shouldRedirect) {
+                setCreating(false);
+            }
+        }
+    };
+
+    const handleAutoStart = async (auditTypeId: string, storeId: string) => {
+        setSelectedStore(storeId);
+        const storeName = stores.find(s => s.id === storeId)?.name || "Mağaza";
+        setAutoStartStoreName(storeName);
+        setAutoStarting(true);
+        setAutoStartProgress(0);
+        setAutoStartSuccess(false);
+        
+        // Simulate loading animation
+        const progressInterval = setInterval(() => {
+            setAutoStartProgress(prev => {
+                if (prev >= 90) {
+                    clearInterval(progressInterval);
+                    return 90;
+                }
+                return prev + 10;
+            });
+        }, 100);
+        
+        const auditId = await createAudit(auditTypeId, storeId, false);
+        
+        clearInterval(progressInterval);
+        
+        if (auditId) {
+            setAutoStartProgress(100);
+            setAutoStartSuccess(true);
+            
+            // Wait for success animation (1.5 seconds)
+            await new Promise(resolve => setTimeout(resolve, 1500));
+            
+            // Close dialog and navigate
+            onOpenChange(false);
+            router.push(`/audits/${auditId}`);
+            
+            // Reset states
+            setTimeout(() => {
+                setAutoStarting(false);
+                setAutoStartProgress(0);
+                setAutoStartSuccess(false);
+                setAutoStartStoreName("");
+            }, 500);
+        } else {
+            setAutoStarting(false);
+            setAutoStartProgress(0);
+            setAutoStartSuccess(false);
+            setAutoStartStoreName("");
         }
     };
 
@@ -252,7 +374,37 @@ export function CreateAuditDialog({ open, onOpenChange }: CreateAuditDialogProps
                 }
             }}
         >
-            <DialogContent className="max-w-2xl">
+            <DialogContent className="sm:max-w-2xl">
+                {autoStarting ? (
+                    <div className="flex flex-col items-center justify-center py-16 px-8">
+                        <div className="mb-8">
+                            <div className="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center">
+                                {autoStartSuccess ? (
+                                    <CheckCircle2 className="w-12 h-12 text-green-600 animate-in zoom-in duration-300" />
+                                ) : (
+                                    <Loader2 className="w-12 h-12 text-primary animate-spin" />
+                                )}
+                            </div>
+                        </div>
+                        
+                        <div className="w-full max-w-xs space-y-4">
+                            <Progress value={autoStartProgress} className="h-3" />
+                            <div className="text-center space-y-2">
+                                <p className="text-sm text-muted-foreground">
+                                    {autoStartSuccess 
+                                        ? "Denetim başarıyla oluşturuldu!" 
+                                        : "Denetim hazırlanıyor..."}
+                                </p>
+                                {autoStartSuccess && (
+                                    <p className="text-base font-semibold text-foreground">
+                                        {autoStartStoreName}
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                ) : (
+                    <>
                 <DialogHeader>
                     <DialogTitle>
                         {step === 1 ? "Denetim Türü Seçin" : "Mağaza Seçin"}
@@ -277,7 +429,27 @@ export function CreateAuditDialog({ open, onOpenChange }: CreateAuditDialogProps
                                     key={auditType.id}
                                     onClick={() => {
                                         setSelectedAuditType(auditType.id);
-                                        setStep(2);
+                                        
+                                        // SMART START LOGIC
+                                        if (scheduledStoreId) {
+                                            // Directly start audit with this store
+                                            setSelectedStore(scheduledStoreId);
+                                            // We need to trigger createAudit but state updates are async.
+                                            // Better to call a function or use an effect, but simplest here is:
+                                            // We can just call createAudit directly with the type ID, 
+                                            // BUT selectedStore state might not be updated yet.
+                                            // So let's pass storeId explicity if we refactor createAudit to accept it?
+                                            // Or just set step 2 if we want to be safe, BUT the requirement is to SKIP step 2.
+                                            
+                                            // Let's refactor createAudit slightly to accept storeId optionally, or rely on state update + effect?
+                                            // State update is risky in same tick. 
+                                            // Better: Set a "readyToAutoStart" flag or just call a modified create func.
+                                            
+                                            // Let's call a specific handler for this:
+                                            handleAutoStart(auditType.id, scheduledStoreId);
+                                        } else {
+                                            setStep(2);
+                                        }
                                     }}
                                     className="p-6 border-2 rounded-lg hover:border-primary hover:bg-accent transition-all cursor-pointer"
                                 >
@@ -361,7 +533,7 @@ export function CreateAuditDialog({ open, onOpenChange }: CreateAuditDialogProps
                             <Button
                                 onClick={() => {
                                     if (!creating && selectedAuditType) {
-                                        createAudit(selectedAuditType);
+                                        createAudit(selectedAuditType, selectedStore);
                                     }
                                 }}
                                 disabled={!selectedStore || creating}
@@ -377,6 +549,8 @@ export function CreateAuditDialog({ open, onOpenChange }: CreateAuditDialogProps
                             </Button>
                         </div>
                     </div>
+                )}
+                </>
                 )}
             </DialogContent>
         </Dialog>
