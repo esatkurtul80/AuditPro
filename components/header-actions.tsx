@@ -230,26 +230,13 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
                         {/* Dropdown Content... */}
                         <DropdownMenuContent align="end" sideOffset={8} className="w-72 md:w-80 anim-slide-down-in anim-slide-down-out">
                             <DropdownMenuLabel className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                    <Badge
-                                        variant="secondary"
-                                        className="cursor-pointer hover:bg-secondary/80"
-                                        onClick={() => router.push("/notifications")}
-                                    >
-                                        Bildirimler
-                                    </Badge>
-                                    {/* Permission Status Badge */}
-                                    <Badge className={cn(
-                                        "text-[10px] px-2 py-0.5",
-                                        isPushEnabled 
-                                            ? "bg-green-500 hover:bg-green-600 text-white" 
-                                            : notificationPermission === 'denied'
-                                            ? "bg-red-500 hover:bg-red-600 text-white"
-                                            : "bg-gray-400 hover:bg-gray-500 text-white"
-                                    )}>
-                                        {isPushEnabled ? "AÇIK" : notificationPermission === 'denied' ? "KAPALI" : "İZİN YOK"}
-                                    </Badge>
-                                </div>
+                                <Badge
+                                    variant="secondary"
+                                    className="cursor-pointer hover:bg-secondary/80"
+                                    onClick={() => router.push("/notifications")}
+                                >
+                                    Bildirimler
+                                </Badge>
                                 {unreadCount > 0 && (
                                     <span className="text-xs font-normal text-muted-foreground">
                                         {unreadCount} yeni
@@ -475,26 +462,13 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" sideOffset={8} className="w-72 md:w-80 anim-slide-down-in anim-slide-down-out">
                     <DropdownMenuLabel className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                            <Badge
-                                variant="secondary"
-                                className="cursor-pointer hover:bg-secondary/80"
-                                onClick={() => router.push("/notifications")}
-                            >
-                                Bildirimler
-                            </Badge>
-                            {/* Permission Status Badge */}
-                            <Badge className={cn(
-                                "text-[10px] px-2 py-0.5",
-                                isPushEnabled 
-                                    ? "bg-green-500 hover:bg-green-600 text-white" 
-                                    : notificationPermission === 'denied'
-                                    ? "bg-red-500 hover:bg-red-600 text-white"
-                                    : "bg-gray-400 hover:bg-gray-500 text-white"
-                            )}>
-                                {isPushEnabled ? "AÇIK" : notificationPermission === 'denied' ? "KAPALI" : "İZİN YOK"}
-                            </Badge>
-                        </div>
+                        <Badge
+                            variant="secondary"
+                            className="cursor-pointer hover:bg-secondary/80"
+                            onClick={() => router.push("/notifications")}
+                        >
+                            Bildirimler
+                        </Badge>
                         {unreadCount > 0 && (
                             <span className="text-xs font-normal text-muted-foreground">
                                 {unreadCount} yeni
