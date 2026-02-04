@@ -12,12 +12,14 @@ export function ServiceWorkerUpdater() {
     useEffect(() => {
         const checkVersion = async () => {
             try {
+                // CRITICAL: Skip in localhost/dev environment FIRST
+                if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                    return;
+                }
+
                 // Skip if running as PWA (PWA has its own service worker update mechanism)
                 const isPWA = window.matchMedia('(display-mode: standalone)').matches;
                 if (isPWA) return;
-
-                // Avoid checking on localhost to prevent annoyance
-                if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') return;
 
                 const response = await fetch('/api/version?t=' + new Date().getTime());
                 if (!response.ok) return;

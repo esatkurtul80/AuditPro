@@ -231,17 +231,23 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
                         <DropdownMenuContent align="end" sideOffset={8} className="w-72 md:w-80 anim-slide-down-in anim-slide-down-out">
                             <DropdownMenuLabel className="flex items-center justify-between">
                                 <div className="flex items-center gap-2">
-                                    {/* Status Circle */}
-                                    <div className={cn(
-                                        "w-2 h-2 rounded-full",
-                                        isPushEnabled ? "bg-green-500 animate-pulse" : "bg-red-500"
-                                    )} />
                                     <Badge
                                         variant="secondary"
                                         className="cursor-pointer hover:bg-secondary/80"
                                         onClick={() => router.push("/notifications")}
                                     >
                                         Bildirimler
+                                    </Badge>
+                                    {/* Permission Status Badge */}
+                                    <Badge className={cn(
+                                        "text-[10px] px-2 py-0.5",
+                                        isPushEnabled 
+                                            ? "bg-green-500 hover:bg-green-600 text-white" 
+                                            : notificationPermission === 'denied'
+                                            ? "bg-red-500 hover:bg-red-600 text-white"
+                                            : "bg-gray-400 hover:bg-gray-500 text-white"
+                                    )}>
+                                        {isPushEnabled ? "AÇIK" : notificationPermission === 'denied' ? "KAPALI" : "İZİN YOK"}
                                     </Badge>
                                 </div>
                                 {unreadCount > 0 && (
@@ -356,17 +362,29 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
                                     }
                                 }}
                             >
-                                <span className="flex-1 text-left">
-                                    {isPushEnabled ? "Bildirimler: AÇIK" : "Bildirimler: KAPALI"}
-                                </span>
-                                <div className={cn(
-                                    "w-8 h-4 rounded-full relative transition-colors duration-200",
-                                    isPushEnabled ? "bg-green-500" : "bg-gray-300"
-                                )}>
+                                <div className="flex items-center gap-3 w-full">
+                                    {/* Large Circular Status Badge */}
                                     <div className={cn(
-                                        "absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all duration-200 shadow-sm",
-                                        isPushEnabled ? "right-0.5" : "left-0.5"
-                                    )} />
+                                        "w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 shrink-0",
+                                        isPushEnabled 
+                                            ? "bg-green-500 shadow-lg shadow-green-500/50" 
+                                            : notificationPermission === 'denied'
+                                            ? "bg-red-500 shadow-lg shadow-red-500/50"
+                                            : "bg-gray-400 shadow-lg shadow-gray-400/50"
+                                    )}>
+                                        <Bell className={cn(
+                                            "h-5 w-5 text-white",
+                                            isPushEnabled && "animate-pulse"
+                                        )} />
+                                    </div>
+                                    <div className="flex-1">
+                                        <div className="font-medium text-sm">
+                                            {isPushEnabled ? "Bildirimler Açık" : notificationPermission === 'denied' ? "Bildirimler Kapalı" : "İzin Verilmedi"}
+                                        </div>
+                                        <div className="text-xs text-muted-foreground">
+                                            {isPushEnabled ? "Bildirimler alınıyor" : "Bildirimleri aç"}
+                                        </div>
+                                    </div>
                                 </div>
                             </DropdownMenuItem>
                         </DropdownMenuContent>
@@ -458,17 +476,23 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
                 <DropdownMenuContent align="end" sideOffset={8} className="w-72 md:w-80 anim-slide-down-in anim-slide-down-out">
                     <DropdownMenuLabel className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                            {/* Status Circle */}
-                            <div className={cn(
-                                "w-2 h-2 rounded-full",
-                                isPushEnabled ? "bg-green-500 animate-pulse" : "bg-red-500"
-                            )} />
                             <Badge
                                 variant="secondary"
                                 className="cursor-pointer hover:bg-secondary/80"
                                 onClick={() => router.push("/notifications")}
                             >
                                 Bildirimler
+                            </Badge>
+                            {/* Permission Status Badge */}
+                            <Badge className={cn(
+                                "text-[10px] px-2 py-0.5",
+                                isPushEnabled 
+                                    ? "bg-green-500 hover:bg-green-600 text-white" 
+                                    : notificationPermission === 'denied'
+                                    ? "bg-red-500 hover:bg-red-600 text-white"
+                                    : "bg-gray-400 hover:bg-gray-500 text-white"
+                            )}>
+                                {isPushEnabled ? "AÇIK" : notificationPermission === 'denied' ? "KAPALI" : "İZİN YOK"}
                             </Badge>
                         </div>
                         {unreadCount > 0 && (
