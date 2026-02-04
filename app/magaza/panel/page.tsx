@@ -34,7 +34,7 @@ export default function StoreDashboardView() {
     const handleTabChange = (tab: 'panel' | 'reports' | 'notifications' | 'settings') => {
         setActiveTab(tab);
         // We do NOT update URL here to prevent triggering any router/suspense loading states
-        // window.history.replaceState({}, '', url.toString()); 
+        // window.history.replaceState({}, '', url.toString());
     };
 
     // Scroll to top on tab change

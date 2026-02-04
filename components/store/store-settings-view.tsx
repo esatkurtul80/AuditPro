@@ -24,6 +24,7 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { Switch } from "@/components/ui/switch";
 
 export function StoreSettingsView() {
     const { userProfile, signOut } = useAuth();
@@ -31,10 +32,69 @@ export function StoreSettingsView() {
     const router = useRouter();
     const [mounted, setMounted] = useState(false);
     const [displayStoreName, setDisplayStoreName] = useState("");
+    const [permissionState, setPermissionState] = useState<NotificationPermission>("default");
+    const [isPushEnabled, setIsPushEnabled] = useState(false);
+
+    // Check actual subscription status
+    const checkNotificationStatus = async () => {
+        if (!("Notification" in window)) return;
+        
+        // 1. Check OS Permission
+        const perm = Notification.permission;
+        setPermissionState(perm);
+
+        // 2. Check Service Worker Subscription
+        if ('serviceWorker' in navigator && perm === 'granted') {
+            try {
+                // Wait for SW to be ready (up to 3s timeout) to ensure we don't read "no subscription" prematurely
+                const swReady = await Promise.race([
+                    navigator.serviceWorker.ready,
+                    new Promise((_, reject) => setTimeout(() => reject('timeout'), 3000))
+                ]).catch(() => null);
+
+                if (!swReady) {
+                    console.warn("SW not ready (timeout), assuming enabled if permission granted to avoid UI flicker");
+                    // Optimistic UI: If OS says yes, we say yes until proven otherwise.
+                    // But safest is to try one more time? No, let's trust the OS permission mostly.
+                    // Better approach: If SW not ready, we can't be sure about pushManager. But likely it's active.
+                    // Let's stick to the "wait" logic which usually works.
+                    setIsPushEnabled(true); // Fallback: If permission is granted, assume Enabled to prevent "Red" switch.
+                    return; 
+                }
+
+                const reg = await navigator.serviceWorker.getRegistration();
+                if (reg && reg.active) {
+                     const sub = await reg.pushManager.getSubscription();
+                     setIsPushEnabled(!!sub);
+                } else {
+                    // SW exists but maybe not active?
+                    setIsPushEnabled(false);
+                }
+            } catch (e) {
+                console.error("SW check failed", e);
+                // Fallback on error: If permission is granted, show enabled.
+                setIsPushEnabled(true); 
+            }
+        } else {
+            setIsPushEnabled(false);
+        }
+    };
 
     // Avoid hydration mismatch and fetch missing store name
     useEffect(() => {
         setMounted(true);
+        checkNotificationStatus();
+
+        // Re-check when coming back to app (e.g. from Settings)
+        window.addEventListener("focus", checkNotificationStatus);
+        window.addEventListener("visibilitychange", () => {
+             if (document.visibilityState === 'visible') checkNotificationStatus();
+        });
+
+        return () => {
+            window.removeEventListener("focus", checkNotificationStatus);
+             window.removeEventListener("visibilitychange", checkNotificationStatus);
+        };
 
         const checkStoreName = async () => {
             if (userProfile?.role === "magaza") {
@@ -211,17 +271,82 @@ export function StoreSettingsView() {
                         <div className="flex flex-col bg-white dark:bg-card rounded-2xl overflow-hidden shadow-sm border border-gray-100 dark:border-border divide-y divide-gray-100 dark:divide-border">
 
                             {/* General Notifications */}
-                            <div className="flex items-center justify-between px-4 py-3.5 opacity-70">
+                            <div className="flex items-center justify-between px-4 py-3.5 hover:bg-gray-50 dark:hover:bg-accent/50 transition-colors w-full">
                                 <div className="flex items-center gap-3">
                                     <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-[#13ec5b]/20 text-[#13ec5b] dark:text-[#13ec5b]">
                                         <Bell size={20} />
                                     </div>
-                                    <div className="flex flex-col">
+                                    <div className="flex flex-col items-start">
                                         <p className="text-base font-medium leading-normal text-gray-900 dark:text-foreground">Bildirimlere İzin Ver</p>
+                                        <p className="text-xs text-gray-500 dark:text-muted-foreground text-start">
+                                            {permissionState === 'denied' 
+                                                ? "İzin reddedildi. Ayarlardan açın." 
+                                                : isPushEnabled 
+                                                    ? "Bildirimler açık" 
+                                                    : "Bildirim almak için açın"}
+                                        </p>
                                     </div>
                                 </div>
-                                <div className="w-11 h-6 bg-[#13ec5b] rounded-full relative cursor-pointer">
-                                    <div className="absolute top-[2px] right-[2px] w-5 h-5 bg-white rounded-full transition-all"></div>
+                                <div 
+                                    onClick={async () => {
+                                        const checked = !isPushEnabled;
+                                        if (checked) {
+                                            toast.info("Bildirim servisi başlatılıyor...");
+
+                                            // 1. Check & Request Permission
+                                            if (!("Notification" in window)) {
+                                                toast.error("Tarayıcınız bildirimleri desteklemiyor.");
+                                                return;
+                                            }
+
+                                            let currentPermission = Notification.permission;
+                                            if (currentPermission !== "granted") {
+                                                currentPermission = await Notification.requestPermission();
+                                            }
+
+                                            if (currentPermission !== "granted") {
+                                                setPermissionState(currentPermission);
+                                                setIsPushEnabled(false);
+                                                toast.error("İzin verilmedi! Lütfen telefon ayarlarından bildirimlere izin verin.");
+                                                return;
+                                            }
+
+                                            // 2. Register/Update logic
+                                            // 2. Register/Update logic
+                                            localStorage.removeItem("notifications_manual_off"); // Clear opt-out
+                                            toast.loading("Uygulama yapılandırılıyor...");
+                                            
+                                            setTimeout(() => {
+                                                window.location.href = window.location.origin + window.location.pathname + '?update_t=' + Date.now();
+                                            }, 1000);
+                                            
+                                        } else {
+                                            // Turn OFF Logic
+                                            try {
+                                                if ('serviceWorker' in navigator) {
+                                                    const regs = await navigator.serviceWorker.getRegistrations();
+                                                    for (const reg of regs) {
+                                                        await reg.unregister();
+                                                    }
+                                                }
+                                                localStorage.setItem("notifications_manual_off", "true"); // Set persistent opt-out
+                                                setIsPushEnabled(false);
+                                                toast.success("Bildirimler kapatıldı.");
+                                            } catch (e) {
+                                                console.error(e);
+                                                toast.error("Kapatılırken hata oluştu.");
+                                            }
+                                        }
+                                    }}
+                                    className={cn(
+                                        "w-11 h-6 rounded-full relative cursor-pointer transition-colors duration-200 ease-in-out",
+                                        isPushEnabled ? "bg-[#13ec5b]" : "bg-gray-200 dark:bg-gray-700"
+                                    )}
+                                >
+                                    <div className={cn(
+                                        "absolute top-[2px] w-5 h-5 bg-white rounded-full transition-all duration-200 shadow-sm",
+                                        isPushEnabled ? "right-[2px]" : "left-[2px]"
+                                    )}></div>
                                 </div>
                             </div>
 

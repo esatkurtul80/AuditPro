@@ -24,6 +24,7 @@ import { Avatar, AvatarFallback } from "./ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 
 // Separate component for header actions so it can be reused
@@ -37,20 +38,42 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
     const [mounted, setMounted] = useState(false);
     const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>("default");
 
+    const [isPushEnabled, setIsPushEnabled] = useState(false);
+
+    const checkPermissionState = async () => {
+        if (!("Notification" in window)) return;
+        
+        const perm = Notification.permission;
+        setNotificationPermission(perm);
+
+        if (perm === 'granted' && 'serviceWorker' in navigator) {
+             const reg = await navigator.serviceWorker.getRegistration();
+             const sub = await reg?.pushManager?.getSubscription();
+             setIsPushEnabled(!!sub);
+             console.log("🔔 HeaderActions Check: Perm=", perm, "Sub=", !!sub);
+        } else {
+            setIsPushEnabled(false);
+        }
+    };
+
     useEffect(() => {
         setMounted(true);
+        checkPermissionState();
 
-        // Check notification permission
-        if ("Notification" in window) {
-            setNotificationPermission(Notification.permission);
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                console.log("👁️ App visible, checking permissions...");
+                checkPermissionState();
+            }
+        };
 
-            // Poll for permission changes (some browsers don't fire events)
-            const interval = setInterval(() => {
-                setNotificationPermission(Notification.permission);
-            }, 2000);
+        window.addEventListener("focus", checkPermissionState);
+        document.addEventListener("visibilitychange", handleVisibilityChange);
 
-            return () => clearInterval(interval);
-        }
+        return () => {
+            window.removeEventListener("focus", checkPermissionState);
+            document.removeEventListener("visibilitychange", handleVisibilityChange);
+        };
     }, []);
 
     useEffect(() => {
@@ -289,37 +312,55 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
                                 className="cursor-pointer p-2 text-center justify-center text-xs text-muted-foreground hover:text-primary flex items-center gap-2"
-                                onClick={async () => {
-                                    toast.info("Bildirim servisi onarılıyor...");
+                                onClick={async (e) => {
+                                    e.preventDefault();
+                                    
+                                    if (notificationPermission === 'denied') {
+                                        toast.error("İzin REDDEDİLMİŞ! 🚫 Ayarlar > Uygulamalar > AuditPro > Bildirimler kısmından izni açın.");
+                                        return;
+                                    }
 
-                                    // 1. Request Permission explicitly
-                                    if ("Notification" in window) {
-                                        const permission = await Notification.requestPermission();
-                                        setNotificationPermission(permission);
-                                        if (permission !== "granted") {
-                                            if (permission === "denied") {
-                                                toast.error("İzin REDDEDİLMİŞ! 🚫 Lütfen telefon Ayarlar > Uygulamalar > AuditPro > Bildirimler kısmından izni açın.");
-                                            } else {
-                                                toast.error("İzin verilmedi. Ekrana çıkan kutuya 'İzin Ver' demelisiniz.");
+                                    if (isPushEnabled) {
+                                        // Disable logic
+                                        if ('serviceWorker' in navigator) {
+                                            const regs = await navigator.serviceWorker.getRegistrations();
+                                            for (const reg of regs) await reg.unregister();
+                                        }
+                                        localStorage.setItem("notifications_manual_off", "true");
+                                        setIsPushEnabled(false);
+                                        toast.success("Bildirimler kapatıldı.");
+                                    } else {
+                                        // Enable logic
+                                        toast.info("Bildirim servisi başlatılıyor...");
+                                        
+                                        const perm = await Notification.requestPermission();
+                                        setNotificationPermission(perm);
+                                        
+                                        if (perm === 'granted') {
+                                            localStorage.removeItem("notifications_manual_off");
+                                            toast.loading("Yapılandırılıyor...");
+                                            if ('serviceWorker' in navigator) {
+                                                await navigator.serviceWorker.register('/firebase-messaging-sw.js');
                                             }
-                                            return;
+                                            setTimeout(() => window.location.reload(), 1000);
+                                        } else {
+                                            toast.error("İzin verilmedi.");
                                         }
                                     }
-
-                                    // 2. Unregister workers
-                                    if ('serviceWorker' in navigator) {
-                                        const regs = await navigator.serviceWorker.getRegistrations();
-                                        for (const reg of regs) await reg.unregister();
-                                    }
-
-                                    // 3. Reload to fetch new token with fresh permission
-                                    window.location.reload();
                                 }}
                             >
-                                <span className="flex-1">Bildirim gelmiyor mu? Tıkla ve Düzelt</span>
-                                <span className="text-base">
-                                    {notificationPermission === "granted" ? "🟢" : "🔴"}
+                                <span className="flex-1 text-left">
+                                    {isPushEnabled ? "Bildirimler: AÇIK" : "Bildirimler: KAPALI"}
                                 </span>
+                                <div className={cn(
+                                    "w-8 h-4 rounded-full relative transition-colors duration-200",
+                                    isPushEnabled ? "bg-green-500" : "bg-gray-300"
+                                )}>
+                                    <div className={cn(
+                                        "absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all duration-200 shadow-sm",
+                                        isPushEnabled ? "right-0.5" : "left-0.5"
+                                    )} />
+                                </div>
                             </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>

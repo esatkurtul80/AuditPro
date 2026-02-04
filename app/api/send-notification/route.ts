@@ -140,8 +140,8 @@ export async function POST(req: Request) {
                     title: title,
                     body: message,
                     sound: 'default',
-                    channelId: 'auditpro_notifications',
-                    icon: 'ic_notification',
+                    channelId: 'auditpro_notifications', // Matches legacy channel if exists
+                    icon: 'https://tugbadenetim.info/login-assets-new/logo.png', // Must be absolute URL for some clients
                     color: '#2563eb'
                 }
             },
@@ -197,44 +197,73 @@ export async function POST(req: Request) {
 
             console.log(`Removing ${failedTokens.length} invalid tokens from database...`);
 
-            // Remove failed tokens from all users
+            console.log(`Removing ${failedTokens.length} invalid tokens from database...`);
+
+            // Use batch processing to clean up
+            let batch = db.batch();
+            let operationCount = 0;
+            const failedUsersSet = new Set<string>();
+
             for (const chunk of chunks) {
+                // If we've processed 500 operations, commit and start new batch
+                if (operationCount >= 400) {
+                     await batch.commit();
+                     batch = db.batch();
+                     operationCount = 0;
+                }
+
                 const usersSnapshot = await db.collection("users")
                     .where(admin.firestore.FieldPath.documentId(), "in", chunk)
                     .get();
 
-                const batch = db.batch();
                 usersSnapshot.forEach(doc => {
                     const data = doc.data();
-                    let needsUpdate = false;
+                    const invalidTokensForUser = [];
 
-                    // Check if this user has any failed tokens
-                    const userFailedTokens = failedTokens.filter(ft =>
-                        ft === data.fcmToken || (data.fcmTokens && data.fcmTokens.includes(ft))
-                    );
+                    // Check single token
+                    if (data.fcmToken && failedTokens.includes(data.fcmToken)) {
+                         invalidTokensForUser.push(data.fcmToken);
+                    }
 
-                    if (userFailedTokens.length > 0) {
-                        needsUpdate = true;
+                    // Check array tokens
+                    if (data.fcmTokens && Array.isArray(data.fcmTokens)) {
+                        const badTokens = data.fcmTokens.filter((t: string) => failedTokens.includes(t));
+                        invalidTokensForUser.push(...badTokens);
+                    }
+
+                    if (invalidTokensForUser.length > 0) {
+                        // Collect user name
+                        const name = data.displayName || data.email || `User (${doc.id})`;
+                        failedUsersSet.add(name);
+
+                        const uniqueBadTokens = [...new Set(invalidTokensForUser)];
                         const updates: any = {};
-
-                        // Remove from fcmTokens array if present
-                        if (data.fcmTokens && Array.isArray(data.fcmTokens)) {
-                            updates.fcmTokens = admin.firestore.FieldValue.arrayRemove(...userFailedTokens);
-                        }
-
-                        // Clear single token if it failed
-                        if (userFailedTokens.includes(data.fcmToken)) {
+                        
+                        updates.fcmTokens = admin.firestore.FieldValue.arrayRemove(...uniqueBadTokens);
+                        
+                        // Also clear legacy field if it matches
+                        if (data.fcmToken && uniqueBadTokens.includes(data.fcmToken)) {
                             updates.fcmToken = admin.firestore.FieldValue.delete();
                         }
-
+                        
                         batch.update(doc.ref, updates);
+                        operationCount++;
                     }
                 });
+            }
 
+            if (operationCount > 0) {
                 await batch.commit();
             }
 
             console.log("✅ Invalid tokens removed successfully");
+
+            return NextResponse.json({
+                success: true,
+                successCount: response.successCount,
+                failureCount: response.failureCount,
+                failedUserNames: Array.from(failedUsersSet)
+            });
         }
 
         return NextResponse.json({

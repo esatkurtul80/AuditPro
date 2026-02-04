@@ -30,6 +30,17 @@ export function useFcm() {
         }
     };
 
+    // Auto-request permission on mount if default
+    useEffect(() => {
+        if (!userProfile) return;
+        
+        if (typeof window !== "undefined" && "Notification" in window) {
+            if (Notification.permission === "default") {
+                requestPermission();
+            }
+        }
+    }, [userProfile]);
+
     const retrieveToken = async () => {
         try {
             if (!messaging) {
@@ -45,19 +56,32 @@ export function useFcm() {
             if (currentToken) {
                 setToken(currentToken);
                 setStatus("active");
+                console.log("FCM Token retrieved:", currentToken);
 
                 if (userProfile?.uid) {
-                    await updateDoc(doc(db, "users", userProfile.uid), {
-                        fcmTokens: arrayUnion(currentToken)
-                    });
+                    try {
+                        await updateDoc(doc(db, "users", userProfile.uid), {
+                            fcmTokens: arrayUnion(currentToken),
+                            fcmToken: currentToken, // Legacy support (ensure latest token is here too)
+                            lastTokenUpdate: new Date().toISOString()
+                        });
+                        console.log("Token saved to Firestore");
+                        // Only show if not just initializing silently (optional, but good for debugging now)
+                        // toast.success("Bildirim servisi aktif edildi."); 
+                    } catch (saveError) {
+                         console.error("Error saving token to DB:", saveError);
+                         toast.error("Bildirim servisi hatası: Token kaydedilemedi.");
+                    }
                 }
             } else {
                 setStatus("no_token");
+                console.warn("No registration token available. Request permission to generate one.");
             }
         } catch (err: any) {
             console.error('Token error:', err);
             setError(err.message || "Unknown error");
             setStatus("error");
+            toast.error("Bildirim servisi başlatılamadı.");
         }
     };
 
@@ -88,7 +112,17 @@ export function useFcm() {
         };
 
         checkPermissionAndInit();
+    }, [userProfile]);
 
+    // Separate effect to handle "waiting_for_user" state with a user-friendly Toast
+    // Separate effect to handle "waiting_for_user" state - REMOVED preferring auto-prompt
+    // useEffect(() => {
+    //     if (status === 'waiting_for_user' && typeof window !== 'undefined') {
+    //         ...
+    //     }
+    // }, [status]);
+
+    useEffect(() => {
         if (messaging) {
             const unsubscribe = onMessage(messaging, (payload) => {
                 console.log('Message received. ', payload);

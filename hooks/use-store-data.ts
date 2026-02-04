@@ -34,7 +34,9 @@ interface StoreDataCache {
 
 // --- Global Cache (Singleton) ---
 // This acts as a simple in-memory cache that persists as long as the app (tab) is open
+// This acts as a simple in-memory cache that persists as long as the app (tab) is open
 let globalCache: StoreDataCache | null = null;
+let globalFetchPromise: Promise<any> | null = null; // Track in-flight request
 const CACHE_DURATION = 1000 * 60 * 5; // 5 minutes cache duration
 
 export function useStoreData() {
@@ -70,186 +72,221 @@ export function useStoreData() {
         }
 
         // If no cache, set loading true (only if we don't have partial data)
-        // If we have stale data, we keep showing it while fetching (optimistic UI)
+        // If fetch is already in progress, wait for it
+        if (globalFetchPromise) {
+            try {
+                const result = await globalFetchPromise;
+                // Update local state with the result from the shared promise
+                setData({
+                    audits: result.audits,
+                    pendingActionsCount: result.pendingActionsCount,
+                    rejectedActionsCount: result.rejectedActionsCount,
+                    overdueAuditsCount: result.overdueAuditsCount,
+                    loading: false
+                });
+                return;
+            } catch (e) {
+                // If shared promise failed, valid logic below will try again or fail locally
+                console.error("Shared fetch failed", e);
+            }
+        }
+
+        // Check Cache Validity AGAIN (in case the in-flight one finished just before we checked promise)
+        if (
+            !force &&
+            globalCache &&
+            globalCache.storeId === userProfile.storeId &&
+            Date.now() - globalCache.lastFetched < CACHE_DURATION
+        ) {
+             setData(prev => ({ ...prev, loading: false }));
+             return;
+        }
+
+        // If no cache, set loading true (only if we don't have partial data)
         if (!globalCache) {
             setData(prev => ({ ...prev, loading: true }));
         }
 
-        try {
-            const auditsQuery = query(
-                collection(db, "audits"),
-                where("storeId", "==", userProfile.storeId),
-                where("status", "==", "tamamlandi")
-            );
+        // Start new fetch
+        globalFetchPromise = (async () => {
+            try {
+                const auditsQuery = query(
+                    collection(db, "audits"),
+                    where("storeId", "==", userProfile.storeId),
+                    where("status", "==", "tamamlandi")
+                );
 
-            const auditsSnapshot = await getDocs(auditsQuery);
+                const auditsSnapshot = await getDocs(auditsQuery);
 
-            const auditorPromises = auditsSnapshot.docs.map(async (doc) => {
-                const auditData = doc.data();
+                const auditorPromises = auditsSnapshot.docs.map(async (doc) => {
+                    const auditData = doc.data();
 
-                // 1. Auditor Name Logic
-                let auditorName = auditData.auditorName;
-                if (!auditorName || auditorName === "Bilinmiyor") {
-                    const auditorId = auditData.auditorId || auditData.userId;
-                    if (auditorId) {
-                         // We skip fetching specific user data to speed up list
-                         // Or we can cache this too, but for now focus on list speed
-                        auditorName = "Denetmen"; 
-                        // Note: For absolute speed we might skip the secondary fetch or 
-                        // trust the denormalized name if available.
-                    }
-                }
-                if (!auditorName) auditorName = "Bilinmiyor";
-
-                // 2. Action Stats Calculation
-                let totalActions = 0;
-                let approvedActions = 0;
-                let rejectedActions = 0;
-                let pendingStoreActions = 0;
-                let pendingAdminActions = 0;
-                let lastSubmittedAt: Date | undefined;
-
-                if (auditData.sections) {
-                    auditData.sections.forEach((section: any) => {
-                        section.answers?.forEach((answer: any) => {
-                            const isActionNeeded = answer.answer === "hayir" || (answer.questionType === "checkbox" && answer.earnedPoints < (answer.maxPoints || 0));
-                            if (isActionNeeded) {
-                                totalActions++;
-                                const status = answer.actionData?.status;
-                                if (!status || status === "pending_store") {
-                                    pendingStoreActions++;
-                                } else if (status === "pending_admin") {
-                                    pendingAdminActions++;
-                                } else if (status === "rejected") {
-                                    rejectedActions++;
-                                } else if (status === "approved") {
-                                    approvedActions++;
-                                }
-
-                                // Track latest submission
-                                if (answer.actionData?.submittedAt) {
-                                    const rawDate = answer.actionData.submittedAt;
-                                    let submittedDate: Date | undefined;
-
-                                    if (rawDate instanceof Date) {
-                                        submittedDate = rawDate;
-                                    } else if (typeof rawDate.toDate === 'function') {
-                                        submittedDate = rawDate.toDate();
-                                    } else if (rawDate.seconds) {
-                                        submittedDate = new Date(rawDate.seconds * 1000);
-                                    }
-
-                                    if (submittedDate && (!lastSubmittedAt || submittedDate > lastSubmittedAt)) {
-                                        lastSubmittedAt = submittedDate;
-                                    }
-                                }
-                            }
-                        });
-                    });
-                }
-
-                const hasActions = totalActions > 0;
-
-                const actionStats: ActionStats = {
-                    total: totalActions,
-                    approved: approvedActions,
-                    rejected: rejectedActions,
-                    pending_store: pendingStoreActions,
-                    pending_admin: pendingAdminActions
-                };
-
-                // 3. Score Calculation
-                let finalScore = 0;
-                if (auditData.sections) {
-                    let totalSectionPercentage = 0;
-                    let sectionCount = 0;
-
-                    auditData.sections.forEach((section: any) => {
-                        let sectionEarned = 0;
-                        let sectionMax = 0;
-                        let hasValidQuestions = false;
-
-                        section.answers?.forEach((a: any) => {
-                            if (a.answer && a.answer.trim() !== "" && a.answer !== "muaf") {
-                                sectionEarned += (a.earnedPoints || 0);
-                                sectionMax += (a.maxPoints || 0);
-                                hasValidQuestions = true;
-                            }
-                        });
-
-                        if (hasValidQuestions && sectionMax > 0) {
-                            const sectionScore = (sectionEarned / sectionMax) * 100;
-                            totalSectionPercentage += sectionScore;
-                            sectionCount++;
+                    // 1. Auditor Name Logic
+                    let auditorName = auditData.auditorName;
+                    if (!auditorName || auditorName === "Bilinmiyor") {
+                        const auditorId = auditData.auditorId || auditData.userId;
+                        if (auditorId) {
+                            auditorName = "Denetmen"; 
                         }
-                    });
-
-                    const averageScore = sectionCount > 0 ? totalSectionPercentage / sectionCount : 0;
-                    const decimalPart = averageScore % 1;
-                    finalScore = decimalPart >= 0.50 ? Math.ceil(averageScore) : Math.floor(averageScore);
-                } else {
-                    finalScore = auditData.totalScore || 0;
-                }
-
-                if (finalScore > 100) finalScore = 100;
-
-                return {
-                    id: doc.id,
-                    storeName: auditData.storeName || userProfile?.storeName || "Mağazam",
-                    auditorName: auditorName,
-                    auditType: auditData.formName || auditData.auditType || "Mağaza Denetimi",
-                    completedAt: auditData.completedAt?.toDate() || new Date(),
-                    score: finalScore,
-                    totalScore: 100,
-                    hasActions,
-                    actionStats,
-                    lastSubmittedAt,
-                    sections: auditData.sections
-                };
-            });
-
-            const resolvedAudits = await Promise.all(auditorPromises);
-            resolvedAudits.sort((a, b) => b.completedAt.getTime() - a.completedAt.getTime());
-
-            // Global stats
-            let totalPending = 0;
-            let totalRejected = 0;
-            let totalOverdue = 0;
-
-            resolvedAudits.forEach(a => {
-                totalPending += a.actionStats.pending_store;
-                totalRejected += a.actionStats.rejected;
-                if (a.actionStats.pending_store > 0 || a.actionStats.rejected > 0) {
-                    const deadlineInfo = getReturnDeadline(a.completedAt);
-                    if (deadlineInfo?.status === 'overdue') {
-                        totalOverdue++;
                     }
-                }
-            });
+                    if (!auditorName) auditorName = "Bilinmiyor";
 
-            // Update Cache
-            globalCache = {
-                audits: resolvedAudits,
-                pendingActionsCount: totalPending,
-                rejectedActionsCount: totalRejected,
-                overdueAuditsCount: totalOverdue,
-                lastFetched: Date.now(),
-                storeId: userProfile!.storeId!
-            };
+                    // 2. Action Stats Calculation
+                    let totalActions = 0;
+                    let approvedActions = 0;
+                    let rejectedActions = 0;
+                    let pendingStoreActions = 0;
+                    let pendingAdminActions = 0;
+                    let lastSubmittedAt: Date | undefined;
 
-            // Update State
+                    if (auditData.sections) {
+                        auditData.sections.forEach((section: any) => {
+                            section.answers?.forEach((answer: any) => {
+                                const isActionNeeded = answer.answer === "hayir" || (answer.questionType === "checkbox" && answer.earnedPoints < (answer.maxPoints || 0));
+                                if (isActionNeeded) {
+                                    totalActions++;
+                                    const status = answer.actionData?.status;
+                                    if (!status || status === "pending_store") {
+                                        pendingStoreActions++;
+                                    } else if (status === "pending_admin") {
+                                        pendingAdminActions++;
+                                    } else if (status === "rejected") {
+                                        rejectedActions++;
+                                    } else if (status === "approved") {
+                                        approvedActions++;
+                                    }
+
+                                    // Track latest submission
+                                    if (answer.actionData?.submittedAt) {
+                                        const rawDate = answer.actionData.submittedAt;
+                                        let submittedDate: Date | undefined;
+
+                                        if (rawDate instanceof Date) {
+                                            submittedDate = rawDate;
+                                        } else if (typeof rawDate.toDate === 'function') {
+                                            submittedDate = rawDate.toDate();
+                                        } else if (rawDate.seconds) {
+                                            submittedDate = new Date(rawDate.seconds * 1000);
+                                        }
+
+                                        if (submittedDate && (!lastSubmittedAt || submittedDate > lastSubmittedAt)) {
+                                            lastSubmittedAt = submittedDate;
+                                        }
+                                    }
+                                }
+                            });
+                        });
+                    }
+
+                    const hasActions = totalActions > 0;
+
+                    const actionStats: ActionStats = {
+                        total: totalActions,
+                        approved: approvedActions,
+                        rejected: rejectedActions,
+                        pending_store: pendingStoreActions,
+                        pending_admin: pendingAdminActions
+                    };
+
+                    // 3. Score Calculation
+                    let finalScore = 0;
+                    if (auditData.sections) {
+                        let totalSectionPercentage = 0;
+                        let sectionCount = 0;
+
+                        auditData.sections.forEach((section: any) => {
+                            let sectionEarned = 0;
+                            let sectionMax = 0;
+                            let hasValidQuestions = false;
+
+                            section.answers?.forEach((a: any) => {
+                                if (a.answer && a.answer.trim() !== "" && a.answer !== "muaf") {
+                                    sectionEarned += (a.earnedPoints || 0);
+                                    sectionMax += (a.maxPoints || 0);
+                                    hasValidQuestions = true;
+                                }
+                            });
+
+                            if (hasValidQuestions && sectionMax > 0) {
+                                const sectionScore = (sectionEarned / sectionMax) * 100;
+                                totalSectionPercentage += sectionScore;
+                                sectionCount++;
+                            }
+                        });
+
+                        const averageScore = sectionCount > 0 ? totalSectionPercentage / sectionCount : 0;
+                        const decimalPart = averageScore % 1;
+                        finalScore = decimalPart >= 0.50 ? Math.ceil(averageScore) : Math.floor(averageScore);
+                    } else {
+                        finalScore = auditData.totalScore || 0;
+                    }
+
+                    if (finalScore > 100) finalScore = 100;
+
+                    return {
+                        id: doc.id,
+                        storeName: auditData.storeName || userProfile?.storeName || "Mağazam",
+                        auditorName: auditorName,
+                        auditType: auditData.formName || auditData.auditType || "Mağaza Denetimi",
+                        completedAt: auditData.completedAt?.toDate() || new Date(),
+                        score: finalScore,
+                        totalScore: 100,
+                        hasActions,
+                        actionStats,
+                        lastSubmittedAt,
+                        sections: auditData.sections
+                    };
+                });
+
+                const resolvedAudits = await Promise.all(auditorPromises);
+                resolvedAudits.sort((a, b) => b.completedAt.getTime() - a.completedAt.getTime());
+
+                // Global stats
+                let totalPending = 0;
+                let totalRejected = 0;
+                let totalOverdue = 0;
+
+                resolvedAudits.forEach(a => {
+                    totalPending += a.actionStats.pending_store;
+                    totalRejected += a.actionStats.rejected;
+                    if (a.actionStats.pending_store > 0 || a.actionStats.rejected > 0) {
+                        const deadlineInfo = getReturnDeadline(a.completedAt);
+                        if (deadlineInfo?.status === 'overdue') {
+                            totalOverdue++;
+                        }
+                    }
+                });
+
+                // Update Cache
+                globalCache = {
+                    audits: resolvedAudits,
+                    pendingActionsCount: totalPending,
+                    rejectedActionsCount: totalRejected,
+                    overdueAuditsCount: totalOverdue,
+                    lastFetched: Date.now(),
+                    storeId: userProfile!.storeId!
+                };
+
+                return globalCache;
+            } finally {
+                globalFetchPromise = null;
+            }
+        })();
+
+        try {
+            const result = await globalFetchPromise;
             setData({
-                audits: resolvedAudits,
-                pendingActionsCount: totalPending,
-                rejectedActionsCount: totalRejected,
-                overdueAuditsCount: totalOverdue,
+                audits: result.audits,
+                pendingActionsCount: result.pendingActionsCount,
+                rejectedActionsCount: result.rejectedActionsCount,
+                overdueAuditsCount: result.overdueAuditsCount,
                 loading: false
             });
-
         } catch (error) {
-            console.error("Error fetching store data:", error);
-            setData(prev => ({ ...prev, loading: false }));
+             console.error("Error in fetch promise:", error);
+             setData(prev => ({ ...prev, loading: false }));
         }
+
     }, [userProfile?.storeId]);
 
     // Initial fetch trigger
