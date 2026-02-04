@@ -140,8 +140,8 @@ export async function POST(req: Request) {
                     title: title,
                     body: message,
                     sound: 'default',
-                    channelId: 'auditpro_notifications',
-                    icon: 'ic_notification',
+                    channelId: 'auditpro_notifications', // Matches legacy channel if exists
+                    icon: 'https://tugbadenetim.info/login-assets-new/logo.png', // Must be absolute URL for some clients
                     color: '#2563eb'
                 }
             },

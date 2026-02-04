@@ -27,6 +27,7 @@ import { collection, addDoc, Timestamp, getDocs, query, where } from "firebase/f
 import { db } from "@/lib/firebase";
 import { UserProfile, NotificationType } from "@/lib/types";
 import { useAuth } from "@/components/auth-provider";
+import { NotificationResultDialog } from "./notification-result-dialog";
 
 export function SendNotificationDialog({ trigger, open: controlledOpen, onOpenChange: setControlledOpen }: { trigger?: React.ReactNode, open?: boolean, onOpenChange?: (open: boolean) => void }) {
     const { userProfile } = useAuth();
@@ -39,6 +40,15 @@ export function SendNotificationDialog({ trigger, open: controlledOpen, onOpenCh
     const [title, setTitle] = useState("");
     const [message, setMessage] = useState("");
     const [targetType, setTargetType] = useState<"all" | "denetmen" | "magaza" | "bolge-muduru" | "admin" | "specific">("denetmen");
+
+    const [resultData, setResultData] = useState<{
+        success: boolean;
+        successCount: number;
+        failureCount: number;
+        failedUserNames?: string[];
+        totalTarget?: number;
+    } | null>(null);
+    const [showResult, setShowResult] = useState(false);
 
     // Basit bir gönderim fonksiyonu
     const handleSend = async () => {
@@ -117,26 +127,29 @@ export function SendNotificationDialog({ trigger, open: controlledOpen, onOpenCh
                     const errorText = await apiResponse.text();
                     console.error("Push API Error:", errorText);
                     toast.warning(`Bildirim Gönderilemedi! Hata Kodu: ${apiResponse.status} - Mesaj: ${errorText.substring(0, 100)}`);
+                    setLoading(false);
                 } else {
                     const result = await apiResponse.json();
                     console.log("Push Result:", result);
-                    if (result.failureCount > 0) {
-                        let failMsg = `Bildirim gönderildi fakat ${result.failureCount} cihaza iletilemedi.`;
-                        if (result.failedUserNames && result.failedUserNames.length > 0) {
-                            failMsg += `\n\nİletilemeyen Kullanıcılar:\n${result.failedUserNames.join(", ")}`;
-                        }
-                        toast.warning(failMsg, { duration: 8000 });
-                    }
+                    
+                    setResultData({
+                        success: result.success,
+                        successCount: result.successCount,
+                        failureCount: result.failureCount,
+                        failedUserNames: result.failedUserNames,
+                        totalTarget: targetUsers.length
+                    });
+                    
+                    setOpen(false); // Close input dialog
+                    setShowResult(true); // Open result dialog
+                    
+                    setTitle("");
+                    setMessage("");
                 }
             } catch (apiErr) {
                 console.error("API Fetch Error:", apiErr);
                 toast.warning("Bildirim sistemi hatası (Fetch hatası)");
             }
-
-            toast.success(`${targetUsers.length} kullanıcıya bildirim gönderildi`);
-            setOpen(false);
-            setTitle("");
-            setMessage("");
 
         } catch (error) {
             console.error("Bildirim gönderme hatası:", error);
@@ -147,6 +160,7 @@ export function SendNotificationDialog({ trigger, open: controlledOpen, onOpenCh
     };
 
     return (
+        <>
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
                 {trigger ? trigger : (
@@ -210,5 +224,12 @@ export function SendNotificationDialog({ trigger, open: controlledOpen, onOpenCh
                 </DialogFooter>
             </DialogContent>
         </Dialog>
+        
+        <NotificationResultDialog 
+            open={showResult} 
+            onOpenChange={setShowResult} 
+            results={resultData} 
+        />
+        </>
     );
 }

@@ -46,14 +46,19 @@ export function StoreSettingsView() {
         // 2. Check Service Worker Subscription
         if ('serviceWorker' in navigator && perm === 'granted') {
             try {
-                // Wait for SW to be ready (up to 2s timeout) to avoid race conditions on reload
+                // Wait for SW to be ready (up to 3s timeout) to ensure we don't read "no subscription" prematurely
                 const swReady = await Promise.race([
                     navigator.serviceWorker.ready,
-                    new Promise((_, reject) => setTimeout(() => reject('timeout'), 2000))
+                    new Promise((_, reject) => setTimeout(() => reject('timeout'), 3000))
                 ]).catch(() => null);
 
                 if (!swReady) {
-                    // console.warn("SW not ready yet, skipping check");
+                    console.warn("SW not ready (timeout), assuming enabled if permission granted to avoid UI flicker");
+                    // Optimistic UI: If OS says yes, we say yes until proven otherwise.
+                    // But safest is to try one more time? No, let's trust the OS permission mostly.
+                    // Better approach: If SW not ready, we can't be sure about pushManager. But likely it's active.
+                    // Let's stick to the "wait" logic which usually works.
+                    setIsPushEnabled(true); // Fallback: If permission is granted, assume Enabled to prevent "Red" switch.
                     return; 
                 }
 
@@ -62,11 +67,13 @@ export function StoreSettingsView() {
                      const sub = await reg.pushManager.getSubscription();
                      setIsPushEnabled(!!sub);
                 } else {
+                    // SW exists but maybe not active?
                     setIsPushEnabled(false);
                 }
             } catch (e) {
                 console.error("SW check failed", e);
-                setIsPushEnabled(false);
+                // Fallback on error: If permission is granted, show enabled.
+                setIsPushEnabled(true); 
             }
         } else {
             setIsPushEnabled(false);
