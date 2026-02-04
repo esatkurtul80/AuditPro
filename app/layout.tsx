@@ -8,6 +8,7 @@ import { PageTransition } from "@/components/page-transition";
 import { ServiceWorkerUpdater } from "@/components/service-worker-updater";
 import { GlobalBottomNavWrapper } from "@/components/global-bottom-nav-wrapper";
 import { GlobalHeader } from "@/components/global-header";
+import { FcmInitializer } from "@/components/fcm-initializer";
 
 import NextTopLoader from "nextjs-toploader";
 
@@ -86,6 +87,7 @@ export default function RootLayout({
             </PageTransition>
             <GlobalBottomNavWrapper />
             <Toaster />
+            <FcmInitializer />
             <ServiceWorkerUpdater />
           </AuthProvider>
         </ThemeProvider>

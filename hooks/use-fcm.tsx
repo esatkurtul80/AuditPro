@@ -45,19 +45,32 @@ export function useFcm() {
             if (currentToken) {
                 setToken(currentToken);
                 setStatus("active");
+                console.log("FCM Token retrieved:", currentToken);
 
                 if (userProfile?.uid) {
-                    await updateDoc(doc(db, "users", userProfile.uid), {
-                        fcmTokens: arrayUnion(currentToken)
-                    });
+                    try {
+                        await updateDoc(doc(db, "users", userProfile.uid), {
+                            fcmTokens: arrayUnion(currentToken),
+                            fcmToken: currentToken, // Legacy support (ensure latest token is here too)
+                            lastTokenUpdate: new Date().toISOString()
+                        });
+                        console.log("Token saved to Firestore");
+                        // Only show if not just initializing silently (optional, but good for debugging now)
+                        // toast.success("Bildirim servisi aktif edildi."); 
+                    } catch (saveError) {
+                         console.error("Error saving token to DB:", saveError);
+                         toast.error("Bildirim servisi hatası: Token kaydedilemedi.");
+                    }
                 }
             } else {
                 setStatus("no_token");
+                console.warn("No registration token available. Request permission to generate one.");
             }
         } catch (err: any) {
             console.error('Token error:', err);
             setError(err.message || "Unknown error");
             setStatus("error");
+            toast.error("Bildirim servisi başlatılamadı.");
         }
     };
 
@@ -88,7 +101,31 @@ export function useFcm() {
         };
 
         checkPermissionAndInit();
+    }, [userProfile]);
 
+    // Separate effect to handle "waiting_for_user" state with a user-friendly Toast
+    useEffect(() => {
+        if (status === 'waiting_for_user' && typeof window !== 'undefined') {
+            // Prevent spamming
+            if (sessionStorage.getItem('fcm_prompt_shown')) return;
+            
+            sessionStorage.setItem('fcm_prompt_shown', 'true');
+
+            // Small delay to let the app settle
+            setTimeout(() => {
+                toast("Bildirim İzni", {
+                    description: "Bildirimleri alabilmek için izin vermelisiniz.",
+                    action: {
+                        label: "İzin Ver",
+                        onClick: () => requestPermission()
+                    },
+                    duration: 10000, // Stay longer
+                });
+            }, 3000);
+        }
+    }, [status]);
+
+    useEffect(() => {
         if (messaging) {
             const unsubscribe = onMessage(messaging, (payload) => {
                 console.log('Message received. ', payload);

@@ -11,29 +11,58 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
 
 export function ServiceWorkerUpdater() {
     const [showUpdate, setShowUpdate] = useState(false);
     const [latestVersion, setLatestVersion] = useState("");
+    const [isUpdating, setIsUpdating] = useState(false);
+    const [progress, setProgress] = useState(0);
 
     // Helper to perform the actual update cleanup and reload
     const performUpdate = async () => {
-         // Unregister all service workers
+         setIsUpdating(true);
+         setProgress(10); // Start
+
+         // 1. Unregister Service Workers
          if ('serviceWorker' in navigator) {
-            const registrations = await navigator.serviceWorker.getRegistrations();
-            for (const registration of registrations) {
-                await registration.unregister();
+            try {
+                const registrations = await navigator.serviceWorker.getRegistrations();
+                for (const registration of registrations) {
+                    await registration.unregister();
+                }
+            } catch (e) {
+                console.error("SW unregister error:", e);
             }
         }
+        setProgress(40); // SW Unregistered based on await
 
-        // Clear cache storage
+        // 2. Wait a bit to ensure browser processes it (Simulation for UX)
+        await new Promise(resolve => setTimeout(resolve, 800));
+        setProgress(60);
+
+        // 3. Clear Cache
         if ('caches' in window) {
-            const cacheNames = await caches.keys();
-            await Promise.all(cacheNames.map(name => caches.delete(name)));
+            try {
+                const cacheNames = await caches.keys();
+                await Promise.all(cacheNames.map(name => caches.delete(name)));
+            } catch (e) {
+                console.error("Cache clear error:", e);
+            }
         }
+        setProgress(90); // Cache Cleared
 
-        // Hard reload
-        window.location.reload();
+        // 4. Final waiting and reload
+        await new Promise(resolve => setTimeout(resolve, 500));
+        setProgress(100);
+
+        // Reload
+        // Reload with cache busting
+        window.location.href = window.location.origin + window.location.pathname + '?update_t=' + Date.now();
+        // Fallback reload if href assignment doesn't trigger immediately
+        setTimeout(() => {
+             window.location.reload();
+        }, 100);
     };
 
     useEffect(() => {
@@ -53,7 +82,6 @@ export function ServiceWorkerUpdater() {
         const checkVersion = async () => {
             try {
                 // Detection: Check if running in APK (Android + Standalone)
-                // Note: User says they made web app as APK, likely TWA or added to homescreen.
                 const isAndroid = /Android/i.test(navigator.userAgent);
                 const isStandalone = window.matchMedia("(display-mode: standalone)").matches;
                 const isAPK = isAndroid && isStandalone;
@@ -66,11 +94,11 @@ export function ServiceWorkerUpdater() {
                 const localVersion = process.env.NEXT_PUBLIC_APP_VERSION;
 
                 if (serverVersion && localVersion && serverVersion !== localVersion) {
-                    // Normalize versions for comparison if needed, or exact string match
-                    
+                    // Update latest version state
+                    setLatestVersion(serverVersion);
+
                     if (isAPK) {
                         // APK Specific: Show Dialog
-                        setLatestVersion(serverVersion);
                         setShowUpdate(true);
                         return; // Stop here, wait for user action
                     }
@@ -119,14 +147,37 @@ export function ServiceWorkerUpdater() {
                 <AlertDialogHeader>
                     <AlertDialogTitle>Güncelleme Mevcut</AlertDialogTitle>
                     <AlertDialogDescription>
-                        Uygulamanın yeni sürümü ({latestVersion}) yayınlandı. En iyi deneyim için lütfen güncelleyin.
+                        Uygulamanın yeni sürümü ({latestVersion}) yayınlandı.
+                        {isUpdating ? (
+                            <div className="mt-4 space-y-2">
+                                <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
+                                    <div 
+                                        className="h-full bg-blue-600 transition-all duration-300" 
+                                        style={{ width: `${progress}%` }} 
+                                    />
+                                </div>
+                                <p className="text-xs text-center text-muted-foreground">
+                                    Yükleniyor... %{progress}
+                                </p>
+                            </div>
+                        ) : (
+                            <span> En iyi deneyim için lütfen güncelleyin.</span>
+                        )}
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                    <AlertDialogAction onClick={performUpdate} className="gap-2">
-                        <Download className="h-4 w-4" />
-                        Güncelle ({latestVersion})
-                    </AlertDialogAction>
+                    {!isUpdating && (
+                        <Button 
+                            onClick={(e: React.MouseEvent) => {
+                                e.preventDefault(); 
+                                performUpdate();
+                            }} 
+                            className="gap-2 w-full sm:w-auto"
+                        >
+                            <Download className="h-4 w-4" />
+                            Güncelle ({latestVersion})
+                        </Button>
+                    )}
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>

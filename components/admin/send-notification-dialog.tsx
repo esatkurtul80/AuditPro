@@ -121,7 +121,11 @@ export function SendNotificationDialog({ trigger, open: controlledOpen, onOpenCh
                     const result = await apiResponse.json();
                     console.log("Push Result:", result);
                     if (result.failureCount > 0) {
-                        toast.warning(`Bildirim gönderildi fakat ${result.failureCount} cihaza iletilemedi.`);
+                        let failMsg = `Bildirim gönderildi fakat ${result.failureCount} cihaza iletilemedi.`;
+                        if (result.failedUserNames && result.failedUserNames.length > 0) {
+                            failMsg += `\n\nİletilemeyen Kullanıcılar:\n${result.failedUserNames.join(", ")}`;
+                        }
+                        toast.warning(failMsg, { duration: 8000 });
                     }
                 }
             } catch (apiErr) {

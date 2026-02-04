@@ -30,14 +30,14 @@ export default function StoreDashboardView() {
         }
     }, [searchParams]);
 
-    // Handle Tab Change with URL update
+    // Handle Tab Change with URL update (Optimized for SPA feel)
     const handleTabChange = (tab: 'panel' | 'reports' | 'notifications' | 'settings') => {
         setActiveTab(tab);
-        // Shallow update checking to avoid unnecessary router pushes if already there
-        const currentTab = searchParams.get('tab');
-        if (currentTab !== tab) {
-            router.push(`${pathname}?tab=${tab}`, { scroll: false });
-        }
+        
+        // Use window.history to update URL without triggering Next.js navigation/loading
+        // This prevents the "logo loading" screen from appearing
+        const newUrl = `${pathname}?tab=${tab}`;
+        window.history.pushState({ ...window.history.state, as: newUrl, url: newUrl }, '', newUrl);
     };
 
     // Scroll to top on tab change
