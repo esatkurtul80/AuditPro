@@ -10,6 +10,7 @@ import {
     Smartphone,
     Languages,
     ChevronRight,
+    ChevronLeft,
     Bell,
     SunMedium,
     Archive,
