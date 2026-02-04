@@ -418,7 +418,15 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
                         <User className="mr-2 h-4 w-4" />
                         <span>Profil</span>
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => router.push("/settings")}>
+                    <DropdownMenuItem onClick={() => {
+                        if (userProfile?.role === "denetmen") {
+                            router.push("/denetmen/settings");
+                        } else if (userProfile?.role === "magaza" || userProfile?.storeId) {
+                            router.push("/magaza/panel?tab=settings");
+                        } else {
+                            router.push("/settings");
+                        }
+                    }}>
                         <Settings className="mr-2 h-4 w-4" />
                         <span>Ayarlar</span>
                     </DropdownMenuItem>
@@ -580,7 +588,15 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
                         <User className="mr-2 h-4 w-4" />
                         <span>Profil</span>
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => router.push("/settings")}>
+                    <DropdownMenuItem onClick={() => {
+                        if (userProfile?.role === "denetmen") {
+                            router.push("/denetmen/settings");
+                        } else if (userProfile?.role === "magaza" || userProfile?.storeId) {
+                            router.push("/magaza/panel?tab=settings");
+                        } else {
+                            router.push("/settings");
+                        }
+                    }}>
                         <Settings className="mr-2 h-4 w-4" />
                         <span>Ayarlar</span>
                     </DropdownMenuItem>
