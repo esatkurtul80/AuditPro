@@ -258,8 +258,22 @@ export default function AdminDashboard() {
                 // Debug
                 // console.log("Audit:", row.original.id, "Loc:", auditLoc, "Store:", store?.name, "StoreLoc:", storeLoc);
 
-                if (!auditLoc || !storeLoc) {
-                    return <span className="text-muted-foreground">-</span>;
+                if (!storeLoc) {
+                    return (
+                        <div className="flex items-center gap-1 text-muted-foreground" title="Mağazanın konum bilgisi eksik">
+                            <MapPinOff className="h-4 w-4" />
+                            <span className="text-xs hidden lg:inline">Mağaza Konumsuz</span>
+                        </div>
+                    );
+                }
+
+                if (!auditLoc) {
+                    return (
+                        <div className="flex items-center gap-1 text-muted-foreground" title="Denetim sırasında konum alınamamış">
+                            <MapPinOff className="h-4 w-4" />
+                            <span className="text-xs hidden lg:inline">Denetim Konumsuz</span>
+                        </div>
+                    );
                 }
 
                 const distance = calculateDistance(auditLoc, storeLoc);
@@ -599,19 +613,23 @@ export default function AdminDashboard() {
                                                             {audit.storeName}
                                                         </TableCell>
                                                         <TableCell>
-                                                            {!auditLoc || !storeLoc || distance === null ? (
-                                                                <span className="text-muted-foreground">-</span>
-                                                            ) : isApproved ? (
-                                                                <div className="flex items-center gap-1 text-green-600" title={`${Math.round(distance)}m`}>
-                                                                    <CheckCircle2 className="h-4 w-4" />
-                                                                    <span className="text-xs font-semibold hidden lg:inline">Onaylandı</span>
-                                                                </div>
-                                                            ) : (
-                                                                <div className="flex items-center gap-1 text-red-600" title={`${Math.round(distance)}m`}>
-                                                                    <XCircle className="h-4 w-4" />
-                                                                    <span className="text-xs font-semibold hidden lg:inline">{Math.round(distance)}m</span>
-                                                                </div>
-                                                            )}
+                                                            {(() => {
+                                                                if (!storeLoc) return <span className="text-xs text-muted-foreground">Mağaza Konumsuz</span>;
+                                                                if (!auditLoc) return <span className="text-xs text-muted-foreground">Denetim Konumsuz</span>;
+                                                                if (distance === null) return <span className="text-xs text-muted-foreground">Hata</span>;
+
+                                                                return isApproved ? (
+                                                                    <div className="flex items-center gap-1 text-green-600" title={`${Math.round(distance)}m`}>
+                                                                        <CheckCircle2 className="h-4 w-4" />
+                                                                        <span className="text-xs font-semibold hidden lg:inline">Onaylandı</span>
+                                                                    </div>
+                                                                ) : (
+                                                                    <div className="flex items-center gap-1 text-red-600" title={`${Math.round(distance)}m`}>
+                                                                        <XCircle className="h-4 w-4" />
+                                                                        <span className="text-xs font-semibold hidden lg:inline">{Math.round(distance)}m</span>
+                                                                    </div>
+                                                                );
+                                                            })()}
                                                         </TableCell>
                                                         <TableCell>
                                                             <div className="flex items-center gap-2">
