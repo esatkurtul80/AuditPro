@@ -146,7 +146,7 @@ export default function DenetmenPage() {
         }
     };
 
-    const createAudit = async (auditTypeId: string) => {
+    const createAudit = async (auditTypeId: string, skipLocationCheck: boolean = false) => {
         if (!auditTypeId || !selectedStore || !userProfile) {
             setCreating(false);
             return;
@@ -259,27 +259,33 @@ export default function DenetmenPage() {
             // Get Location - Strict Mode
             let locationString = undefined;
             
-            if (!navigator.geolocation) {
-                toast.error("Tarayıcınız konum servisini desteklemiyor.");
-                setCreating(false);
-                return;
-            }
-
-            try {
-                const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-                    navigator.geolocation.getCurrentPosition(resolve, reject, {
-                        enableHighAccuracy: true,
-                        timeout: 10000,
-                        maximumAge: 0
-                    });
-                });
-                
-                if (position && position.coords) {
-                    locationString = `${position.coords.latitude},${position.coords.longitude}`;
+            // If skipping, don't even try simple check
+            if (!skipLocationCheck) {
+                if (!navigator.geolocation) {
+                    toast.error("Tarayıcınız konum servisini desteklemiyor.");
+                    setCreating(false);
+                    return;
                 }
-            } catch (error: any) {
-                console.warn("Location error:", error);
-                // Proceed without location silently
+
+                try {
+                    const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+                        navigator.geolocation.getCurrentPosition(resolve, reject, {
+                            enableHighAccuracy: true,
+                            timeout: 10000,
+                            maximumAge: 0
+                        });
+                    });
+                    
+                    if (position && position.coords) {
+                        locationString = `${position.coords.latitude},${position.coords.longitude}`;
+                    }
+                } catch (error: any) {
+                    console.warn("Location error:", error);
+                    // Show choice dialog
+                    setLocationErrorOpen(true);
+                    setCreating(false);
+                    return;
+                }
             }
 
             const newAudit: Omit<Audit, "id"> = {
@@ -473,23 +479,26 @@ export default function DenetmenPage() {
                                 <div className="mx-auto bg-red-100 h-12 w-12 rounded-full flex items-center justify-center mb-2">
                                     <MapPinOff className="h-6 w-6 text-red-600" />
                                 </div>
-                                <AlertDialogTitle className="text-center">Konum Servisi Kapalı</AlertDialogTitle>
+                                <AlertDialogTitle className="text-center">Konum Servisi Kapalı/Alınamadı</AlertDialogTitle>
                                 <AlertDialogDescription className="text-center">
-                                    Denetim başlatabilmek için konum bilgisinin alınması zorunludur. Lütfen cihazınızın GPS özelliğini açın ve tarayıcıya konum izni verin.
+                                    Konum verisi olmadan devam edilsin mi? (Bu işlem "Onaylanmadı" olarak işaretlenecektir.)
                                 </AlertDialogDescription>
                             </AlertDialogHeader>
-                            <AlertDialogFooter className="sm:justify-center">
-                                <AlertDialogCancel onClick={() => setCreating(false)} className="w-full sm:w-auto">Vazgeç</AlertDialogCancel>
+                            <AlertDialogFooter className="sm:justify-center gap-2 flex-col sm:flex-row">
                                 <AlertDialogAction 
-                                    className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700"
+                                    className="w-full sm:w-auto bg-orange-600 hover:bg-orange-700"
                                     onClick={(e) => {
                                         e.preventDefault();
                                         setLocationErrorOpen(false);
-                                        toast.info("Lütfen konum izni verip tekrar deneyin.");
+                                        // Force creation without location
+                                        if (selectedAuditType) {
+                                            createAudit(selectedAuditType, true);
+                                        }
                                     }}
                                 >
-                                    Tamam, Ayarları Kontrol Ettim
+                                    Konumsuz Devam Et
                                 </AlertDialogAction>
+                                <AlertDialogCancel onClick={() => setLocationErrorOpen(false)} className="w-full sm:w-auto mt-2 sm:mt-0">Ayarları Kontrol Et</AlertDialogCancel>
                             </AlertDialogFooter>
                         </AlertDialogContent>
                     </AlertDialog>

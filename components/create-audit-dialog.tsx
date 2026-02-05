@@ -171,7 +171,7 @@ export function CreateAuditDialog({ open, onOpenChange }: CreateAuditDialogProps
         }
     };
 
-    const createAudit = async (auditTypeId: string, storeIdOverride?: string, shouldRedirect: boolean = true): Promise<string | null> => {
+    const createAudit = async (auditTypeId: string, storeIdOverride?: string, shouldRedirect: boolean = true, skipLocationCheck: boolean = false): Promise<string | null> => {
         const targetStoreId = storeIdOverride || selectedStore;
         
         if (!auditTypeId || !targetStoreId || !userProfile) {
@@ -273,27 +273,33 @@ export function CreateAuditDialog({ open, onOpenChange }: CreateAuditDialogProps
             // Get Location - Strict Mode
             let locationString = undefined;
             
-            if (!navigator.geolocation) {
-                toast.error("Tarayıcınız konum servisini desteklemiyor.");
-                setCreating(false);
-                return null;
-            }
-
-            try {
-                const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-                    navigator.geolocation.getCurrentPosition(resolve, reject, {
-                        enableHighAccuracy: true,
-                        timeout: 10000,
-                        maximumAge: 0
-                    });
-                });
-                
-                if (position && position.coords) {
-                    locationString = `${position.coords.latitude},${position.coords.longitude}`;
+            // If skipping, don't even try simple check
+            if (!skipLocationCheck) {
+                if (!navigator.geolocation) {
+                    toast.error("Tarayıcınız konum servisini desteklemiyor.");
+                    setCreating(false);
+                    return null;
                 }
-            } catch (error: any) {
-                console.warn("Location error:", error);
-                // Proceed without location silently
+
+                try {
+                    const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+                        navigator.geolocation.getCurrentPosition(resolve, reject, {
+                            enableHighAccuracy: true,
+                            timeout: 10000,
+                            maximumAge: 0
+                        });
+                    });
+                    
+                    if (position && position.coords) {
+                        locationString = `${position.coords.latitude},${position.coords.longitude}`;
+                    }
+                } catch (error: any) {
+                    console.warn("Location error:", error);
+                    // Show choice dialog
+                    setLocationErrorOpen(true);
+                    setCreating(false);
+                    return null;
+                }
             }
 
             if (totalQuestions === 0) {
@@ -595,29 +601,30 @@ export function CreateAuditDialog({ open, onOpenChange }: CreateAuditDialogProps
             </DialogContent>
 
              {/* Location Error Dialog */}
-             <AlertDialog open={locationErrorOpen} onOpenChange={setLocationErrorOpen}>
+            <AlertDialog open={locationErrorOpen} onOpenChange={setLocationErrorOpen}>
                 <AlertDialogContent className="max-w-[400px]">
                     <AlertDialogHeader>
                         <div className="mx-auto bg-red-100 h-12 w-12 rounded-full flex items-center justify-center mb-2">
                             <MapPinOff className="h-6 w-6 text-red-600" />
                         </div>
-                        <AlertDialogTitle className="text-center">Konum Servisi Kapalı</AlertDialogTitle>
+                        <AlertDialogTitle className="text-center">Konum Servisi Kapalı/Alınamadı</AlertDialogTitle>
                         <AlertDialogDescription className="text-center">
-                            Denetim başlatabilmek için konum bilgisinin alınması zorunludur. Lütfen cihazınızın GPS özelliğini açın ve tarayıcıya konum izni verin.
+                            Konum verisi olmadan devam edilsin mi? (Bu işlem "Onaylanmadı" olarak işaretlenecektir.)
                         </AlertDialogDescription>
                     </AlertDialogHeader>
-                    <AlertDialogFooter className="sm:justify-center">
-                        <AlertDialogCancel onClick={() => setCreating(false)} className="w-full sm:w-auto">Vazgeç</AlertDialogCancel>
+                    <AlertDialogFooter className="sm:justify-center gap-2 flex-col sm:flex-row">
                         <AlertDialogAction 
-                            className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700"
-                            onClick={(e) => {
-                                e.preventDefault();
-                                setLocationErrorOpen(false);
-                                toast.info("Lütfen konum izni verip tekrar deneyin.");
-                            }}
+                             className="w-full sm:w-auto bg-orange-600 hover:bg-orange-700"
+                             onClick={(e) => {
+                                 e.preventDefault();
+                                 setLocationErrorOpen(false);
+                                 // Force creation without location
+                                 createAudit(selectedAuditType || "", selectedStore || "", true, true);
+                             }}
                         >
-                            Tamam, Ayarları Kontrol Ettim
+                            Konumsuz Devam Et
                         </AlertDialogAction>
+                        <AlertDialogCancel onClick={() => setLocationErrorOpen(false)} className="w-full sm:w-auto mt-2 sm:mt-0">Ayarları Kontrol Et</AlertDialogCancel>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>

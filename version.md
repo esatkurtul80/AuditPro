@@ -1,3 +1,6 @@
+## v2.2.13
+- **İyileştirme:** Konum alınamadığında "Konumsuz Devam Et" veya "Tekrar Dene" seçeneklerini sunan diyalog eklendi. Hem bildirim hem esneklik sağlandı.
+
 ## v2.2.12
 - **İyileştirme:** Konum hatası durumunda uyarı mesajı kaldırıldı, denetim arka planda sessizce başlatılıyor.
 
