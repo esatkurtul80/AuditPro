@@ -286,6 +286,14 @@ export default function DenetmenPage() {
                 
                 // Save context to retry later if needed (though user will just click Create again)
                 return;
+                return;
+            }
+
+            if (!locationString) {
+                toast.error("Konum alınamadı. Lütfen GPS bağlantınızı kontrol edin.");
+                setLocationErrorOpen(true);
+                setCreating(false);
+                return;
             }
 
             const newAudit: Omit<Audit, "id"> = {

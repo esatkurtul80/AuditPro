@@ -1,3 +1,6 @@
+## v2.2.8
+- **Hata Düzeltme:** Konum verisi alınmadan denetim başlatılması tamamen engellendi (Çift kontrol).
+
 ## v2.2.7
 - **Hata Ayıklama:** Konum doğrulama sütununda "Mağaza Konumsuz" ve "Denetim Konumsuz" ayrıntılı durumları eklendi.
 

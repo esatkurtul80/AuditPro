@@ -54,6 +54,7 @@ import {
     X,
     Loader2,
     Pencil,
+    MapPinOff,
 } from "lucide-react";
 import {
     collection,
