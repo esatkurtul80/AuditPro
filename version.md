@@ -1,3 +1,6 @@
+## v2.2.15
+- **İyileştirme:** Konum alma süresi uzatıldı (30sn). Bu sayede telefonun "Konumu Aç" penceresinin zaman aşımına uğraması engelleniyor.
+
 ## v2.2.14
 - **İyileştirme:** Konum uyarısındaki seçenek "Konum İzni İste" olarak güncellendi. Butona basıldığında cihazdan tekrar konum açması isteniyor.
 

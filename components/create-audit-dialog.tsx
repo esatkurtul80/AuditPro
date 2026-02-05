@@ -628,6 +628,7 @@ export function CreateAuditDialog({ open, onOpenChange }: CreateAuditDialogProps
                             className="w-full sm:w-auto mt-2 sm:mt-0 bg-blue-600 text-white hover:bg-blue-700 hover:text-white"
                             onClick={(e) => {
                                 e.preventDefault();
+                                toast.info("Konum servisine bağlanılıyor...");
                                 setLocationErrorOpen(false);
                                 // Retry creation WITH location check
                                 createAudit(selectedAuditType || "", selectedStore || "", true, false); 
