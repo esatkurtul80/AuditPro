@@ -1,3 +1,6 @@
+## v2.2.7
+- **Hata Ayıklama:** Konum doğrulama sütununda "Mağaza Konumsuz" ve "Denetim Konumsuz" ayrıntılı durumları eklendi.
+
 ## v2.2.6
 ### 🗓️ 05 Şubat 2026
 - **Konum Doğrulama:** Admin panelinde denetimler listesine "Konum" sütunu eklendi. (100m mesafe kontrolü)
