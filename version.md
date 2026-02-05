@@ -1,3 +1,6 @@
+## v2.2.10
+- **Kritik Düzeltme:** "Hızlı Denetim Başlat" (FAB) butonuna da zorunlu konum kontrolü eklendi.
+
 ## v2.2.9
 - **UI Güncellemesi:** "Hatalı" ibaresi "Onaylanmadı" olarak değiştirildi.
 
