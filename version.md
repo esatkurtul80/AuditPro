@@ -1,3 +1,6 @@
+## v2.2.12
+- **İyileştirme:** Konum hatası durumunda uyarı mesajı kaldırıldı, denetim arka planda sessizce başlatılıyor.
+
 ## v2.2.11
 - **Güncelleme:** Konum zorunluluğu esnetildi. Konum alınamasa bile uyarı verilerek denetim başlatılabilecek.
 

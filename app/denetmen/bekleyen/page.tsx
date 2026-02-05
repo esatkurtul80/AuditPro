@@ -279,8 +279,7 @@ export default function DenetmenPage() {
                 }
             } catch (error: any) {
                 console.warn("Location error:", error);
-                toast.warning("Konum alınamadı. Denetim konumsuz başlatılıyor.");
-                // Proceed without location
+                // Proceed without location silently
             }
 
             const newAudit: Omit<Audit, "id"> = {
@@ -299,7 +298,7 @@ export default function DenetmenPage() {
                 startedAt: Timestamp.now(),
                 createdAt: Timestamp.now(),
                 updatedAt: Timestamp.now(),
-                location: locationString,
+                location: locationString || null,
             };
 
             const docRef = await addDoc(collection(db, "audits"), newAudit);

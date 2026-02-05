@@ -293,8 +293,7 @@ export function CreateAuditDialog({ open, onOpenChange }: CreateAuditDialogProps
                 }
             } catch (error: any) {
                 console.warn("Location error:", error);
-                toast.warning("Konum alınamadı. Denetim konumsuz başlatılıyor.");
-                // Proceed without location
+                // Proceed without location silently
             }
 
             if (totalQuestions === 0) {
@@ -326,7 +325,7 @@ export function CreateAuditDialog({ open, onOpenChange }: CreateAuditDialogProps
                 startedAt: Timestamp.now(),
                 createdAt: Timestamp.now(),
                 updatedAt: Timestamp.now(),
-                location: locationString,
+                location: locationString || null,
             };
 
             const docRef = await addDoc(collection(db, "audits"), newAudit);

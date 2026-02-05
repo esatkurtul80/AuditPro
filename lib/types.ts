@@ -173,7 +173,7 @@ export interface Audit {
     updatedAt: Timestamp;
     isDeleted?: boolean;
     deletedAt?: Timestamp;
-    location?: string; // "lat,lng" format
+    location?: string | null; // "lat,lng" format
 
     // Action Management
     actionDeadline?: Timestamp;
