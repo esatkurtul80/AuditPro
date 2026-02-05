@@ -23,15 +23,9 @@ export function OnlineStatusBadge({ isOnline, compact = false }: OnlineStatusBad
                     } text-white`}
             >
                 {isOnline ? (
-                    <>
-                        <Wifi className="mr-1 h-3 w-3" />
-                        Çevrimiçi
-                    </>
+                        <Wifi className="h-4 w-4" />
                 ) : (
-                    <>
-                        <WifiOff className="mr-1 h-3 w-3" />
-                        Çevrimdışı
-                    </>
+                        <WifiOff className="h-4 w-4" />
                 )}
             </Badge>
         </>

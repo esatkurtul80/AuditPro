@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/components/auth-provider";
 import { useRouter } from "next/navigation";
 import { OnlineStatusBadge } from "./online-status-badge";
+import { LocationStatusBadge } from "./location-status-badge";
 import { useOnlineStatus } from "@/hooks/use-online-status";
 import { Button } from "./ui/button";
 import { useState, useEffect } from "react";
@@ -200,8 +201,9 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
 
             {/* First 3 buttons: Online Status, Notifications, Theme */}
             <div className="flex items-center gap-0">
-                <div className="flex items-center justify-center w-6 md:w-auto md:mr-2">
+                <div className="flex items-center justify-center w-6 md:w-auto md:mr-2 gap-1">
                     <OnlineStatusBadge isOnline={isOnline} compact={compact} />
+                    <LocationStatusBadge compact={compact} />
                 </div>
 
 
@@ -382,7 +384,10 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
 
 
             {/* Online Status */}
-            <OnlineStatusBadge isOnline={isOnline} compact={compact} />
+            <div className="flex items-center gap-1">
+                <OnlineStatusBadge isOnline={isOnline} compact={compact} />
+                <LocationStatusBadge compact={compact} />
+            </div>
 
 
 

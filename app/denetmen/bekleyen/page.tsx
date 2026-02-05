@@ -146,7 +146,7 @@ export default function DenetmenPage() {
         }
     };
 
-    const createAudit = async (auditTypeId: string, skipLocationCheck: boolean = false) => {
+    const createAudit = async (auditTypeId: string) => {
         if (!auditTypeId || !selectedStore || !userProfile) {
             setCreating(false);
             return;
@@ -259,33 +259,30 @@ export default function DenetmenPage() {
             // Get Location - Strict Mode
             let locationString = undefined;
             
-            // If skipping, don't even try simple check
-            if (!skipLocationCheck) {
-                if (!navigator.geolocation) {
-                    toast.error("Tarayıcınız konum servisini desteklemiyor.");
-                    setCreating(false);
-                    return;
-                }
+            // Get Location - Strict Mode
+            let locationString = undefined;
+            
+            if (!navigator.geolocation) {
+                toast.error("Tarayıcınız konum servisini desteklemiyor.");
+                setCreating(false);
+                return;
+            }
 
-                try {
-                    const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-                        navigator.geolocation.getCurrentPosition(resolve, reject, {
-                            enableHighAccuracy: true,
-                            timeout: 10000,
-                            maximumAge: 0
-                        });
+            try {
+                const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+                    navigator.geolocation.getCurrentPosition(resolve, reject, {
+                        enableHighAccuracy: true,
+                        timeout: 10000,
+                        maximumAge: 0
                     });
-                    
-                    if (position && position.coords) {
-                        locationString = `${position.coords.latitude},${position.coords.longitude}`;
-                    }
-                } catch (error: any) {
-                    console.warn("Location error:", error);
-                    // Show choice dialog
-                    setLocationErrorOpen(true);
-                    setCreating(false);
-                    return;
+                });
+                
+                if (position && position.coords) {
+                    locationString = `${position.coords.latitude},${position.coords.longitude}`;
                 }
+            } catch (error: any) {
+                console.warn("Location error:", error);
+                // Proceed without location silently
             }
 
             const newAudit: Omit<Audit, "id"> = {
@@ -472,49 +469,7 @@ export default function DenetmenPage() {
                         </AlertDialogContent>
                     </AlertDialog>
 
-                    {/* Location Error Dialog */}
-                    <AlertDialog open={locationErrorOpen} onOpenChange={setLocationErrorOpen}>
-                        <AlertDialogContent className="max-w-[400px]">
-                            <AlertDialogHeader>
-                                <div className="mx-auto bg-red-100 h-12 w-12 rounded-full flex items-center justify-center mb-2">
-                                    <MapPinOff className="h-6 w-6 text-red-600" />
-                                </div>
-                                <AlertDialogTitle className="text-center">Konum Servisi Kapalı/Alınamadı</AlertDialogTitle>
-                                <AlertDialogDescription className="text-center">
-                                    Konum verisi olmadan devam edilsin mi? (Bu işlem "Onaylanmadı" olarak işaretlenecektir.)
-                                </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter className="sm:justify-center gap-2 flex-col sm:flex-row">
-                                <AlertDialogAction 
-                                    className="w-full sm:w-auto bg-orange-600 hover:bg-orange-700"
-                                    onClick={(e) => {
-                                        e.preventDefault();
-                                        setLocationErrorOpen(false);
-                                        // Force creation without location
-                                        if (selectedAuditType) {
-                                            createAudit(selectedAuditType, true);
-                                        }
-                                    }}
-                                >
-                                    Konumsuz Devam Et
-                                </AlertDialogAction>
-                                <AlertDialogCancel 
-                                    className="w-full sm:w-auto mt-2 sm:mt-0 bg-blue-600 text-white hover:bg-blue-700 hover:text-white"
-                                    onClick={(e) => {
-                                        e.preventDefault();
-                                        toast.info("Konum servisine bağlanılıyor...");
-                                        setLocationErrorOpen(false);
-                                        // Retry creation WITH location check
-                                        if (selectedAuditType) {
-                                            createAudit(selectedAuditType, false);
-                                        }
-                                    }}
-                                >
-                                    Konum İzni İste
-                                </AlertDialogCancel>
-                            </AlertDialogFooter>
-                        </AlertDialogContent>
-                    </AlertDialog>
+
                 </div>
             </DashboardLayout>
         </ProtectedRoute >
