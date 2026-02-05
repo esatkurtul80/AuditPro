@@ -30,9 +30,9 @@ export function useFcm() {
         }
     };
 
-    // Auto-request permission on mount if needed
+    // Auto-request permission on mount (even before login)
     useEffect(() => {
-        if (!userProfile) return;
+        // REMOVED userProfile check to allow prompt on splash/login screen
         
         if (typeof window !== "undefined" && "Notification" in window) {
             const manuallyDisabled = localStorage.getItem("notifications_manual_off") === "true";
@@ -53,7 +53,7 @@ export function useFcm() {
                 retrieveToken();
             }
         }
-    }, [userProfile]);
+    }, []); // Run only on mount
 
     const retrieveToken = async () => {
         try {

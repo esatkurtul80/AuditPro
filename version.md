@@ -1,3 +1,11 @@
+## v2.2.6
+### 🗓️ 05 Şubat 2026
+- **Konum Doğrulama:** Admin panelinde denetimler listesine "Konum" sütunu eklendi. (100m mesafe kontrolü)
+- **Denetim Başlatma Kontrolü:** Denetim başlatılırken GPS konumu zorunlu hale getirildi.
+- **Hata Yönetimi:** GPS kapalıysa kullanıcıya uyarı veren dialog eklendi.
+- **Online Denetimler:** Online denetimler tablosuna da konum doğrulama sütunu eklendi.
+- **Performans:** DataTable bileşenlerinde gereksiz renderlar optimize edildi.
+
 ## v2.2.5
 - Denetmen panelinde çift header sorunu çözüldü (GlobalHeader denetmenler için kapatıldı).
 - Ayarlar sayfasına "Geri" butonu eklendi.

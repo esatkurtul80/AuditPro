@@ -16,6 +16,14 @@ import {
     CardTitle,
 } from "@/components/ui/card";
 import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from "@/components/ui/table";
+import {
     AlertDialog,
     AlertDialogAction,
     AlertDialogCancel,
@@ -175,6 +183,34 @@ export default function AdminDashboard() {
         }
     };
 
+    // Helper to calculate distance between two coordinates in meters
+    const calculateDistance = (loc1: string | undefined, loc2: string | undefined): number | null => {
+        if (!loc1 || !loc2) return null;
+
+        try {
+            const [lat1, lon1] = loc1.split(',').map(Number);
+            const [lat2, lon2] = loc2.split(',').map(Number);
+
+            if (isNaN(lat1) || isNaN(lon1) || isNaN(lat2) || isNaN(lon2)) return null;
+
+            const R = 6371e3; // Earth radius in meters
+            const phi1 = lat1 * Math.PI / 180;
+            const phi2 = lat2 * Math.PI / 180;
+            const deltaPhi = (lat2 - lat1) * Math.PI / 180;
+            const deltaLambda = (lon2 - lon1) * Math.PI / 180;
+
+            const a = Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
+                      Math.cos(phi1) * Math.cos(phi2) *
+                      Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+            return R * c; // Distance in meters
+        } catch (e) {
+            console.error("Error calculating distance:", e);
+            return null;
+        }
+    };
+
     const calculateDuration = (start: Timestamp | null, end: Timestamp | null) => {
         if (!start || !end) return "-";
 
@@ -188,6 +224,7 @@ export default function AdminDashboard() {
 
     // Define Columns
     const columns: ColumnDef<Audit>[] = [
+        // ... previous columns
         {
             accessorKey: "auditTypeName",
             meta: { title: "Denetim Türü", filterOptions: auditTypes.map(type => ({ value: type.name, label: type.name })) },
@@ -206,6 +243,49 @@ export default function AdminDashboard() {
                 return Array.isArray(value) && value.includes(row.getValue(id));
             },
         },
+        {
+            id: "locationStatus",
+            meta: { title: "Konum" },
+            enableSorting: false,
+            enableColumnFilter: false,
+            header: ({ column }: { column: Column<Audit> }) => <DataTableColumnHeader column={column} title="Konum" showFilter={false} />,
+            cell: ({ row }: { row: Row<Audit> }) => {
+                const auditLoc = row.original.location;
+                // Find store location from preloaded stores list
+                const store = stores.find(s => s.id === row.original.storeId);
+                const storeLoc = store?.location;
+
+                // Debug
+                // console.log("Audit:", row.original.id, "Loc:", auditLoc, "Store:", store?.name, "StoreLoc:", storeLoc);
+
+                if (!auditLoc || !storeLoc) {
+                    return <span className="text-muted-foreground">-</span>;
+                }
+
+                const distance = calculateDistance(auditLoc, storeLoc);
+                
+                if (distance === null) return <span className="text-muted-foreground">-</span>;
+                
+                const isApproved = distance <= 100; // 100 meters threshold
+
+                return (
+                    <div className="flex items-center gap-1" title={`${Math.round(distance)}m`}>
+                        {isApproved ? (
+                            <>
+                                <CheckCircle2 className="h-4 w-4 text-green-500" />
+                                <span className="text-xs font-medium text-green-600 hidden lg:inline">Onaylandı</span>
+                            </>
+                        ) : (
+                            <>
+                                <XCircle className="h-4 w-4 text-red-500" />
+                                <span className="text-xs font-medium text-red-600 hidden lg:inline">Hatalı ({Math.round(distance)}m)</span>
+                            </>
+                        )}
+                    </div>
+                );
+            },
+        },
+        // ... rest of columns
         {
             accessorKey: "auditorName",
             meta: { title: "Denetmen" },
@@ -457,6 +537,104 @@ export default function AdminDashboard() {
                         <CardTitle>Tüm Denetimler</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
+                        
+                        {/* ONLINE AUDITS - SMALL TABLE */}
+                        {audits.filter(a => {
+                            if (a.status !== "devam_ediyor" || !a.startedAt) return false;
+                            const startDate = a.startedAt.toDate();
+                            const now = new Date();
+                            return startDate.getDate() === now.getDate() &&
+                                   startDate.getMonth() === now.getMonth() &&
+                                   startDate.getFullYear() === now.getFullYear();
+                        }).length > 0 && (
+                            <div className="border rounded-md overflow-hidden bg-green-50/50 dark:bg-green-900/10 mb-6 animate-in fade-in slide-in-from-top-2">
+                                <div className="px-4 py-3 border-b bg-green-100/50 dark:bg-green-900/20 flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <div className="relative flex h-3 w-3">
+                                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                                          <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                                        </div>
+                                        <h3 className="font-semibold text-sm text-green-700 dark:text-green-400">Online Denetimler</h3>
+                                    </div>
+                                    <Badge variant="outline" className="bg-white/50 dark:bg-black/20 text-green-700 dark:text-green-400 border-green-200 dark:border-green-800">
+                                        {audits.filter(a => {
+                                            if (a.status !== "devam_ediyor" || !a.startedAt) return false;
+                                            const startDate = a.startedAt.toDate();
+                                            const now = new Date();
+                                            return startDate.getDate() === now.getDate() &&
+                                                   startDate.getMonth() === now.getMonth() &&
+                                                   startDate.getFullYear() === now.getFullYear();
+                                        }).length} Aktif
+                                    </Badge>
+                                </div>
+                                <div className="max-h-[300px] overflow-auto">
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow className="hover:bg-transparent border-green-100 dark:border-green-800">
+                                                <TableHead className="w-[30%] text-green-800 dark:text-green-300">Mağaza</TableHead>
+                                                <TableHead className="w-[20%] text-green-800 dark:text-green-300">Konum</TableHead>
+                                                <TableHead className="w-[25%] text-green-800 dark:text-green-300">Denetmen</TableHead>
+                                                <TableHead className="w-[15%] text-green-800 dark:text-green-300">Başlangıç</TableHead>
+                                                <TableHead className="w-[10%] text-right text-green-800 dark:text-green-300">Durum</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {audits.filter(a => {
+                                                if (a.status !== "devam_ediyor" || !a.startedAt) return false;
+                                                const startDate = a.startedAt.toDate();
+                                                const now = new Date();
+                                                return startDate.getDate() === now.getDate() &&
+                                                       startDate.getMonth() === now.getMonth() &&
+                                                       startDate.getFullYear() === now.getFullYear();
+                                            }).map((audit) => {
+                                                const store = stores.find(s => s.id === audit.storeId);
+                                                const storeLoc = store?.location;
+                                                const auditLoc = audit.location;
+                                                const distance = calculateDistance(auditLoc, storeLoc);
+                                                const isApproved = distance !== null && distance <= 100;
+
+                                                return (
+                                                    <TableRow key={audit.id} className="hover:bg-green-100/40 dark:hover:bg-green-900/20 border-green-100 dark:border-green-800 transition-colors">
+                                                        <TableCell className="font-medium text-slate-800 dark:text-slate-200">
+                                                            {audit.storeName}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            {!auditLoc || !storeLoc || distance === null ? (
+                                                                <span className="text-muted-foreground">-</span>
+                                                            ) : isApproved ? (
+                                                                <div className="flex items-center gap-1 text-green-600" title={`${Math.round(distance)}m`}>
+                                                                    <CheckCircle2 className="h-4 w-4" />
+                                                                    <span className="text-xs font-semibold hidden lg:inline">Onaylandı</span>
+                                                                </div>
+                                                            ) : (
+                                                                <div className="flex items-center gap-1 text-red-600" title={`${Math.round(distance)}m`}>
+                                                                    <XCircle className="h-4 w-4" />
+                                                                    <span className="text-xs font-semibold hidden lg:inline">{Math.round(distance)}m</span>
+                                                                </div>
+                                                            )}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <div className="flex items-center gap-2">
+                                                                <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
+                                                                <span className="font-medium text-slate-700 dark:text-slate-300">{audit.auditorName || "İsimsiz"}</span>
+                                                            </div>
+                                                        </TableCell>
+                                                        <TableCell className="text-slate-600 dark:text-slate-400 font-mono text-xs">
+                                                            {audit.startedAt?.toDate().toLocaleTimeString("tr-TR", { hour: '2-digit', minute: '2-digit' })}
+                                                        </TableCell>
+                                                        <TableCell className="text-right">
+                                                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border border-green-200 dark:border-green-800 animate-pulse">
+                                                                Çevrimiçi
+                                                            </span>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                );
+                                            })}
+                                        </TableBody>
+                                    </Table>
+                                </div>
+                            </div>
+                        )}
                         <DataTable
                             columns={columns}
                             data={dateFilteredAudits}

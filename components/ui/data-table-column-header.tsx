@@ -27,16 +27,28 @@ export function DataTableColumnHeader<TData, TValue>({
 }: DataTableColumnHeaderProps<TData, TValue>) {
     // Generate unique options from the column data for the faceted filter
     // Priority: 1. Manual options from column meta 2. Auto-generated from data
-    const facilities = column.getFacetedUniqueValues();
-    const metaOptions = (column.columnDef.meta as any)?.filterOptions;
-
-    const options = metaOptions || Array.from(facilities.keys())
-        .filter((key: any) => key !== undefined && key !== null && key !== "")
-        .sort()
-        .map((key: any) => ({
-            label: String(key),
-            value: String(key),
-        }));
+    
+    // Safety check: Only calculate if showFilter is true to verify facets
+    // Also handling potential errors if column doesn't support faceting
+    let options: { label: string; value: string }[] = [];
+    
+    if (showFilter) {
+        try {
+            const facilities = column.getFacetedUniqueValues();
+            const metaOptions = (column.columnDef.meta as any)?.filterOptions;
+    
+            options = metaOptions || (facilities ? Array.from(facilities.keys())
+                .filter((key: any) => key !== undefined && key !== null && key !== "")
+                .sort()
+                .map((key: any) => ({
+                    label: String(key),
+                    value: String(key),
+                })) : []);
+        } catch (e) {
+            console.warn("Failed to get faceted unique values", e);
+            options = [];
+        }
+    }
 
     if (!column.getCanSort()) {
         return <div className={cn(className)}>{title}</div>
