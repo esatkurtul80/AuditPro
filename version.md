@@ -1,3 +1,6 @@
+## v2.2.14
+- **İyileştirme:** Konum uyarısındaki seçenek "Konum İzni İste" olarak güncellendi. Butona basıldığında cihazdan tekrar konum açması isteniyor.
+
 ## v2.2.13
 - **İyileştirme:** Konum alınamadığında "Konumsuz Devam Et" veya "Tekrar Dene" seçeneklerini sunan diyalog eklendi. Hem bildirim hem esneklik sağlandı.
 

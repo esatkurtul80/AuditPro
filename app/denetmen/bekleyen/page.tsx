@@ -498,7 +498,19 @@ export default function DenetmenPage() {
                                 >
                                     Konumsuz Devam Et
                                 </AlertDialogAction>
-                                <AlertDialogCancel onClick={() => setLocationErrorOpen(false)} className="w-full sm:w-auto mt-2 sm:mt-0">Ayarları Kontrol Et</AlertDialogCancel>
+                                <AlertDialogCancel 
+                                    className="w-full sm:w-auto mt-2 sm:mt-0 bg-blue-600 text-white hover:bg-blue-700 hover:text-white"
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        setLocationErrorOpen(false);
+                                        // Retry creation WITH location check
+                                        if (selectedAuditType) {
+                                            createAudit(selectedAuditType, false);
+                                        }
+                                    }}
+                                >
+                                    Konum İzni İste
+                                </AlertDialogCancel>
                             </AlertDialogFooter>
                         </AlertDialogContent>
                     </AlertDialog>
