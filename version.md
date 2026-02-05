@@ -1,3 +1,6 @@
+## v2.2.11
+- **Güncelleme:** Konum zorunluluğu esnetildi. Konum alınamasa bile uyarı verilerek denetim başlatılabilecek.
+
 ## v2.2.10
 - **Kritik Düzeltme:** "Hızlı Denetim Başlat" (FAB) butonuna da zorunlu konum kontrolü eklendi.
 

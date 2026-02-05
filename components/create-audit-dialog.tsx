@@ -293,18 +293,8 @@ export function CreateAuditDialog({ open, onOpenChange }: CreateAuditDialogProps
                 }
             } catch (error: any) {
                 console.warn("Location error:", error);
-                
-                // Show blocking dialog
-                setLocationErrorOpen(true);
-                setCreating(false); // Stop creation
-                return null;
-            }
-
-            if (!locationString) {
-                toast.error("Konum alınamadı. Lütfen GPS bağlantınızı kontrol edin.");
-                setLocationErrorOpen(true);
-                setCreating(false);
-                return null;
+                toast.warning("Konum alınamadı. Denetim konumsuz başlatılıyor.");
+                // Proceed without location
             }
 
             if (totalQuestions === 0) {

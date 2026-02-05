@@ -279,21 +279,8 @@ export default function DenetmenPage() {
                 }
             } catch (error: any) {
                 console.warn("Location error:", error);
-                
-                // Show blocking dialog
-                setLocationErrorOpen(true);
-                setCreating(false); // Stop creation
-                
-                // Save context to retry later if needed (though user will just click Create again)
-                return;
-                return;
-            }
-
-            if (!locationString) {
-                toast.error("Konum alınamadı. Lütfen GPS bağlantınızı kontrol edin.");
-                setLocationErrorOpen(true);
-                setCreating(false);
-                return;
+                toast.warning("Konum alınamadı. Denetim konumsuz başlatılıyor.");
+                // Proceed without location
             }
 
             const newAudit: Omit<Audit, "id"> = {
