@@ -1,3 +1,6 @@
+## v2.2.9
+- **UI Güncellemesi:** "Hatalı" ibaresi "Onaylanmadı" olarak değiştirildi.
+
 ## v2.2.8
 - **Hata Düzeltme:** Konum verisi alınmadan denetim başlatılması tamamen engellendi (Çift kontrol).
 

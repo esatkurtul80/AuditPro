@@ -293,7 +293,7 @@ export default function AdminDashboard() {
                         ) : (
                             <>
                                 <XCircle className="h-4 w-4 text-red-500" />
-                                <span className="text-xs font-medium text-red-600 hidden lg:inline">Hatalı ({Math.round(distance)}m)</span>
+                                <span className="text-xs font-medium text-red-600 hidden lg:inline">Onaylanmadı ({Math.round(distance)}m)</span>
                             </>
                         )}
                     </div>
@@ -627,7 +627,7 @@ export default function AdminDashboard() {
                                                                 ) : (
                                                                     <div className="flex items-center gap-1 text-red-600" title={`${Math.round(distance)}m`}>
                                                                         <XCircle className="h-4 w-4" />
-                                                                        <span className="text-xs font-semibold hidden lg:inline">{Math.round(distance)}m</span>
+                                                                        <span className="text-xs font-semibold hidden lg:inline">Onaylanmadı ({Math.round(distance)}m)</span>
                                                                     </div>
                                                                 );
                                                             })()}
