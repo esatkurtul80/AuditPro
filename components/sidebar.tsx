@@ -48,6 +48,7 @@ function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar }: 
     const [isActionsMenuOpen, setIsActionsMenuOpen] = useState(false);
     const [isReportsMenuOpen, setIsReportsMenuOpen] = useState(false);
     const [isScheduleMenuOpen, setIsScheduleMenuOpen] = useState(false);
+    // Removed isSettingsMenuOpen settings state as it is now a direct link
     const [unreadCount, setUnreadCount] = useState(0);
 
     // Define links and active states FIRST  
@@ -56,6 +57,8 @@ function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar }: 
         { href: "/admin/sections", label: "Denetim Bölümleri", icon: ClipboardList },
         { href: "/admin/questions", label: "Denetim Soruları", icon: FileQuestion },
     ];
+    
+    // Removed settingsSubLinks as they are no longer used in sidebar dropdown
 
     const reportsSubLinks = [
         { href: "/admin/reports/puan-raporu", label: "Puan Raporu", icon: BarChart3 },
@@ -180,7 +183,7 @@ function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar }: 
                     isCollapsed ? "h-9 w-9" : "h-9 w-9"
                 )}>
                     <Image
-                        src="/login-assets-new/logo.png"
+                        src="/logo.png"
                         alt="AuditPro"
                         fill
                         className="object-contain"
@@ -541,6 +544,34 @@ function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar }: 
                                 )}
                             </div>
 
+                            {/* Ayarlar (Settings) - Direct Link */}
+                            <Link href="/admin/settings" onClick={onLinkClick} title={isCollapsed ? "Ayarlar" : undefined}>
+                                <div
+                                    className={cn(
+                                        "w-full h-11 px-4 font-medium transition-all duration-500 flex items-center rounded-md cursor-pointer",
+                                        isCollapsed ? "justify-center px-2" : "justify-start",
+                                        pathname.startsWith("/admin/settings")
+                                            ? "bg-blue-600 text-white hover:bg-blue-700 shadow-md shadow-blue-500/20"
+                                            : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100"
+                                    )}
+                                >
+                                    {/* Used LayoutList as the icon previously, keeping it or swapping to generic Settings if imported, but sticking to existing icon for consistency within this file context without adding imports blindly */}
+                                    <div className={cn(
+                                        "flex items-center justify-center shrink-0",
+                                    )}>
+                                       <LayoutList className={cn(
+                                        "h-5 w-5 transition-transform duration-500 shrink-0",
+                                        pathname.startsWith("/admin/settings") && "scale-110"
+                                    )} />
+                                    </div>
+                                    <span className={cn(
+                                        "text-sm whitespace-nowrap transition-all duration-500 ease-in-out overflow-hidden origin-left",
+                                        isCollapsed ? "max-w-0 opacity-0 ml-0" : "max-w-[200px] opacity-100 ml-3"
+                                    )}>
+                                        Ayarlar
+                                    </span>
+                                </div>
+                            </Link>
                         </>
                     ) : userProfile?.role === "bolge-muduru" ? (
                         <>

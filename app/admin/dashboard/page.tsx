@@ -55,6 +55,7 @@ import {
     Loader2,
     Pencil,
     MapPinOff,
+    MapPin,
 } from "lucide-react";
 import {
     collection,
@@ -174,8 +175,11 @@ export default function AdminDashboard() {
             await softDeleteAudit(auditToDelete);
             toast.success("Denetim çöp kutusuna taşındı");
             setDeleteDialogOpen(false);
+            
+            // Remove from local state immediately to avoid page reload/loading spinner
+            setAudits(current => current.filter(a => a.id !== auditToDelete));
+            
             setAuditToDelete(null);
-            await loadData();
         } catch (error) {
             console.error("Error deleting audit:", error);
             toast.error("Silme işlemi başarısız oldu");
@@ -283,6 +287,25 @@ export default function AdminDashboard() {
                 
                 const isApproved = distance <= 100; // 100 meters threshold
 
+                // Check nearest store logic if not approved
+                let nearestStoreName: string | null = null;
+                let nearestDistance: number | null = null;
+
+                if (!isApproved) {
+                    for (const otherStore of stores) {
+                        // Skip current store
+                        if (otherStore.id === row.original.storeId) continue;
+                        
+                        // Check distance
+                        const dist = calculateDistance(auditLoc, otherStore.location);
+                        if (dist !== null && dist <= 100) {
+                             nearestStoreName = otherStore.name;
+                             nearestDistance = dist;
+                             break; // Found a match
+                        }
+                    }
+                }
+
                 return (
                     <div className="flex items-center gap-1" title={`${Math.round(distance)}m`}>
                         {isApproved ? (
@@ -292,8 +315,25 @@ export default function AdminDashboard() {
                             </>
                         ) : (
                             <>
-                                <XCircle className="h-4 w-4 text-red-500" />
-                                <span className="text-xs font-medium text-red-600 hidden lg:inline">Onaylanmadı ({Math.round(distance)}m)</span>
+                                <XCircle className="h-4 w-4 text-red-500 shrink-0" />
+                                <span className="text-xs font-medium text-red-600 hidden lg:inline truncate max-w-[150px]">
+                                    {nearestStoreName ? (
+                                        `Onaylanmadı (${nearestStoreName})`
+                                    ) : (
+                                        "Onaylanmadı"
+                                    )}
+                                </span>
+                                {!nearestStoreName && (
+                                     <a 
+                                        href={`https://www.google.com/maps/search/?api=1&query=${auditLoc}`} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="ml-1 p-0.5 hover:bg-slate-100 rounded cursor-pointer text-blue-500"
+                                        title="Konumu Haritada Gör"
+                                     >
+                                        <MapPin className="h-4 w-4" />
+                                     </a>
+                                )}
                             </>
                         )}
                     </div>
@@ -582,7 +622,7 @@ export default function AdminDashboard() {
                                         }).length} Aktif
                                     </Badge>
                                 </div>
-                                <div className="max-h-[300px] overflow-auto">
+                                <div className="max-h-[600px] overflow-auto">
                                     <Table>
                                         <TableHeader>
                                             <TableRow className="hover:bg-transparent border-green-100 dark:border-green-800">
@@ -601,11 +641,11 @@ export default function AdminDashboard() {
                                                 return startDate.getDate() === now.getDate() &&
                                                        startDate.getMonth() === now.getMonth() &&
                                                        startDate.getFullYear() === now.getFullYear();
-                                            }).map((audit) => {
+                                            }).sort((a, b) => (a.startedAt?.toMillis() || 0) - (b.startedAt?.toMillis() || 0)).map((audit) => {
                                                 const store = stores.find(s => s.id === audit.storeId);
                                                 const storeLoc = store?.location;
                                                 const auditLoc = audit.location;
-                                                const distance = calculateDistance(auditLoc, storeLoc);
+                                                const distance = calculateDistance(auditLoc || undefined, storeLoc || undefined);
                                                 const isApproved = distance !== null && distance <= 100;
 
                                                 return (
@@ -619,15 +659,41 @@ export default function AdminDashboard() {
                                                                 if (!auditLoc) return <span className="text-xs text-muted-foreground">Denetim Konumsuz</span>;
                                                                 if (distance === null) return <span className="text-xs text-muted-foreground">Hata</span>;
 
+                                                                // Check nearest store logic if not approved
+                                                                let nearestStoreName: string | null = null;
+                                                                if (!isApproved) {
+                                                                    for (const otherStore of stores) {
+                                                                        if (otherStore.id === audit.storeId) continue;
+                                                                        const dist = calculateDistance(auditLoc || undefined, otherStore.location);
+                                                                        if (dist !== null && dist <= 100) {
+                                                                             nearestStoreName = otherStore.name;
+                                                                             break; 
+                                                                        }
+                                                                    }
+                                                                }
+
                                                                 return isApproved ? (
                                                                     <div className="flex items-center gap-1 text-green-600" title={`${Math.round(distance)}m`}>
                                                                         <CheckCircle2 className="h-4 w-4" />
                                                                         <span className="text-xs font-semibold hidden lg:inline">Onaylandı</span>
                                                                     </div>
                                                                 ) : (
-                                                                    <div className="flex items-center gap-1 text-red-600" title={`${Math.round(distance)}m`}>
-                                                                        <XCircle className="h-4 w-4" />
-                                                                        <span className="text-xs font-semibold hidden lg:inline">Onaylanmadı ({Math.round(distance)}m)</span>
+                                                                    <div className="flex items-center gap-1 text-red-600">
+                                                                        <XCircle className="h-4 w-4 shrink-0" />
+                                                                        <span className="text-xs font-semibold hidden lg:inline truncate max-w-[150px]" title={`${Math.round(distance)}m`}>
+                                                                            {nearestStoreName ? `Onaylanmadı (${nearestStoreName})` : `Onaylanmadı`}
+                                                                        </span>
+                                                                        {!nearestStoreName && (
+                                                                             <a 
+                                                                                href={`https://www.google.com/maps/search/?api=1&query=${auditLoc}`} 
+                                                                                target="_blank" 
+                                                                                rel="noopener noreferrer"
+                                                                                className="ml-1 p-0.5 hover:bg-slate-100 rounded cursor-pointer text-blue-500"
+                                                                                title="Konumu Haritada Gör"
+                                                                             >
+                                                                                <MapPin className="h-4 w-4" />
+                                                                             </a>
+                                                                        )}
                                                                     </div>
                                                                 );
                                                             })()}

@@ -17,6 +17,8 @@ try {
 }
 
 const nextConfig: NextConfig = {
+  // Trigger rebuild for API updates V2
+  reactStrictMode: false,
   output: "standalone",
   env: {
     NEXT_PUBLIC_APP_VERSION: appVersion,

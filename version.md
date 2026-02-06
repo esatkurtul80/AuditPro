@@ -1,3 +1,29 @@
+## v2.2.20
+- **Güvenlik:** Admin ayarları için İki Faktörlü Doğrulama (2FA) eklendi. Google Authenticator ile QR kod taratılarak giriş yapılıyor.
+- **Firebase İstatistikleri:** Firebase Aylık Kullanım Analizi ve Fatura sayfası eklendi. Tahmini ve gerçek maliyet gösterimi.
+- **Kota Takibi:** Firestore okuma/yazma/silme ve depolama kullanım oranları görsel olarak takip edilebiliyor.
+
+## v2.2.19
+- **Performans:** Sayfa geçişlerinde üst menünün (Header) kaybolmasına neden olan "Loading" sorunu çözüldü.
+- **Cache Sistemi:** Kullanıcı profili önbelleğe alınarak, internet yavaş olsa bile menülerin anında yüklenmesi sağlandı (Persistent Layout).
+
+## v2.2.18
+- **Çöp Kutusu (Hızlandırma):** Silme ve geri yükleme işlemlerinde sayfa yenileme kaldırıldı. İşlemler artık anlık (optimistic update) olarak gerçekleşiyor.
+- **Çöp Kutusu (Yeni Özellik):** "Çöp Kutusunu Boşalt" butonu eklendi. Tek seferde tüm silinmiş öğeleri temizleyebilirsiniz.
+- **UX:** Admin panelinde Online Denetimler tablosunun yüksekliği artırıldı (10+ satır görünür).
+
+## v2.2.17
+- **Admin Panel (Akıllı Konum):** "Onaylanmadı" durumunda eğer denetmen başka bir mağazaya yakınsa o mağazanın adı parantez içinde gösteriliyor (örn: Onaylanmadı (ADANA)). Hiçbir mağazaya yakın değilse tıklanabilir harita ikonu çıkıyor.
+- **Admin Panel (Sıralama):** Devam eden denetimler tablosunda en geç başlayan denetim en altta olacak şekilde sıralama düzenlendi.
+- **Sistem (Tablet Güncelleme):** Tabletlerde veya telefonlarda uygulama arka plandan öne gelince (uyku modu çıkışı) otomatik versiyon kontrolü yapılması sağlandı.
+
+## v2.2.16
+- **UI/UX Yenileme:** Header ikonları (Wifi, Konum, Bildirim) yuvarlak ve modern tasarıma kavuşturuldu.
+- **Konum İyileştirmesi:** Konum servisi uyarıları ve pencereleri kaldırıldı. Sistem artık arka planda sessizce çalışıyor (Silent Failure).
+- **Mobil/Tablet Desteği:** Denetmen panelinde tablet görünümünde statü ikonları görünür hale getirildi.
+- **Düzeltme:** Admin paneli logosunun görünmeme sorunu giderildi.
+- **Düzeltme:** Profil menüsündeki isim baş harflerinin ortalanmama sorunu çözüldü.
+
 ## v2.2.15
 - **İyileştirme:** Konum alma süresi uzatıldı (30sn). Bu sayede telefonun "Konumu Aç" penceresinin zaman aşımına uğraması engelleniyor.
 

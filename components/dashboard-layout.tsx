@@ -37,11 +37,19 @@ export function DashboardLayout({ children, forceStoreLayout }: { children: Reac
     };
 
     // Determine if we should show store layout (no hamburger, no sidebar overlay on mobile)
-    // Only consider not a store user if loading is done and we confirm it
-    const isStoreUser = forceStoreLayout || userProfile?.role === "magaza" || !!userProfile?.storeId;
+    // CRITICAL: userProfile is now cached in AuthProvider, so it might be available even if loading=true.
+    // We prioritize using the profile if it exists.
+    const isStoreUser = forceStoreLayout || userProfile?.role === "magaza" || (!!userProfile?.storeId);
+
+    // Optimistically show auditor layout elements during loading to prevent layout shift
+    // If we have a cached profile saying "denetmen" or "admin", we show the full layout regardless of loading state.
+    // If we have NO profile yet and are strictly loading, we fall back to URL sniffing.
+    const hasAuditorProfile = userProfile && (userProfile.role === "denetmen" || userProfile.role === "admin");
+    const isOptimisticAuditor = loading && !userProfile && pathname?.startsWith("/denetmen");
 
     // Prevent flash of hamburger menu during loading
-    const showHamburger = !loading && !isStoreUser;
+    // Show if (Not Store AND (Loaded OR HasAuditorProfile OR Optimistic))
+    const showHamburger = (!isStoreUser && (!loading || hasAuditorProfile || isOptimisticAuditor));
 
     const sidebarWidth = isSidebarCollapsed ? "lg:w-[70px]" : "lg:w-64";
     const mainPadding = isSidebarCollapsed ? "lg:pl-[70px]" : "lg:pl-64";
@@ -57,7 +65,7 @@ export function DashboardLayout({ children, forceStoreLayout }: { children: Reac
             </aside>
 
             {/* Mobile Header with all elements in one row - HIDDEN FOR STORE USERS (GlobalHeader used instead) */}
-            {!loading && !isStoreUser && (
+            {showHamburger && (
                 <div className="lg:hidden flex items-center justify-between gap-2 p-3 border-b bg-background/95 backdrop-blur sticky top-0 z-40 relative">
                     {/* Left Area: Hamburger (Hidden for Store Users) - Keep div for spacing */}
                     <div className="flex items-center gap-2">

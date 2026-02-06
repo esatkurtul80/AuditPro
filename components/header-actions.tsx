@@ -51,7 +51,6 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
              const reg = await navigator.serviceWorker.getRegistration();
              const sub = await reg?.pushManager?.getSubscription();
              setIsPushEnabled(!!sub);
-             console.log("🔔 HeaderActions Check: Perm=", perm, "Sub=", !!sub);
         } else {
             setIsPushEnabled(false);
         }
@@ -63,7 +62,6 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
 
         const handleVisibilityChange = () => {
             if (document.visibilityState === 'visible') {
-                console.log("👁️ App visible, checking permissions...");
                 checkPermissionState();
             }
         };
@@ -201,7 +199,7 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
 
             {/* First 3 buttons: Online Status, Notifications, Theme */}
             <div className="flex items-center gap-0">
-                <div className="flex items-center justify-center w-6 md:w-auto md:mr-2 gap-1">
+                <div className="flex items-center gap-1 md:mr-2">
                     <OnlineStatusBadge isOnline={isOnline} compact={compact} />
                     <LocationStatusBadge compact={compact} />
                 </div>
@@ -211,20 +209,20 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
 
 
                 {/* Notifications Button */}
-                <div className="flex items-center justify-center w-6">
+                <div className="flex items-center">
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                             <Button
                                 variant="ghost"
                                 size="icon"
-                                className="relative h-8 w-8"
+                                className="relative h-8 w-8 rounded-full border bg-background hover:bg-accent"
                                 title={unreadCount > 0 ? `${unreadCount} yeni bildirim` : "Bildirimler"}
                                 suppressHydrationWarning
                             >
                                 <Bell className={iconSize} />
                                 {unreadCount > 0 && (
-                                    <span className="absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white">
-                                        {unreadCount}
+                                    <span className="absolute right-0 top-0 flex h-2.5 w-2.5 items-center justify-center rounded-full bg-red-500 ring-1 ring-white dark:ring-black">
+                                       <span className="sr-only">{unreadCount}</span>
                                     </span>
                                 )}
                             </Button>
@@ -333,7 +331,7 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
                             <Skeleton className={`${avatarSize} rounded-full`} />
                         ) : (
                             <Avatar className={avatarSize}>
-                                <AvatarFallback className="bg-blue-600 text-white">
+                                <AvatarFallback className="flex items-center justify-center bg-blue-600 text-white w-full h-full text-xs font-medium">
                                     {userProfile ? getInitials(userProfile.displayName || userProfile.email || "User") : "U"}
                                 </AvatarFallback>
                             </Avatar>
@@ -397,14 +395,14 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
                     <Button
                         variant="ghost"
                         size="icon"
-                        className="relative"
+                        className="relative h-8 w-8 rounded-full border bg-background hover:bg-accent"
                         title={unreadCount > 0 ? `${unreadCount} yeni bildirim` : "Bildirimler"}
                         suppressHydrationWarning
                     >
                         <Bell className={iconSize} />
                         {unreadCount > 0 && (
-                            <span className="absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white">
-                                {unreadCount}
+                            <span className="absolute right-0 top-0 flex h-2.5 w-2.5 items-center justify-center rounded-full bg-red-500 ring-1 ring-white dark:ring-black">
+                                <span className="sr-only">{unreadCount}</span>
                             </span>
                         )}
                     </Button>
@@ -506,7 +504,7 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
                             <Skeleton className={`${avatarSize} rounded-full`} />
                         ) : (
                             <Avatar className={avatarSize}>
-                                <AvatarFallback className="bg-blue-600 text-white">
+                                <AvatarFallback className="flex items-center justify-center bg-blue-600 text-white w-full h-full text-xs font-medium">
                                     {userProfile ? getInitials(userProfile.displayName || userProfile.email || "User") : "U"}
                                 </AvatarFallback>
                             </Avatar>

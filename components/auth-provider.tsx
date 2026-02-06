@@ -24,6 +24,8 @@ import {
   arrayUnion,
   query,
   limit,
+  updateDoc,
+  serverTimestamp,
 } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import { UserProfile } from "@/lib/types";
@@ -48,6 +50,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [showNameModal, setShowNameModal] = useState(false);
 
   const loadingFailsafeRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // 2. Initial Cache Load (Instant Layout)
+  useEffect(() => {
+      try {
+          const cached = localStorage.getItem("cached_user_profile");
+          if (cached) {
+              const parsed = JSON.parse(cached);
+              // Basic validation
+              if (parsed && parsed.role) {
+                  console.log("Loaded cached profile:", parsed.role);
+                  setUserProfile(parsed);
+              }
+          }
+      } catch (e) {
+          console.warn("Failed to load cached profile:", e);
+      }
+  }, []);
 
   useEffect(() => {
     // 0) FAILSAFE: auth state gecikirse sonsuz loading olmasın (PWA/iOS koruması)
@@ -79,6 +98,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (userDoc.exists()) {
             const profile = userDoc.data() as UserProfile;
             setUserProfile(profile);
+            
+            // Cache the fresh profile
+            localStorage.setItem("cached_user_profile", JSON.stringify(profile));
 
             if (
               profile.role !== "pending" &&
@@ -89,6 +111,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
 
             // FCM Token Logic removed (Handled by useFcm hook)
+
+            // 3. Update Sync
+            // Always update last login time and basic info
+            // Added: appVersion tracking for Admin Dashboard
+            await updateDoc(userDocRef, {
+                lastLogin: serverTimestamp(),
+                email: firebaseUser.email,
+                displayName: firebaseUser.displayName || "",
+                photoURL: firebaseUser.photoURL || "",
+                // Track which version the user is currently using
+                appVersion: process.env.NEXT_PUBLIC_APP_VERSION || "unknown"
+            });
           } else {
             // Create New User
             // ✅ Koleksiyon taramak yerine limit(1) ile daha hafif kontrol
@@ -104,13 +138,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               role: isFirstUser ? "admin" : "pending",
               createdAt: Timestamp.now(),
               updatedAt: Timestamp.now(),
+              appVersion: process.env.NEXT_PUBLIC_APP_VERSION || "unknown", // Added appVersion for new users
             };
 
             await setDoc(doc(db, "users", firebaseUser.uid), newProfile);
             setUserProfile(newProfile);
+            // Cache new profile
+            localStorage.setItem("cached_user_profile", JSON.stringify(newProfile));
           }
         } else {
           setUserProfile(null);
+          localStorage.removeItem("cached_user_profile");
         }
       } catch (err: any) {
         console.error("Profile fetch error:", err);
@@ -126,7 +164,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               const retryRef = doc(db, "users", cu.uid);
               const retrySnap = await getDoc(retryRef);
               if (retrySnap.exists()) {
-                setUserProfile(retrySnap.data() as UserProfile);
+                const refreshedProfile = retrySnap.data() as UserProfile;
+                setUserProfile(refreshedProfile);
+                localStorage.setItem("cached_user_profile", JSON.stringify(refreshedProfile));
               }
             } catch (retryErr: any) {
               toast.error(`Profil hatası (Tekrarlandı): ${retryErr.message}`);
@@ -204,6 +244,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
+    localStorage.removeItem("cached_user_profile");
     await firebaseSignOut(auth);
   };
 

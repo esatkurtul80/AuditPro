@@ -48,50 +48,55 @@ export function MobileDebugLogger({ open, onClose }: MobileDebugLoggerProps) {
         }
 
         const addLog = (level: LogEntry["level"], args: any[]) => {
+            // Avoid deep cloning or complex stringify here if possible
             const message = args
-                .map((arg) =>
-                    typeof arg === "object" ? JSON.stringify(arg, null, 2) : String(arg)
-                )
+                .map((arg) => {
+                    try {
+                        return typeof arg === "object" ? JSON.stringify(arg, null, 2) : String(arg);
+                    } catch (e) {
+                        return "[Circular/Unserializable]";
+                    }
+                })
                 .join(" ");
 
             // Defer update to avoid "Cannot update during render" error
-            setTimeout(() => {
+            // Use requestAnimationFrame for safer render-phase updates, or generic setTimeout
+            requestAnimationFrame(() => {
                 setLogs((prev) => {
+                    // Safety check: ensure prev is iterable
+                    const safePrev = Array.isArray(prev) ? prev : [];
                     const newLogs = [
-                        ...prev,
+                        ...safePrev,
                         {
                             timestamp: new Date(),
                             level,
                             message,
-                            data: args.length > 0 ? args : undefined,
+                            // Don't store raw args as they might contain Fiber nodes or un-clonable objects
+                            data: undefined, 
                         },
                     ];
                     // Keep only last 100 logs
                     return newLogs.slice(-100);
                 });
-            }, 0);
+            });
         };
 
-        // Override console methods
-        console.log = (...args: any[]) => {
-            originalConsoleRef.current?.log(...args);
-            addLog("log", args);
+        // Override console methods with a safe wrapper
+        const safeWrapper = (method: Function, level: LogEntry["level"]) => (...args: any[]) => {
+            try {
+               method(...args);
+               addLog(level, args);
+            } catch(e) {
+                // If logging fails, just ignore it to prevent crashing the app
+            }
         };
 
-        console.warn = (...args: any[]) => {
-            originalConsoleRef.current?.warn(...args);
-            addLog("warn", args);
-        };
-
-        console.error = (...args: any[]) => {
-            originalConsoleRef.current?.error(...args);
-            addLog("error", args);
-        };
-
-        console.info = (...args: any[]) => {
-            originalConsoleRef.current?.info(...args);
-            addLog("info", args);
-        };
+        if (originalConsoleRef.current) {
+            console.log = safeWrapper(originalConsoleRef.current.log, "log");
+            console.warn = safeWrapper(originalConsoleRef.current.warn, "warn");
+            console.error = safeWrapper(originalConsoleRef.current.error, "error");
+            console.info = safeWrapper(originalConsoleRef.current.info, "info");
+        }
 
         // Cleanup on unmount
         return () => {

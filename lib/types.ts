@@ -15,6 +15,9 @@ export interface UserProfile {
     storeName?: string; // Mağaza adı (magaza users için)
     createdAt: Timestamp;
     updatedAt: Timestamp;
+    appVersion?: string;
+    notificationToken?: string; // Legacy single token
+    fcmTokens?: string[]; // Multiple device tokens support
 }
 
 // Store type

@@ -53,6 +53,7 @@ export default function TrashPage() {
     const [deletedAudits, setDeletedAudits] = useState<Audit[]>([]);
     const [restoreDialogOpen, setRestoreDialogOpen] = useState(false);
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [emptyTrashDialogOpen, setEmptyTrashDialogOpen] = useState(false);
     const [auditToRestore, setAuditToRestore] = useState<string | null>(null);
     const [auditToDelete, setAuditToDelete] = useState<string | null>(null);
     const [processing, setProcessing] = useState(false);
@@ -98,7 +99,11 @@ export default function TrashPage() {
             toast.success("Denetim geri yüklendi");
             setRestoreDialogOpen(false);
             setAuditToRestore(null);
-            await loadDeletedAudits();
+            // Optimistic update: remove from list
+            setDeletedAudits(current => current.filter(a => a.id !== auditToRestore));
+            
+            setAuditToRestore(null);
+            // await loadDeletedAudits(); // No longer needed
         } catch (error) {
             console.error("Error restoring audit:", error);
             toast.error("Geri yükleme işlemi başarısız oldu");
@@ -116,7 +121,11 @@ export default function TrashPage() {
             toast.success("Denetim kalıcı olarak silindi");
             setDeleteDialogOpen(false);
             setAuditToDelete(null);
-            await loadDeletedAudits();
+            // Optimistic update: remove from list
+            setDeletedAudits(current => current.filter(a => a.id !== auditToDelete));
+            
+            setAuditToDelete(null);
+            // await loadDeletedAudits(); // No longer needed
         } catch (error) {
             console.error("Error permanently deleting audit:", error);
             toast.error("Silme işlemi başarısız oldu");
@@ -124,6 +133,27 @@ export default function TrashPage() {
             setProcessing(false);
         }
     };
+
+    const handleEmptyTrash = async () => {
+        try {
+            setProcessing(true);
+            
+            // Use Promise.all for parallel deletion
+            const deletePromises = deletedAudits.map(audit => permanentlyDeleteAudit(audit.id));
+            await Promise.all(deletePromises);
+
+            toast.success("Çöp kutusu boşaltıldı");
+            setEmptyTrashDialogOpen(false);
+            setDeletedAudits([]); // Clear local state immediately
+        } catch (error) {
+            console.error("Error emptying trash:", error);
+            toast.error("İşlem sırasında bazı hatalar oluştu");
+        } finally {
+            setProcessing(false);
+        }
+    };
+
+
 
     const formatDate = (timestamp: Timestamp | undefined) => {
         if (!timestamp) return "Tarih bilinmiyor";
@@ -148,10 +178,16 @@ export default function TrashPage() {
         <>
             <div className="container mx-auto py-4 md:py-8 px-4 md:px-6 space-y-6">
                 <div className="flex items-center justify-end">
-                    <Button onClick={loadDeletedAudits} variant="outline" className="gap-2">
-                        <RefreshCw className="h-4 w-4" />
-                        Yenile
-                    </Button>
+                    {deletedAudits.length > 0 && (
+                        <Button 
+                            onClick={() => setEmptyTrashDialogOpen(true)} 
+                            variant="destructive" 
+                            className="gap-2"
+                        >
+                            <Trash2 className="h-4 w-4" />
+                            Çöp Kutusunu Boşalt
+                        </Button>
+                    )}
                 </div>
 
                 {/* Deleted Audits Table */}
@@ -295,6 +331,31 @@ export default function TrashPage() {
                         >
                             {processing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             Kalıcı Olarak Sil
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            {/* Empty Trash Confirmation Dialog */}
+            <AlertDialog open={emptyTrashDialogOpen} onOpenChange={setEmptyTrashDialogOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Çöp Kutusunu Boşalt?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Çöp kutusundaki <strong>tüm denetimler</strong> ve ilişkili fotoğraflar kalıcı olarak silinecek.
+                            <br/><br/>
+                            Bu işlem kesinlikle geri alınamaz! Emin misiniz?
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel disabled={processing}>İptal</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={handleEmptyTrash}
+                            disabled={processing}
+                            className="bg-red-600 hover:bg-red-700"
+                        >
+                            {processing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            Evet, Hepsini Sil
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>

@@ -69,9 +69,53 @@ export function AuditorSettingsView() {
         setMounted(true);
         checkNotificationStatus();
 
+        // Version Check on Mount
+        const checkVersion = async () => {
+             try {
+                // Skip in dev
+                if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') return;
+
+                const response = await fetch('/api/version?t=' + new Date().getTime());
+                if (!response.ok) return;
+
+                const data = await response.json();
+                const serverVersion = data.version;
+                const localVersion = process.env.NEXT_PUBLIC_APP_VERSION;
+
+                if (!serverVersion || !localVersion) return;
+
+                // Simple string comparison for equality. If different, we assume update needed.
+                // Removing 'v' prefix for safety
+                if (serverVersion.replace(/^v/, '') !== localVersion.replace(/^v/, '')) {
+                    console.log(`Update found in Settings: ${localVersion} -> ${serverVersion}`);
+                    toast.info("Yeni versiyon bulundu, güncelleniyor...", { duration: 2000 });
+                    
+                    // Clear caches and reload
+                     if ('serviceWorker' in navigator) {
+                        const regs = await navigator.serviceWorker.getRegistrations();
+                        for (const reg of regs) await reg.unregister();
+                    }
+                    if ('caches' in window) {
+                         const keys = await caches.keys();
+                         await Promise.all(keys.map(key => caches.delete(key)));
+                    }
+
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1500);
+                }
+             } catch (e) {
+                 console.error("Manual version check failed", e);
+             }
+        };
+        checkVersion();
+
         window.addEventListener("focus", checkNotificationStatus);
         window.addEventListener("visibilitychange", () => {
-             if (document.visibilityState === 'visible') checkNotificationStatus();
+             if (document.visibilityState === 'visible') {
+                 checkNotificationStatus();
+                 checkVersion(); // Also check when coming back to tab
+             }
         });
 
         return () => {

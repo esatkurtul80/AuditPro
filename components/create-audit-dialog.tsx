@@ -271,10 +271,7 @@ export function CreateAuditDialog({ open, onOpenChange }: CreateAuditDialogProps
             );
 
             // Get Location - Strict Mode
-            let locationString = undefined;
-            
-            // Get Location - Strict Mode
-            let locationString = undefined;
+            let locationString: string | undefined = undefined;
             
             if (!navigator.geolocation) {
                 toast.error("Tarayıcınız konum servisini desteklemiyor.");

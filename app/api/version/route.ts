@@ -6,7 +6,12 @@ import packageJson from '@/package.json'; // Direct import to bundle it
 
 export async function GET() {
     try {
-        // 1. Try to read from package.json (Most reliable in Next.js bundle)
+        // 0. Use the build-time env var provided by next.config.ts (Most consistent)
+        if (process.env.NEXT_PUBLIC_APP_VERSION) {
+            return NextResponse.json({ version: process.env.NEXT_PUBLIC_APP_VERSION });
+        }
+
+        // 1. Try to read from package.json (Fallback)
         if (packageJson && packageJson.version) {
              return NextResponse.json({ version: `v${packageJson.version}` });
         }
