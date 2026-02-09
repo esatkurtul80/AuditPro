@@ -18,6 +18,8 @@ export interface UserProfile {
     appVersion?: string;
     notificationToken?: string; // Legacy single token
     fcmTokens?: string[]; // Multiple device tokens support
+    isOnline?: boolean; // Real-time presence
+    lastActive?: Timestamp; // Last activity timestamp
 }
 
 // Store type

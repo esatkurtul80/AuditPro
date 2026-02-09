@@ -21,6 +21,10 @@ import {
 import { toast } from "sonner";
 import Image from "next/image";
 
+// Session key for 2FA verification - stored in sessionStorage
+// This ensures 2FA is only asked once per browser session while in settings
+const SETTINGS_2FA_SESSION_KEY = "settings_2fa_verified";
+
 interface SettingsLayoutProps {
     children: ReactNode;
 }
@@ -42,7 +46,15 @@ export default function SettingsLayout({ children }: SettingsLayoutProps) {
     const [code, setCode] = useState("");
     const [error, setError] = useState<string | null>(null);
 
+    // Check session storage first - if already verified in this session, skip 2FA
     useEffect(() => {
+        const sessionVerified = sessionStorage.getItem(SETTINGS_2FA_SESSION_KEY);
+        if (sessionVerified === "true") {
+            setIsVerified(true);
+            setIsLoading(false);
+            return;
+        }
+
         const check2FAStatus = async () => {
             if (!user) {
                 setIsLoading(false);
@@ -104,6 +116,8 @@ export default function SettingsLayout({ children }: SettingsLayoutProps) {
 
             if (data.valid) {
                 setIsVerified(true);
+                // Save verification to session storage - won't ask again while in settings
+                sessionStorage.setItem(SETTINGS_2FA_SESSION_KEY, "true");
                 toast.success("Doğrulama başarılı!");
             } else {
                 setError(data.error || "Kod hatalı.");

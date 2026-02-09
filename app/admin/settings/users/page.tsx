@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { 
   Users, 
   UserPlus, 
@@ -26,7 +27,11 @@ import {
   X,
   Code,
   History,
-  AlertCircle
+  AlertCircle,
+  Pencil,
+  Check,
+  ChevronsUpDown,
+  Store as StoreIcon
 } from "lucide-react";
 import { 
   DropdownMenu, 
@@ -46,10 +51,33 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { collection, onSnapshot, query, orderBy, where, doc, updateDoc, Timestamp, arrayRemove, deleteField } from "firebase/firestore";
+import { collection, onSnapshot, query, orderBy, where, doc, updateDoc, getDocs, Timestamp, arrayRemove, deleteField } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { UserProfile } from "@/lib/types";
+import { UserProfile, Store } from "@/lib/types";
 import { format } from "date-fns";
 import { tr } from "date-fns/locale";
 import { toast } from "sonner";
@@ -57,16 +85,41 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 
 export default function UserSettingsPage() {
+  const searchParams = useSearchParams();
   const [users, setUsers] = useState<UserProfile[]>([]);
+  const [stores, setStores] = useState<Store[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("all");
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
+
+  // Apply filter from URL query parameter
+  useEffect(() => {
+    const filterParam = searchParams.get("filter");
+    if (filterParam === "pending") {
+      setRoleFilter("pending");
+    }
+  }, [searchParams]);
   
   // State for deletion confirmation
   const [tokenToDelete, setTokenToDelete] = useState<{ userId: string, token: string, type: 'single' | 'array' } | null>(null);
 
+  // Store assignment dialog state
+  const [storeDialogOpen, setStoreDialogOpen] = useState(false);
+  const [pendingRoleUpdate, setPendingRoleUpdate] = useState<{ userId: string; role: string } | null>(null);
+  const [selectedStoreId, setSelectedStoreId] = useState<string>("");
+  const [openStoreCombobox, setOpenStoreCombobox] = useState(false);
+
+  // Edit user dialog state
+  const [editUserDialogOpen, setEditUserDialogOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
+  const [editFormData, setEditFormData] = useState({ firstName: "", lastName: "" });
+
+  // Delete user state
+  const [userToDelete, setUserToDelete] = useState<UserProfile | null>(null);
+
   useEffect(() => {
+    // Load users
     const q = query(collection(db, "users"), orderBy("createdAt", "desc"));
     
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -82,6 +135,21 @@ export default function UserSettingsPage() {
       setLoading(false);
     });
 
+    // Load stores
+    const loadStores = async () => {
+      try {
+        const storesSnapshot = await getDocs(collection(db, "stores"));
+        const storesData = storesSnapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        })) as Store[];
+        setStores(storesData);
+      } catch (error) {
+        console.error("Error loading stores:", error);
+      }
+    };
+    loadStores();
+
     return () => unsubscribe();
   }, []);
 
@@ -95,17 +163,104 @@ export default function UserSettingsPage() {
     }
   }, [users, selectedUser?.uid]);
 
+  // Handle role update (with store selection for magaza role)
   const handleRoleUpdate = async (userId: string, newRole: string) => {
+    if (newRole === "magaza") {
+      // Show store selection dialog
+      setPendingRoleUpdate({ userId, role: newRole });
+      setSelectedStoreId("");
+      setStoreDialogOpen(true);
+    } else {
+      // Direct role update
       try {
-          await updateDoc(doc(db, "users", userId), {
-              role: newRole,
-              updatedAt: Timestamp.now()
-          });
-          toast.success(`Kullanıcı rolü güncellendi: ${getRoleDisplayName(newRole)}`);
+        await updateDoc(doc(db, "users", userId), {
+          role: newRole,
+          storeId: null,
+          storeName: null,
+          updatedAt: Timestamp.now()
+        });
+        toast.success(`Kullanıcı rolü güncellendi: ${getRoleDisplayName(newRole)}`);
       } catch (error) {
-          console.error("Role update error:", error);
-          toast.error("Rol güncellenemedi.");
+        console.error("Role update error:", error);
+        toast.error("Rol güncellenemedi.");
       }
+    }
+  };
+
+  // Confirm store assignment for magaza role
+  const confirmStoreAssignment = async () => {
+    if (!pendingRoleUpdate || !selectedStoreId) {
+      toast.error("Lütfen bir mağaza seçin");
+      return;
+    }
+
+    try {
+      const store = stores.find(s => s.id === selectedStoreId);
+      await updateDoc(doc(db, "users", pendingRoleUpdate.userId), {
+        role: pendingRoleUpdate.role,
+        storeId: selectedStoreId,
+        storeName: store?.name || null,
+        updatedAt: Timestamp.now()
+      });
+      toast.success(`Kullanıcı mağaza olarak atandı: ${store?.name}`);
+      setStoreDialogOpen(false);
+      setPendingRoleUpdate(null);
+      setSelectedStoreId("");
+    } catch (error) {
+      console.error("Store assignment error:", error);
+      toast.error("Mağaza ataması yapılamadı.");
+    }
+  };
+
+  // Open edit user dialog
+  const openEditUserDialog = (user: UserProfile) => {
+    setEditingUser(user);
+    setEditFormData({
+      firstName: user.firstName || "",
+      lastName: user.lastName || ""
+    });
+    setEditUserDialogOpen(true);
+  };
+
+  // Handle user update (firstName/lastName)
+  const handleUpdateUser = async () => {
+    if (!editingUser) return;
+
+    try {
+      await updateDoc(doc(db, "users", editingUser.uid), {
+        firstName: editFormData.firstName,
+        lastName: editFormData.lastName,
+        updatedAt: Timestamp.now()
+      });
+      toast.success("Kullanıcı bilgileri güncellendi");
+      setEditUserDialogOpen(false);
+    } catch (error) {
+      console.error("Error updating user:", error);
+      toast.error("Güncelleme sırasında hata oluştu");
+    }
+  };
+
+  // Handle user deletion (sets role to pending to revoke access)
+  const handleDeleteUser = async () => {
+    if (!userToDelete) return;
+
+    try {
+      await updateDoc(doc(db, "users", userToDelete.uid), {
+        role: "pending",
+        storeId: null,
+        storeName: null,
+        updatedAt: Timestamp.now()
+      });
+      toast.success("Kullanıcı hesabı silindi. Tekrar giriş yaptığında yönetici onayı bekleyecek.");
+      setUserToDelete(null);
+      // If the deleted user was selected in detail panel, clear selection
+      if (selectedUser?.uid === userToDelete.uid) {
+        setSelectedUser(null);
+      }
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      toast.error("Kullanıcı silinemedi.");
+    }
   };
 
   const confirmDeleteToken = async () => {
@@ -143,8 +298,18 @@ export default function UserSettingsPage() {
 
   const stats = {
     total: users.length,
-    activeSessions: users.filter(u => u.role !== "pending").length, // Proxy logic per active
-    pendingTokens: users.filter(u => (u.fcmTokens?.length || 0) > 0 || u.notificationToken).length,
+    activeSessions: users.filter(u => u.role !== "pending").length,
+    pendingUsers: users.filter(u => u.role === "pending").length,
+  };
+
+  // Get store info for a user
+  const getStoreInfo = (user: UserProfile) => {
+    if (user.role !== "magaza") return null;
+    const store = stores.find(s => s.id === user.storeId);
+    return {
+      group: store?.type || "-",
+      name: user.storeName || store?.name || "-"
+    };
   };
 
   // Convert Role to Turkish Display
@@ -177,16 +342,7 @@ export default function UserSettingsPage() {
               <h2 className="text-slate-900 text-xl font-bold leading-tight">Kullanıcı Ayarları & Sistem Verileri</h2>
             </div>
             
-            <div className="flex items-center gap-3">
-              <Button variant="outline" className="bg-white hover:bg-slate-50 text-slate-700 border-slate-300 shadow-sm gap-2 h-10">
-                <Download className="h-[18px] w-[18px] text-slate-500" />
-                <span className="hidden sm:inline">Veri Dışa Aktar</span>
-              </Button>
-              <Button className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm shadow-blue-500/20 gap-2 h-10">
-                <Plus className="h-[18px] w-[18px]" />
-                <span className="hidden sm:inline">Yeni Kullanıcı Ekle</span>
-              </Button>
-            </div>
+
           </div>
         </header>
 
@@ -214,13 +370,19 @@ export default function UserSettingsPage() {
                   <Wifi className="h-6 w-6" />
                 </div>
               </div>
-              <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm flex items-center justify-between">
+              <div 
+                onClick={() => setRoleFilter("pending")}
+                className={cn(
+                  "bg-white rounded-xl p-5 border shadow-sm flex items-center justify-between cursor-pointer transition-all hover:border-amber-300",
+                  roleFilter === "pending" ? "border-amber-400 ring-1 ring-amber-200" : "border-slate-200"
+                )}
+              >
                 <div>
-                  <p className="text-slate-500 text-sm font-medium mb-1">Cihaz Tokenları</p>
-                  <h3 className="text-slate-900 text-2xl font-bold">{stats.pendingTokens}</h3>
+                  <p className="text-slate-500 text-sm font-medium mb-1">Onay Bekleyenler</p>
+                  <h3 className="text-slate-900 text-2xl font-bold">{stats.pendingUsers}</h3>
                 </div>
-                <div className="bg-yellow-50 p-3 rounded-lg text-yellow-600">
-                  <Key className="h-6 w-6" />
+                <div className="bg-amber-50 p-3 rounded-lg text-amber-600">
+                  <History className="h-6 w-6" />
                 </div>
               </div>
             </div>
@@ -246,6 +408,7 @@ export default function UserSettingsPage() {
                   className="bg-white border border-slate-300 rounded-lg text-sm text-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 py-2.5 px-4 min-w-[140px] cursor-pointer outline-none transition-all"
                 >
                   <option value="all">Rol: Tümü</option>
+                  <option value="pending">Onay Bekleyenler</option>
                   <option value="admin">Yönetici</option>
                   <option value="denetmen">Denetmen</option>
                   <option value="bolge-muduru">Bölge Md.</option>
@@ -271,6 +434,20 @@ export default function UserSettingsPage() {
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-200 text-xs uppercase text-slate-500 font-semibold">
                       <th className="p-4 min-w-[200px]">Kullanıcı Profili</th>
+                      {/* Show store columns for magaza filter */}
+                      {roleFilter === "magaza" && (
+                        <>
+                          <th className="p-4">Mağaza Grubu</th>
+                          <th className="p-4">Mağaza Adı</th>
+                        </>
+                      )}
+                      {/* Show name columns for denetmen/bolge-muduru filter */}
+                      {(roleFilter === "denetmen" || roleFilter === "bolge-muduru") && (
+                        <>
+                          <th className="p-4">Ad</th>
+                          <th className="p-4">Soyad</th>
+                        </>
+                      )}
                       <th className="p-4 font-mono">Kullanıcı ID</th>
                       <th className="p-4">Rol</th>
                       <th className="p-4">Durum</th>
@@ -281,19 +458,21 @@ export default function UserSettingsPage() {
                   <tbody className="text-sm divide-y divide-slate-100">
                     {loading ? (
                        <tr>
-                           <td colSpan={6} className="p-8 text-center text-slate-500">
+                           <td colSpan={(roleFilter === "magaza" || roleFilter === "denetmen" || roleFilter === "bolge-muduru") ? 8 : 6} className="p-8 text-center text-slate-500">
                                <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2 text-blue-500" />
                                Veriler Yükleniyor...
                            </td>
                        </tr>
                     ) : filteredUsers.length === 0 ? (
                         <tr>
-                            <td colSpan={6} className="p-8 text-center text-slate-500">
+                            <td colSpan={(roleFilter === "magaza" || roleFilter === "denetmen" || roleFilter === "bolge-muduru") ? 8 : 6} className="p-8 text-center text-slate-500">
                                 Kayıt bulunamadı.
                             </td>
                         </tr>
                     ) : ( 
-                        filteredUsers.map((user) => (
+                        filteredUsers.map((user) => {
+                            const storeInfo = getStoreInfo(user);
+                            return (
                             <tr 
                                 key={user.uid} 
                                 onClick={() => setSelectedUser(user)}
@@ -314,6 +493,30 @@ export default function UserSettingsPage() {
                                         </div>
                                     </div>
                                 </td>
+                                {/* Store columns for magaza filter */}
+                                {roleFilter === "magaza" && (
+                                  <>
+                                    <td className="p-4">
+                                      <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200">
+                                        {storeInfo?.group || "-"}
+                                      </span>
+                                    </td>
+                                    <td className="p-4">
+                                      <span className="text-slate-700 font-medium">{storeInfo?.name || "-"}</span>
+                                    </td>
+                                  </>
+                                )}
+                                {/* Name columns for denetmen/bolge-muduru filter */}
+                                {(roleFilter === "denetmen" || roleFilter === "bolge-muduru") && (
+                                  <>
+                                    <td className="p-4">
+                                      <span className="text-slate-700">{user.firstName || "-"}</span>
+                                    </td>
+                                    <td className="p-4">
+                                      <span className="text-slate-700">{user.lastName || "-"}</span>
+                                    </td>
+                                  </>
+                                )}
                                 <td className="p-4 font-mono text-slate-500 text-xs">
                                     #{user.uid?.substring(0,8)}...
                                 </td>
@@ -326,10 +529,15 @@ export default function UserSettingsPage() {
                                             <History className="h-3.5 w-3.5" />
                                             Bekliyor
                                         </span>
-                                    ) : (
+                                    ) : user.isOnline ? (
                                         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-green-50 text-green-700 border border-green-200">
-                                            <span className="h-1.5 w-1.5 rounded-full bg-green-500"></span>
-                                            Aktif
+                                            <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>
+                                            Çevrimiçi
+                                        </span>
+                                    ) : (
+                                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-500 border border-slate-200">
+                                            <span className="h-2 w-2 rounded-full bg-slate-400"></span>
+                                            Çevrimdışı
                                         </span>
                                     )}
                                 </td>
@@ -344,29 +552,42 @@ export default function UserSettingsPage() {
                                             </button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="end" className="w-[200px]">
-                                            <DropdownMenuLabel>Rol İşlemleri</DropdownMenuLabel>
+                                            <DropdownMenuLabel>Kullanıcı İşlemleri</DropdownMenuLabel>
                                             <DropdownMenuSeparator />
-                                            <DropdownMenuItem onClick={() => handleRoleUpdate(user.uid as string, "admin")} className="cursor-pointer gap-2">
+                                            {/* Edit option for denetmen and bolge-muduru */}
+                                            {(user.role === "denetmen" || user.role === "bolge-muduru") && (
+                                              <>
+                                                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openEditUserDialog(user); }} className="cursor-pointer gap-2">
+                                                    <Pencil className="h-4 w-4 text-slate-600" /> Düzenle
+                                                </DropdownMenuItem>
+                                                <DropdownMenuSeparator />
+                                              </>
+                                            )}
+                                            <DropdownMenuLabel className="text-xs text-slate-400">Rol Değiştir</DropdownMenuLabel>
+                                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleRoleUpdate(user.uid as string, "admin"); }} className="cursor-pointer gap-2">
                                                 <Shield className="h-4 w-4 text-blue-600" /> Yönetici Yap
                                             </DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => handleRoleUpdate(user.uid as string, "denetmen")} className="cursor-pointer gap-2">
+                                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleRoleUpdate(user.uid as string, "denetmen"); }} className="cursor-pointer gap-2">
                                                 <CheckCircle className="h-4 w-4 text-emerald-600" /> Denetmen Yap
                                             </DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => handleRoleUpdate(user.uid as string, "bolge-muduru")} className="cursor-pointer gap-2">
+                                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleRoleUpdate(user.uid as string, "bolge-muduru"); }} className="cursor-pointer gap-2">
                                                 <Users className="h-4 w-4 text-purple-600" /> Bölge Md. Yap
                                             </DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => handleRoleUpdate(user.uid as string, "magaza")} className="cursor-pointer gap-2">
+                                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleRoleUpdate(user.uid as string, "magaza"); }} className="cursor-pointer gap-2">
                                                 <Database className="h-4 w-4 text-orange-600" /> Mağaza Yap
                                             </DropdownMenuItem>
                                              <DropdownMenuSeparator />
-                                            <DropdownMenuItem className="cursor-pointer gap-2 text-red-600 focus:text-red-700 focus:bg-red-50">
-                                                <Trash2 className="h-4 w-4" /> Sil / Engelle
+                                            <DropdownMenuItem 
+                                              onClick={(e) => { e.stopPropagation(); setUserToDelete(user); }} 
+                                              className="cursor-pointer gap-2 text-red-600 focus:text-red-700 focus:bg-red-50"
+                                            >
+                                                <Trash2 className="h-4 w-4" /> Hesabı Sil
                                             </DropdownMenuItem>
                                         </DropdownMenuContent>
                                     </DropdownMenu>
                                 </td>
                             </tr>
-                        ))
+                        )})
                     )}
                   </tbody>
                 </table>
@@ -514,16 +735,10 @@ export default function UserSettingsPage() {
                     </div>
                 </div>
             </div>
-
-            <div className="p-4 border-t border-slate-200 bg-slate-50 mt-auto">
-                <button className="w-full py-2 bg-white hover:bg-red-50 text-red-600 text-sm font-bold rounded border border-red-200 shadow-sm transition-colors">
-                    Hesabı Askıya Al
-                </button>
-            </div>
         </aside>
       )}
 
-      {/* Alert Dialog */}
+      {/* Alert Dialog - Token Delete */}
       <AlertDialog open={!!tokenToDelete} onOpenChange={() => setTokenToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -535,6 +750,135 @@ export default function UserSettingsPage() {
           <AlertDialogFooter>
             <AlertDialogCancel>İptal</AlertDialogCancel>
             <AlertDialogAction onClick={confirmDeleteToken} className="bg-red-600 hover:bg-red-700">Sil</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Store Selection Dialog */}
+      <Dialog open={storeDialogOpen} onOpenChange={setStoreDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Mağaza Seçin</DialogTitle>
+            <DialogDescription>
+              Bu kullanıcıyı atamak istediğiniz mağazayı seçin.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Popover open={openStoreCombobox} onOpenChange={setOpenStoreCombobox}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={openStoreCombobox}
+                  className="w-full justify-between"
+                >
+                  {selectedStoreId
+                    ? stores.find((s) => s.id === selectedStoreId)?.name
+                    : "Mağaza seçin..."}
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-full p-0" align="start">
+                <Command>
+                  <CommandInput placeholder="Mağaza ara..." />
+                  <CommandList>
+                    <CommandEmpty>Mağaza bulunamadı.</CommandEmpty>
+                    <CommandGroup>
+                      {stores.map((store) => (
+                        <CommandItem
+                          key={store.id}
+                          value={store.name}
+                          onSelect={() => {
+                            setSelectedStoreId(store.id);
+                            setOpenStoreCombobox(false);
+                          }}
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 h-4 w-4",
+                              selectedStoreId === store.id ? "opacity-100" : "opacity-0"
+                            )}
+                          />
+                          <div className="flex flex-col">
+                            <span>{store.name}</span>
+                            {store.type && (
+                              <span className="text-xs text-slate-500">{store.type}</span>
+                            )}
+                          </div>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setStoreDialogOpen(false)}>
+              İptal
+            </Button>
+            <Button onClick={confirmStoreAssignment} disabled={!selectedStoreId}>
+              Ata
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit User Dialog */}
+      <Dialog open={editUserDialogOpen} onOpenChange={setEditUserDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Kullanıcı Bilgilerini Düzenle</DialogTitle>
+            <DialogDescription>
+              {editingUser?.displayName || editingUser?.email} kullanıcısının bilgilerini düzenleyin.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="firstName">Ad</Label>
+              <Input
+                id="firstName"
+                value={editFormData.firstName}
+                onChange={(e) => setEditFormData(prev => ({ ...prev, firstName: e.target.value }))}
+                placeholder="Ad"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="lastName">Soyad</Label>
+              <Input
+                id="lastName"
+                value={editFormData.lastName}
+                onChange={(e) => setEditFormData(prev => ({ ...prev, lastName: e.target.value }))}
+                placeholder="Soyad"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditUserDialogOpen(false)}>
+              İptal
+            </Button>
+            <Button onClick={handleUpdateUser}>
+              Kaydet
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete User Confirmation Dialog */}
+      <AlertDialog open={!!userToDelete} onOpenChange={() => setUserToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Hesabı Silmek İstediğinize Emin misiniz?</AlertDialogTitle>
+            <AlertDialogDescription>
+              <strong>{userToDelete?.displayName || userToDelete?.email}</strong> kullanıcısının hesabı silinecek. 
+              Bu kullanıcı sisteme tekrar giriş yaptığında yönetici onayı bekleyecektir.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>İptal</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteUser} className="bg-red-600 hover:bg-red-700">
+              Hesabı Sil
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

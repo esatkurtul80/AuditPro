@@ -266,7 +266,7 @@ function AdminNotificationsContent() {
     const handleNotificationClick = (notification: NotificationWithVirtual) => {
         // If virtual (pending user), go to users page
         if (notification.isVirtual) {
-            router.push("/admin/users?filter=pending");
+            router.push("/admin/settings/users?filter=pending");
             return;
         }
 

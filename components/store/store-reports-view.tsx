@@ -281,7 +281,7 @@ export function StoreReportsView() {
                                             </div>
 
                                             {/* Failure History Details */}
-                                            <div className="pl-11 space-y-3">
+                                            <div className="space-y-3">
                                                 {item.failures.map((fail, fIdx) => (
                                                     <div key={`${fail.auditId}-${fIdx}`} className="bg-slate-50 dark:bg-slate-900 rounded-lg p-3 text-sm border border-slate-100 dark:border-slate-800">
                                                         <div className="flex items-center justify-between mb-2">
@@ -306,14 +306,14 @@ export function StoreReportsView() {
                                                                         {fail.auditorNotes.map((note, noteIdx) => (
                                                                             <div key={noteIdx} className="flex gap-2">
                                                                                 <FileText className="h-3.5 w-3.5 text-red-500 shrink-0 mt-0.5" />
-                                                                                <p className="text-slate-700 dark:text-slate-300">{note}</p>
+                                                                                <p className="text-slate-700 dark:text-slate-300 break-all whitespace-pre-wrap flex-1 min-w-0">{note}</p>
                                                                             </div>
                                                                         ))}
                                                                     </div>
                                                                 )}
                                                                 
                                                                 {fail.auditorPhotos && fail.auditorPhotos.length > 0 && (
-                                                                    <div className="flex gap-2 overflow-x-auto pb-1 mt-1">
+                                                                    <div className="flex gap-2 flex-wrap mt-1">
                                                                         {fail.auditorPhotos.map((img: string, i: number) => (
                                                                             <img 
                                                                                 key={i} 
@@ -336,11 +336,11 @@ export function StoreReportsView() {
                                                                     {fail.actionData.storeNote && (
                                                                         <div className="flex gap-2">
                                                                             <Store className="h-3.5 w-3.5 text-blue-500 shrink-0 mt-0.5" />
-                                                                            <p className="text-slate-600 dark:text-slate-400 italic">"{fail.actionData.storeNote}"</p>
+                                                                            <p className="text-slate-600 dark:text-slate-400 italic break-all whitespace-pre-wrap flex-1 min-w-0">"{fail.actionData.storeNote}"</p>
                                                                         </div>
                                                                     )}
                                                                     {fail.actionData.storeImages && fail.actionData.storeImages.length > 0 && (
-                                                                        <div className="flex gap-2 overflow-x-auto pb-1 mt-1">
+                                                                        <div className="flex gap-2 flex-wrap mt-1">
                                                                             {fail.actionData.storeImages.map((img: string, i: number) => (
                                                                                 <img 
                                                                                     key={i} 

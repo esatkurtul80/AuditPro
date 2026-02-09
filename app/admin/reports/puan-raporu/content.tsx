@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 
@@ -16,9 +16,9 @@ import { db } from "@/lib/firebase";
 import { Store, Audit, DateRangeFilter } from "@/lib/types";
 import { Loader2, Search, CheckCircle2, ThumbsUp, MinusCircle, AlertCircle, Calendar, FileSpreadsheet } from "lucide-react";
 import { cn } from "@/lib/utils";
-import * as XLSX from "xlsx";
-
-import { ChevronLeft, ChevronRight } from "lucide-react";
+// Recharts removed - using SimpleSparkline instead
+import { LineChart as LineChartIcon, ListPlus, ChevronLeft, ChevronRight } from "lucide-react";
+import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 
 // --- TYPES ---
 interface ScoreAudit extends Audit {
@@ -50,14 +50,14 @@ interface MonthlyScoreRow {
 
 // --- CONSTANTS ---
 const MONTH_NAMES = [
-    "Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran",
-    "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"
+    "Ocak", "┼Şubat", "Mart", "Nisan", "May─▒s", "Haziran",
+    "Temmuz", "A─şustos", "Eyl├╝l", "Ekim", "Kas─▒m", "Aral─▒k"
 ];
 
 // --- HELPERS ---
 const getScoreBadge = (score: number) => {
-    if (score >= 95) return { label: "ÇOK İYİ", color: "bg-emerald-500 hover:bg-emerald-600", icon: CheckCircle2, textColor: "text-emerald-700 bg-emerald-50 border-emerald-200" };
-    if (score >= 90) return { label: "İYİ", color: "bg-blue-500 hover:bg-blue-600", icon: ThumbsUp, textColor: "text-blue-700 bg-blue-50 border-blue-200" };
+    if (score >= 95) return { label: "├çOK ─░Y─░", color: "bg-emerald-500 hover:bg-emerald-600", icon: CheckCircle2, textColor: "text-emerald-700 bg-emerald-50 border-emerald-200" };
+    if (score >= 90) return { label: "─░Y─░", color: "bg-blue-500 hover:bg-blue-600", icon: ThumbsUp, textColor: "text-blue-700 bg-blue-50 border-blue-200" };
     if (score >= 85) return { label: "ORTA", color: "bg-amber-500 hover:bg-amber-600", icon: MinusCircle, textColor: "text-amber-700 bg-amber-50 border-amber-200" };
     return { label: "ZAYIF", color: "bg-red-500 hover:bg-red-600", icon: AlertCircle, textColor: "text-red-700 bg-red-50 border-red-200" };
 };
@@ -110,7 +110,7 @@ const SimpleSparkline = ({ data }: { data: (number | null)[] }) => {
     );
 };
 
-export default function PuanRaporuPage() {
+export function PuanRaporuContent() {
     const [loading, setLoading] = useState(true);
     const [auditData, setAuditData] = useState<ScoreAudit[]>([]);
     const [stores, setStores] = useState<Store[]>([]);
@@ -123,7 +123,15 @@ export default function PuanRaporuPage() {
     const [scoreRows, setScoreRows] = useState<StoreScoreRow[]>([]);
     const [monthlyRows, setMonthlyRows] = useState<MonthlyScoreRow[]>([]);
 
+    // View Mode for Tab 2
+    const [viewMode, setViewMode] = useState<"table" | "chart">("table");
 
+    const chartConfig = {
+        score: {
+            label: "Puan",
+            color: "hsl(var(--primary))",
+        },
+    } satisfies ChartConfig;
 
     useEffect(() => {
         const fetchData = async () => {
@@ -192,7 +200,7 @@ export default function PuanRaporuPage() {
             const scores = last4.map(a => a.totalScore || 0);
 
             // Calculate Average of audits IN THE RANGE
-            // Requirement says "iki tarih aralığındaki puan ortalamasını"
+            // Requirement says "iki tarih aral─▒─ş─▒ndaki puan ortalamas─▒n─▒"
             const avg = storeAudits.length > 0
                 ? storeAudits.reduce((sum, a) => sum + (a.totalScore || 0), 0) / storeAudits.length
                 : 0;
@@ -257,9 +265,10 @@ export default function PuanRaporuPage() {
     }, [auditData, stores, selectedYear, loading]);
 
     // --- Export Functions ---
-    const handleExportScores = () => {
+    const handleExportScores = async () => {
+        const XLSX = await import("xlsx");
         const dataToExport = scoreRows.map(row => ({
-            "Mağaza Adı": row.storeName,
+            "Ma─şaza Ad─▒": row.storeName,
             "1. Puan": row.score1 !== undefined ? row.score1.toFixed(0) : "-",
             "1. Puan Tarihi": row.date1 ? row.date1.toLocaleDateString("tr-TR") : "-",
             "2. Puan": row.score2 !== undefined ? row.score2.toFixed(0) : "-",
@@ -273,13 +282,14 @@ export default function PuanRaporuPage() {
 
         const wb = XLSX.utils.book_new();
         const ws = XLSX.utils.json_to_sheet(dataToExport);
-        XLSX.utils.book_append_sheet(wb, ws, "Son Denetim Puanları");
+        XLSX.utils.book_append_sheet(wb, ws, "Son Denetim Puanlar─▒");
         XLSX.writeFile(wb, "Son_Denetim_Puanlari.xlsx");
     };
 
-    const handleExportMonthly = () => {
+    const handleExportMonthly = async () => {
+        const XLSX = await import("xlsx");
         const dataToExport = monthlyRows.map(row => {
-            const rowData: any = { "Mağaza Adı": row.storeName };
+            const rowData: any = { "Ma─şaza Ad─▒": row.storeName };
             MONTH_NAMES.forEach((month, index) => {
                 const score = row.months[index];
                 rowData[month] = score !== null ? score.toFixed(0) : "-";
@@ -289,7 +299,7 @@ export default function PuanRaporuPage() {
 
         const wb = XLSX.utils.book_new();
         const ws = XLSX.utils.json_to_sheet(dataToExport);
-        XLSX.utils.book_append_sheet(wb, ws, `Aylık_Gelişim_${selectedYear}`);
+        XLSX.utils.book_append_sheet(wb, ws, `Ayl─▒k_Geli┼şim_${selectedYear}`);
         XLSX.writeFile(wb, `Aylik_Gelisim_${selectedYear}.xlsx`);
     };
 
@@ -298,7 +308,7 @@ export default function PuanRaporuPage() {
     const scoreColumns: ColumnDef<StoreScoreRow>[] = [
         {
             accessorKey: "storeName",
-            header: "Mağaza Adı",
+            header: "Ma─şaza Ad─▒",
             cell: ({ row }) => <div className="font-semibold">{row.original.storeName}</div>
         },
         {
@@ -395,14 +405,34 @@ export default function PuanRaporuPage() {
                     </div>
                 );
             }
+        },
+        {
+            id: "status",
+            header: () => <div className="text-center font-bold">Durum</div>,
+            meta: { title: "Durum" },
+            cell: ({ row }) => {
+                if (!row.original.hasAudits) return <div className="text-center">-</div>;
+                const avg = row.original.average;
+                const badgeInfo = getScoreBadge(avg);
+                const Icon = badgeInfo.icon;
+
+                return (
+                    <div className="flex justify-center">
+                        <div className={cn("flex items-center gap-2 px-3 py-1 rounded-md border text-white text-sm font-bold border-0", badgeInfo.color)}>
+                            <Icon className="w-4 h-4" />
+                            {badgeInfo.label}
+                        </div>
+                    </div>
+                );
+            }
         }
     ];
 
     const monthlyColumns: ColumnDef<MonthlyScoreRow>[] = [
         {
             accessorKey: "storeName",
-            header: "Mağaza Adı",
-            meta: { title: "Mağaza Adı" },
+            header: "Ma─şaza Ad─▒",
+            meta: { title: "Ma─şaza Ad─▒" },
             cell: ({ row }) => <div className="font-semibold min-w-[150px] sticky left-0 bg-card group-hover:bg-accent z-10 p-2 border-r transition-colors">{row.original.storeName}</div>,
         },
 
@@ -427,7 +457,32 @@ export default function PuanRaporuPage() {
         }))
     ];
 
-
+    const chartColumns: ColumnDef<MonthlyScoreRow>[] = [
+        {
+            accessorKey: "storeName",
+            header: "Ma─şaza Ad─▒",
+            meta: { title: "Ma─şaza Ad─▒" },
+            cell: ({ row }) => <div className="font-semibold min-w-[200px] sticky left-0 bg-card group-hover:bg-accent z-10 p-4 border-r transition-colors h-full flex items-center">{row.original.storeName}</div>,
+        },
+        {
+            id: "chart",
+            header: "Gelişim Grafiği",
+            meta: { title: "Gelişim Grafiği" },
+            cell: ({ row }) => {
+                const scores = Object.values(row.original.months).filter((v): v is number => v !== null);
+                return (
+                    <div className="flex items-center gap-4 p-4">
+                        <SimpleSparkline data={scores} />
+                        {scores.length > 0 && (
+                            <span className="text-sm font-medium">
+                                Ort: {(scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(0)}
+                            </span>
+                        )}
+                    </div>
+                );
+            }
+        }
+    ];
 
     if (loading) {
         return (
@@ -441,13 +496,13 @@ export default function PuanRaporuPage() {
         <div className="container mx-auto p-4 space-y-6">
             <div>
                 <h1 className="text-3xl font-bold tracking-tight">Puan Raporu</h1>
-                <p className="text-muted-foreground">Mağazaların denetim puanları ve aylık gelişim analizi.</p>
+                <p className="text-muted-foreground">Ma─şazalar─▒n denetim puanlar─▒ ve ayl─▒k geli┼şim analizi.</p>
             </div>
 
             <Tabs defaultValue="scores" className="space-y-4">
                 <TabsList>
-                    <TabsTrigger value="scores">Son Denetim Puanları</TabsTrigger>
-                    <TabsTrigger value="monthly">Aylık Gelişim Tablosu</TabsTrigger>
+                    <TabsTrigger value="scores">Son Denetim Puanlar─▒</TabsTrigger>
+                    <TabsTrigger value="monthly">Ayl─▒k Geli┼şim Tablosu</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="scores" className="space-y-4">
@@ -455,8 +510,8 @@ export default function PuanRaporuPage() {
                         <CardHeader>
                             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                                 <div>
-                                    <CardTitle>Mağaza Puan Analizi</CardTitle>
-                                    <CardDescription>Belirtilen tarih aralığındaki son 4 denetim ve genel ortalama.</CardDescription>
+                                    <CardTitle>Ma─şaza Puan Analizi</CardTitle>
+                                    <CardDescription>Belirtilen tarih aral─▒─ş─▒ndaki son 4 denetim ve genel ortalama.</CardDescription>
                                 </div>
                                 <div>
                                     <DateRangePicker value={dateRange} onChange={setDateRange} />
@@ -466,10 +521,10 @@ export default function PuanRaporuPage() {
                             {/* Legend for Score Range */}
                             <div className="mt-4 flex flex-wrap gap-3 text-sm">
                                 <Badge className={cn("gap-1.5 text-white border-0 px-3 py-1 text-sm", getScoreBadge(96).color)}>
-                                    <CheckCircle2 className="w-4 h-4" /> 100-95 ÇOK İYİ
+                                    <CheckCircle2 className="w-4 h-4" /> 100-95 ├çOK ─░Y─░
                                 </Badge>
                                 <Badge className={cn("gap-1.5 text-white border-0 px-3 py-1 text-sm", getScoreBadge(91).color)}>
-                                    <ThumbsUp className="w-4 h-4" /> 94-90 İYİ
+                                    <ThumbsUp className="w-4 h-4" /> 94-90 ─░Y─░
                                 </Badge>
                                 <Badge className={cn("gap-1.5 text-white border-0 px-3 py-1 text-sm", getScoreBadge(86).color)}>
                                     <MinusCircle className="w-4 h-4" /> 89-85 ORTA
@@ -484,14 +539,14 @@ export default function PuanRaporuPage() {
                                 columns={scoreColumns}
                                 data={scoreRows}
                                 searchKey="storeName"
-                                searchPlaceholder="Mağaza ara..."
+                                searchPlaceholder="Ma─şaza ara..."
                                 pageSizeOptions={[10, 20, 50, 100, 200]}
                                 defaultPageSize={200}
                                 toolbar={
                                     <div className="flex w-full">
                                         <Button variant="outline" onClick={handleExportScores} className="ml-auto gap-2">
                                             <FileSpreadsheet className="h-4 w-4" />
-                                            Excel İndir
+                                            Excel ─░ndir
                                         </Button>
                                     </div>
                                 }
@@ -505,14 +560,14 @@ export default function PuanRaporuPage() {
                         <CardHeader>
                             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                                 <div>
-                                    <CardTitle>Aylık Gelişim Matrisi</CardTitle>
-                                    <CardDescription>Mağazaların yıl içindeki aylık puan ortalamaları.</CardDescription>
+                                    <CardTitle>Ayl─▒k Geli┼şim Matrisi</CardTitle>
+                                    <CardDescription>Ma─şazalar─▒n y─▒l i├ğindeki ayl─▒k puan ortalamalar─▒.</CardDescription>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <Select value={selectedYear} onValueChange={setSelectedYear}>
                                         <SelectTrigger className="w-[120px]">
                                             <Calendar className="mr-2 h-4 w-4" />
-                                            <SelectValue placeholder="Yıl" />
+                                            <SelectValue placeholder="Y─▒l" />
                                         </SelectTrigger>
                                         <SelectContent>
                                             {[2024, 2025, 2026, 2027].map(y => (
@@ -526,10 +581,10 @@ export default function PuanRaporuPage() {
                             {/* Same Legend */}
                             <div className="mt-4 flex flex-wrap gap-3 text-sm">
                                 <Badge className={cn("gap-1.5 text-white border-0 px-3 py-1 text-sm", getScoreBadge(96).color)}>
-                                    <CheckCircle2 className="w-4 h-4" /> 100-95 ÇOK İYİ
+                                    <CheckCircle2 className="w-4 h-4" /> 100-95 ├çOK ─░Y─░
                                 </Badge>
                                 <Badge className={cn("gap-1.5 text-white border-0 px-3 py-1 text-sm", getScoreBadge(91).color)}>
-                                    <ThumbsUp className="w-4 h-4" /> 94-90 İYİ
+                                    <ThumbsUp className="w-4 h-4" /> 94-90 ─░Y─░
                                 </Badge>
                                 <Badge className={cn("gap-1.5 text-white border-0 px-3 py-1 text-sm", getScoreBadge(86).color)}>
                                     <MinusCircle className="w-4 h-4" /> 89-85 ORTA
@@ -542,17 +597,25 @@ export default function PuanRaporuPage() {
                         <CardContent>
                             <div className="overflow-x-auto">
                                 <DataTable
-                                    columns={monthlyColumns}
+                                    columns={viewMode === "table" ? monthlyColumns : chartColumns}
                                     data={monthlyRows}
                                     searchKey="storeName"
-                                    searchPlaceholder="Mağaza ara..."
+                                    searchPlaceholder="Ma─şaza ara..."
                                     pageSizeOptions={[10, 20, 50, 100]}
-                                    defaultPageSize={200}
+                                    defaultPageSize={viewMode === "chart" ? 10 : 200}
                                     toolbar={
                                         <div className="flex w-full gap-2">
-                                            <Button variant="outline" onClick={handleExportMonthly} className="ml-auto gap-2">
+                                            <Button
+                                                variant="outline"
+                                                onClick={() => setViewMode(viewMode === "table" ? "chart" : "table")}
+                                                className="ml-auto gap-2"
+                                            >
+                                                {viewMode === "table" ? <LineChartIcon className="h-4 w-4" /> : <ListPlus className="h-4 w-4" />}
+                                                {viewMode === "table" ? "Grafik G├Âr├╝n├╝m├╝" : "Tablo G├Âr├╝n├╝m├╝"}
+                                            </Button>
+                                            <Button variant="outline" onClick={handleExportMonthly} className="gap-2">
                                                 <FileSpreadsheet className="h-4 w-4" />
-                                                Excel İndir
+                                                Excel ─░ndir
                                             </Button>
                                         </div>
                                     }

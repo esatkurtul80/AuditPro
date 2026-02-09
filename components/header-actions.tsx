@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, User, LogOut, Settings, WifiOff, CheckSquare, Clock, AlertCircle, CheckCircle, CalendarDays, CalendarOff, Home, Sparkles, Send } from "lucide-react";
+import { Bell, User, LogOut, Settings, WifiOff, CheckSquare, Clock, AlertCircle, CheckCircle, CalendarDays, CalendarOff, Home, Sparkles, Send, Users } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/components/auth-provider";
@@ -9,10 +9,10 @@ import { OnlineStatusBadge } from "./online-status-badge";
 import { LocationStatusBadge } from "./location-status-badge";
 import { useOnlineStatus } from "@/hooks/use-online-status";
 import { Button } from "./ui/button";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useTransition, useCallback } from "react";
 import { collection, query, where, onSnapshot, orderBy, limit } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { Notification as NotificationModel } from "@/lib/types";
+import { Notification as NotificationModel, UserProfile } from "@/lib/types";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -36,25 +36,36 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
 
     const [notifications, setNotifications] = useState<NotificationModel[]>([]);
     const [pendingUsers, setPendingUsers] = useState<any[]>([]);
+    const [onlineUsers, setOnlineUsers] = useState<any[]>([]);
     const [mounted, setMounted] = useState(false);
     const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>("default");
 
     const [isPushEnabled, setIsPushEnabled] = useState(false);
+    const [isPending, startTransition] = useTransition();
 
-    const checkPermissionState = async () => {
-        if (!("Notification" in window)) return;
+    const checkPermissionState = useCallback(() => {
+        if (typeof window === "undefined" || !("Notification" in window)) return;
         
         const perm = Notification.permission;
-        setNotificationPermission(perm);
+        
+        startTransition(() => {
+            setNotificationPermission(perm);
+        });
 
         if (perm === 'granted' && 'serviceWorker' in navigator) {
-             const reg = await navigator.serviceWorker.getRegistration();
-             const sub = await reg?.pushManager?.getSubscription();
-             setIsPushEnabled(!!sub);
+            navigator.serviceWorker.getRegistration().then(reg => {
+                reg?.pushManager?.getSubscription().then(sub => {
+                    startTransition(() => {
+                        setIsPushEnabled(!!sub);
+                    });
+                });
+            });
         } else {
-            setIsPushEnabled(false);
+            startTransition(() => {
+                setIsPushEnabled(false);
+            });
         }
-    };
+    }, []);
 
     useEffect(() => {
         setMounted(true);
@@ -73,7 +84,7 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
             window.removeEventListener("focus", checkPermissionState);
             document.removeEventListener("visibilitychange", handleVisibilityChange);
         };
-    }, []);
+    }, [checkPermissionState]);
 
     useEffect(() => {
         if (userProfile?.uid) {
@@ -122,6 +133,40 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
         }
     }, [userProfile]);
 
+    // Listen to online users (admin only) with timeout check
+    useEffect(() => {
+        if (userProfile?.role !== "admin") return;
+
+        const onlineQuery = query(
+            collection(db, "users"),
+            where("isOnline", "==", true)
+        );
+
+        const unsubscribe = onSnapshot(onlineQuery, (snapshot) => {
+            const now = Date.now();
+            const TIMEOUT_MS = 2 * 60 * 1000; // 2 minutes timeout
+
+            const users = snapshot.docs
+                .map(doc => ({
+                    id: doc.id,
+                    ...(doc.data() as UserProfile)
+                }))
+                .filter(user => {
+                    // Check if lastActive is within timeout period
+                    if (!user.lastActive) return false;
+                    const lastActiveTime = (user.lastActive as any)?.toDate 
+                        ? (user.lastActive as any).toDate().getTime() 
+                        : new Date(user.lastActive as any).getTime();
+                    return (now - lastActiveTime) < TIMEOUT_MS;
+                });
+            
+            // Exclude current user from list
+            setOnlineUsers(users.filter(u => u.id !== userProfile?.uid));
+        });
+
+        return () => unsubscribe();
+    }, [userProfile?.uid, userProfile?.role]);
+
     const unreadCount = notifications.length + pendingUsers.length;
 
     const handleNotificationClick = (notification?: NotificationModel) => {
@@ -129,7 +174,7 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
             router.push(`/notifications?highlight=${notification.id}`);
         } else {
             // Pending user notification (no specific notification obj)
-            router.push("/admin/users?filter=pending");
+            router.push("/admin/settings/users?filter=pending");
         }
     };
 
@@ -202,6 +247,61 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
                 <div className="flex items-center gap-1 md:mr-2">
                     <OnlineStatusBadge isOnline={isOnline} compact={compact} />
                     <LocationStatusBadge compact={compact} />
+                    
+                    {/* Online Users Button - Admin Only */}
+                    {userProfile?.role === "admin" && (
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="relative h-8 w-8 rounded-full border bg-background hover:bg-accent"
+                                    title={`${onlineUsers.length} kullanıcı çevrimiçi`}
+                                >
+                                    <Users className="h-4 w-4" />
+                                    {onlineUsers.length > 0 && (
+                                        <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-green-500 text-[10px] font-bold text-white ring-1 ring-white dark:ring-black">
+                                            {onlineUsers.length}
+                                        </span>
+                                    )}
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" sideOffset={8} className="w-64">
+                                <DropdownMenuLabel className="flex items-center gap-2">
+                                    <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>
+                                    Çevrimiçi Kullanıcılar ({onlineUsers.length})
+                                </DropdownMenuLabel>
+                                <DropdownMenuSeparator />
+                                {onlineUsers.length === 0 ? (
+                                    <div className="p-4 text-center text-sm text-muted-foreground">
+                                        Şu an çevrimiçi başka kullanıcı yok
+                                    </div>
+                                ) : (
+                                    <div className="max-h-64 overflow-y-auto">
+                                        {onlineUsers.map((user) => (
+                                            <DropdownMenuItem key={user.id} className="flex items-center gap-3 p-3">
+                                                <Avatar className="h-8 w-8">
+                                                    <AvatarFallback className="bg-green-100 text-green-700 text-xs font-bold">
+                                                        {(user.displayName || user.email || "U").substring(0, 2).toUpperCase()}
+                                                    </AvatarFallback>
+                                                </Avatar>
+                                                <div className="flex flex-col flex-1 min-w-0">
+                                                    <span className="text-sm font-medium truncate">{user.displayName || "İsimsiz"}</span>
+                                                    <span className="text-xs text-muted-foreground truncate">
+                                                        {user.role === "admin" ? "Yönetici" : 
+                                                         user.role === "denetmen" ? "Denetmen" : 
+                                                         user.role === "bolge-muduru" ? "Bölge Md." : 
+                                                         user.role === "magaza" ? "Mağaza" : user.role}
+                                                    </span>
+                                                </div>
+                                                <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>
+                                            </DropdownMenuItem>
+                                        ))}
+                                    </div>
+                                )}
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    )}
                 </div>
 
 
@@ -385,6 +485,61 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
             <div className="flex items-center gap-1">
                 <OnlineStatusBadge isOnline={isOnline} compact={compact} />
                 <LocationStatusBadge compact={compact} />
+                
+                {/* Online Users Button - Admin Only */}
+                {userProfile?.role === "admin" && (
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="relative h-8 w-8 rounded-full border bg-background hover:bg-accent"
+                                title={`${onlineUsers.length} kullanıcı çevrimiçi`}
+                            >
+                                <Users className="h-4 w-4" />
+                                {onlineUsers.length > 0 && (
+                                    <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-green-500 text-[10px] font-bold text-white ring-1 ring-white dark:ring-black">
+                                        {onlineUsers.length}
+                                    </span>
+                                )}
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" sideOffset={8} className="w-64">
+                            <DropdownMenuLabel className="flex items-center gap-2">
+                                <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>
+                                Çevrimiçi Kullanıcılar ({onlineUsers.length})
+                            </DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            {onlineUsers.length === 0 ? (
+                                <div className="p-4 text-center text-sm text-muted-foreground">
+                                    Şu an çevrimiçi başka kullanıcı yok
+                                </div>
+                            ) : (
+                                <div className="max-h-64 overflow-y-auto">
+                                    {onlineUsers.map((user) => (
+                                        <DropdownMenuItem key={user.id} className="flex items-center gap-3 p-3">
+                                            <Avatar className="h-8 w-8">
+                                                <AvatarFallback className="bg-green-100 text-green-700 text-xs font-bold">
+                                                    {(user.displayName || user.email || "U").substring(0, 2).toUpperCase()}
+                                                </AvatarFallback>
+                                            </Avatar>
+                                            <div className="flex flex-col flex-1 min-w-0">
+                                                <span className="text-sm font-medium truncate">{user.displayName || "İsimsiz"}</span>
+                                                <span className="text-xs text-muted-foreground truncate">
+                                                    {user.role === "admin" ? "Yönetici" : 
+                                                     user.role === "denetmen" ? "Denetmen" : 
+                                                     user.role === "bolge-muduru" ? "Bölge Md." : 
+                                                     user.role === "magaza" ? "Mağaza" : user.role}
+                                                </span>
+                                            </div>
+                                            <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>
+                                        </DropdownMenuItem>
+                                    ))}
+                                </div>
+                            )}
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                )}
             </div>
 
 

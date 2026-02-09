@@ -168,7 +168,6 @@ function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar }: 
 
     const adminLinks = [
         { href: "/admin/dashboard", label: "Panel", icon: LayoutDashboard },
-        { href: "/admin/users", label: "Kullanıcılar", icon: Users },
         { href: "/admin/stores", label: "Mağazalar", icon: Store },
         { href: "/admin/cop-kutusu", label: "Çöp Kutusu", icon: Trash2 },
     ];

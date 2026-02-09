@@ -43,6 +43,7 @@ export function StoreAnalysisDialog({ storeId, storeName, isOpen, onClose }: Sto
     const [data, setData] = useState<StoreAnalysisData | null>(null);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState("overview");
+    const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
     useEffect(() => {
         if (isOpen && storeId) {
@@ -70,8 +71,39 @@ export function StoreAnalysisDialog({ storeId, storeName, isOpen, onClose }: Sto
         return "text-rose-600 bg-rose-50";
     };
 
+    const formatHistoryAnswer = (item: any) => {
+        if (!item.answer) return "-";
+
+        if (item.questionType === 'yes_no') {
+            if (item.answer === 'evet') return 'Evet';
+            if (item.answer === 'hayir') return 'Hayır';
+            if (item.answer === 'muaf') return 'Muaf';
+            return item.answer;
+        }
+
+        if ((item.questionType === 'multiple_choice' || item.questionType === 'checkbox') && item.options) {
+            // Try to match ID with option text
+            const answerId = item.answer;
+            const option = item.options.find((opt: any) => opt.id === answerId);
+            if (option) return option.text;
+            
+            // If comma separated (checkbox)
+            if (answerId.includes(',')) {
+                const ids = answerId.split(',').map((id: string) => id.trim());
+                const texts = ids.map((id: string) => {
+                     const opt = item.options.find((o: any) => o.id === id);
+                     return opt ? opt.text : id;
+                });
+                return texts.join(', ');
+            }
+        }
+
+        return item.answer;
+    };
+
     return (
-        <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+        <>
+            <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
             <DialogContent className="w-[95vw] max-w-7xl sm:max-w-7xl md:max-w-7xl lg:max-w-7xl h-[85vh] overflow-hidden flex flex-col p-0 gap-0">
                 <DialogHeader className="p-6 pb-4 border-b bg-slate-50/50 shrink-0 pr-12">
                     <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
@@ -187,7 +219,7 @@ export function StoreAnalysisDialog({ storeId, storeName, isOpen, onClose }: Sto
                                 >
                                     <span>Tekrarlayan</span>
                                     <div className="flex items-center gap-1 relative">
-                                        <span>Sorunlar</span>
+                                        <span>Hayırlar</span>
                                         {data?.recurringIssues && data.recurringIssues.length > 0 && (
                                             <span className={cn(
                                                 "min-w-[16px] h-4 px-1 rounded-full flex items-center justify-center text-[9px] font-bold transition-colors duration-200 shrink-0 mb-px",
@@ -347,9 +379,9 @@ export function StoreAnalysisDialog({ storeId, storeName, isOpen, onClose }: Sto
 
                                                             {/* Photos Grid */}
                                                             {fail.photos && fail.photos.length > 0 && (
-                                                                <div className="flex gap-2 mt-3 overflow-x-auto pb-2">
+                                                                <div className="flex gap-2 mt-3 flex-wrap">
                                                                     {fail.photos.map((photo: string, pIdx: number) => (
-                                                                        <div key={pIdx} className="relative h-16 w-16 rounded-md overflow-hidden border shrink-0">
+                                                                        <div key={pIdx} className="relative h-16 w-16 rounded-md overflow-hidden border shrink-0 cursor-pointer hover:opacity-90 transition-opacity" onClick={() => setSelectedImage(photo)}>
                                                                             <img src={photo} alt="Fail" className="h-full w-full object-cover" />
                                                                         </div>
                                                                     ))}
@@ -366,9 +398,9 @@ export function StoreAnalysisDialog({ storeId, storeName, isOpen, onClose }: Sto
                                                                         <p className="text-slate-700 italic mb-2">"{fail.actionData.storeNote}"</p>
                                                                     )}
                                                                     {fail.actionData.storeImages && fail.actionData.storeImages.length > 0 && (
-                                                                        <div className="flex gap-2 overflow-x-auto pb-1 mt-2">
+                                                                        <div className="flex gap-2 flex-wrap mt-2">
                                                                             {fail.actionData.storeImages.map((img: string, i: number) => (
-                                                                                <div key={i} className="relative h-12 w-12 rounded overflow-hidden border cursor-pointer hover:opacity-80 transition-opacity">
+                                                                                <div key={i} className="relative h-12 w-12 rounded overflow-hidden border cursor-pointer hover:opacity-80 transition-opacity" onClick={() => setSelectedImage(img)}>
                                                                                      <img src={img} alt="Store Action" className="h-full w-full object-cover" />
                                                                                 </div>
                                                                             ))}
@@ -489,7 +521,7 @@ export function StoreAnalysisDialog({ storeId, storeName, isOpen, onClose }: Sto
                                                                         <span className="text-xs text-slate-500">{historyItem.auditorName}</span>
                                                                     </div>
                                                                     <Badge variant="secondary" className="w-fit text-[10px] bg-slate-100 text-slate-500">
-                                                                        Yanıt: {historyItem.answer}
+                                                                        Yanıt: {formatHistoryAnswer(historyItem)}
                                                                     </Badge>
                                                                 </div>
 
@@ -503,9 +535,9 @@ export function StoreAnalysisDialog({ storeId, storeName, isOpen, onClose }: Sto
                                                                     )}
                                                                     {/* Photos */}
                                                                     {historyItem.photos && historyItem.photos.length > 0 && (
-                                                                        <div className="flex gap-2 overflow-x-auto pb-1 mt-2">
+                                                                        <div className="flex gap-2 flex-wrap mt-2">
                                                                             {historyItem.photos.map((img, i) => (
-                                                                                <div key={i} className="h-16 w-16 rounded border bg-white shrink-0 overflow-hidden cursor-pointer hover:opacity-90">
+                                                                                <div key={i} className="h-16 w-16 rounded border bg-white shrink-0 overflow-hidden cursor-pointer hover:opacity-90" onClick={() => setSelectedImage(img)}>
                                                                                     <img src={img} className="h-full w-full object-cover" alt="Evidence" />
                                                                                 </div>
                                                                             ))}
@@ -532,9 +564,9 @@ export function StoreAnalysisDialog({ storeId, storeName, isOpen, onClose }: Sto
                                                                                 </p>
                                                                             )}
                                                                             {historyItem.storeImages && historyItem.storeImages.length > 0 && (
-                                                                                <div className="flex gap-2 overflow-x-auto pb-1">
+                                                                                <div className="flex gap-2 flex-wrap pb-1">
                                                                                     {historyItem.storeImages.map((img, i) => (
-                                                                                        <div key={i} className="h-20 w-20 rounded border border-blue-200 bg-white shrink-0 overflow-hidden">
+                                                                                        <div key={i} className="h-20 w-20 rounded border border-blue-200 bg-white shrink-0 overflow-hidden cursor-pointer hover:opacity-90" onClick={() => setSelectedImage(img)}>
                                                                                             <img src={img} className="h-full w-full object-cover" alt="Action" />
                                                                                         </div>
                                                                                     ))}
@@ -563,7 +595,29 @@ export function StoreAnalysisDialog({ storeId, storeName, isOpen, onClose }: Sto
                     </Tabs>
                 )}
             </DialogContent>
-
         </Dialog>
+
+        <Dialog open={!!selectedImage} onOpenChange={(open) => !open && setSelectedImage(null)}>
+            <DialogContent className="max-w-[95vw] max-h-[95vh] bg-transparent border-none shadow-none p-0 flex items-center justify-center [&>button]:hidden">
+                <DialogTitle className="sr-only">Tam Boyut Fotoğraf</DialogTitle>
+                <div className="relative w-full h-full flex items-center justify-center" onClick={() => setSelectedImage(null)}>
+                    <button
+                        onClick={() => setSelectedImage(null)}
+                        className="absolute -top-2 -right-2 md:top-0 md:right-0 z-50 p-2 text-white/70 hover:text-white bg-black/50 hover:bg-black/70 rounded-full transition-all"
+                        aria-label="Kapat"
+                    >
+                        <XCircle className="h-8 w-8" />
+                    </button>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                        src={selectedImage || undefined}
+                        alt="Tam boyut fotoğraf"
+                        className="max-w-full max-h-[90vh] object-contain"
+                        onClick={(e) => e.stopPropagation()}
+                    />
+                </div>
+            </DialogContent>
+        </Dialog>
+        </>
     );
 }

@@ -10,6 +10,8 @@ export interface RecurringIssueHistoryItem {
     answer: string;
     notes: string[];
     photos: string[];
+    questionType?: string;
+    options?: any[];
     // Store Action Data
     actionStatus?: string;
     storeNote?: string;
@@ -71,6 +73,8 @@ function identifyRecurringIssues(audits: Audit[]): RecurringIssue[] {
                     answer: answer.answer,
                     notes: answer.notes || [],
                     photos: answer.photos || [],
+                    questionType: answer.questionType,
+                    options: answer.options,
                     actionStatus: answer.actionData?.status,
                     storeNote: answer.actionData?.storeNote,
                     storeImages: answer.actionData?.storeImages,
@@ -99,6 +103,8 @@ function identifyRecurringIssues(audits: Audit[]): RecurringIssue[] {
                                     answer: prevAnswer.answer,
                                     notes: prevAnswer.notes || [],
                                     photos: prevAnswer.photos || [],
+                                    questionType: prevAnswer.questionType,
+                                    options: prevAnswer.options,
                                     actionStatus: prevAnswer.actionData?.status,
                                     storeNote: prevAnswer.actionData?.storeNote,
                                     storeImages: prevAnswer.actionData?.storeImages,

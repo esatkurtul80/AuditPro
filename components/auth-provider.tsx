@@ -219,6 +219,82 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
   }, []);
 
+  // 5) Presence Tracking: Update isOnline status in Firestore
+  useEffect(() => {
+    if (!userProfile?.uid) return;
+
+    let lastOnlineUpdate = 0;
+    let currentStatus: boolean | null = null;
+
+    const updatePresence = async (isOnline: boolean, force = false) => {
+      // Skip if status hasn't changed
+      if (currentStatus === isOnline && !force) return;
+      
+      const now = Date.now();
+      // Only debounce "online" updates to avoid spam, but always allow "offline"
+      if (isOnline && now - lastOnlineUpdate < 2000) return;
+      
+      if (isOnline) lastOnlineUpdate = now;
+      currentStatus = isOnline;
+
+      try {
+        await updateDoc(doc(db, "users", userProfile.uid), {
+          isOnline,
+          lastActive: Timestamp.now()
+        });
+        console.log(`Presence updated: ${isOnline ? 'ONLINE' : 'OFFLINE'}`);
+      } catch (error) {
+        console.error("Presence update error:", error);
+      }
+    };
+
+    // Set online immediately
+    updatePresence(true, true);
+
+    const handleVisibility = () => {
+      const isVisible = document.visibilityState === "visible";
+      console.log(`Visibility changed: ${isVisible ? 'visible' : 'hidden'}`);
+      updatePresence(isVisible);
+    };
+
+    // Mobile PWA: pagehide fires more reliably than beforeunload
+    const handlePageHide = () => {
+      console.log("Page hide event");
+      updatePresence(false);
+    };
+
+    const handleFocus = () => updatePresence(true);
+    const handleBlur = () => {
+      // On mobile, blur might fire for various reasons, rely on visibility instead
+      if (document.visibilityState === "hidden") {
+        updatePresence(false);
+      }
+    };
+
+    // Heartbeat every 30 seconds to maintain online status
+    const heartbeat = setInterval(() => {
+      if (document.visibilityState === "visible") {
+        updatePresence(true, true);
+      }
+    }, 30000);
+
+    document.addEventListener("visibilitychange", handleVisibility);
+    window.addEventListener("focus", handleFocus);
+    window.addEventListener("blur", handleBlur);
+    window.addEventListener("pagehide", handlePageHide);
+    window.addEventListener("beforeunload", handlePageHide);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibility);
+      window.removeEventListener("focus", handleFocus);
+      window.removeEventListener("blur", handleBlur);
+      window.removeEventListener("pagehide", handlePageHide);
+      window.removeEventListener("beforeunload", handlePageHide);
+      clearInterval(heartbeat);
+      updatePresence(false);
+    };
+  }, [userProfile?.uid]);
+
   const signInWithGoogle = async () => {
     const provider = new GoogleAuthProvider();
     provider.setCustomParameters({ prompt: "select_account" });
@@ -244,6 +320,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
+    // Set offline before signing out
+    if (userProfile?.uid) {
+      try {
+        await updateDoc(doc(db, "users", userProfile.uid), {
+          isOnline: false,
+          lastActive: Timestamp.now()
+        });
+      } catch (e) {
+        console.error("Failed to update presence on signout:", e);
+      }
+    }
     localStorage.removeItem("cached_user_profile");
     await firebaseSignOut(auth);
   };

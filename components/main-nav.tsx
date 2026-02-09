@@ -38,7 +38,6 @@ export function MainNav() {
 
     const adminLinks = [
         { href: "/admin/dashboard", label: "Panel", icon: LayoutDashboard },
-        { href: "/admin/users", label: "Kullanıcılar", icon: Users },
         { href: "/admin/stores", label: "Mağazalar", icon: Store },
         // { href: "/admin/actions", label: "Aksiyonlar", icon: CheckSquare }, // Moved to Dropdown
         { href: "/admin/reports/stores", label: "Raporlar", icon: BarChart3 },
