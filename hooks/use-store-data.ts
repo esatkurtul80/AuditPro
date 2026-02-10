@@ -39,6 +39,12 @@ let globalCache: StoreDataCache | null = null;
 let globalFetchPromise: Promise<any> | null = null; // Track in-flight request
 const CACHE_DURATION = 1000 * 60 * 5; // 5 minutes cache duration
 
+// Export function to allow external cache invalidation (e.g., after submitting actions)
+export function invalidateStoreDataCache() {
+    globalCache = null;
+    globalFetchPromise = null;
+}
+
 export function useStoreData() {
     const { userProfile } = useAuth();
     const [data, setData] = useState<{

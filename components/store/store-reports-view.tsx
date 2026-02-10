@@ -106,6 +106,7 @@ export function StoreReportsView() {
         });
 
         return Array.from(failureMap.values())
+            .filter(issue => issue.count >= 2) // Only show truly recurring failures (2+ times)
             .map(issue => {
                 issue.failures.sort((a, b) => b.date.getTime() - a.date.getTime());
                 issue.lastDate = format(issue.failures[0].date, "dd.MM.yyyy");

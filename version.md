@@ -1,3 +1,12 @@
+## v2.2.22
+- **Düzeltme:** Offline modunda uygulama açılırken (veya arka plandan dönerken) yaşanan `auth/network-request-failed` çökmesi giderildi.
+- **Geri Yükleme:** Denetim sırasında bölüm başlığına uzun basarak (veya sağ tıklayarak) bölümü sıfırlama özelliği geri getirildi.
+- **Güvenlik:** Bölüm sıfırlama işlemine "Dikkat: Veriler silinecektir" uyarısı içeren onay penceresi eklendi.
+- **Tasarım:** Denetim formu tasarımı önceki versiyona döndürüldü.
+
+## v2.2.21
+- **Atlandı:** Geliştirme sürümü.
+
 ## v2.2.20
 - **Güvenlik:** Admin ayarları için İki Faktörlü Doğrulama (2FA) eklendi. Google Authenticator ile QR kod taratılarak giriş yapılıyor.
 - **Firebase İstatistikleri:** Firebase Aylık Kullanım Analizi ve Fatura sayfası eklendi. Tahmini ve gerçek maliyet gösterimi.

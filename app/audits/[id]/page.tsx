@@ -77,6 +77,84 @@ export default function AuditPage() {
     const [validationErrors, setValidationErrors] = useState<{ photos: string[], notes: string[] }>({ photos: [], notes: [] });
     const [showValidationModal, setShowValidationModal] = useState(false);
 
+    // Reset Section State
+    const [resetAlertOpen, setResetAlertOpen] = useState(false);
+    const [sectionToReset, setSectionToReset] = useState<number | null>(null);
+    const touchTimer = useRef<NodeJS.Timeout | null>(null);
+
+    const handleTouchStart = (index: number) => {
+        if (!canEdit) return;
+        touchTimer.current = setTimeout(() => {
+            setSectionToReset(index);
+            setResetAlertOpen(true);
+        }, 800); // 800ms long press
+    };
+
+    const handleTouchEnd = () => {
+        if (touchTimer.current) {
+            clearTimeout(touchTimer.current);
+            touchTimer.current = null;
+        }
+    };
+
+    const onContextMenu = (e: React.MouseEvent, index: number) => {
+        if (!canEdit) return;
+        e.preventDefault(); // Prevent default browser context menu
+        setSectionToReset(index);
+        setResetAlertOpen(true);
+    };
+
+    const confirmSectionReset = async () => {
+        if (sectionToReset === null || !audit) return;
+
+        // Create a deep copy of the audit
+        const updatedAudit = { ...audit };
+        const section = updatedAudit.sections[sectionToReset];
+
+        // Reset all answers in the section
+        section.answers = section.answers.map(answer => {
+            const cleanAnswer = {
+                ...answer,
+                answer: "",
+                selectedOptions: [],
+                earnedPoints: 0,
+                notes: [""], // Keep one empty note field
+                photos: [],
+            };
+            // Remove actionData completely to avoid undefined error
+            if (cleanAnswer.actionData) {
+                delete cleanAnswer.actionData;
+            }
+            return cleanAnswer;
+        });
+
+        // Update local state
+        setAudit(updatedAudit);
+        setResetAlertOpen(false);
+        setSectionToReset(null);
+
+        // Update Firestore if in valid mode
+        try {
+             // Filter out local:// URLs before saving to Firestore
+             const sectionsToSave = updatedAudit.sections.map(sec => ({
+                ...sec,
+                answers: sec.answers.map(answer => ({
+                    ...answer,
+                    photos: (answer.photos || []).filter(url => !url.startsWith('local://'))
+                }))
+            }));
+
+            await updateDoc(doc(db, "audits", auditId), {
+                sections: sectionsToSave,
+                updatedAt: Timestamp.now(),
+            });
+            toast.success("Bölüm başarıyla sıfırlandı");
+        } catch (error) {
+            console.error("Error resetting section:", error);
+            toast.error("Bölüm sıfırlanırken hata oluştu");
+        }
+    };
+
     // Offline sync
     const isOnline = useOnlineStatus();
     const { syncing, syncProgress, hasPending, syncingImageUrls, uploadedImageUrls } = useAuditSync(auditId);
@@ -441,7 +519,9 @@ export default function AuditPage() {
                             }
                         };
                     }
-                    return answer;
+                    // For answers that are not "hayir", ensure actionData is removed if it exists
+                    const { actionData, ...restOfAnswer } = answer;
+                    return restOfAnswer;
                 })
             }));
 
@@ -948,8 +1028,11 @@ export default function AuditPage() {
                                         return (
                                             <Card
                                                 key={sectionIndex}
-                                                className={`cursor-pointer hover:shadow-md transition-all border shadow-sm bg-blue-50/20 dark:bg-blue-900/10 hover:bg-blue-50 dark:hover:bg-blue-900/30 ${borderColorClass} group rounded-xl h-20 md:h-auto py-0 md:py-6 gap-0 md:gap-6 flex items-center justify-center`}
+                                                className={`cursor-pointer hover:shadow-md transition-all border shadow-sm bg-blue-50/20 dark:bg-blue-900/10 hover:bg-blue-50 dark:hover:bg-blue-900/30 ${borderColorClass} group rounded-xl h-20 md:h-auto py-0 md:py-6 gap-0 md:gap-6 flex items-center justify-center select-none`}
                                                 onClick={() => setCurrentSectionIndex(sectionIndex)}
+                                                onTouchStart={() => handleTouchStart(sectionIndex)}
+                                                onTouchEnd={handleTouchEnd}
+                                                onContextMenu={(e) => onContextMenu(e, sectionIndex)}
                                             >
                                                 <CardHeader className="p-0 px-3 md:p-6 w-full">
                                                     <div className="grid grid-cols-[1fr_auto] items-center gap-3 w-full">
@@ -997,7 +1080,12 @@ export default function AuditPage() {
                                 const sectionScore = sectionMax > 0 ? Math.round((sectionEarned / sectionMax) * 100) : 0;
 
                                 return (
-                                    <div className="flex items-center justify-between mb-6 p-4 bg-blue-50/50 dark:bg-blue-900/10 rounded-lg border border-blue-100 dark:border-blue-800">
+                                    <div 
+                                        className="flex items-center justify-between mb-6 p-4 bg-blue-50/50 dark:bg-blue-900/10 rounded-lg border border-blue-100 dark:border-blue-800 select-none"
+                                        onTouchStart={() => handleTouchStart(currentSectionIndex)}
+                                        onTouchEnd={handleTouchEnd}
+                                        onContextMenu={(e) => onContextMenu(e, currentSectionIndex)}
+                                    >
                                         <h2 className="text-2xl font-bold text-blue-950 dark:text-blue-50">{section.sectionName}</h2>
                                         <div className="flex items-center justify-center w-14 h-14 bg-white dark:bg-slate-800 rounded-full shadow-md border border-blue-100 dark:border-blue-800">
                                             <div className="text-xl font-bold text-blue-600 dark:text-blue-400">
@@ -1390,6 +1478,33 @@ export default function AuditPage() {
                     {isCompleted && currentSectionIndex === null && isViewMode && (
                         <AuditSummary audit={audit} />
                     )}
+
+                    {/* Reset Section Confirmation Dialog */}
+                    <AlertDialog open={resetAlertOpen} onOpenChange={setResetAlertOpen}>
+                        <AlertDialogContent className="w-[90%] max-w-md rounded-lg mx-auto">
+                            <AlertDialogHeader>
+                                <AlertDialogTitle className="text-red-600 flex items-center gap-2">
+                                    <AlertCircle className="h-5 w-5" />
+                                    Bölümü Sıfırla?
+                                </AlertDialogTitle>
+                                <AlertDialogDescription className="text-base text-foreground font-medium">
+                                    &quot;{sectionToReset !== null ? audit.sections[sectionToReset]?.sectionName : ""}&quot; bölümünü sıfırlamak istediğinize emin misiniz?
+                                </AlertDialogDescription>
+                                <div className="mt-2 p-3 bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-200 text-sm rounded-md border border-red-200 dark:border-red-900 font-semibold">
+                                    Dikkat: Bu bölümdeki tüm cevaplar, notlar ve fotoğraflar kalıcı olarak silinecektir.
+                                </div>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                                <AlertDialogCancel onClick={() => setResetAlertOpen(false)}>İptal</AlertDialogCancel>
+                                <AlertDialogAction
+                                    onClick={confirmSectionReset}
+                                    className="bg-red-600 hover:bg-red-700 text-white"
+                                >
+                                    Evet, Sıfırla
+                                </AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
 
                     {/* Exit Confirmation Dialog */}
                     <AlertDialog open={showExitDialog} onOpenChange={setShowExitDialog}>

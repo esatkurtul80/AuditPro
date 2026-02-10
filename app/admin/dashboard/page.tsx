@@ -61,6 +61,9 @@ import {
     collection,
     getDocs,
     Timestamp,
+    onSnapshot,
+    query,
+    orderBy,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import {
@@ -98,74 +101,89 @@ export default function AdminDashboard() {
     const [deleting, setDeleting] = useState(false);
 
     useEffect(() => {
-        loadData();
-    }, []); // Run only once
+        let unsubscribe: () => void;
 
-    const loadData = async () => {
-        try {
-            setLoading(true);
+        const setupRealtimeListener = async () => {
+            try {
+                setLoading(true);
 
-            // Load counts (just for stats if needed, or we derive from audits)
-            // We previously loaded users and stores to map names.
-            const usersSnapshot = await getDocs(collection(db, "users"));
-            const storesSnapshot = await getDocs(collection(db, "stores"));
+                // Fetch static data first
+                const [usersSnapshot, storesSnapshot, auditTypesSnapshot] = await Promise.all([
+                    getDocs(collection(db, "users")),
+                    getDocs(collection(db, "stores")),
+                    getDocs(collection(db, "auditTypes"))
+                ]);
 
-            // Create a lookup map for users
-            const usersMap = new Map();
-            usersSnapshot.docs.forEach(doc => {
-                usersMap.set(doc.id, doc.data());
-            });
+                // Create a lookup map for users
+                const usersMap = new Map();
+                usersSnapshot.docs.forEach(doc => {
+                    usersMap.set(doc.id, doc.data());
+                });
 
-            // Load ALL audits and filter in memory
-            const auditsSnapshot = await getDocs(collection(db, "audits"));
-            const auditsData = auditsSnapshot.docs.map((doc) => {
-                const data = doc.data() as Audit;
-                let auditorName = data.auditorName;
-
-                // Override auditorName with fresh data from users collection
-                if (data.auditorId && usersMap.has(data.auditorId)) {
-                    const user = usersMap.get(data.auditorId);
-                    if (user.firstName && user.lastName) {
-                        auditorName = `${user.firstName} ${user.lastName}`;
-                    } else if (user.displayName) {
-                        auditorName = user.displayName;
-                    }
-                }
-
-                return {
-                    ...data,
+                // Set Stores
+                const storesData = storesSnapshot.docs.map((doc) => ({
                     id: doc.id,
-                    auditorName: auditorName
-                };
-            }) as Audit[];
+                    ...doc.data(),
+                })) as Store[];
+                setStores(storesData);
 
-            // Filter out deleted ones
-            // Sorting will be handled by DataTable default sort
-            const activeAudits = auditsData.filter(audit => !audit.isDeleted);
-            setAudits(activeAudits);
+                // Set Audit Types
+                const auditTypesData = auditTypesSnapshot.docs.map((doc) => ({
+                    id: doc.id,
+                    ...doc.data(),
+                })) as AuditType[];
+                setAuditTypes(auditTypesData);
 
-            // Load stores data
-            const storesData = storesSnapshot.docs.map((doc) => ({
-                id: doc.id,
-                ...doc.data(),
-            })) as Store[];
-            setStores(storesData);
+                // Listen to audits in real-time
+                // We fetch all to filter locally (soft delete logic etc)
+                // Ordering by createdAt desc at database level is better for initial load performance
+                const auditsQuery = query(collection(db, "audits"), orderBy("createdAt", "desc"));
+                
+                unsubscribe = onSnapshot(auditsQuery, (snapshot) => {
+                    const auditsData = snapshot.docs.map((doc) => {
+                        const data = doc.data() as Audit;
+                        let auditorName = data.auditorName;
 
-            // Load audit types
-            const auditTypesSnapshot = await getDocs(collection(db, "auditTypes"));
-            const auditTypesData = auditTypesSnapshot.docs.map((doc) => ({
-                id: doc.id,
-                ...doc.data(),
-            })) as AuditType[];
-            setAuditTypes(auditTypesData);
+                        // Override auditorName with fresh data from users collection
+                        if (data.auditorId && usersMap.has(data.auditorId)) {
+                            const user = usersMap.get(data.auditorId);
+                            if (user.firstName && user.lastName) {
+                                auditorName = `${user.firstName} ${user.lastName}`;
+                            } else if (user.displayName) {
+                                auditorName = user.displayName;
+                            }
+                        }
 
-        } catch (error) {
-            console.error("Error loading data:", error);
-            toast.error("Veriler yüklenirken hata oluştu");
-        } finally {
-            setLoading(false);
-        }
-    };
+                        return {
+                            ...data,
+                            id: doc.id,
+                            auditorName: auditorName
+                        };
+                    }) as Audit[];
+
+                    // Filter out deleted ones
+                    const activeAudits = auditsData.filter(audit => !audit.isDeleted);
+                    setAudits(activeAudits);
+                    setLoading(false);
+                }, (error) => {
+                    console.error("Error in audits listener:", error);
+                    toast.error("Veriler güncellenirken hata oluştu");
+                    setLoading(false);
+                });
+
+            } catch (error) {
+                console.error("Error setting up listener:", error);
+                toast.error("Veriler yüklenirken hata oluştu");
+                setLoading(false);
+            }
+        };
+
+        setupRealtimeListener();
+
+        return () => {
+            if (unsubscribe) unsubscribe();
+        };
+    }, []);
 
     const handleSoftDelete = async () => {
         if (!auditToDelete) return;

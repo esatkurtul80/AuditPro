@@ -208,9 +208,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const handleVisibilityChange = async () => {
       if (document.visibilityState === "visible" && auth.currentUser) {
         try {
-          await auth.currentUser.getIdToken(true);
-        } catch (e) {
-          console.error("Token refresh failed on resume:", e);
+          // Force refresh logic, but handle offline errors gracefully
+          if (navigator.onLine) {
+            await auth.currentUser.getIdToken(true);
+          }
+        } catch (e: any) {
+          // Ignore network errors (expected when offline)
+          if (e?.code === 'auth/network-request-failed') {
+            console.log("Offline: Token refresh skipped.");
+          } else {
+            console.error("Token refresh failed on resume:", e);
+          }
         }
       }
     };
@@ -229,6 +237,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const updatePresence = async (isOnline: boolean, force = false) => {
       // Skip if status hasn't changed
       if (currentStatus === isOnline && !force) return;
+      
+      // Prevent writing if user is already signed out (avoids permission errors)
+      if (!auth.currentUser) return;
       
       const now = Date.now();
       // Only debounce "online" updates to avoid spam, but always allow "offline"

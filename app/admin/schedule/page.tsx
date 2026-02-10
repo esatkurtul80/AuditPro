@@ -1147,7 +1147,28 @@ export default function SchedulePage() {
         // 1. Monthly Missing
         // Definition: Stores that have NOT been visited/scheduled in the current calendar month.
         // User Request B: "If visited in Week 1, remove from suggestions in Week 2".
+        // 2. New Ready Stores (Calculate First to exclude from Monthly Missing)
+        const twentyDaysAgo = addDays(new Date(), -20);
+        const newReady = stores.filter(store => {
+            if (!store.openingDate) return false;
+            const openDate = new Date(store.openingDate);
+            const isOldEnough = openDate <= twentyDaysAgo;
+            const hasEverBeenAudited = audits.some(a => a.storeId === store.id);
+            // Also check if scheduled? Usually "New Ready" implies "Plan First Audit".
+            // If scheduled, it's not "Ready", it's "Planned".
+            const isScheduled = schedule.some(s => s.storeId === store.id);
+
+            return isOldEnough && !hasEverBeenAudited && !isScheduled;
+        });
+
+        // 1. Monthly Missing
+        // Definition: Stores that have NOT been visited/scheduled in the current calendar month.
+        // User Request B: "If visited in Week 1, remove from suggestions in Week 2".
+        // FIX: Exclude stores that are already in "New Ready" to prevent duplicates.
         const monthlyMissing = stores.filter(store => {
+            // If it's in New Ready, skip it here
+            if (newReady.some(nr => nr.id === store.id)) return false;
+
             // Check past audits in current month
             const hasAuditThisMonth = audits.some(a =>
                 a.storeId === store.id &&
@@ -1162,20 +1183,6 @@ export default function SchedulePage() {
 
             return !hasAuditThisMonth && !isScheduledThisMonth;
         }).map(store => ({ ...store, lastScore: getLastAuditScore(store.id) }));
-
-        // 2. New Ready Stores
-        const twentyDaysAgo = addDays(new Date(), -20);
-        const newReady = stores.filter(store => {
-            if (!store.openingDate) return false;
-            const openDate = new Date(store.openingDate);
-            const isOldEnough = openDate <= twentyDaysAgo;
-            const hasEverBeenAudited = audits.some(a => a.storeId === store.id);
-            // Also check if scheduled? Usually "New Ready" implies "Plan First Audit".
-            // If scheduled, it's not "Ready", it's "Planned".
-            const isScheduled = schedule.some(s => s.storeId === store.id);
-
-            return isOldEnough && !hasEverBeenAudited && !isScheduled;
-        });
 
         // 3. Re-Audit Candidates (Low Score & 12 Day Rule)
         // Def: Audited this month BUT passed 12 days since last audit/schedule.
@@ -1691,8 +1698,13 @@ export default function SchedulePage() {
         });
     };
 
+    const isPublishingRef = useRef(false);
+
     const executePublishAction = async () => {
+        if (isPublishingRef.current) return;
+        isPublishingRef.current = true;
         setSaving(true);
+        
         const newStatus: 'published' | 'draft' = confirmDialog.type === 'publish' ? 'published' : 'draft';
 
         try {
@@ -1724,7 +1736,10 @@ export default function SchedulePage() {
 
                             // If empty and weekend, create item
                             if (rawItems.length === 0 && !hasBlocked) {
-                                const id = generateUUID();
+                                // Deterministic ID to prevent duplication (Double-Click or Race Condition Protection)
+                                const dateKey = format(date, 'yyyy-MM-dd');
+                                const id = `auto_leave_${auditor.uid}_${dateKey}`;
+                                
                                 const newItem: ScheduleItem = {
                                     id,
                                     auditorId: auditor.uid,
@@ -1757,12 +1772,20 @@ export default function SchedulePage() {
                         ? { ...item, status: newStatus }
                         : item
                 );
-                return [...updatedExisting, ...newGeneratedItems];
+                
+                // Filter out any duplicates from newGeneratedItems just in case they already exist in prev
+                // (Though deterministic ID + setDoc handles DB, we need to handle UI properly)
+                const uniqueNewItems = newGeneratedItems.filter(newItem => 
+                    !updatedExisting.some(existing => existing.id === newItem.id)
+                );
+
+                return [...updatedExisting, ...uniqueNewItems];
             });
         } catch (error) {
             console.error("Publish error:", error);
         } finally {
             setSaving(false);
+            isPublishingRef.current = false;
             setConfirmDialog(prev => ({ ...prev, open: false }));
         }
     };
@@ -2264,6 +2287,12 @@ export default function SchedulePage() {
                                     >
                                         Standart Öneri
                                     </TabsTrigger>
+                                    <TabsTrigger
+                                        value="waiting_visits"
+                                        className="flex-1 h-full px-4 text-sm font-semibold rounded-md transition-all data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm data-[state=inactive]:text-slate-500 data-[state=inactive]:hover:bg-slate-200/50"
+                                    >
+                                        Ziyaret Bekleyenler
+                                    </TabsTrigger>
                                 </TabsList>
                             </div>
 
@@ -2290,8 +2319,6 @@ export default function SchedulePage() {
                                             .sort((a, b) => (a.lastScore || 100) - (b.lastScore || 100));
 
                                         // Combine: If Targets exist, show them. Repeats are secondary.
-                                        // User Request: "If all stores completed [targets empty], then re-audits drop"
-                                        // Interpretation: We show all, but order matters. If targets are done (empty), repeats naturally slide up.
                                         const sorted = [...targets, ...newStores, ...repeats];
 
                                         if (sorted.length === 0) {
@@ -2303,15 +2330,38 @@ export default function SchedulePage() {
                                             );
                                         }
 
-                                        return sorted.map((store, index) => (
-                                            <DraggableStoreRow
-                                                key={`${store.suggestionType}-${store.id}-${index}`}
-                                                store={store}
-                                                auditInfo={getStoreAuditInfo(store.id)}
-                                                index={index}
-                                                disabled={isWeekPublished}
-                                                onInfoClick={(id, name) => setHistoryDialogState({ open: true, storeId: id, storeName: name })}
-                                            />
+                                        // Group by City
+                                        const grouped = sorted.reduce((acc, store) => {
+                                            const city = store.city || "Diğer";
+                                            if (!acc[city]) acc[city] = [];
+                                            acc[city].push(store);
+                                            return acc;
+                                        }, {} as Record<string, typeof sorted>);
+
+                                        // Sort Cities
+                                        const cities = Object.keys(grouped).sort((a, b) => {
+                                            if (a === "Diğer") return 1;
+                                            if (b === "Diğer") return -1;
+                                            return a.localeCompare(b, 'tr');
+                                        });
+
+                                        return cities.map(city => (
+                                            <div key={city}>
+                                                <div className="bg-slate-800/95 backdrop-blur-sm px-3 py-2 text-xs font-bold text-white border-b border-slate-700/50 sticky top-0 z-20 uppercase tracking-widest flex justify-center items-center shadow-md gap-2">
+                                                    <span>{city}</span>
+                                                    <span className="text-[10px] bg-white/20 text-white px-2 py-0.5 rounded-full min-w-[20px] text-center">{grouped[city].length}</span>
+                                                </div>
+                                                {grouped[city].map((store, index) => (
+                                                    <DraggableStoreRow
+                                                        key={`${store.suggestionType}-${store.id}-${index}`}
+                                                        store={store}
+                                                        auditInfo={getStoreAuditInfo(store.id)}
+                                                        index={index}
+                                                        disabled={isWeekPublished}
+                                                        onInfoClick={(id, name) => setHistoryDialogState({ open: true, storeId: id, storeName: name })}
+                                                    />
+                                                ))}
+                                            </div>
                                         ));
                                     })()}
                                 </div>
@@ -2321,22 +2371,107 @@ export default function SchedulePage() {
                             <TabsContent value="standart" className="flex-1 overflow-hidden p-0 m-0 data-[state=inactive]:hidden flex flex-col">
                                 <StoresTableHeader />
                                 <div className="flex-1 overflow-y-auto">
-                                    {stores
-                                        .sort((a, b) => a.name.localeCompare(b.name, 'tr'))
-                                        .map((store, index) => {
-                                            const suggestionItem = { ...store, suggestionType: 'target' as const };
+                                    {(() => {
+                                        // 1. Group by City
+                                        const grouped = stores.reduce((acc, store) => {
+                                            const city = store.city || "Diğer";
+                                            if (!acc[city]) acc[city] = [];
+                                            acc[city].push(store);
+                                            return acc;
+                                        }, {} as Record<string, typeof stores>);
+
+                                        // 2. Sort Cities
+                                        const cities = Object.keys(grouped).sort((a, b) => {
+                                            if (a === "Diğer") return 1;
+                                            if (b === "Diğer") return -1;
+                                            return a.localeCompare(b, 'tr');
+                                        });
+
+                                        // 3. Render Groups
+                                        return cities.map(city => (
+                                            <div key={city}>
+                                                <div className="bg-slate-800/95 backdrop-blur-sm px-3 py-2 text-xs font-bold text-white border-b border-slate-700/50 sticky top-0 z-20 uppercase tracking-widest flex justify-center items-center shadow-md gap-2">
+                                                    <span>{city}</span>
+                                                    <span className="text-[10px] bg-white/20 text-white px-2 py-0.5 rounded-full min-w-[20px] text-center">{grouped[city].length}</span>
+                                                </div>
+                                                {grouped[city].map((store, index) => {
+                                                    const suggestionItem = { ...store, suggestionType: 'target' as const };
+                                                    return (
+                                                        <DraggableStoreRow
+                                                            key={`std-${store.id}-${index}`}
+                                                            store={suggestionItem}
+                                                            auditInfo={getStoreAuditInfo(store.id)}
+                                                            index={index}
+                                                            disabled={isWeekPublished}
+                                                            scheduledDate={getScheduledDateInMonth(store.id)}
+                                                            onInfoClick={(id, name) => setHistoryDialogState({ open: true, storeId: id, storeName: name })}
+                                                        />
+                                                    );
+                                                })}
+                                            </div>
+                                        ));
+                                    })()}
+                                </div>
+                            </TabsContent>
+
+                            {/* Tab 3: Ziyaret Bekleyenler */}
+                            <TabsContent value="waiting_visits" className="flex-1 overflow-hidden p-0 m-0 data-[state=inactive]:hidden flex flex-col">
+                                <StoresTableHeader />
+                                <div className="flex-1 overflow-y-auto">
+                                    {(() => {
+                                        // Combine Monthly Missing + New Ready
+                                        const missing = [...suggestions.monthlyMissing, ...suggestions.newReady]
+                                            .sort((a, b) => a.name.localeCompare(b.name, 'tr'));
+                                        
+                                        if (missing.length === 0) {
                                             return (
-                                                <DraggableStoreRow
-                                                    key={`std-${store.id}-${index}`}
-                                                    store={suggestionItem}
-                                                    auditInfo={getStoreAuditInfo(store.id)}
-                                                    index={index}
-                                                    disabled={isWeekPublished}
-                                                    scheduledDate={getScheduledDateInMonth(store.id)}
-                                                    onInfoClick={(id, name) => setHistoryDialogState({ open: true, storeId: id, storeName: name })}
-                                                />
+                                                <div className="flex flex-col items-center justify-center text-muted-foreground py-8 h-full">
+                                                    <div className="text-4xl mb-2">🎉</div>
+                                                    <p className="text-center text-xs px-4">Bu ay için tüm ilk ziyaretler tamamlandı veya planlandı.</p>
+                                                </div>
                                             );
-                                        })}
+                                        }
+
+                                        // 1. Group by City
+                                        const grouped = missing.reduce((acc, store) => {
+                                            const city = store.city || "Diğer";
+                                            if (!acc[city]) acc[city] = [];
+                                            acc[city].push(store);
+                                            return acc;
+                                        }, {} as Record<string, typeof missing>);
+
+                                        // 2. Sort Cities
+                                        const cities = Object.keys(grouped).sort((a, b) => {
+                                            if (a === "Diğer") return 1;
+                                            if (b === "Diğer") return -1;
+                                            return a.localeCompare(b, 'tr');
+                                        });
+
+                                        // 3. Render Groups
+                                        return cities.map(city => (
+                                            <div key={city}>
+                                                <div className="bg-slate-800/95 backdrop-blur-sm px-3 py-2 text-xs font-bold text-white border-b border-slate-700/50 sticky top-0 z-20 uppercase tracking-widest flex justify-center items-center shadow-md gap-2">
+                                                    <span>{city}</span>
+                                                    <span className="text-[10px] bg-white/20 text-white px-2 py-0.5 rounded-full min-w-[20px] text-center">{grouped[city].length}</span>
+                                                </div>
+                                                {grouped[city].map((store, index) => {
+                                                    // Map to 'target' type for visuals since they are priority
+                                                    const suggestionItem = { ...store, suggestionType: 'target' as const };
+                                                    return (
+                                                        <DraggableStoreRow
+                                                            key={`wait-${store.id}-${index}`}
+                                                            store={suggestionItem}
+                                                            auditInfo={getStoreAuditInfo(store.id)}
+                                                            index={index}
+                                                            disabled={isWeekPublished}
+                                                            scheduledDate={getScheduledDateInMonth(store.id)}
+                                                            onInfoClick={(id, name) => setHistoryDialogState({ open: true, storeId: id, storeName: name })}
+                                                        />
+                                                    );
+                                                })}
+                                            </div>
+                                        ));
+                                    })()}
                                 </div>
                             </TabsContent>
                         </Tabs>

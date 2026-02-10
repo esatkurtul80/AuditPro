@@ -38,14 +38,15 @@ import {
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
-    Loader2,
-    Store as StoreIcon,
-    Calculator,
-    FileText,
     Check,
     ChevronsUpDown,
     CheckCircle2,
     MapPinOff,
+    CalendarOff,
+    Loader2,
+    Calculator,
+    FileText,
+    Store as StoreIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Progress } from "@/components/ui/progress";
@@ -83,6 +84,12 @@ export function CreateAuditDialog({ open, onOpenChange }: CreateAuditDialogProps
     const [openStoreCombobox, setOpenStoreCombobox] = useState(false);
 
     const [scheduledStoreId, setScheduledStoreId] = useState<string | null>(null);
+    const [allowedStoreIds, setAllowedStoreIds] = useState<string[]>([]);
+    const [completedStoreIds, setCompletedStoreIds] = useState<Set<string>>(new Set());
+    const [ongoingAuditMap, setOngoingAuditMap] = useState<Map<string, string>>(new Map());
+    const [scheduleChecked, setScheduleChecked] = useState(false);
+    const [hasScheduledForToday, setHasScheduledForToday] = useState(false);
+    
     const [autoStarting, setAutoStarting] = useState(false);
     const [autoStartProgress, setAutoStartProgress] = useState(0);
     const [autoStartSuccess, setAutoStartSuccess] = useState(false);
@@ -113,30 +120,73 @@ export function CreateAuditDialog({ open, onOpenChange }: CreateAuditDialogProps
 
             const snapshot = await getDocs(q);
             
-            // Filter locally to be safe and exclude leaves/blocked
             const validSchedules = snapshot.docs
-                .map(doc => doc.data() as any) // Using any for simplicity as we just need a few fields
+                .map(doc => doc.data() as any)
                 .filter(data => 
-                    // Ensure it's not a leave or blocked day
                     (!data.type || data.type === 'audit') && 
-                    // Ensure it has a storeId
-                    data.storeId
+                    data.storeId &&
+                    data.status === 'published'
                 );
 
-            if (validSchedules.length > 0) {
-                // If multiple stores found, we could either pick the first or let user choose.
-                // For now, let's pick the first one as "Suggested".
-                // If there are multiple, maybe it's safer to NOT auto-select? 
-                // Plan said: "If multiple stores... revert to manual"
-                if (validSchedules.length === 1) {
-                    console.log("Auto-detected scheduled store:", validSchedules[0].storeName);
-                    setScheduledStoreId(validSchedules[0].storeId);
-                } else {
-                    console.log("Multiple schedules found, reverting to manual selection.");
+            const validStoreIds = validSchedules.map(s => s.storeId);
+            setHasScheduledForToday(validStoreIds.length > 0);
+            
+            // Note: We don't set allowedStoreIds here immediately because we might filter it later
+            // setAllowedStoreIds(validStoreIds); // Moved logic down
+
+            // CHANGED: Fetch EXISTING audits for today to prevent duplicates
+            const auditsQ = query(
+                collection(db, "audits"),
+                where("auditorId", "==", userProfile.uid),
+                where("createdAt", ">=", Timestamp.fromDate(start)),
+                where("createdAt", "<=", Timestamp.fromDate(end))
+            );
+
+            const auditSnapshot = await getDocs(auditsQ);
+            const completedStores = new Set<string>();
+            const ongoingAudits = new Map<string, string>(); // StoreId -> AuditId
+            
+            auditSnapshot.docs.forEach(doc => {
+                const data = doc.data();
+                if (data.storeId) {
+                    if (data.status === 'tamamlandi') {
+                        completedStores.add(data.storeId);
+                    } else if (data.status === 'devam_ediyor') {
+                        ongoingAudits.set(data.storeId, doc.id);
+                    }
+                }
+            });
+
+            setCompletedStoreIds(completedStores);
+            setOngoingAuditMap(ongoingAudits);
+            
+            setScheduleChecked(true);
+
+            // Calculate Pending Stores (Scheduled but not Completed)
+            const pendingStoreIds = validStoreIds.filter(id => !completedStores.has(id));
+
+            if (validStoreIds.length > 0) {
+                if (pendingStoreIds.length === 0) {
+                    // All scheduled stores are completed
+                    console.log("All scheduled stores are completed.");
                     setScheduledStoreId(null);
+                    setAllowedStoreIds([]); 
+                } else if (pendingStoreIds.length === 1) {
+                    // Exactly one store left (new or resume)
+                    // We set it as scheduledStoreId so "Smart Start" works
+                    const targetStoreId = pendingStoreIds[0];
+                    console.log("Single pending store auto-detected:", targetStoreId);
+                    setScheduledStoreId(targetStoreId);
+                    setAllowedStoreIds(pendingStoreIds);
+                } else {
+                    // Multiple pending stores (mix of new / resume)
+                    console.log("Multiple pending stores:", pendingStoreIds.length);
+                    setScheduledStoreId(null);
+                    setAllowedStoreIds(pendingStoreIds);
                 }
             } else {
                 setScheduledStoreId(null);
+                setAllowedStoreIds([]);
             }
 
         } catch (error: any) {
@@ -144,6 +194,9 @@ export function CreateAuditDialog({ open, onOpenChange }: CreateAuditDialogProps
             if (error?.code === 'failed-precondition') {
                 toast.warning("Otomatik plan kontrolü için Firebase İndeksi gerekiyor. Geliştirici konsoluna bakınız.");
             }
+            // In case of error, we might want to default to empty list to be safe?
+            setAllowedStoreIds([]);
+            setScheduleChecked(true);
         }
     };
 
@@ -349,6 +402,17 @@ export function CreateAuditDialog({ open, onOpenChange }: CreateAuditDialogProps
     };
 
     const handleAutoStart = async (auditTypeId: string, storeId: string) => {
+        // CHECK RESUME LOGIC
+        if (ongoingAuditMap.has(storeId)) {
+            const existingAuditId = ongoingAuditMap.get(storeId);
+            if (existingAuditId) {
+                toast.info("Devam eden denetime yönlendiriliyorsunuz...");
+                onOpenChange(false);
+                router.push(`/audits/${existingAuditId}`);
+                return;
+            }
+        }
+
         setSelectedStore(storeId);
         const storeName = stores.find(s => s.id === storeId)?.name || "Mağaza";
         setAutoStartStoreName(storeName);
@@ -402,6 +466,8 @@ export function CreateAuditDialog({ open, onOpenChange }: CreateAuditDialogProps
         setSelectedStore("");
         setSelectedAuditType("");
         setCreating(false);
+        // Do NOT reset allowedStoreIds / scheduleChecked here as they are fetched on mount/open
+        // But if dialog closes completely and re-opens, useEffect triggers again.
     }
 
     return (
@@ -524,59 +590,112 @@ export function CreateAuditDialog({ open, onOpenChange }: CreateAuditDialogProps
                         </button>
                         <div>
                             <Label>Mağaza Seçin</Label>
-                            <Popover open={openStoreCombobox} onOpenChange={setOpenStoreCombobox}>
-                                <PopoverTrigger asChild>
-                                    <Button
-                                        variant="outline"
-                                        role="combobox"
-                                        aria-expanded={openStoreCombobox}
-                                        className="w-full justify-between"
-                                    >
-                                        {selectedStore
-                                            ? stores.find((store) => store.id === selectedStore)?.name
-                                            : "Mağaza seçin..."}
-                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                    </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-full p-0">
-                                    <Command>
-                                        <CommandInput placeholder="Mağaza ara..." />
-                                        <CommandList>
-                                            <CommandEmpty>Mağaza bulunamadı.</CommandEmpty>
-                                            <CommandGroup>
-                                                {stores.map((store) => (
-                                                    <CommandItem
-                                                        key={store.id}
-                                                        value={store.name}
-                                                        onSelect={() => {
-                                                            setSelectedStore(store.id)
-                                                            setOpenStoreCombobox(false)
-                                                        }}
-                                                    >
-                                                        <Check
-                                                            className={cn(
+                            
+                            {!scheduleChecked ? (
+                                <div className="flex items-center justify-center py-8">
+                                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                                </div>
+                            ) : allowedStoreIds.length === 0 ? (
+                                <div className="flex flex-col items-center justify-center py-8 px-4 text-center border-2 border-dashed rounded-lg border-slate-200 bg-slate-50">
+                                    {hasScheduledForToday ? (
+                                        <>
+                                            <CheckCircle2 className="h-10 w-10 text-green-500 mb-3" />
+                                            <h3 className="font-semibold text-slate-900">Tüm Denetimler Tamamlandı</h3>
+                                            <p className="text-sm text-slate-500 mt-1">
+                                                Bugün planlanan tüm mağaza denetimlerini tamamladınız.
+                                            </p>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <CalendarOff className="h-10 w-10 text-slate-400 mb-3" />
+                                            <h3 className="font-semibold text-slate-900">Planlanmış Denetim Yok</h3>
+                                            <p className="text-sm text-slate-500 mt-1">
+                                                Bugün için size atanmış bir mağaza denetimi bulunmamaktadır.
+                                            </p>
+                                        </>
+                                    )}
+                                </div>
+                            ) : (
+                                <Popover open={openStoreCombobox} onOpenChange={setOpenStoreCombobox}>
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            variant="outline"
+                                            role="combobox"
+                                            aria-expanded={openStoreCombobox}
+                                            className="w-full justify-between"
+                                        >
+                                            {selectedStore
+                                                ? stores.find((store) => store.id === selectedStore)?.name
+                                                : "Mağaza seçin..."}
+                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-full p-0">
+                                        <Command>
+                                            <CommandInput placeholder="Mağaza ara..." />
+                                            <CommandList>
+                                                <CommandEmpty>Mağaza bulunamadı.</CommandEmpty>
+                                                <CommandGroup>
+                                                    {stores
+                                                        .filter(store => allowedStoreIds.includes(store.id))
+                                                        .filter(store => !completedStoreIds.has(store.id)) 
+                                                        .map((store) => {
+                                                        
+                                                        const isOngoing = ongoingAuditMap.has(store.id);
+
+                                                        return (
+                                                        <CommandItem
+                                                            key={store.id}
+                                                            value={store.name}
+                                                            onSelect={() => {
+                                                                setSelectedStore(store.id)
+                                                                setOpenStoreCombobox(false)
+                                                            }}
+                                                        >
+                                                            <StoreIcon className={cn(
                                                                 "mr-2 h-4 w-4",
-                                                                selectedStore === store.id ? "opacity-100" : "opacity-0"
+                                                                selectedStore === store.id ? "opacity-100" : "opacity-40"
+                                                            )} />
+                                                            <span>{store.name}</span>
+                                                            
+                                                            {isOngoing && (
+                                                                <span className="ml-auto text-xs font-medium text-amber-600 bg-amber-100 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                                                    Devam Ediyor
+                                                                </span>
                                                             )}
-                                                        />
-                                                        <StoreIcon className="mr-2 h-4 w-4 text-muted-foreground" />
-                                                        {store.name}
-                                                    </CommandItem>
-                                                ))}
-                                            </CommandGroup>
-                                        </CommandList>
-                                    </Command>
-                                </PopoverContent>
-                            </Popover>
+
+                                                            {!isOngoing && selectedStore === store.id && (
+                                                                <Check className="ml-auto h-4 w-4" />
+                                                            )}
+                                                        </CommandItem>
+                                                        )
+                                                    })}
+                                                </CommandGroup>
+                                            </CommandList>
+                                        </Command>
+                                    </PopoverContent>
+                                </Popover>
+                            )}
                         </div>
                         <div className="flex justify-end mt-4">
                             <Button
                                 onClick={() => {
-                                    if (!creating && selectedAuditType) {
+                                    if (!creating && selectedAuditType && selectedStore) {
+                                        // CHECK RESUME
+                                        if (ongoingAuditMap.has(selectedStore)) {
+                                            const existingAuditId = ongoingAuditMap.get(selectedStore);
+                                            if (existingAuditId) {
+                                                toast.info("Devam eden denetime yönlendiriliyorsunuz...");
+                                                onOpenChange(false);
+                                                router.push(`/audits/${existingAuditId}`);
+                                                return;
+                                            }
+                                        }
                                         createAudit(selectedAuditType, selectedStore);
                                     }
                                 }}
-                                disabled={!selectedStore || creating}
+                                disabled={!selectedStore || creating || allowedStoreIds.includes(selectedStore) === false}
                             >
                                 {creating ? (
                                     <>
@@ -584,7 +703,7 @@ export function CreateAuditDialog({ open, onOpenChange }: CreateAuditDialogProps
                                         Oluşturuluyor...
                                     </>
                                 ) : (
-                                    "Denetimi Başlat"
+                                    ongoingAuditMap.has(selectedStore) ? "Devam Et" : "Denetimi Başlat"
                                 )}
                             </Button>
                         </div>

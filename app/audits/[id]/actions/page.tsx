@@ -69,6 +69,7 @@ import {
     generateId
 } from "@/lib/offline-storage";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import { invalidateStoreDataCache } from "@/hooks/use-store-data";
 
 const SECTION_COLORS = [
     "bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800",
@@ -841,6 +842,10 @@ export default function AuditActionsPage() {
             }
 
             toast.success("Tüm dönüşler başarıyla iletildi");
+            
+            // Invalidate store data cache so the store panel shows updated status
+            invalidateStoreDataCache();
+            
             window.scrollTo(0, 0);
 
         } catch (error) {
