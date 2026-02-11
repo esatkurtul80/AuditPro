@@ -1,6 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import * as XLSX from "xlsx";
+import { Button } from "@/components/ui/button";
+import { FileSpreadsheet } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
 import { collection, getDocs, query, where, orderBy } from "firebase/firestore";
 import { db } from "@/lib/firebase";
@@ -24,7 +27,7 @@ import { TrendingUp, TrendingDown, Minus } from "lucide-react";
 export function RegionalScores() {
     const { userProfile } = useAuth();
     const [loading, setLoading] = useState(true);
-    const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
+    const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
     const [storeScores, setStoreScores] = useState<any[]>([]);
 
     useEffect(() => {
@@ -136,8 +139,23 @@ export function RegionalScores() {
         }
     };
 
+    const handleExportExcel = () => {
+        const data = storeScores.map(store => {
+            const row: any = { "Mağaza": store.storeName };
+            months.forEach((month, idx) => {
+                row[month] = store.months[idx] !== null ? store.months[idx] : "-";
+            });
+            return row;
+        });
+
+        const worksheet = XLSX.utils.json_to_sheet(data);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Puanlar");
+        XLSX.writeFile(workbook, `Bolge_Puanlari_${selectedYear}.xlsx`);
+    };
+
     const months = ["Oca", "Şub", "Mar", "Nis", "May", "Haz", "Tem", "Ağu", "Eyl", "Eki", "Kas", "Ara"];
-    const years = [2024, 2025, 2026];
+    const years = Array.from({ length: 11 }, (_, i) => 2026 + i);
 
     if (loading) {
         return (
@@ -169,6 +187,10 @@ export function RegionalScores() {
                                 ))}
                             </SelectContent>
                         </Select>
+                        <Button variant="outline" size="sm" onClick={handleExportExcel} className="gap-2 ml-2">
+                            <FileSpreadsheet className="h-4 w-4" />
+                            Excel
+                        </Button>
                     </div>
                 </CardHeader>
                 <CardContent>

@@ -12,6 +12,13 @@ import {
     CardHeader,
     CardTitle,
 } from "@/components/ui/card";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -33,12 +40,15 @@ export function RegionalDashboard() {
     const [loading, setLoading] = useState(true);
     const [myStores, setMyStores] = useState<Store[]>([]);
     const [recentAudits, setRecentAudits] = useState<any[]>([]);
+    const [selectedMonth, setSelectedMonth] = useState<string>("all");
+    const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
+    const [selectedStore, setSelectedStore] = useState<string>("all");
 
     useEffect(() => {
         if (userProfile?.uid) {
             loadDashboardData();
         }
-    }, [userProfile]);
+    }, [userProfile, selectedMonth, selectedYear, selectedStore]);
 
     const loadDashboardData = async () => {
         if (!userProfile?.uid) return;
@@ -62,29 +72,71 @@ export function RegionalDashboard() {
                 return;
             }
 
-            const storeIds = storesData.map(s => s.id);
+            const allStoreIds = storesData.map(s => s.id);
+            const targetStoreIds = selectedStore === "all" ? allStoreIds : [selectedStore];
 
             // Get recent audits for these stores
             let auditsData: any[] = [];
 
-            if (storeIds.length <= 10) {
-                const auditsQuery = query(
+            if (targetStoreIds.length <= 10) {
+                let auditsQuery = query(
                     collection(db, "audits"),
-                    where("storeId", "in", storeIds),
-                    orderBy("createdAt", "desc"),
-                    limit(20)
+                    where("storeId", "in", targetStoreIds)
                 );
+
+                // Date filtering
+                if (selectedYear !== "all") {
+                    const year = parseInt(selectedYear);
+                    let start, end;
+                    
+                    if (selectedMonth !== "all") {
+                        const month = parseInt(selectedMonth);
+                        start = new Date(year, month, 1);
+                        end = new Date(year, month + 1, 0, 23, 59, 59);
+                    } else {
+                        start = new Date(year, 0, 1);
+                        end = new Date(year, 11, 31, 23, 59, 59);
+                    }
+                    
+                    auditsQuery = query(auditsQuery, where("createdAt", ">=", start), where("createdAt", "<=", end));
+                    auditsQuery = query(auditsQuery, orderBy("createdAt", "desc"));
+                } else {
+                    // Default view (no filter): Show last 20
+                    auditsQuery = query(auditsQuery, orderBy("createdAt", "desc"), limit(20));
+                }
+
                 const auditsSnapshot = await getDocs(auditsQuery);
                 auditsData = auditsSnapshot.docs.map(doc => ({
                     id: doc.id,
                     ...doc.data()
                 }));
             } else {
-                const auditsSnapshot = await getDocs(query(collection(db, "audits"), orderBy("createdAt", "desc"), limit(50)));
+                // For many stores, fetch latest generally and filter in client if needed
+                // Note: Complex filtering with >10 stores "in" query is not supported well in Firestore without multiple queries
+                // Fallback: fetch general latest
+                 let auditsQuery = query(collection(db, "audits"));
+
+                if (selectedYear !== "all") {
+                     const year = parseInt(selectedYear);
+                    let start, end;
+                    
+                    if (selectedMonth !== "all") {
+                        const month = parseInt(selectedMonth);
+                        start = new Date(year, month, 1);
+                        end = new Date(year, month + 1, 0, 23, 59, 59);
+                    } else {
+                        start = new Date(year, 0, 1);
+                        end = new Date(year, 11, 31, 23, 59, 59);
+                    }
+                     auditsQuery = query(auditsQuery, where("createdAt", ">=", start), where("createdAt", "<=", end), orderBy("createdAt", "desc"), limit(100)); // Limit to prevent fetching too many
+                } else {
+                     auditsQuery = query(auditsQuery, orderBy("createdAt", "desc"), limit(50));
+                }
+
+                const auditsSnapshot = await getDocs(auditsQuery);
                 auditsData = auditsSnapshot.docs
                     .map(doc => ({ id: doc.id, ...doc.data() } as any))
-                    .filter(audit => storeIds.includes(audit.storeId))
-                    .slice(0, 20);
+                    .filter(audit => targetStoreIds.includes(audit.storeId));
             }
 
             // Enrich audit data with store names
@@ -128,6 +180,9 @@ export function RegionalDashboard() {
         const auditDate = new Date(audit.createdAt.seconds * 1000);
         return auditDate >= currentMonthStart && auditDate <= currentMonthEnd;
     });
+
+    const months = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
+    const years = Array.from({ length: 11 }, (_, i) => 2026 + i);
 
     // Calculate current month average score using section-based scoring
     const currentMonthAverage = currentMonthAudits.length > 0
@@ -232,14 +287,55 @@ export function RegionalDashboard() {
 
 
             {/* Recent Audits */}
-            <Card className="py-0.5">
-                <CardHeader className="pb-3 pt-4 px-4">
-                    <CardTitle className="text-base">Son Denetimler</CardTitle>
-                    <CardDescription className="text-xs">
-                        Mağazalarınızda yapılan en son denetimler
-                    </CardDescription>
+            <Card className="py-0.5 gap-1">
+                <CardHeader className="pb-0 pt-2 px-3">
+                    <div className="flex flex-col gap-2">
+                        <div>
+                            <CardTitle className="text-base">Son Denetimler</CardTitle>
+                            <CardDescription className="text-xs">
+                                Mağazalarınızda yapılan en son denetimler
+                            </CardDescription>
+                        </div>
+                        <div className="flex flex-col sm:flex-row gap-2">
+                            <Select value={selectedStore} onValueChange={setSelectedStore}>
+                                <SelectTrigger className="w-full sm:w-[140px] h-8 text-xs">
+                                    <SelectValue placeholder="Mağaza" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">Tüm Mağazalar</SelectItem>
+                                    {myStores.map((store) => (
+                                        <SelectItem key={store.id} value={store.id}>{store.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <div className="flex gap-2 w-full sm:w-auto">
+                                <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                                    <SelectTrigger className="flex-1 sm:w-[110px] h-8 text-xs">
+                                        <SelectValue placeholder="Ay" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">Tüm Aylar</SelectItem>
+                                        {months.map((m, i) => (
+                                            <SelectItem key={i} value={i.toString()}>{m}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <Select value={selectedYear} onValueChange={setSelectedYear}>
+                                    <SelectTrigger className="flex-1 sm:w-[110px] h-8 text-xs">
+                                        <SelectValue placeholder="Yıl" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">Tüm Yıllar</SelectItem>
+                                        {years.map(y => (
+                                            <SelectItem key={y} value={y.toString()}>{y}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+                    </div>
                 </CardHeader>
-                <CardContent className="px-4 pb-4">
+                <CardContent className="px-3 pb-2 pt-0">
                     {recentAudits.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-8 text-center">
                             <ClipboardList className="h-10 w-10 text-muted-foreground mb-2" />
@@ -279,8 +375,8 @@ export function RegionalDashboard() {
                                     : 0;
 
                                 return (
-                                    <Link href={`/audits/${audit.id}`} key={audit.id} className="block mb-4 last:mb-0">
-                                        <div className="flex items-center justify-between p-2.5 border rounded-lg hover:bg-accent/50 transition-colors cursor-pointer group">
+                                    <Link href={`/audits/${audit.id}`} key={audit.id} className="block mb-2 last:mb-0">
+                                        <div className="flex items-center justify-between p-2 border rounded-lg hover:bg-accent/50 transition-colors cursor-pointer group">
                                             <div className="flex-1 min-w-0 space-y-0.5">
                                                 <p className="text-sm font-medium truncate">{audit.storeName}</p>
                                                 <p className="text-[10px] text-muted-foreground truncate">{audit.auditorName || "Denetmen"}</p>

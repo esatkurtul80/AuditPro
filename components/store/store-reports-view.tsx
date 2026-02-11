@@ -43,7 +43,7 @@ interface ExpandedRecurringIssue {
 }
 
 export function StoreReportsView() {
-    const [selectedYear, setSelectedYear] = useState("2026");
+    const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
     const { audits, loading } = useStoreData();
     const router = useRouter();

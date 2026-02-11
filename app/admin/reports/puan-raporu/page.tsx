@@ -515,7 +515,7 @@ export default function PuanRaporuPage() {
                                             <SelectValue placeholder="Yıl" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            {[2024, 2025, 2026, 2027].map(y => (
+                                            {Array.from({ length: 11 }, (_, i) => 2026 + i).map(y => (
                                                 <SelectItem key={y} value={y.toString()}>{y}</SelectItem>
                                             ))}
                                         </SelectContent>

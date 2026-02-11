@@ -181,11 +181,10 @@ function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar }: 
                     "flex items-center justify-center shrink-0 transition-all duration-500 relative",
                     isCollapsed ? "h-9 w-9" : "h-9 w-9"
                 )}>
-                    <Image
+                    <img
                         src="/logo.png"
                         alt="AuditPro"
-                        fill
-                        className="object-contain"
+                        className="h-full w-full object-contain"
                     />
                 </div>
                 <span className={cn(

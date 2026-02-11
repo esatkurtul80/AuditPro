@@ -528,7 +528,7 @@ export function AuditorPerformanceContent() {
     // Aylık görünüm state'leri
     const [monthlyDialogOpen, setMonthlyDialogOpen] = useState(false);
     const [selectedAuditorForMonthly, setSelectedAuditorForMonthly] = useState<string | null>(null);
-    const [selectedYear, setSelectedYear] = useState<number>(2026);
+    const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
     const [monthlyData, setMonthlyData] = useState<MonthlyScore[]>([]);
 
     useEffect(() => {

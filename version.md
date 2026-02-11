@@ -1,8 +1,13 @@
 # Project Version
 
-**Current Version:** v2.2.23
+**Current Version:** v2.2.25
 
 ## Changelog
+
+### v2.2.25
+- **Admin Raporları:** Puan Raporu ve Aylık Gelişim Tablosu'ndaki yıl seçimi 2026-2036 aralığına güncellendi. Varsayılan yıl 2026 olarak ayarlandı.
+- **Hata Düzeltme:** Admin paneli sol üst köşesindeki logonun ("AuditPro") hosting ortamında kırık görünmesi sorunu giderildi (Next.js Image optimizasyonu yerine standart img etiketi kullanıldı).
+- **UI/UX:** Bölge Müdürü panelindeki "Son Denetimler" listesinde gereksiz boşluklar kaldırıldı, daha kompakt bir görünüm sağlandı.
 
 ### v2.2.24
 - **Bölüm Açıklamaları:** Denetim formuna bölüm açıklamaları eklendi.
