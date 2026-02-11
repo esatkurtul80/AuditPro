@@ -1,4 +1,15 @@
-## v2.2.22
+# Project Version
+
+**Current Version:** v2.2.23
+
+## Changelog
+
+### v2.2.23
+- **Bölüm Açıklamaları:** Denetim formuna bölüm açıklamaları eklendi.
+- **Bölüm İkonları:** Admin panelinde bölüm ikon seçimi ve denetim formunda dinamik ikon gösterimi eklendi.
+- **UI İyileştirmeleri:** Tablet görünümü için Denetim Kartı (Audit Card) tasarımı geliştirildi.
+
+### v2.2.22
 - **Düzeltme:** Offline modunda uygulama açılırken (veya arka plandan dönerken) yaşanan `auth/network-request-failed` çökmesi giderildi.
 - **Geri Yükleme:** Denetim sırasında bölüm başlığına uzun basarak (veya sağ tıklayarak) bölümü sıfırlama özelliği geri getirildi.
 - **Güvenlik:** Bölüm sıfırlama işlemine "Dikkat: Veriler silinecektir" uyarısı içeren onay penceresi eklendi.

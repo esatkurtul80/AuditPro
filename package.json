@@ -1,6 +1,6 @@
 {
   "name": "ai",
-  "version": "2.2.20",
+  "version": "2.2.23",
   "private": true,
   "scripts": {
     "dev": "next dev",
