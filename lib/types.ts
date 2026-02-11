@@ -80,6 +80,7 @@ export interface Section {
     id: string;
     name: string;
     description: string;
+    icon?: string;
     order: number;
     questionIds: string[]; // many-to-many relationship
 }
@@ -149,6 +150,8 @@ export interface ActionData {
 export interface AuditSection {
     sectionId: string;
     sectionName: string;
+    description?: string;
+    icon?: string;
     order: number;
     answers: AuditAnswer[];
 

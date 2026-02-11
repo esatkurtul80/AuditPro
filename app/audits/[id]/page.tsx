@@ -34,8 +34,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Upload, X, CheckCircle2, ArrowLeft, Circle, Plus, Save, WifiOff, Clock, Star, ChevronRight, AlertCircle } from "lucide-react";
+import { Loader2, Upload, X, CheckCircle2, ArrowLeft, Circle, Plus, Save, WifiOff, Clock, Star, ChevronRight, AlertCircle, MoreHorizontal, ClipboardList } from "lucide-react";
 import { toast } from "sonner";
+import * as LucideIcons from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -1028,20 +1029,34 @@ export default function AuditPage() {
                                         return (
                                             <Card
                                                 key={sectionIndex}
-                                                className={`cursor-pointer hover:shadow-md transition-all border shadow-sm bg-blue-50/20 dark:bg-blue-900/10 hover:bg-blue-50 dark:hover:bg-blue-900/30 ${borderColorClass} group rounded-xl h-20 md:h-auto py-0 md:py-6 gap-0 md:gap-6 flex items-center justify-center select-none`}
+                                                className={`cursor-pointer hover:shadow-md transition-all border shadow-sm bg-blue-50/20 dark:bg-blue-900/10 hover:bg-blue-50 dark:hover:bg-blue-900/30 ${borderColorClass} group rounded-xl min-h-[5rem] md:min-h-[7rem] py-3 md:py-6 gap-3 md:gap-6 flex items-center justify-center select-none`}
                                                 onClick={() => setCurrentSectionIndex(sectionIndex)}
                                                 onTouchStart={() => handleTouchStart(sectionIndex)}
                                                 onTouchEnd={handleTouchEnd}
                                                 onContextMenu={(e) => onContextMenu(e, sectionIndex)}
                                             >
                                                 <CardHeader className="p-0 px-3 md:p-6 w-full">
-                                                    <div className="grid grid-cols-[1fr_auto] items-center gap-3 w-full">
+                                                    <div className="grid grid-cols-[auto_1fr_auto] items-center gap-3 md:gap-4 w-full">
+                                                        <div className="flex items-center justify-center w-10 h-10 md:w-12 md:h-12 rounded-lg bg-blue-100/50 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400">
+                                                            {(() => {
+                                                                // Dynamic Icon Rendering
+                                                                const IconComponent = (section.icon && (LucideIcons as any)[section.icon]) 
+                                                                    ? (LucideIcons as any)[section.icon] 
+                                                                    : ClipboardList;
+                                                                return <IconComponent className="w-5 h-5 md:w-6 md:h-6" />;
+                                                            })()}
+                                                        </div>
                                                         <div className="flex items-center gap-2 flex-1 min-w-0">
                                                             <Circle
-                                                                className={`h-5 w-5 ${isComplete ? 'fill-green-500 text-green-500' : hasAny ? 'fill-red-500 text-red-500' : 'text-gray-300'}`}
+                                                                className={`h-4 w-4 md:h-5 md:w-5 flex-shrink-0 ${isComplete ? 'fill-green-500 text-green-500' : hasAny ? 'fill-red-500 text-red-500' : 'text-gray-300'}`}
                                                             />
                                                             <div className="flex-1 min-w-0">
                                                                 <h3 className="font-bold text-base md:text-2xl mb-1 md:mb-2 truncate text-foreground group-hover:text-blue-700 transition-colors">{section.sectionName}</h3>
+                                                                {section.description && (
+                                                                    <p className="text-sm text-muted-foreground mb-1 line-clamp-2">
+                                                                        {section.description}
+                                                                    </p>
+                                                                )}
                                                                 <p className="text-sm text-muted-foreground mt-1 truncate">
                                                                     {answeredQuestions} / {totalQuestions} soru cevaplanmış
                                                                 </p>
@@ -1086,7 +1101,14 @@ export default function AuditPage() {
                                         onTouchEnd={handleTouchEnd}
                                         onContextMenu={(e) => onContextMenu(e, currentSectionIndex)}
                                     >
-                                        <h2 className="text-2xl font-bold text-blue-950 dark:text-blue-50">{section.sectionName}</h2>
+                                        <div>
+                                            <h2 className="text-2xl font-bold text-blue-950 dark:text-blue-50">{section.sectionName}</h2>
+                                            {section.description && (
+                                                <p className="text-base text-blue-800/70 dark:text-blue-200/70 mt-1">
+                                                    {section.description}
+                                                </p>
+                                            )}
+                                        </div>
                                         <div className="flex items-center justify-center w-14 h-14 bg-white dark:bg-slate-800 rounded-full shadow-md border border-blue-100 dark:border-blue-800">
                                             <div className="text-xl font-bold text-blue-600 dark:text-blue-400">
                                                 {sectionScore}

@@ -56,11 +56,14 @@ import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { DataTable } from "@/components/ui/data-table";
 import { ColumnDef } from "@tanstack/react-table";
+import { IconPicker } from "@/components/icon-picker";
+import * as LucideIcons from "lucide-react";
 
 interface SectionTemplate {
     id: string;
     name: string;
     description: string;
+    icon?: string;
     questionIds?: string[];
     createdAt: any;
     updatedAt: any;
@@ -74,6 +77,7 @@ export default function SectionsPage() {
     const [formData, setFormData] = useState({
         name: "",
         description: "",
+        icon: "",
     });
     const [deleteAlertOpen, setDeleteAlertOpen] = useState(false);
     const [sectionToDelete, setSectionToDelete] = useState<string | null>(null);
@@ -130,7 +134,7 @@ export default function SectionsPage() {
             }
             setDialogOpen(false);
             setEditing(null);
-            setFormData({ name: "", description: "" });
+            setFormData({ name: "", description: "", icon: "" });
             loadSections();
         } catch (error) {
             console.error("Error saving section:", error);
@@ -143,6 +147,7 @@ export default function SectionsPage() {
         setFormData({
             name: section.name,
             description: section.description,
+            icon: section.icon || "",
         });
         setDialogOpen(true);
     };
@@ -177,7 +182,17 @@ export default function SectionsPage() {
                     </Button>
                 )
             },
-            cell: ({ row }) => <span className="font-medium">{row.original.name}</span>
+            cell: ({ row }) => {
+                const iconName = row.original.icon;
+                const Icon = iconName && (LucideIcons as any)[iconName] ? (LucideIcons as any)[iconName] : null;
+                
+                return (
+                    <div className="flex items-center gap-2">
+                        {Icon && <Icon className="h-4 w-4 text-muted-foreground" />}
+                        <span className="font-medium">{row.original.name}</span>
+                    </div>
+                );
+            }
         },
         {
             accessorKey: "description",
@@ -258,7 +273,7 @@ export default function SectionsPage() {
                             setDialogOpen(open);
                             if (!open) {
                                 setEditing(null);
-                                setFormData({ name: "", description: "" });
+                                setFormData({ name: "", description: "", icon: "" });
                             }
                         }}
                     >
@@ -280,6 +295,13 @@ export default function SectionsPage() {
                                             setFormData({ ...formData, name: e.target.value })
                                         }
                                         placeholder="Örn: Temizlik"
+                                    />
+                                </div>
+                                <div>
+                                    <Label>İkon</Label>
+                                    <IconPicker
+                                        value={formData.icon}
+                                        onChange={(val) => setFormData({ ...formData, icon: val })}
                                     />
                                 </div>
                                 <div>

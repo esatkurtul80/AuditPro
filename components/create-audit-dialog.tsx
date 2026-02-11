@@ -310,6 +310,8 @@ export function CreateAuditDialog({ open, onOpenChange }: CreateAuditDialogProps
                 return {
                     sectionId: section.id,
                     sectionName: section.name || "",
+                    description: section.description || "",
+                    icon: section.icon || "",
                     order: section.order || 0,
                     answers,
                 };

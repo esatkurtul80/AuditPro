@@ -230,6 +230,8 @@ export default function DenetmenPage() {
                 return {
                     sectionId: section.id,
                     sectionName: section.name || "",
+                    description: section.description || "",
+                    icon: section.icon || "",
                     order: section.order || 0,
                     answers,
                 };
