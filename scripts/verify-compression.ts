@@ -28,7 +28,7 @@ async function checkImages() {
         await signInAnonymously(auth);
         console.log("Auth OK.");
     } catch (e) {
-        console.log("Auth Failed (continuing): " + e.message);
+        console.log("Auth Failed (continuing): " + (e instanceof Error ? e.message : String(e)));
     }
 
     try {
@@ -47,16 +47,16 @@ async function checkImages() {
         console.log("Audit ID: " + auditDoc.id);
         console.log("Store: " + audit.storeName);
 
-        let imageUrls = [];
+        let imageUrls: string[] = [];
 
         if (audit.sections) {
-            audit.sections.forEach(section => {
-                section.answers.forEach(answer => {
+            audit.sections.forEach((section: any) => {
+                section.answers.forEach((answer: any) => {
                     if (answer.images && Array.isArray(answer.images)) {
-                        answer.images.forEach(img => imageUrls.push(img));
+                        answer.images.forEach((img: any) => imageUrls.push(img));
                     }
                     if (answer.actionData && answer.actionData.storeImages) {
-                        answer.actionData.storeImages.forEach(img => imageUrls.push(img));
+                        answer.actionData.storeImages.forEach((img: any) => imageUrls.push(img));
                     }
                 });
             });
@@ -77,13 +77,13 @@ async function checkImages() {
                         console.log("  Size: " + sizeMB + " MB (" + sizeKB + " KB)");
                     }
                 } catch (err) {
-                    console.log("  Error fetching: " + err.message);
+                    console.log("  Error fetching: " + (err instanceof Error ? err.message : String(err)));
                 }
             }
         }
 
     } catch (error) {
-        console.log("Error: " + error.message);
+        console.log("Error: " + (error instanceof Error ? error.message : String(error)));
     }
 }
 

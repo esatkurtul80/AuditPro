@@ -4,7 +4,7 @@
 
 ## Changelog
 
-### v2.2.23
+### v2.2.24
 - **Bölüm Açıklamaları:** Denetim formuna bölüm açıklamaları eklendi.
 - **Bölüm İkonları:** Admin panelinde bölüm ikon seçimi ve denetim formunda dinamik ikon gösterimi eklendi.
 - **UI İyileştirmeleri:** Tablet görünümü için Denetim Kartı (Audit Card) tasarımı geliştirildi.

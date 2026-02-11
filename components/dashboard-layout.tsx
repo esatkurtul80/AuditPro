@@ -39,7 +39,8 @@ export function DashboardLayout({ children, forceStoreLayout }: { children: Reac
     // Determine if we should show store layout (no hamburger, no sidebar overlay on mobile)
     // CRITICAL: userProfile is now cached in AuthProvider, so it might be available even if loading=true.
     // We prioritize using the profile if it exists.
-    const isStoreUser = forceStoreLayout || userProfile?.role === "magaza" || (!!userProfile?.storeId);
+    // Regional managers (bolge-muduru) should also use the custom layout without sidebar
+    const isStoreUser = forceStoreLayout || userProfile?.role === "magaza" || userProfile?.role === "bolge-muduru" || (!!userProfile?.storeId);
 
     // Optimistically show auditor layout elements during loading to prevent layout shift
     // If we have a cached profile saying "denetmen" or "admin", we show the full layout regardless of loading state.

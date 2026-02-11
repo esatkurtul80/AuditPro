@@ -62,6 +62,8 @@ const getScoreBadge = (score: number) => {
     return { label: "ZAYIF", color: "bg-red-500 hover:bg-red-600", icon: AlertCircle, textColor: "text-red-700 bg-red-50 border-red-200" };
 };
 
+
+
 const SimpleSparkline = ({ data }: { data: (number | null)[] }) => {
     // Filter out nulls for the trend
     const values = data.filter((v): v is number => v !== null);
