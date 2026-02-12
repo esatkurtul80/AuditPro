@@ -47,7 +47,7 @@ export default function SettingsPage() {
                 // 2. If missing but storeId exists, fetch and self-heal
                 if (userProfile.storeId) {
                     try {
-                        console.log("Fetching missing store name for ID:", userProfile.storeId);
+
                         const storeRef = doc(db, "stores", userProfile.storeId);
                         const storeSnap = await getDoc(storeRef);
 
@@ -58,7 +58,7 @@ export default function SettingsPage() {
                             // Self-heal: Update profile in Firestore
                             const userRef = doc(db, "users", userProfile.uid);
                             await updateDoc(userRef, { storeName: name });
-                            console.log("Self-healed storeName in profile");
+
                         }
                     } catch (error) {
                         console.error("Error fetching store name:", error);

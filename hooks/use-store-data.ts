@@ -33,15 +33,13 @@ interface StoreDataCache {
 }
 
 // --- Global Cache (Singleton) ---
-// This acts as a simple in-memory cache that persists as long as the app (tab) is open
-// This acts as a simple in-memory cache that persists as long as the app (tab) is open
-let globalCache: StoreDataCache | null = null;
+let globalCache_v2: StoreDataCache | null = null;
 let globalFetchPromise: Promise<any> | null = null; // Track in-flight request
 const CACHE_DURATION = 1000 * 60 * 5; // 5 minutes cache duration
 
 // Export function to allow external cache invalidation (e.g., after submitting actions)
 export function invalidateStoreDataCache() {
-    globalCache = null;
+    globalCache_v2 = null;
     globalFetchPromise = null;
 }
 
@@ -54,11 +52,11 @@ export function useStoreData() {
         overdueAuditsCount: number;
         loading: boolean;
     }>({
-        audits: globalCache?.audits || [],
-        pendingActionsCount: globalCache?.pendingActionsCount || 0,
-        rejectedActionsCount: globalCache?.rejectedActionsCount || 0,
-        overdueAuditsCount: globalCache?.overdueAuditsCount || 0,
-        loading: !globalCache, // If cache exists, not loading initially
+        audits: globalCache_v2?.audits || [],
+        pendingActionsCount: globalCache_v2?.pendingActionsCount || 0,
+        rejectedActionsCount: globalCache_v2?.rejectedActionsCount || 0,
+        overdueAuditsCount: globalCache_v2?.overdueAuditsCount || 0,
+        loading: !globalCache_v2, // If cache exists, not loading initially
     });
 
     const fetchData = useCallback(async (force = false) => {
@@ -68,9 +66,9 @@ export function useStoreData() {
         const now = Date.now();
         if (
             !force &&
-            globalCache &&
-            globalCache.storeId === userProfile.storeId &&
-            now - globalCache.lastFetched < CACHE_DURATION
+            globalCache_v2 &&
+            globalCache_v2.storeId === userProfile.storeId &&
+            now - globalCache_v2.lastFetched < CACHE_DURATION
         ) {
             // Cache is valid, no need to fetch
             setData(prev => ({ ...prev, loading: false }));
@@ -100,16 +98,16 @@ export function useStoreData() {
         // Check Cache Validity AGAIN (in case the in-flight one finished just before we checked promise)
         if (
             !force &&
-            globalCache &&
-            globalCache.storeId === userProfile.storeId &&
-            Date.now() - globalCache.lastFetched < CACHE_DURATION
+            globalCache_v2 &&
+            globalCache_v2.storeId === userProfile.storeId &&
+            Date.now() - globalCache_v2.lastFetched < CACHE_DURATION
         ) {
              setData(prev => ({ ...prev, loading: false }));
              return;
         }
 
         // If no cache, set loading true (only if we don't have partial data)
-        if (!globalCache) {
+        if (!globalCache_v2) {
             setData(prev => ({ ...prev, loading: true }));
         }
 
@@ -147,8 +145,21 @@ export function useStoreData() {
 
                     if (auditData.sections) {
                         auditData.sections.forEach((section: any) => {
+                            // Check if section has any real answers
+                            const hasAnyAnswer = section.answers?.some((a: any) => a.answer && a.answer.trim() !== "");
+                            if (!hasAnyAnswer) return;
+
                             section.answers?.forEach((answer: any) => {
-                                const isActionNeeded = answer.answer === "hayir" || (answer.questionType === "checkbox" && answer.earnedPoints < (answer.maxPoints || 0));
+                                // 2026-02-11: Updated logic to match other files.
+                                // Don't count empty answers or 'hicbiri' as actions.
+                                const isCheckboxActionNeeded = answer.questionType === "checkbox" && 
+                                                               answer.answer && 
+                                                               answer.answer.trim() !== "" &&
+                                                               answer.answer !== "hicbiri" && 
+                                                               answer.answer !== "muaf" &&
+                                                               (answer.earnedPoints || 0) < (answer.maxPoints || 0);
+
+                                const isActionNeeded = answer.answer === "hayir" || isCheckboxActionNeeded;
                                 if (isActionNeeded) {
                                     totalActions++;
                                     const status = answer.actionData?.status;
@@ -264,7 +275,7 @@ export function useStoreData() {
                 });
 
                 // Update Cache
-                globalCache = {
+                globalCache_v2 = {
                     audits: resolvedAudits,
                     pendingActionsCount: totalPending,
                     rejectedActionsCount: totalRejected,
@@ -273,7 +284,7 @@ export function useStoreData() {
                     storeId: userProfile!.storeId!
                 };
 
-                return globalCache;
+                return globalCache_v2;
             } finally {
                 globalFetchPromise = null;
             }

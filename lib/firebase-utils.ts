@@ -49,7 +49,6 @@ export const permanentlyDeleteAudit = async (auditId: string): Promise<void> => 
 
     if (!auditSnap.exists()) {
         // Audit already deleted, return successfully (idempotent operation)
-        console.log(`Audit ${auditId} already deleted`);
         return;
     }
 

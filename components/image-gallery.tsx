@@ -222,7 +222,6 @@ export default function ImageGallery({
                         const filePath = decodeURIComponent(pathMatch[1]);
                         const storageRef = ref(storage, filePath);
                         await deleteObject(storageRef);
-                        console.log('Successfully deleted from storage:', filePath);
                     }
                 } catch (storageError: any) {
                     // Only log if it's not a "file doesn't exist" error

@@ -49,7 +49,6 @@ export async function GET(req: NextRequest) {
                 filter += ` AND resource.type = "${resourceType}"`;
             }
 
-             console.log(`FetchMetricV2: ${metricType} -> ResourceType: '${resourceType}' -> Filter: ${filter}`);
 
             const url = `https://monitoring.googleapis.com/v3/projects/${projectId}/timeSeries?filter=${encodeURIComponent(filter)}&interval.startTime=${startDate.toISOString()}&interval.endTime=${endDate.toISOString()}&aggregation.alignmentPeriod=${alignmentPeriod}&aggregation.perSeriesAligner=${aligner}`;
 
@@ -152,8 +151,6 @@ export async function GET(req: NextRequest) {
             // Non-blocking, we just return null for billingData
         }
 
-        console.log("Hosting Storage Raw V2:", JSON.stringify(hostingStorage, null, 2));
-        console.log("Hosting Bandwidth Raw V2:", JSON.stringify(hostingUsage, null, 2));
 
         return NextResponse.json({
             projectId,

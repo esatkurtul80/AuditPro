@@ -207,8 +207,8 @@ export default function AuditorSchedulePage() {
     // Get Details for Selected Date
     const selectedItems = getItemsForDate(selectedDate);
 
-    console.log("Selected Date:", selectedDate);
-    console.log("Selected Items:", selectedItems);
+
+
 
     return (
         <DashboardLayout>

@@ -59,7 +59,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               const parsed = JSON.parse(cached);
               // Basic validation
               if (parsed && parsed.role) {
-                  console.log("Loaded cached profile:", parsed.role);
                   setUserProfile(parsed);
               }
           }
@@ -155,7 +154,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         // Retry Logic (network/unavailable)
         if (err?.code === "unavailable" || err?.message?.includes("offline")) {
-          console.log("Retrying profile fetch in 1s...");
           setTimeout(async () => {
             try {
               const cu = auth.currentUser;
@@ -215,7 +213,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } catch (e: any) {
           // Ignore network errors (expected when offline)
           if (e?.code === 'auth/network-request-failed') {
-            console.log("Offline: Token refresh skipped.");
           } else {
             console.error("Token refresh failed on resume:", e);
           }
@@ -253,7 +250,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           isOnline,
           lastActive: Timestamp.now()
         });
-        console.log(`Presence updated: ${isOnline ? 'ONLINE' : 'OFFLINE'}`);
       } catch (error) {
         console.error("Presence update error:", error);
       }
@@ -264,13 +260,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const handleVisibility = () => {
       const isVisible = document.visibilityState === "visible";
-      console.log(`Visibility changed: ${isVisible ? 'visible' : 'hidden'}`);
       updatePresence(isVisible);
     };
 
     // Mobile PWA: pagehide fires more reliably than beforeunload
     const handlePageHide = () => {
-      console.log("Page hide event");
       updatePresence(false);
     };
 

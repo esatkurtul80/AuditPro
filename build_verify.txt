@@ -1,0 +1,214 @@
+﻿
+> ai@2.2.23 build
+> next build
+
+node.exe : [baseline-brows
+er-mapping] The data in th
+is module is over two mont
+hs old.  To ensure accurat
+e Baseline data, please up
+date: `npm i baseline-brow
+ser-mapping@latest -D`
+At C:\Users\PC\AppData\Roa
+ming\npm\npm.ps1:24 char:5
++     & "node$exe"  "$base
+dir/node_modules/npm/bin/n
+pm-cli.js" $args
++     ~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~
+    + CategoryInfo        
+      : NotSpecified: ([  
+  baseline-brows...ping   
+ @latest -D`:String) [    
+], RemoteException
+    + FullyQualifiedError 
+   Id : NativeCommandErr  
+  or
+ 
+Build Version: v2.2.21
+   Ôû▓ Next.js 16.0.7 (Turbopack)
+   - Environments: .env.local, .env
+   - Experiments (use with caution):
+     ┬À optimizePackageImports
+
+   Creating an optimized production build ...
+[baseline-browser-mapping]
+ The data in this module i
+s over two months old.  To
+ ensure accurate Baseline 
+data, please update: `npm 
+i baseline-browser-mapping
+@latest -D`
+Build Version: v2.2.21
+ Ô£ô Compiled successfully in 19.6s
+   Running TypeScript ...
+   Collecting page data using 11 workers ...
+[baseline-browser-mapping]
+ The data in this module i
+s over two months old.  To
+ ensure accurate Baseline 
+data, please update: `npm 
+i baseline-browser-mapping
+@latest -D`
+[baseline-browser-mapping]
+ The data in this module i
+s over two months old.  To
+ ensure accurate Baseline 
+data, please update: `npm 
+i baseline-browser-mapping
+@latest -D`
+[baseline-browser-mapping]
+ The data in this module i
+s over two months old.  To
+ ensure accurate Baseline 
+data, please update: `npm 
+i baseline-browser-mapping
+@latest -D`
+[baseline-browser-mapping]
+ The data in this module i
+s over two months old.  To
+ ensure accurate Baseline 
+data, please update: `npm 
+i baseline-browser-mapping
+@latest -D`
+[baseline-browser-mapping]
+ The data in this module i
+s over two months old.  To
+ ensure accurate Baseline 
+data, please update: `npm 
+i baseline-browser-mapping
+@latest -D`
+[baseline-browser-mapping]
+ The data in this module i
+s over two months old.  To
+ ensure accurate Baseline 
+data, please update: `npm 
+i baseline-browser-mapping
+@latest -D`
+[baseline-browser-mapping]
+ The data in this module i
+s over two months old.  To
+ ensure accurate Baseline 
+data, please update: `npm 
+i baseline-browser-mapping
+@latest -D`
+[baseline-browser-mapping]
+ The data in this module i
+s over two months old.  To
+ ensure accurate Baseline 
+data, please update: `npm 
+i baseline-browser-mapping
+@latest -D`
+[baseline-browser-mapping]
+ The data in this module i
+s over two months old.  To
+ ensure accurate Baseline 
+data, please update: `npm 
+i baseline-browser-mapping
+@latest -D`
+[baseline-browser-mapping]
+ The data in this module i
+s over two months old.  To
+ ensure accurate Baseline 
+data, please update: `npm 
+i baseline-browser-mapping
+@latest -D`
+[baseline-browser-mapping]
+ The data in this module i
+s over two months old.  To
+ ensure accurate Baseline 
+data, please update: `npm 
+i baseline-browser-mapping
+@latest -D`
+   Generating static pages using 11 workers (0/52) ...
+[baseline-browser-mapping]
+ The data in this module i
+s over two months old.  To
+ ensure accurate Baseline 
+data, please update: `npm 
+i baseline-browser-mapping
+@latest -D`
+[baseline-browser-mapping]
+ The data in this module i
+s over two months old.  To
+ ensure accurate Baseline 
+data, please update: `npm 
+i baseline-browser-mapping
+@latest -D`
+[baseline-browser-mapping]
+ The data in this module i
+s over two months old.  To
+ ensure accurate Baseline 
+data, please update: `npm 
+i baseline-browser-mapping
+@latest -D`
+Selected Date: 2026-02-12T07:43:55.013Z
+Selected Items: []
+   Generating static pages using 11 workers (13/52) 
+   Generating static pages using 11 workers (26/52) 
+   Generating static pages using 11 workers (39/52) 
+ Ô£ô Generating static pages using 11 workers (52/52) in 1464.3ms
+   Finalizing page optimization ...
+
+Route (app)
+Ôöî Ôùï /
+Ôö£ Ôùï /_not-found
+Ôö£ Ôùï /admin/actions
+Ôö£ Ôùï /admin/announcements
+Ôö£ Ôùï /admin/audit-types
+Ôö£ Ôùï /admin/audit-types/edit
+Ôö£ Ôùï /admin/cop-kutusu
+Ôö£ Ôùï /admin/dashboard
+Ôö£ Ôùï /admin/notifications
+Ôö£ Ôùï /admin/questions
+Ôö£ Ôùï /admin/reports/auditor-performance
+Ôö£ Ôùï /admin/reports/auditor-timesheet
+Ôö£ Ôùï /admin/reports/puan-raporu
+Ôö£ Ôùï /admin/reports/questions
+Ôö£ Ôùï /admin/schedule
+Ôö£ Ôùï /admin/schedule/accommodation-types
+Ôö£ Ôùï /admin/schedule/leave-types
+Ôö£ Ôùï /admin/sections
+Ôö£ Ôùï /admin/sections/edit
+Ôö£ Ôùï /admin/settings
+Ôö£ Ôùï /admin/settings/data
+Ôö£ Ôùï /admin/settings/firebase
+Ôö£ Ôùï /admin/settings/notifications
+Ôö£ Ôùï /admin/settings/users
+Ôö£ Ôùï /admin/settings/version
+Ôö£ Ôùï /admin/stores
+Ôö£ ãÆ /api/admin/2fa/reset
+Ôö£ ãÆ /api/admin/2fa/setup
+Ôö£ ãÆ /api/admin/2fa/verify
+Ôö£ ãÆ /api/admin/firebase-stats-v2
+Ôö£ ãÆ /api/ai/analyze-store
+Ôö£ ãÆ /api/ai/autocomplete
+Ôö£ ãÆ /api/image-proxy
+Ôö£ ãÆ /api/send-notification
+Ôö£ ãÆ /api/version
+Ôö£ ãÆ /audits/[id]
+Ôö£ ãÆ /audits/[id]/actions
+Ôö£ ãÆ /audits/[id]/summary
+Ôö£ Ôùï /audits/actions
+Ôö£ Ôùï /bolge-muduru
+Ôö£ Ôùï /denetmen
+Ôö£ Ôùï /denetmen/bekleyen
+Ôö£ Ôùï /denetmen/iptal-edilen
+Ôö£ Ôùï /denetmen/panel
+Ôö£ Ôùï /denetmen/program
+Ôö£ Ôùï /denetmen/program/haftalik
+Ôö£ Ôùï /denetmen/settings
+Ôö£ Ôùï /denetmen/tamamlanan
+Ôö£ Ôùï /login
+Ôö£ Ôùï /magaza
+Ôö£ Ôùï /magaza/ayarlar
+Ôö£ Ôùï /magaza/panel
+Ôö£ Ôùï /magaza/raporlar
+Ôö£ Ôùï /manifest.webmanifest
+Ôöö Ôùï /notifications
+
+
+Ôùï  (Static)   prerendered as static content
+ãÆ  (Dynamic)  server-rendered on demand
+

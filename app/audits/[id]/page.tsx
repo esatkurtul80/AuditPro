@@ -346,7 +346,7 @@ export default function AuditPage() {
             const durationSinceLastAction = (now - lastActionTime.current) / 1000;
             // Round to integer as requested
             updatedAudit.sections[sectionIndex].answers[answerIndex].durationSeconds = Math.round(durationSinceLastAction);
-            console.log(`⏱️ Soru Süresi Hesaplandı: ${Math.round(durationSinceLastAction)} sn (Önceki işlemden beri)`);
+
         }
 
         // Always update lastActionTime on any interaction
@@ -608,7 +608,7 @@ export default function AuditPage() {
                                 url: `/audits/${auditId}/summary`
                             })
                         });
-                        console.log("Store notification sent to:", storeUserIds);
+
                     }
                 }
             } catch (notifyErr) {

@@ -14,7 +14,6 @@ export async function markAnnouncementAsRead(
     userName: string
 ): Promise<void> {
     try {
-        console.log('[markAnnouncementAsRead] Starting...', { announcementId, userId, userName });
         
         const announcementRef = doc(db, "announcements", announcementId);
         
@@ -26,7 +25,6 @@ export async function markAnnouncementAsRead(
             })
         });
         
-        console.log('[markAnnouncementAsRead] Success');
     } catch (error) {
         console.error("[markAnnouncementAsRead] Error:", error);
         console.error("[markAnnouncementAsRead] Error details:", {

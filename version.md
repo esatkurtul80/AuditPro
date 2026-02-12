@@ -1,8 +1,13 @@
 # Project Version
 
-**Current Version:** v2.2.25
+**Current Version:** v2.2.26
 
 ## Changelog
+
+### v2.2.26
+- **Kod Temizliği:** 30+ dosyada gereksiz `console.log` ifadeleri temizlendi. Hata ayıklama logları (`console.error`, `console.warn`) korundu.
+- **Güvenlik:** Firestore kuralları (Security Rules) güncellendi.
+- **Optimizasyon:** Build süreci ve paket boyutları optimize edildi.
 
 ### v2.2.25
 - **Admin Raporları:** Puan Raporu ve Aylık Gelişim Tablosu'ndaki yıl seçimi 2026-2036 aralığına güncellendi. Varsayılan yıl 2026 olarak ayarlandı.

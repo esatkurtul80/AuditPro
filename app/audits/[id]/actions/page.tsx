@@ -1161,7 +1161,7 @@ export default function AuditActionsPage() {
                 });
             });
 
-            console.log(`Loading ${allPhotos.length} photos...`);
+
 
             const photoPromises = allPhotos.map(async (url) => {
                 try {

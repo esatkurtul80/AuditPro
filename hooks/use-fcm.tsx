@@ -37,17 +37,14 @@ export function useFcm() {
             
             // If user manually disabled, respect that
             if (manuallyDisabled) {
-                console.log("📴 Notifications manually disabled by user");
                 return;
             }
 
             // Auto-prompt if permission is default (fresh install or never asked)
             if (Notification.permission === "default") {
-                console.log("🔔 First launch or default permission, requesting...");
                 requestPermission();
             } else if (Notification.permission === "granted") {
                 // Permission granted but might not have subscription yet
-                console.log("✅ Permission granted, ensuring token...");
                 retrieveToken();
             }
         }
@@ -58,7 +55,6 @@ export function useFcm() {
             // 1. Check Support First
             const supported = await isSupported();
             if (!supported) {
-                console.log("ℹ️ Messaging not supported in this browser.");
                 setStatus("unsupported");
                 return;
             }
@@ -78,7 +74,6 @@ export function useFcm() {
                 if (!registration) {
                     try {
                         registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
-                        console.log("✅ SW registered successfully");
                         // Wait for SW to activate
                         await navigator.serviceWorker.ready;
                     } catch (swError) {
@@ -106,7 +101,6 @@ export function useFcm() {
                             fcmToken: currentToken,
                             lastTokenUpdate: new Date().toISOString()
                         });
-                        console.log("Token saved to Firestore");
                     } catch (saveError) {
                          console.error("Error saving token to DB:", saveError);
                     }
@@ -135,7 +129,6 @@ export function useFcm() {
                  const messaging = getMessaging(app);
                  if (messaging) {
                     const unsubscribe = onMessage(messaging, (payload) => {
-                        console.log('Message received: ', payload);
 
                         // Denetmen filtering
                         if (userProfile?.role === "denetmen") {

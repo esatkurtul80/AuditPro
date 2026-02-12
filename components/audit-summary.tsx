@@ -521,7 +521,6 @@ export function AuditSummary({ audit }: AuditSummaryProps) {
         });
       });
 
-      console.log(`Loading ${allPhotos.length} photos...`);
 
       // Paralel yükleme - her fotoğraf için ayrı ayrı dene
       const photoPromises = allPhotos.map(async (url) => {
@@ -529,7 +528,6 @@ export function AuditSummary({ audit }: AuditSummaryProps) {
           const b64 = await getBase64FromUrl(url);
           if (b64) {
             photoMap[url] = b64;
-            console.log('Photo loaded successfully:', url.substring(0, 50) + '...');
           } else {
             console.warn('Photo returned empty:', url.substring(0, 50) + '...');
           }
@@ -539,7 +537,6 @@ export function AuditSummary({ audit }: AuditSummaryProps) {
       });
 
       await Promise.all(photoPromises);
-      console.log(`Successfully loaded ${Object.keys(photoMap).length} out of ${allPhotos.length} photos`);
 
       const jsPDF = (await import('jspdf')).default;
       const autoTable = (await import('jspdf-autotable')).default;

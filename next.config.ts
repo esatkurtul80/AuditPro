@@ -23,21 +23,15 @@ const nextConfig: NextConfig = {
   env: {
     NEXT_PUBLIC_APP_VERSION: appVersion,
   },
-  images: {
-    // Optimization enabled for better LCP
-  },
-  /* experimental: {
+  experimental: {
     optimizePackageImports: [
       "lucide-react",
       "@radix-ui/react-dialog",
       "@radix-ui/react-dropdown-menu",
       "@radix-ui/react-popover",
       "@radix-ui/react-select",
-      "recharts",
-      "framer-motion",
     ],
-  }, */
-  // headers removed to fix auth network error
+  },
 };
 
 export default nextConfig;

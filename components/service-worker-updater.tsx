@@ -15,7 +15,6 @@ export function ServiceWorkerUpdater() {
             }
 
             if (!hasReloaded) {
-                console.log("🚀 APK Cold Start: Helper Reload triggered for fresh content.");
                 sessionStorage.setItem('app_init_refresh', 'true');
                 window.location.reload();
             }

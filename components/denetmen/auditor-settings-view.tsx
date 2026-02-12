@@ -87,7 +87,6 @@ export function AuditorSettingsView() {
                 // Simple string comparison for equality. If different, we assume update needed.
                 // Removing 'v' prefix for safety
                 if (serverVersion.replace(/^v/, '') !== localVersion.replace(/^v/, '')) {
-                    console.log(`Update found in Settings: ${localVersion} -> ${serverVersion}`);
                     toast.info("Yeni versiyon bulundu, güncelleniyor...", { duration: 2000 });
                     
                     // Clear caches and reload

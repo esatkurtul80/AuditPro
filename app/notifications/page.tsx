@@ -14,6 +14,7 @@ import {
     doc,
     deleteDoc,
     getDocs,
+    getDoc,
     limit,
     startAfter,
     QueryDocumentSnapshot,
@@ -76,6 +77,7 @@ function NotificationsContent() {
     const [lastDoc, setLastDoc] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
     const [hasMore, setHasMore] = useState(true);
     const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+    const [auditCache, setAuditCache] = useState<Record<string, any>>({});
 
     useEffect(() => {
         if (userProfile?.uid) {
@@ -240,6 +242,14 @@ function NotificationsContent() {
                 newExpanded.delete(notification.id);
             } else {
                 newExpanded.add(notification.id);
+                // Fetch audit data to resolve option IDs
+                if (notification.relatedId && !auditCache[notification.relatedId]) {
+                    getDoc(doc(db, "audits", notification.relatedId)).then(auditDoc => {
+                        if (auditDoc.exists()) {
+                            setAuditCache(prev => ({ ...prev, [notification.relatedId!]: auditDoc.data() }));
+                        }
+                    }).catch(console.error);
+                }
             }
             setExpandedIds(newExpanded);
         } else if (notification.relatedId) {
@@ -306,6 +316,36 @@ function NotificationsContent() {
         }).format(date);
     };
 
+
+    const formatAnswer = (answer: string, auditData?: any, questionId?: string) => {
+        if (!answer || answer === "boş" || answer === "-") return <span className="text-muted-foreground italic">Yanıt Yok</span>;
+        if (answer === "evet") return "Evet";
+        if (answer === "hayir") return "Hayır";
+        if (answer === "muaf") return "Muaf";
+        if (answer === "hicbiri") return "Hiçbiri";
+        // Resolve option IDs using audit data
+        if (auditData && questionId) {
+            for (const section of auditData.sections || []) {
+                for (const ans of section.answers || []) {
+                    if (ans.questionId === questionId && ans.options) {
+                        const matchedOption = ans.options.find((o: any) => o.id === answer);
+                        if (matchedOption) return matchedOption.text;
+                        if (answer.includes(',')) {
+                            const ids = answer.split(',').map((s: string) => s.trim());
+                            const texts = ids.map((id: string) => ans.options.find((o: any) => o.id === id)?.text || id).filter(Boolean);
+                            if (texts.length > 0 && texts.some((t: string) => !/^\d{13}$/.test(t))) return texts.join(', ');
+                        }
+                    }
+                }
+            }
+        }
+        if (/^\d{13}$/.test(answer)) return <span className="italic text-muted-foreground">Seçenek</span>;
+        if (/^(\d{13},?)+$/.test(answer)) {
+            const count = answer.split(',').filter(s => s.trim().length > 0).length;
+            return <span className="italic text-muted-foreground">{count} Seçenek</span>;
+        }
+        return answer;
+    };
 
     if (loading) {
         return (
@@ -487,12 +527,12 @@ function NotificationsContent() {
                                                                     </TableCell>
                                                                     <TableCell>
                                                                         <Badge variant="secondary" className="font-normal">
-                                                                            {change.oldAnswer}
+                                                                            {formatAnswer(change.oldAnswer, notification.relatedId ? auditCache[notification.relatedId] : undefined, change.questionId)}
                                                                         </Badge>
                                                                     </TableCell>
                                                                     <TableCell>
                                                                         <Badge variant="outline" className="font-normal border-blue-200 bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800">
-                                                                            {change.newAnswer}
+                                                                            {formatAnswer(change.newAnswer, notification.relatedId ? auditCache[notification.relatedId] : undefined, change.questionId)}
                                                                         </Badge>
                                                                     </TableCell>
                                                                     <TableCell className="text-right">

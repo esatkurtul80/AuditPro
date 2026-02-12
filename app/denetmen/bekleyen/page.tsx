@@ -363,6 +363,10 @@ export default function DenetmenPage() {
 
 
                     <Card>
+                        {/* SUGGESTED AUDIT CARD (Location Based) - Inserted before main table content but inside general layout, actually let's put it outside Card for prominence */}
+                    </Card>
+
+                    <Card>
 
                         <CardContent className="px-4 md:px-6">
 

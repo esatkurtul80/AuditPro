@@ -168,19 +168,16 @@ export function CreateAuditDialog({ open, onOpenChange }: CreateAuditDialogProps
             if (validStoreIds.length > 0) {
                 if (pendingStoreIds.length === 0) {
                     // All scheduled stores are completed
-                    console.log("All scheduled stores are completed.");
                     setScheduledStoreId(null);
                     setAllowedStoreIds([]); 
                 } else if (pendingStoreIds.length === 1) {
                     // Exactly one store left (new or resume)
                     // We set it as scheduledStoreId so "Smart Start" works
                     const targetStoreId = pendingStoreIds[0];
-                    console.log("Single pending store auto-detected:", targetStoreId);
                     setScheduledStoreId(targetStoreId);
                     setAllowedStoreIds(pendingStoreIds);
                 } else {
                     // Multiple pending stores (mix of new / resume)
-                    console.log("Multiple pending stores:", pendingStoreIds.length);
                     setScheduledStoreId(null);
                     setAllowedStoreIds(pendingStoreIds);
                 }

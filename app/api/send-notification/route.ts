@@ -5,7 +5,6 @@ import * as admin from "firebase-admin";
 export const dynamic = 'force-dynamic'; // Force dynamic execution
 
 export async function POST(req: Request) {
-    console.log("🔔 /api/send-notification called");
     try {
         // Init Admin SDK
         try {
@@ -114,13 +113,7 @@ export async function POST(req: Request) {
         // Deduplicate tokens
         const uniqueTokens = Array.from(new Set(tokens));
 
-        console.log('📊 TOKEN SUMMARY:', {
-            totalTokensCollected: tokens.length,
-            uniqueTokens: uniqueTokens.length,
-            duplicatesRemoved: tokens.length - uniqueTokens.length,
-            targetUserCount: userIds.length,
-            tokensPreview: uniqueTokens.map(t => t.substring(0, 20) + '...')
-        });
+
 
         if (uniqueTokens.length === 0) {
             return NextResponse.json({ message: "No tokens found for target users" });
@@ -128,7 +121,6 @@ export async function POST(req: Request) {
 
         // 2. Send Multicast Message
         const messageId = `msg-${Date.now()}`;
-        console.log('🚀 Sending notification to', uniqueTokens.length, 'devices...');
         const response = await messaging.sendEachForMulticast({
             tokens: uniqueTokens,
             // Android: High Priority to wake up
@@ -195,9 +187,7 @@ export async function POST(req: Request) {
                 }
             });
 
-            console.log(`Removing ${failedTokens.length} invalid tokens from database...`);
 
-            console.log(`Removing ${failedTokens.length} invalid tokens from database...`);
 
             // Use batch processing to clean up
             let batch = db.batch();
@@ -256,7 +246,7 @@ export async function POST(req: Request) {
                 await batch.commit();
             }
 
-            console.log("✅ Invalid tokens removed successfully");
+
 
             return NextResponse.json({
                 success: true,

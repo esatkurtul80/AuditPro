@@ -123,7 +123,14 @@ const getAuditStatus = (audit: Audit): { text: string; color: string; badgeVaria
 
     audit.sections.forEach(section => {
         section.answers.forEach(answer => {
-            const isActionNeeded = answer.answer === "hayir" || (answer.questionType === "checkbox" && answer.earnedPoints < answer.maxPoints);
+            const isCheckboxActionNeeded = answer.questionType === "checkbox" && 
+                                           answer.answer && 
+                                           answer.answer !== "hicbiri" && 
+                                           answer.answer !== "muaf" &&
+                                           answer.earnedPoints < answer.maxPoints;
+            
+            const isActionNeeded = answer.answer === "hayir" || isCheckboxActionNeeded;
+
             if (isActionNeeded && answer.actionData) {
                 hasActions = true;
                 if (answer.actionData.status === "pending_admin") {
@@ -177,12 +184,18 @@ export default function MagazaPage() {
             const auditsData = auditsSnapshot.docs
                 .map((doc) => ({ id: doc.id, ...doc.data() } as Audit))
                 .filter((audit) => {
-                    // "hayır" cevabı olan veya checkbox sorusunda tam puan alamayan denetimleri al
-                    return audit.sections.some((section) =>
-                        section.answers.some((answer) =>
-                            answer.answer === "hayir" || (answer.questionType === "checkbox" && answer.earnedPoints < answer.maxPoints)
-                        )
-                    );
+                    // "hayır" cevabı olan veya checkbox sorusunda tam puan alamayan (ama cevaplanmış ve muaf olmayan) denetimleri al
+                    return audit.sections.some((section) => {
+                        return section.answers.some((answer) => {
+                            const isCheckboxActionNeeded = answer.questionType === "checkbox" && 
+                                                           answer.answer && 
+                                                           answer.answer !== "hicbiri" && 
+                                                           answer.answer !== "muaf" &&
+                                                           answer.earnedPoints < answer.maxPoints;
+                            
+                            return answer.answer === "hayir" || isCheckboxActionNeeded;
+                        });
+                    });
                 })
                 .sort((a, b) => {
                     const deadlineA = getReturnDeadline(a.completedAt);
@@ -356,15 +369,24 @@ export default function MagazaPage() {
 
                                         // Calculate counts
                                         let pendingActionCount = 0;
-                                        audit.sections.forEach(s => s.answers.forEach(a => {
-                                            const isActionNeeded = a.answer === "hayir" || (a.questionType === "checkbox" && a.earnedPoints < a.maxPoints);
-                                            if (isActionNeeded) {
-                                                const status = a.actionData?.status;
-                                                if (!status || status === "pending_store" || status === "rejected") {
-                                                    pendingActionCount++;
+                                        audit.sections.forEach(s => {
+                                            s.answers.forEach(a => {
+                                                const isCheckboxActionNeeded = a.questionType === "checkbox" && 
+                                                                               a.answer && 
+                                                                               a.answer !== "hicbiri" && 
+                                                                               a.answer !== "muaf" &&
+                                                                               a.earnedPoints < a.maxPoints;
+                                                
+                                                const isActionNeeded = a.answer === "hayir" || isCheckboxActionNeeded;
+
+                                                if (isActionNeeded) {
+                                                    const status = a.actionData?.status;
+                                                    if (!status || status === "pending_store" || status === "rejected") {
+                                                        pendingActionCount++;
+                                                    }
                                                 }
-                                            }
-                                        }));
+                                            });
+                                        });
 
                                         return (
                                             <GridItem key={audit.id}>
@@ -466,9 +488,17 @@ export default function MagazaPage() {
                                         const initials = auditorName.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2);
 
                                         let doneCount = 0;
-                                        audit.sections.forEach(s => s.answers.forEach(a => {
-                                            if (a.answer === "hayir" || (a.questionType === "checkbox" && a.earnedPoints < a.maxPoints)) doneCount++;
-                                        }));
+                                        audit.sections.forEach(s => {
+                                            s.answers.forEach(a => {
+                                                const isCheckboxActionNeeded = a.questionType === "checkbox" && 
+                                                                               a.answer && 
+                                                                               a.answer !== "hicbiri" && 
+                                                                               a.answer !== "muaf" &&
+                                                                               a.earnedPoints < a.maxPoints;
+                                                
+                                                if (a.answer === "hayir" || isCheckboxActionNeeded) doneCount++;
+                                            });
+                                        });
 
                                         return (
                                             <GridItem key={audit.id}>

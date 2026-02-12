@@ -166,17 +166,10 @@ function NotificationFeedContent() {
               const isAlreadyRead = announcement?.readBy?.some(r => r.userId === userProfile.uid);
 
               if (!isAlreadyRead) {
-                  console.log('[Announcement Read Tracking] Marking as read:', {
-                    announcementId: value,
-                    userId: userProfile.uid,
-                    userName
-                  });
                   
                   await markAnnouncementAsRead(value, userProfile.uid, userName);
                   
-                  console.log('[Announcement Read Tracking] Successfully marked as read');
               } else {
-                  console.log('[Announcement Read Tracking] Already read, skipping.');
               }
             } catch (error) {
               console.error('[Announcement Read Tracking] Error marking announcement as read:', error);

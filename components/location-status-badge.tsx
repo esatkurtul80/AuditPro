@@ -17,7 +17,6 @@ export function LocationStatusBadge({ compact = false }: LocationStatusBadgeProp
         if (navigator.permissions && navigator.permissions.query) {
             navigator.permissions.query({ name: "geolocation" }).then((result) => {
                 setPermissionStatus(result.state);
-                console.log("📍 Location Permission:", result.state);
 
                 // If granted, we can try to confirm GPS is actually on by a quick non-blocking check
                 // or just rely on permission 'granted' as Green.

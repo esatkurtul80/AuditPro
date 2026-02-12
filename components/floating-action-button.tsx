@@ -153,7 +153,6 @@ export function FloatingActionButton() {
                                     variant="default"
                                     className="h-16 pr-6 pl-3 rounded-full bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 shadow-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-750 flex items-center gap-3 group transition-all"
                                     onClick={() => {
-                                        console.log("Bildirim Yap clicked");
                                         setIsOpen(false);
                                     }}
                                 >

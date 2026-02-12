@@ -130,7 +130,6 @@ export function SendNotificationDialog({ trigger, open: controlledOpen, onOpenCh
                     setLoading(false);
                 } else {
                     const result = await apiResponse.json();
-                    console.log("Push Result:", result);
                     
                     setResultData({
                         success: result.success,

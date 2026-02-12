@@ -45,17 +45,14 @@ if (typeof window !== "undefined" && typeof navigator !== "undefined") {
                      const isManuallyDisabled = localStorage.getItem("notifications_manual_off") === "true";
                      
                      if (isManuallyDisabled) {
-                         console.log("🔕 Service Worker registration skipped (Manual Opt-out)");
                      } else {
                          // Register Service Worker provided by the app
                          // Note: Firebase usually registers its own SW if not provided, but we are explicit here
                          navigator.serviceWorker.register('/firebase-messaging-sw.js')
                          .then((registration) => {
-                             console.log('✅ Service Worker registered:', registration.scope);
                              messaging = getMessaging(app);
                          })
                          .catch((err) => {
-                             console.log('ℹ️ SW registration skipped or failed:', err);
                              // Fallback: try getting messaging without explicit SW registration if it fails?
                              // actually getMessaging() might work if SW is already registered by browser
                              messaging = getMessaging(app);
@@ -63,7 +60,6 @@ if (typeof window !== "undefined" && typeof navigator !== "undefined") {
                      }
                  }
             } else {
-                console.log("ℹ️ Firebase Messaging not supported in this browser.");
             }
         } catch (e) {
              console.error("Firebase messaging initialization error", e);

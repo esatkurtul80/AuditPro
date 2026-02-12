@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip"
 
@@ -17,8 +18,7 @@ import { RecipientSelector, RecipientOption } from "@/components/announcements/r
 import { useState } from "react"
 import { Loader2 } from "lucide-react"
 
-// Updated to use new Shadcn Editor X
-import { Editor } from "@/components/blocks/editor-x/editor"
+
 import { ReadStatus } from "@/components/announcements/read-status"
 
 interface MailDisplayProps {
@@ -86,10 +86,11 @@ export function MailDisplay({ mail, isCreating, onCancelCreate, onSend, recipien
                     <div className="space-y-2 flex flex-1 min-w-0 flex-col">
                         <Label>İçerik</Label>
                         <div className="flex-1 min-h-0 h-[750px]">
-                             <Editor 
-                                onChangeHtml={(html) => {
-                                    setContent(html) 
-                                }}
+                             <Textarea 
+                                value={content}
+                                onChange={(e) => setContent(e.target.value)}
+                                placeholder="Bildirim içeriğini yazın..."
+                                className="h-full resize-none"
                              />
                         </div>
                     </div>
