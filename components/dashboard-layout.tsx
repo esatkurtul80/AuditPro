@@ -79,7 +79,7 @@ export function DashboardLayout({ children, forceStoreLayout }: { children: Reac
 
                     {/* Center: Logo (Always Centered) - Tap 10x for Debug Logger */}
                     <div 
-                        className="absolute left-1/2 -translate-x-1/2 cursor-pointer select-none"
+                        className="absolute left-[37%] sm:left-1/2 -translate-x-1/2 cursor-pointer select-none"
                         onClick={handleLogoTap}
                         onTouchEnd={(e) => { e.preventDefault(); handleLogoTap(); }}
                     >

@@ -1,8 +1,12 @@
 # Project Version
 
-**Current Version:** v2.2.26
+**Current Version:** v2.2.27
 
 ## Changelog
+
+### v2.2.27
+- **UI Düzeltme:** Denetmen paneli başlığındaki "AuditPro" logosunun konumu mobil cihazlarda (%37) ve tablet/masaüstü cihazlarda (ortada) olacak şekilde responsif olarak ayarlandı.
+- **DevOps:** Google Artifact Registry temizlik politikaları (Cleanup Policies) yapılandırıldı ve test edildi.
 
 ### v2.2.26
 - **Kod Temizliği:** 30+ dosyada gereksiz `console.log` ifadeleri temizlendi. Hata ayıklama logları (`console.error`, `console.warn`) korundu.
