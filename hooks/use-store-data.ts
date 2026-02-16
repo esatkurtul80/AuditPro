@@ -3,25 +3,12 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/components/auth-provider";
 import { db } from "@/lib/firebase";
-import { collection, query, where, getDocs } from "firebase/firestore";
-import { ActionStats } from "@/components/audit-card";
+import { collection, query, where, getDocs, Timestamp } from "firebase/firestore";
 import { getReturnDeadline } from "@/lib/date-utils";
+import { Audit, ActionStats } from "@/lib/types";
 
 // --- Types ---
 
-export interface Audit {
-    id: string;
-    storeName: string;
-    auditorName: string;
-    auditType: string;
-    completedAt: any;
-    score: number;
-    totalScore: number;
-    hasActions: boolean;
-    actionStats: ActionStats;
-    lastSubmittedAt?: Date;
-    sections: any; // We include the full sections data for detailed analysis
-}
 
 interface StoreDataCache {
     audits: Audit[];
@@ -239,21 +226,36 @@ export function useStoreData() {
 
                     return {
                         id: doc.id,
+                        auditTypeId: auditData.auditTypeId || "",
+                        auditTypeName: auditData.formName || auditData.auditType || "Mağaza Denetimi",
+                        storeId: userProfile?.storeId || "",
                         storeName: auditData.storeName || userProfile?.storeName || "Mağazam",
+                        auditorId: auditData.auditorId || "",
                         auditorName: auditorName,
-                        auditType: auditData.formName || auditData.auditType || "Mağaza Denetimi",
-                        completedAt: auditData.completedAt?.toDate() || new Date(),
-                        score: finalScore,
+                        status: auditData.status || "tamamlandi",
+                        sections: auditData.sections,
                         totalScore: 100,
+                        maxScore: auditData.maxScore || 100,
+                        score: finalScore,
+                        startedAt: auditData.startedAt || auditData.createdAt || Timestamp.now(),
+                        createdAt: auditData.createdAt || Timestamp.now(),
+                        updatedAt: auditData.updatedAt || Timestamp.now(),
+                        completedAt: auditData.completedAt || Timestamp.now(), // Keep as Timestamp to match interface
                         hasActions,
                         actionStats,
                         lastSubmittedAt,
-                        sections: auditData.sections
-                    };
+                        location: auditData.location || null,
+                        actionDeadline: auditData.actionDeadline || null,
+                        allActionsResolved: auditData.allActionsResolved || false
+                    } as Audit;
                 });
 
                 const resolvedAudits = await Promise.all(auditorPromises);
-                resolvedAudits.sort((a, b) => b.completedAt.getTime() - a.completedAt.getTime());
+                resolvedAudits.sort((a, b) => {
+                    const timeA = a.completedAt?.toMillis() || 0;
+                    const timeB = b.completedAt?.toMillis() || 0;
+                    return timeB - timeA;
+                });
 
                 // Global stats
                 let totalPending = 0;
@@ -261,12 +263,14 @@ export function useStoreData() {
                 let totalOverdue = 0;
 
                 resolvedAudits.forEach(a => {
-                    totalPending += a.actionStats.pending_store;
-                    totalRejected += a.actionStats.rejected;
-                    if (a.actionStats.pending_store > 0 || a.actionStats.rejected > 0) {
-                        const deadlineInfo = getReturnDeadline(a.completedAt);
-                        if (deadlineInfo?.status === 'overdue') {
-                            totalOverdue++;
+                    if (a.actionStats) {
+                        totalPending += a.actionStats.pending_store;
+                        totalRejected += a.actionStats.rejected;
+                        if (a.actionStats.pending_store > 0 || a.actionStats.rejected > 0) {
+                            const deadlineInfo = getReturnDeadline(a.completedAt);
+                            if (deadlineInfo?.status === 'overdue') {
+                                totalOverdue++;
+                            }
                         }
                     }
                 });

@@ -23,6 +23,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
+    Dialog,
+    DialogContent,
+    DialogTitle,
+} from "@/components/ui/dialog";
+import {
     Store as StoreIcon,
     ClipboardList,
     CheckCircle2,
@@ -451,17 +456,22 @@ export function RegionalDashboard() {
             </Card>
             
             {reportAudit && (
-                <SpecialReportGenerator 
-                    audit={reportAudit} 
-                    onComplete={() => {
-                        toast.success("Rapor başarıyla oluşturuldu");
-                        setReportAudit(null);
-                    }}
-                    onError={() => {
-                        toast.error("Rapor oluşturulurken hata oluştu");
-                        setReportAudit(null);
-                    }}
-                />
+                <Dialog open={!!reportAudit} onOpenChange={(open) => { if (!open) setReportAudit(null); }}>
+                    <DialogContent className="!max-w-[95vw] !w-[95vw] max-h-[90vh] overflow-y-auto p-0">
+                        <DialogTitle className="sr-only">Özel Rapor Önizleme</DialogTitle>
+                        <SpecialReportGenerator 
+                            audit={reportAudit}
+                            mode="preview"
+                            onClose={() => setReportAudit(null)}
+                            onComplete={() => {
+                                toast.success("Rapor başarıyla oluşturuldu");
+                            }}
+                            onError={() => {
+                                toast.error("Rapor oluşturulurken hata oluştu");
+                            }}
+                        />
+                    </DialogContent>
+                </Dialog>
             )}
 
             {/* Quick Actions - Placeholder for Reports and Persistent Failures */}

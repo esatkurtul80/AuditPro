@@ -7,11 +7,19 @@ let appVersion = "v0.0.0";
 try {
   const versionFile = fs.readFileSync(path.join(process.cwd(), 'version.md'), 'utf8');
   // Look for the first line starting with ## v
-  const match = versionFile.match(/^## (v\d+\.\d+\.\d+)/m);
-  if (match && match[1]) {
-    appVersion = match[1];
-    console.log(`Build Version: ${appVersion}`);
+  // Look for the "Current Version" line first
+  const currentVersionMatch = versionFile.match(/\*\*Current Version:\*\* (v\d+\.\d+\.\d+)/);
+  
+  if (currentVersionMatch && currentVersionMatch[1]) {
+    appVersion = currentVersionMatch[1];
+  } else {
+    // Fallback to the first header
+    const match = versionFile.match(/^#+ (v\d+\.\d+\.\d+)/m);
+    if (match && match[1]) {
+      appVersion = match[1];
+    }
   }
+  console.log(`Build Version: ${appVersion}`);
 } catch (error) {
   console.warn("Could not read version.md file", error);
 }

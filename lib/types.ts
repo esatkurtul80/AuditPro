@@ -192,6 +192,20 @@ export interface Audit {
     // Action Management
     actionDeadline?: Timestamp;
     allActionsResolved?: boolean;
+    
+    // Store Panel specific
+    hasActions?: boolean;
+    actionStats?: ActionStats;
+    score?: number;
+    lastSubmittedAt?: Date | any; // Using any to be safe with mixed implementations
+}
+
+export interface ActionStats {
+    pending_store: number;
+    pending_admin: number;
+    rejected: number;
+    approved: number;
+    total: number;
 }
 
 // Action tracking

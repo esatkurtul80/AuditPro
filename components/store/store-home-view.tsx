@@ -101,11 +101,11 @@ export function StoreHomeView() {
                                 auditId={audit.id}
                                 storeName={audit.storeName}
                                 auditorName={audit.auditorName}
-                                auditType={audit.auditType}
+                                auditType={audit.auditTypeName}
                                 completedAt={audit.completedAt}
-                                score={audit.score}
+                                score={audit.score || 0}
                                 totalScore={audit.totalScore}
-                                hasActions={audit.hasActions}
+                                hasActions={audit.hasActions || false}
                                 actionStats={audit.actionStats}
                                 lastSubmittedAt={audit.lastSubmittedAt}
                                 onClick={() => {

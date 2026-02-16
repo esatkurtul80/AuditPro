@@ -12,7 +12,7 @@ interface AuditCardProps {
     storeName: string;
     auditorName: string;
     auditType: string;
-    completedAt: Date;
+    completedAt: any;
     score: number;
     totalScore: number;
     hasActions: boolean;

@@ -54,10 +54,11 @@ export function StoreReportsView() {
     // 1. Filter audits by year (Real Logic)
     const filteredAudits = useMemo(() => {
         if (!audits) return [];
-        return audits.filter(audit => {
-            const auditDate = audit.completedAt instanceof Date 
-                ? audit.completedAt 
-                : (audit.completedAt?.toDate ? audit.completedAt.toDate() : new Date(audit.completedAt));
+        return audits.filter((audit) => {
+            if (!audit.completedAt) return false;
+            const auditDate = audit.completedAt instanceof Date
+                ? audit.completedAt
+                : (audit.completedAt?.toDate ? audit.completedAt.toDate() : new Date(audit.completedAt as any));
             
             return auditDate.getFullYear().toString() === selectedYear;
         });
@@ -69,9 +70,10 @@ export function StoreReportsView() {
 
         filteredAudits.forEach(audit => {
             if (!audit.sections) return;
+            if (!audit.completedAt) return;
             const auditDate = audit.completedAt instanceof Date 
                 ? audit.completedAt 
-                : (audit.completedAt?.toDate ? audit.completedAt.toDate() : new Date(audit.completedAt));
+                : (audit.completedAt?.toDate ? audit.completedAt.toDate() : new Date(audit.completedAt as any));
 
             audit.sections.forEach((section: any) => {
                 section.answers?.forEach((answer: any) => {
@@ -130,15 +132,16 @@ export function StoreReportsView() {
         const currentYear = new Date().getFullYear().toString();
 
         filteredAudits.forEach(audit => {
+             if (!audit.completedAt) return;
              const auditDate = audit.completedAt instanceof Date 
                 ? audit.completedAt 
-                : (audit.completedAt?.toDate ? audit.completedAt.toDate() : new Date(audit.completedAt));
+                : (audit.completedAt?.toDate ? audit.completedAt.toDate() : new Date(audit.completedAt as any));
             
             const monthIdx = auditDate.getMonth();
             const current = monthlyStats.get(monthIdx) || { total: 0, count: 0 };
             
             monthlyStats.set(monthIdx, {
-                total: current.total + audit.score,
+                total: current.total + (audit.score || 0),
                 count: current.count + 1
             });
         });
@@ -167,7 +170,7 @@ export function StoreReportsView() {
     // Calculate YTD Average for the selected year
     const yearlyAverage = useMemo(() => {
         if (filteredAudits.length === 0) return "0";
-        const total = filteredAudits.reduce((acc, curr) => acc + curr.score, 0);
+        const total = filteredAudits.reduce((acc, curr) => acc + (curr.score || 0), 0);
         return (total / filteredAudits.length).toFixed(1);
     }, [filteredAudits]);
 
@@ -236,11 +239,11 @@ export function StoreReportsView() {
                                         auditId={audit.id}
                                         storeName={audit.storeName}
                                         auditorName={audit.auditorName || "Sistem"}
-                                        auditType={audit.auditType || "Genel Denetim"}
+                                        auditType={audit.auditTypeName || "Genel Denetim"}
                                         completedAt={audit.completedAt}
-                                        score={audit.score}
+                                        score={audit.score || 0}
                                         totalScore={audit.totalScore}
-                                        hasActions={audit.hasActions}
+                                        hasActions={audit.hasActions || false}
                                         actionStats={audit.actionStats}
                                         lastSubmittedAt={audit.lastSubmittedAt}
                                         onClick={() => handleAuditClick(audit.id)}
@@ -471,15 +474,15 @@ export function StoreReportsView() {
                                                     <td className="p-4 align-middle">
                                                         <div className="flex flex-col">
                                                             <span className="font-medium">{audit.auditorName || "Bilinmiyor"}</span>
-                                                            <span className="text-xs text-muted-foreground capitalize">{audit.auditType || "Denetim"}</span>
+                                                            <span className="text-xs text-muted-foreground capitalize">{audit.auditTypeName || "Denetim"}</span>
                                                         </div>
                                                     </td>
                                                     <td className="p-4 align-middle text-right">
                                                         <span className={`inline-flex items-center justify-center rounded-full px-2.5 py-0.5 text-sm font-bold
-                                                            ${audit.score >= 85 ? 'bg-green-100 text-green-700' : 
-                                                              audit.score >= 70 ? 'bg-yellow-100 text-yellow-700' : 
+                                                            ${(audit.score || 0) >= 85 ? 'bg-green-100 text-green-700' : 
+                                                              (audit.score || 0) >= 70 ? 'bg-yellow-100 text-yellow-700' : 
                                                               'bg-red-100 text-red-700'}`}>
-                                                            {audit.score}
+                                                            {audit.score || 0}
                                                         </span>
                                                     </td>
                                                 </tr>

@@ -1,8 +1,14 @@
 # Project Version
 
-**Current Version:** v2.2.28
+**Current Version:** v2.2.29
 
 ## Changelog
+
+### v2.2.29
+- **Admin Raporları (Hata Düzeltme):** Radyo butonlu (veya çoktan seçmeli) sorularda puan kaybı yaşandığında sorunun raporda görünmemesi hatası giderildi.
+- **Admin Raporları (İyileştirme):** Puan kaybı olan sorularda "EVET" veya "EKSİKLER VAR" yerine, sorunun kaynağı (seçilen şık veya eksik olan maddeler) kırmızı ve kalın font ile açıkça yazılıyor. (Örn: "EKSİKLER: Fiyat Etiketi" veya "Hayır, Düzenlenmedi")
+- **Admin Raporları (UI):** Rapor başlığında "MAĞAZA" yazısının yanıp sönmesi engellendi. Doğrudan mağaza adı (Örn: AFYON PARK - MAĞAZA BİLGİLERİ) gösteriliyor.
+- **Admin Raporları (UI):** Rapor içindeki fotoğraflara tıklandığında büyük boy önizleme (modal) açılması sağlandı.
 
 ### v2.2.28
 - **Hata Düzeltme:** Mağaza panelinde "Aksiyon Gör" ve "İncele" butonlarının yönlendirme mantığı düzeltildi.

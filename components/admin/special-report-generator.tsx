@@ -2,19 +2,27 @@
 
 import { useState, useEffect, useRef } from "react";
 import { Audit, Store } from "@/lib/types";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, collection, query, where, orderBy, limit, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { format } from "date-fns";
 import { tr } from "date-fns/locale";
-import { Loader2 } from "lucide-react";
+import { Loader2, Download, X } from "lucide-react";
+
+// ... existing imports
+
+
 import { toast } from "sonner";
 import Script from "next/script";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogClose, DialogTitle } from "@/components/ui/dialog";
 
 interface SpecialReportGeneratorProps {
     audit: Audit;
-    store?: Store; // Optional, can be derived from audit if not passed
+    store?: Store;
+    mode?: 'preview' | 'download';
     onComplete?: () => void;
     onError?: (error: any) => void;
+    onClose?: () => void;
 }
 
 declare global {
@@ -23,7 +31,7 @@ declare global {
     }
 }
 
-export function SpecialReportGenerator({ audit, store, onComplete, onError }: SpecialReportGeneratorProps) {
+export function SpecialReportGenerator({ audit, store, mode = 'download', onComplete, onError, onClose }: SpecialReportGeneratorProps) {
     const reportRef = useRef<HTMLDivElement>(null);
     const [templateId, setTemplateId] = useState('st-1');
     const [typography, setTypography] = useState({
@@ -40,6 +48,7 @@ export function SpecialReportGenerator({ audit, store, onComplete, onError }: Sp
     const [generating, setGenerating] = useState(false);
     const [scriptLoaded, setScriptLoaded] = useState(false);
     const [fetchedStore, setFetchedStore] = useState<Store | null>(null);
+    const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
     const activeStore = store || fetchedStore;
 
@@ -153,9 +162,11 @@ export function SpecialReportGenerator({ audit, store, onComplete, onError }: Sp
 
         const contentHeight = element.scrollHeight; 
         
+        const fileName = `Ozel_Rapor_${audit.storeName}_${format(new Date(), "yyyy-MM-dd")}.pdf`;
+
         const opt = {
             margin: 0, 
-            filename: `Ozel_Rapor_${audit.storeName}_${format(new Date(), "yyyy-MM-dd")}.pdf`,
+            filename: fileName,
             image: { type: 'jpeg', quality: 0.98 }, 
             html2canvas: { scale: 2, useCORS: true, scrollY: 0, x: 0, y: 0, windowWidth: 794, height: contentHeight },
             jsPDF: { unit: 'px', format: [794, contentHeight], orientation: 'portrait' } 
@@ -164,8 +175,34 @@ export function SpecialReportGenerator({ audit, store, onComplete, onError }: Sp
         window.scrollTo(0, 0);
 
         try {
-            await window.html2pdf().set(opt).from(element).save();
+            // 1. Generate PDF object but don't save yet
+            const worker = window.html2pdf().set(opt).from(element).toPdf();
+            
+            // 2. Wait for PDF container to be created
+            const pdf = await worker.get('pdf');
+
+            // 3. Calculate and add links
+            const images = element.querySelectorAll('img[data-original-url]');
+            
+            images.forEach((img: any) => {
+                const rect = img.getBoundingClientRect();
+                const reportRect = element.getBoundingClientRect();
+                
+                const x = rect.left - reportRect.left;
+                const y = rect.top - reportRect.top;
+                const w = rect.width;
+                const h = rect.height;
+                const url = img.getAttribute('data-original-url');
+
+                if (url) {
+                   pdf.link(x, y, w, h, { url: url });
+                }
+            });
+
+            // 4. Save the PDF
+            await worker.save();
             onComplete?.();
+
         } catch (error) {
             console.error("PDF Generation Error:", error);
             onError?.(error);
@@ -182,19 +219,13 @@ export function SpecialReportGenerator({ audit, store, onComplete, onError }: Sp
 
     // Trigger generation once script and settings are ready
     useEffect(() => {
-        if (scriptLoaded && configLoaded && !generating) {
-            // We wait a bit more logic:
-            // If we need to fetch store (no store prop, audit.storeId exists, and valid fetchedStore is null)
-            // But we don't want to hang forever if fetch fails.
-            // Let's just use a timeout to allow fetch to complete 'likely'.
-            // Or better: valid dependency.
-            
+        if (mode === 'download' && scriptLoaded && configLoaded && !generating) {
             const timeOut = setTimeout(() => {
                 generatePDF();
-            }, 500); // Reduced to 500ms
+            }, 500);
             return () => clearTimeout(timeOut);
         }
-    }, [scriptLoaded, configLoaded]);
+    }, [scriptLoaded, configLoaded, mode]);
 
     // State for previous auditor
     const [prevAuditor, setPrevAuditor] = useState<string>("-");
@@ -205,10 +236,7 @@ export function SpecialReportGenerator({ audit, store, onComplete, onError }: Sp
             try {
                 // Determine the comparison date properly
                 let compareDate = audit.createdAt;
-                // If it's a timestamp object (seconds/nanoseconds), we use it directly in query
-                // If it's something else, we might need conversion, but Firestore usually handles standard field comparisons if types match.
-                
-                const { collection, query, where, orderBy, limit, getDocs } = await import("firebase/firestore");
+
                 const auditsRef = collection(db, 'audits');
                 const q = query(
                     auditsRef,
@@ -281,7 +309,8 @@ export function SpecialReportGenerator({ audit, store, onComplete, onError }: Sp
                 .generator-wrapper * { box-sizing: border-box; }
 
                 .generator-wrapper .report-page {
-                    width: 794px; /* A4 width in px at 96dpi */
+                    width: 100%;
+                    max-width: 100%;
                     background: white; 
                     position: relative; 
                     overflow: hidden; /* Ensure no spillover */
@@ -391,12 +420,55 @@ export function SpecialReportGenerator({ audit, store, onComplete, onError }: Sp
                 .st-17 { --primary: #00b894; } .st-17 .report-header { border-top: 10px solid #00b894; }
             `}</style>
             
-            {/* Hidden Report Container */}
-            <div style={{ position: "absolute", left: "-9999px", top: "-9999px" }}>
+            {/* Sticky Download Bar for Preview Mode - Moved to TOP */}
+            {mode === 'preview' && (
+                <div style={{ 
+                    position: "sticky", 
+                    top: 0, 
+                    zIndex: 50, 
+                    display: "flex", 
+                    justifyContent: "flex-end", 
+                    alignItems: "center",
+                    gap: "8px",
+                    padding: "16px 24px", 
+                    background: "rgba(255,255,255,0.9)", 
+                    backdropFilter: "blur(12px)",
+                    borderBottom: "1px solid rgba(0,0,0,0.05)",
+                    marginBottom: "20px"
+                }}>
+                    <div className="mr-auto font-medium text-slate-700">Denetim Raporu Önizleme</div>
+                    
+                    <Button
+                        onClick={() => generatePDF()}
+                        disabled={generating || !scriptLoaded}
+                        className="gap-2 bg-slate-900 hover:bg-slate-800 text-white shadow-sm"
+                    >
+                        {generating ? (
+                            <><Loader2 className="h-4 w-4 animate-spin" /> Hazırlanıyor...</>
+                        ) : (
+                            <><Download className="h-4 w-4" /> PDF İndir</>
+                        )}
+                    </Button>
+                    {onClose && (
+                        <Button variant="ghost" size="icon" onClick={onClose}>
+                            <X className="h-5 w-5 text-slate-500" />
+                        </Button>
+                    )}
+                </div>
+            )}
+
+            {/* Report Container - hidden in download mode, visible in preview mode */}
+            <div className={mode === 'preview' ? "flex justify-center px-8 pb-12 bg-transparent min-h-full" : ""} style={mode === 'preview' ? {} : { position: "absolute", left: "-9999px", top: "-9999px" }}>
                 <div 
                     ref={reportRef} 
                     className={`generator-wrapper ${templateId}`}
-                    style={cssVars}
+                    style={{
+                        ...cssVars,
+                        width: mode === 'preview' ? '794px' : undefined,
+                        minHeight: mode === 'preview' ? '1123px' : undefined,
+                        margin: mode === 'preview' ? '0 auto' : undefined,
+                        boxShadow: mode === 'preview' ? '0 4px 24px rgba(0,0,0,0.08)' : undefined,
+                    }}
                 >
                     <div className="report-page">
                         
@@ -414,7 +486,7 @@ export function SpecialReportGenerator({ audit, store, onComplete, onError }: Sp
                             
                             <div className="info-panel">
                                 <div className="info-title">
-                                    {(activeStore?.city || "MAĞAZA").toUpperCase()} - MAĞAZA BİLGİLERİ
+                                    {audit.storeName.toUpperCase()} - MAĞAZA BİLGİLERİ
                                 </div>
                                 <div className="info-grid-2col">
                                     <div className="col-left">
@@ -447,10 +519,10 @@ export function SpecialReportGenerator({ audit, store, onComplete, onError }: Sp
                                     // 1. "Hayır" — always include
                                     if (a.answer === "hayir") return true;
 
-                                    // 2. Checkbox/rating with partial points — only if section has answers
+                                    // 2. Checkbox/rating/radio/multiple_choice with partial points — only if section has answers
                                     if (sectionHasAnswers && hasAnswer && a.answer !== "muaf" &&
-                                        (a.questionType === "checkbox" || a.questionType === "rating") &&
-                                        a.earnedPoints < a.maxPoints) return true;
+                                        (a.questionType === "checkbox" || a.questionType === "rating" || (a.questionType as string) === "radio" || a.questionType === "multiple_choice") &&
+                                        (a.earnedPoints || 0) < (a.maxPoints || 0)) return true;
 
                                     // 3. Any question with notes or photos — include (even evet, even muaf)
                                     if (hasNotes || hasPhotos) return true;
@@ -488,11 +560,25 @@ export function SpecialReportGenerator({ audit, store, onComplete, onError }: Sp
                                                                     <strong>Not:</strong> {answer.notes.join(", ")}
                                                                 </div>
                                                             )}
-                                                            {/* Photos under the question/notes */}
-                                                            {answer.photos && answer.photos.length > 0 && (
+                                                             {/* Photos under the question/notes */}
+                                                             {answer.photos && answer.photos.length > 0 && (
                                                                 <div style={{ display: 'flex', gap: '5px', marginTop: '6px', flexWrap: 'wrap' }}>
                                                                      {answer.photos.map((p, pi) => (
-                                                                         <img key={pi} src={getProxiedUrl(p)} style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '4px', border: '1px solid #eee' }} crossOrigin="anonymous" />
+                                                                         <img 
+                                                                             key={pi} 
+                                                                             src={getProxiedUrl(p)} 
+                                                                             data-original-url={p}
+                                                                             onClick={() => setSelectedImage(getProxiedUrl(p))}
+                                                                             style={{ 
+                                                                                 width: '80px', 
+                                                                                 height: '80px', 
+                                                                                 objectFit: 'cover', 
+                                                                                 borderRadius: '4px', 
+                                                                                 border: '1px solid #eee',
+                                                                                 cursor: 'pointer' 
+                                                                             }} 
+                                                                             crossOrigin="anonymous" 
+                                                                         />
                                                                      ))}
                                                                 </div>
                                                             )}
@@ -502,8 +588,26 @@ export function SpecialReportGenerator({ audit, store, onComplete, onError }: Sp
                                                                 <span style={{ color: 'red' }}>HAYIR</span>
                                                             ) : answer.answer === "evet" ? (
                                                                 <span style={{ color: 'green' }}>EVET</span>
-                                                            ) : answer.questionType === "checkbox" && answer.earnedPoints < answer.maxPoints ? (
-                                                                <span style={{ color: 'orange' }}>EKSİKLER VAR</span>
+                                                            ) : answer.answer === "muaf" ? (
+                                                                <span style={{ color: '#999' }}>MUAF</span>
+                                                            ) : (answer.questionType === "checkbox" || (answer.questionType as string) === "radio" || answer.questionType === "multiple_choice") && answer.earnedPoints < answer.maxPoints ? (
+                                                                <span style={{ color: 'red', fontSize: '12px', fontWeight: 'bold' }}>
+                                                                    {answer.questionType === "checkbox" 
+                                                                        ? (
+                                                                            <>
+                                                                                <span style={{ textDecoration: 'underline' }}>EKSİKLER:</span>{" "}
+                                                                                {answer.options?.filter(opt => {
+                                                                                    // Show UNSELECTED options
+                                                                                    const selectedIds = Array.isArray(answer.answer) ? (answer.answer as string[]) : [];
+                                                                                    return !selectedIds.includes(opt.id);
+                                                                                }).map(o => o.text).join(", ")}
+                                                                            </>
+                                                                        )
+                                                                        : (
+                                                                            answer.options?.find(opt => opt.id === answer.answer)?.text || answer.answer
+                                                                        )
+                                                                    }
+                                                                </span>
                                                             ) : answer.questionType === "rating" ? (
                                                                 <div style={{ display: 'flex', justifyContent: 'center', gap: '2px' }}>
                                                                     {[...Array(answer.ratingMax || 5)].map((_, i) => (
@@ -516,8 +620,6 @@ export function SpecialReportGenerator({ audit, store, onComplete, onError }: Sp
                                                                 <span>
                                                                     {answer.options?.find(opt => opt.id === answer.answer)?.text || answer.answer || "-"}
                                                                 </span>
-                                                            ) : answer.answer === "muaf" ? (
-                                                                <span style={{ color: '#999' }}>MUAF</span>
                                                             ) : (
                                                                 // For other types like number/text
                                                                 <span>{answer.answer || "NOT VAR"}</span>
@@ -561,8 +663,14 @@ export function SpecialReportGenerator({ audit, store, onComplete, onError }: Sp
                                                     {section.feedback?.images && section.feedback.images.length > 0 && (
                                                         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '5px' }}>
                                                              {section.feedback.images.map((img, i) => (
-                                                                 <div key={i} style={{ width: '120px', height: '120px', border: '1px dashed #ccc', padding: '2px' }}>
-                                                                    <img src={getProxiedUrl(img)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} crossOrigin="anonymous" />
+                                                                 <div key={i} style={{ width: '160px', height: '160px', border: '1px dashed #ccc', padding: '2px' }}>
+                                                                    <img 
+                                                                        src={getProxiedUrl(img)} 
+                                                                        data-original-url={img}
+                                                                        onClick={() => setSelectedImage(getProxiedUrl(img))}
+                                                                        style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'pointer' }} 
+                                                                        crossOrigin="anonymous" 
+                                                                    />
                                                                  </div>
                                                              ))}
                                                         </div>
@@ -582,7 +690,9 @@ export function SpecialReportGenerator({ audit, store, onComplete, onError }: Sp
                 </div>
             </div>
             
-            {generating && (
+
+
+            {generating && mode === 'download' && (
                 <div style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999 }}>
                     <div style={{ backgroundColor: "white", padding: "20px", borderRadius: "8px", display: "flex", alignItems: "center", gap: "10px" }}>
                         <Loader2 className="animate-spin" />
@@ -590,6 +700,25 @@ export function SpecialReportGenerator({ audit, store, onComplete, onError }: Sp
                     </div>
                 </div>
             )}
+            {/* Image Preview Modal */}
+            <Dialog open={!!selectedImage} onOpenChange={(open) => !open && setSelectedImage(null)}>
+                <DialogContent className="max-w-[90vw] max-h-[90vh] p-0 bg-transparent border-none shadow-none flex items-center justify-center pointer-events-auto" showCloseButton={false}>
+                    <DialogTitle className="sr-only">Fotoğraf Önizleme</DialogTitle>
+                     <div className="relative inline-block">
+                        <img 
+                            src={selectedImage || undefined} 
+                            alt="Önizleme" 
+                            className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl"
+                        />
+                        <button 
+                            onClick={() => setSelectedImage(null)}
+                            className="absolute -top-4 -right-4 bg-white rounded-full p-2 shadow-lg hover:bg-slate-100 transition-colors z-50 pointer-events-auto cursor-pointer"
+                        >
+                            <X className="h-6 w-6 text-slate-800" />
+                        </button>
+                     </div>
+                </DialogContent>
+            </Dialog>
         </>
     );
 }

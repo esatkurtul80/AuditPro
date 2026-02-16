@@ -184,6 +184,7 @@ export default function MagazaPage() {
             const auditsData = auditsSnapshot.docs
                 .map((doc) => ({ id: doc.id, ...doc.data() } as Audit))
                 .filter((audit) => {
+                    if (!audit.completedAt) return false; // Add this
                     // "hayır" cevabı olan veya checkbox sorusunda tam puan alamayan (ama cevaplanmış ve muaf olmayan) denetimleri al
                     return audit.sections.some((section) => {
                         return section.answers.some((answer) => {

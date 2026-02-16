@@ -34,6 +34,11 @@ import {
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
+    Dialog,
+    DialogContent,
+    DialogTitle,
+} from "@/components/ui/dialog";
+import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
@@ -459,7 +464,7 @@ export default function AdminDashboard() {
                         onClick={() => setSpecialReportAudit(row.original)}
                     >
                         <FileText className="h-4 w-4" />
-                        <span>İndir</span>
+                        <span>Rapor</span>
                     </Button>
                 );
             },
@@ -821,17 +826,22 @@ export default function AdminDashboard() {
 
 
             {specialReportAudit && (
-                <SpecialReportGenerator 
-                    audit={specialReportAudit} 
-                    onComplete={() => {
-                        toast.success("Rapor başarıyla oluşturuldu");
-                        setSpecialReportAudit(null);
-                    }}
-                    onError={() => {
-                        toast.error("Rapor oluşturulurken hata oluştu");
-                        setSpecialReportAudit(null);
-                    }}
-                />
+                <Dialog open={!!specialReportAudit} onOpenChange={(open) => { if (!open) setSpecialReportAudit(null); }}>
+                    <DialogContent showCloseButton={false} className="!max-w-[1000px] w-full max-h-[90vh] overflow-y-auto overflow-x-hidden p-0 bg-zinc-100/50 backdrop-blur-sm border-none shadow-2xl rounded-xl">
+                        <DialogTitle className="sr-only">Özel Rapor Önizleme</DialogTitle>
+                        <SpecialReportGenerator 
+                            audit={specialReportAudit}
+                            mode="preview"
+                            onClose={() => setSpecialReportAudit(null)}
+                            onComplete={() => {
+                                toast.success("Rapor başarıyla oluşturuldu");
+                            }}
+                            onError={() => {
+                                toast.error("Rapor oluşturulurken hata oluştu");
+                            }}
+                        />
+                    </DialogContent>
+                </Dialog>
             )}
         </>
     );
