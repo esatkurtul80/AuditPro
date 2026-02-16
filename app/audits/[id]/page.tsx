@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/auth-provider";
 import { DashboardLayout } from "@/components/dashboard-layout";
+import { RegionalManagerHeader } from "@/components/regional-manager/regional-header";
 import {
     doc,
     getDoc,
@@ -82,6 +83,20 @@ export default function AuditPage() {
     const [resetAlertOpen, setResetAlertOpen] = useState(false);
     const [sectionToReset, setSectionToReset] = useState<number | null>(null);
     const touchTimer = useRef<NodeJS.Timeout | null>(null);
+
+    const isRegionalManager = userProfile?.role === 'bolge-muduru';
+
+    const Layout = ({ children }: { children: React.ReactNode }) => {
+        if (isRegionalManager) {
+            return (
+                <div className="min-h-screen bg-background pb-20">
+                    <RegionalManagerHeader />
+                    {children}
+                </div>
+            );
+        }
+        return <DashboardLayout>{children}</DashboardLayout>;
+    };
 
     const handleTouchStart = (index: number) => {
         if (!canEdit) return;
@@ -966,21 +981,21 @@ export default function AuditPage() {
 
     if (loading) {
         return (
-            <DashboardLayout>
+            <Layout>
                 <div className="flex min-h-screen items-center justify-center">
                     <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 </div>
-            </DashboardLayout>
+            </Layout>
         );
     }
 
     if (!audit) {
         return (
-            <DashboardLayout>
+            <Layout>
                 <div className="flex min-h-screen items-center justify-center">
                     <p>Denetim bulunamadı.</p>
                 </div>
-            </DashboardLayout>
+            </Layout>
         );
     }
 
@@ -990,24 +1005,20 @@ export default function AuditPage() {
     const canEdit = !isViewMode;
 
     return (
-        <DashboardLayout>
-            <div className="container mx-auto py-8 px-4 md:px-6">
+        <Layout>
+            <div className="container mx-auto py-3 px-4 md:px-6">
                 <div className="mb-6 flex items-center justify-between">
                     {currentSectionIndex !== null ? (
                         <Button
-                            variant="outline"
-                            size="lg"
-                            className="bg-background hover:bg-muted shadow-sm"
+                            className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-md shadow-purple-500/20"
                             onClick={handleBack}
                         >
                             <ArrowLeft className="mr-2 h-4 w-4" />
-                            Geri
+                            Geri Dön
                         </Button>
                     ) : (
                         <Button
-                            variant="outline"
-                            size="lg"
-                            className="bg-background hover:bg-muted shadow-sm"
+                            className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-md shadow-purple-500/20"
                             onClick={() => {
                                 const backDestination = userProfile?.role === 'admin' ? '/admin/dashboard'
                                     : userProfile?.role === 'magaza' ? '/magaza/panel'
@@ -1025,7 +1036,7 @@ export default function AuditPage() {
                             }}
                         >
                             <ArrowLeft className="mr-2 h-4 w-4" />
-                            Geri
+                            Geri Dön
                         </Button>
                     )}
                     <div className="flex gap-2">
@@ -1864,6 +1875,7 @@ export default function AuditPage() {
                 </div>
 
             </div>
-        </DashboardLayout >
+        </Layout>
     );
 }
+

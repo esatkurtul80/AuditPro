@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, useLayoutEffect } from "react";
+import { useEffect, useLayoutEffect } from "react";
 import { useAuth } from "@/components/auth-provider";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { RegionalManagerHeader } from "@/components/regional-manager/regional-header";
 import { RegionalBottomNav } from "@/components/regional-manager/regional-bottom-nav";
 import { RegionalDashboard } from "@/components/regional-manager/regional-dashboard";
@@ -12,7 +12,11 @@ import { Settings } from "lucide-react";
 export default function RegionalManagerPage() {
     const { userProfile, loading: authLoading } = useAuth();
     const router = useRouter();
-    const [activeTab, setActiveTab] = useState<"panel" | "scores" | "settings">("panel");
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
+    
+    // Get active tab from URL or default to "panel"
+    const activeTab = (searchParams.get("tab") as "panel" | "scores" | "settings") || "panel";
 
     useEffect(() => {
         if (!authLoading) {
@@ -23,9 +27,11 @@ export default function RegionalManagerPage() {
         }
     }, [authLoading, userProfile, router]);
 
-    // Handle Tab Change
+    // Handle Tab Change - Update URL
     const handleTabChange = (tab: "panel" | "scores" | "settings") => {
-        setActiveTab(tab);
+        const params = new URLSearchParams(searchParams);
+        params.set("tab", tab);
+        router.push(`${pathname}?${params.toString()}`);
     };
 
     // Scroll to top on tab change

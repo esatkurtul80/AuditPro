@@ -6,7 +6,7 @@ import { doc, getDoc, collection, query, where, orderBy, limit, getDocs } from "
 import { db } from "@/lib/firebase";
 import { format } from "date-fns";
 import { tr } from "date-fns/locale";
-import { Loader2, Download, X } from "lucide-react";
+import { Loader2, Download, X, ArrowLeft } from "lucide-react";
 
 // ... existing imports
 
@@ -23,6 +23,7 @@ interface SpecialReportGeneratorProps {
     onComplete?: () => void;
     onError?: (error: any) => void;
     onClose?: () => void;
+    headerOffset?: string | number; // New prop for sticky offset
 }
 
 declare global {
@@ -31,7 +32,7 @@ declare global {
     }
 }
 
-export function SpecialReportGenerator({ audit, store, mode = 'download', onComplete, onError, onClose }: SpecialReportGeneratorProps) {
+export function SpecialReportGenerator({ audit, store, mode = 'download', onComplete, onError, onClose, headerOffset = 0 }: SpecialReportGeneratorProps) {
     const reportRef = useRef<HTMLDivElement>(null);
     const [templateId, setTemplateId] = useState('st-1');
     const [typography, setTypography] = useState({
@@ -49,6 +50,45 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
     const [scriptLoaded, setScriptLoaded] = useState(false);
     const [fetchedStore, setFetchedStore] = useState<Store | null>(null);
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
+
+
+    // Dynamic Mobile Scaling
+    const [mobileScale, setMobileScale] = useState(1);
+    const [mobileMarginLeft, setMobileMarginLeft] = useState(0);
+    
+    useEffect(() => {
+        const handleResize = () => {
+             if (mode !== 'preview') return;
+             if (typeof window === 'undefined') return;
+
+             const w = window.innerWidth;
+             const contentWidth = 794; // A4 width in pixels
+             
+             // 820px threshold matches the previous CSS breakpoint
+             if (w < 820) {
+                 const padding = 20; // 10px each side
+                 const availableWidth = w - padding;
+                 const targetScale = availableWidth / contentWidth;
+                 
+                 setMobileScale(targetScale);
+                 
+                 // Calculate centering margin
+                 // scaledWidth = 794 * targetScale
+                 // remainingSpace = w - scaledWidth
+                 // marginLeft = remainingSpace / 2
+                 const scaledWidth = contentWidth * targetScale;
+                 const margin = (w - scaledWidth) / 2;
+                 setMobileMarginLeft(margin);
+             } else {
+                 setMobileScale(1);
+                 setMobileMarginLeft(0);
+             }
+        };
+
+        handleResize();
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, [mode]);
 
     const activeStore = store || fetchedStore;
 
@@ -278,6 +318,8 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
         return format(d, "yyyy / ww. 'Hafta'", { locale: tr });
     };
 
+
+
     return (
         <>
             <Script 
@@ -418,30 +460,65 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
                 .st-14 { --primary: #8d6e63; } .st-14 .report-page { background: #fdf5e6; }
                 .st-16 { --primary: #192a56; } .st-16 .report-page { border: 10px double #192a56; }
                 .st-17 { --primary: #00b894; } .st-17 .report-header { border-top: 10px solid #00b894; }
+
+                /* CSS based scaling removed in favor of JS calculation */
+                @media (max-width: 820px) {
+                    .print-preview-container {
+                        padding-left: 0 !important;
+                        padding-right: 0 !important;
+                        overflow-x: hidden !important;
+                        align-items: flex-start !important;
+                        display: block !important; /* Allow block flow for negative margins */
+                        text-align: center;
+                    }
+                    .print-preview-content {
+                        /* Scaling injected via inline style */
+                        transform-origin: top center;
+                        margin: 0 auto !important;
+                        /* We need to allow the container to shrink in height visually */
+                    }
+                     /* Ensure sticky header stays on top */
+                    .sticky-header {
+                        width: 100%;
+                    }
+                }
+                
+                @media (min-width: 821px) and (max-width: 1000px) {
+                     .print-preview-content {
+                        transform: scale(0.8);
+                        transform-origin: top center;
+                        margin-bottom: -20% !important;
+                    }
+                }
             `}</style>
             
             {/* Sticky Download Bar for Preview Mode - Moved to TOP */}
             {mode === 'preview' && (
                 <div style={{ 
                     position: "sticky", 
-                    top: 0, 
-                    zIndex: 50, 
+                    top: headerOffset, 
+                    zIndex: 49,
                     display: "flex", 
-                    justifyContent: "flex-end", 
+                    justifyContent: "space-between", 
                     alignItems: "center",
                     gap: "8px",
-                    padding: "16px 24px", 
-                    background: "rgba(255,255,255,0.9)", 
+                    padding: "8px 16px", 
+                    background: "rgba(255,255,255,0.95)", 
                     backdropFilter: "blur(12px)",
-                    borderBottom: "1px solid rgba(0,0,0,0.05)",
-                    marginBottom: "20px"
-                }}>
-                    <div className="mr-auto font-medium text-slate-700">Denetim Raporu Önizleme</div>
+                    borderBottom: "1px solid rgba(0,0,0,0.08)",
+                    marginBottom: "12px"
+                }} className="sticky-header">
+                    {onClose && (
+                        <Button onClick={onClose} className="gap-1.5 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-md shadow-purple-500/20">
+                            <ArrowLeft className="h-4 w-4" />
+                            Geri
+                        </Button>
+                    )}
                     
                     <Button
                         onClick={() => generatePDF()}
                         disabled={generating || !scriptLoaded}
-                        className="gap-2 bg-slate-900 hover:bg-slate-800 text-white shadow-sm"
+                        className="gap-2 bg-slate-900 hover:bg-slate-800 text-white shadow-sm ml-auto"
                     >
                         {generating ? (
                             <><Loader2 className="h-4 w-4 animate-spin" /> Hazırlanıyor...</>
@@ -449,25 +526,24 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
                             <><Download className="h-4 w-4" /> PDF İndir</>
                         )}
                     </Button>
-                    {onClose && (
-                        <Button variant="ghost" size="icon" onClick={onClose}>
-                            <X className="h-5 w-5 text-slate-500" />
-                        </Button>
-                    )}
                 </div>
             )}
 
             {/* Report Container - hidden in download mode, visible in preview mode */}
-            <div className={mode === 'preview' ? "flex justify-center px-8 pb-12 bg-transparent min-h-full" : ""} style={mode === 'preview' ? {} : { position: "absolute", left: "-9999px", top: "-9999px" }}>
+            <div className={mode === 'preview' ? "flex justify-center px-8 pb-12 bg-transparent min-h-full print-preview-container" : ""} style={mode === 'preview' ? {} : { position: "absolute", left: "-9999px", top: "-9999px" }}>
                 <div 
                     ref={reportRef} 
-                    className={`generator-wrapper ${templateId}`}
+                    className={`generator-wrapper ${templateId} print-preview-content`}
                     style={{
                         ...cssVars,
                         width: mode === 'preview' ? '794px' : undefined,
                         minHeight: mode === 'preview' ? '1123px' : undefined,
                         margin: mode === 'preview' ? '0 auto' : undefined,
                         boxShadow: mode === 'preview' ? '0 4px 24px rgba(0,0,0,0.08)' : undefined,
+                        transform: mobileScale < 1 ? `scale(${mobileScale})` : 'none',
+                        transformOrigin: mobileScale < 1 ? 'top left' : undefined,
+                        marginLeft: mobileScale < 1 ? `${mobileMarginLeft}px` : (mode === 'preview' ? 'auto' : undefined),
+                        marginBottom: mobileScale < 1 ? `-${(1 - mobileScale) * 100}%` : undefined
                     }}
                 >
                     <div className="report-page">

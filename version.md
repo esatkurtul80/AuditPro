@@ -1,8 +1,13 @@
 # Project Version
 
-**Current Version:** v2.2.29
+**Current Version:** v2.2.30
 
 ## Changelog
+
+### v2.2.30
+- **UI/UX (Bölge Müdürü Paneli):** Mağaza kartlarına "Dönüş Bekliyor" statüsü ve kalan gün/geçen gün sayacı eklendi.
+- **UI/UX (Bölge Müdürü Paneli):** Mağaza dönüş yapmadıysa buton gizlendi, yaptıysa belirgin hale getirildi.
+- **UI/UX (Özel Rapor):** Geri butonu mavi stil ile güncellendi, üst boşluklar azaltıldı, butonlar genişletildi.
 
 ### v2.2.29
 - **Admin Raporları (Hata Düzeltme):** Radyo butonlu (veya çoktan seçmeli) sorularda puan kaybı yaşandığında sorunun raporda görünmemesi hatası giderildi.

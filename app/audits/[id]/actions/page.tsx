@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/components/auth-provider";
 import { DashboardLayout } from "@/components/dashboard-layout";
+import { RegionalManagerHeader } from "@/components/regional-manager/regional-header";
 import { ProtectedRoute } from "@/components/protected-route";
 import {
     doc,
@@ -1463,14 +1464,7 @@ export default function AuditActionsPage() {
         if (!hasPermission) return null;
     }
 
-    // If we are checking permission (and likely about to redirect), don't render content
-    if (userProfile?.role === "magaza") {
-        const hasPermission =
-            (userProfile.storeId && audit.storeId && userProfile.storeId === audit.storeId) ||
-            (userProfile.storeName && audit.storeName && userProfile.storeName === audit.storeName);
 
-        if (!hasPermission) return null;
-    }
 
     const isAdmin = userProfile?.role === "admin";
     const isStore = userProfile?.role === "magaza";
@@ -1488,10 +1482,24 @@ export default function AuditActionsPage() {
             )
     );
 
+    const isRegionalManager = userProfile?.role === 'bolge-muduru';
+
+    const Layout = ({ children }: { children: React.ReactNode }) => {
+        if (isRegionalManager) {
+            return (
+                <div className="min-h-screen bg-background pb-20">
+                    <RegionalManagerHeader />
+                    {children}
+                </div>
+            );
+        }
+        return <DashboardLayout>{children}</DashboardLayout>;
+    };
+
     return (
         <ProtectedRoute allowedRoles={["admin", "magaza", "bolge-muduru"]}>
-            <DashboardLayout>
-                <div className="container mx-auto py-8 px-4 md:px-6">
+            <Layout>
+                <div className="container mx-auto py-3 px-4 md:px-6">
                     <div className="mb-6">
                         <div className="flex justify-between items-start mb-4">
                             <Button
@@ -2015,7 +2023,7 @@ export default function AuditActionsPage() {
                         onClose={() => setSelectedImage(null)}
                     />
                 )}
-            </DashboardLayout>
+            </Layout>
         </ProtectedRoute >
     );
 }

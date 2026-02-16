@@ -23,15 +23,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-    Dialog,
-    DialogContent,
-    DialogTitle,
+
 } from "@/components/ui/dialog";
 import {
     Store as StoreIcon,
     ClipboardList,
     CheckCircle2,
     PlayCircle,
+    Clock,
     ChevronRight,
     TrendingUp,
     AlertTriangle
@@ -39,7 +38,7 @@ import {
 import Link from "next/link";
 import { format } from "date-fns";
 import { tr } from "date-fns/locale";
-import { SpecialReportGenerator } from "@/components/admin/special-report-generator";
+
 import { useRouter } from "next/navigation";
 import { Eye, FileText, Zap } from "lucide-react";
 import { toast } from "sonner";
@@ -52,7 +51,7 @@ export function RegionalDashboard() {
     const [selectedMonth, setSelectedMonth] = useState<string>("all");
     const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
     const [selectedStore, setSelectedStore] = useState<string>("all");
-    const [reportAudit, setReportAudit] = useState<any>(null);
+
     const router = useRouter();
 
     useEffect(() => {
@@ -385,29 +384,56 @@ export function RegionalDashboard() {
                                     ? Math.round(sectionScores.reduce((sum, score) => sum + score, 0) / sectionScores.length)
                                     : 0;
 
-                                return (
+                                return (() => {
+                                    // Determine if store has action items and their status
+                                    const actionItems = audit.sections?.flatMap((section: any) =>
+                                        section.answers?.filter((a: any) =>
+                                            a.answer && a.answer.trim() !== "" && a.answer !== "muaf" && (a.earnedPoints || 0) < (a.maxPoints || 0)
+                                        ) || []
+                                    ) || [];
+
+                                    const hasActions = actionItems.length > 0;
+                                    const storeResponded = hasActions && actionItems.some((a: any) =>
+                                        a.actionData?.status === "pending_review" || a.actionData?.status === "approved"
+                                    );
+
+                                    // Deadline calculation
+                                    let deadlineDays: number | null = null;
+                                    let deadlinePassed = false;
+                                    if (hasActions && audit.actionDeadline) {
+                                        const deadlineMs = audit.actionDeadline.seconds * 1000;
+                                        const now = Date.now();
+                                        const diffMs = deadlineMs - now;
+                                        deadlineDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+                                        deadlinePassed = diffMs < 0;
+                                    }
+
+                                    return (
                                     <div key={audit.id} className="block mb-2 last:mb-0">
-                                        <div className="flex flex-col p-3 border rounded-lg hover:bg-accent/50 transition-colors group gap-3">
+                                        <div className="flex flex-col p-3 border-2 border-border/80 rounded-xl shadow-sm hover:shadow-md hover:border-primary/20 transition-all group gap-3">
                                             <div className="flex items-center justify-between">
                                                 <div className="flex-1 min-w-0 space-y-0.5">
                                                     <p className="text-sm font-medium truncate">{audit.storeName}</p>
                                                     <p className="text-[10px] text-muted-foreground truncate">{audit.auditorName || "Denetmen"}</p>
-                                                    <div className="flex items-center gap-2">
-                                                        {audit.status === "devam_ediyor" ? (
-                                                            <Badge variant="outline" className="text-yellow-600 border-yellow-600 text-[10px] px-1.5 py-0">
-                                                                <PlayCircle className="mr-1 h-2.5 w-2.5" />
-                                                                Devam Ediyor
-                                                            </Badge>
-                                                        ) : (
-                                                            <Badge variant="outline" className="text-green-600 border-green-600 text-[10px] px-1.5 py-0">
-                                                                <CheckCircle2 className="mr-1 h-2.5 w-2.5" />
-                                                                Tamamlandı
+                                                    <div className="flex items-center gap-2 flex-wrap">
+                                                        {hasActions && !storeResponded && (
+                                                            <Badge variant="outline" className="text-orange-600 border-orange-500 bg-orange-50 dark:bg-orange-950/30 text-[10px] px-1.5 py-0">
+                                                                <Clock className="mr-1 h-2.5 w-2.5" />
+                                                                Dönüş Bekliyor
                                                             </Badge>
                                                         )}
                                                         <span className="text-[10px] text-muted-foreground">
                                                             {audit.createdAt?.seconds ? format(new Date(audit.createdAt.seconds * 1000), "d MMM yyyy", { locale: tr }) : "-"}
                                                         </span>
                                                     </div>
+                                                    {hasActions && deadlineDays !== null && !storeResponded && (
+                                                        <Badge variant="outline" className={`text-[10px] px-1.5 py-0 mt-0.5 ${deadlinePassed ? 'text-red-600 border-red-500 bg-red-50 dark:bg-red-950/30' : 'text-muted-foreground border-muted-foreground/40'}`}>
+                                                            {deadlinePassed
+                                                                ? `⚠ Son dönüş tarihi ${Math.abs(deadlineDays)} gün geçti`
+                                                                : `Son dönüş tarihine ${deadlineDays} gün kaldı`
+                                                            }
+                                                        </Badge>
+                                                    )}
                                                 </div>
                                                 <div className="flex items-center gap-2 ml-3">
                                                     <div className="text-right">
@@ -417,62 +443,50 @@ export function RegionalDashboard() {
                                                 </div>
                                             </div>
                                             
-                                            <div className="flex items-center justify-end gap-2 pt-2 border-t">
-                                                <Button 
-                                                    variant="outline" 
-                                                    size="sm" 
-                                                    className="h-7 text-xs"
-                                                    onClick={() => router.push(`/admin/actions?storeId=${audit.storeId}`)}
-                                                >
-                                                    <Zap className="mr-1.5 h-3 w-3" />
-                                                    Mağaza Aksiyonu
-                                                </Button>
-                                                <Button 
-                                                    variant="outline" 
-                                                    size="sm" 
-                                                    className="h-7 text-xs"
-                                                    onClick={() => router.push(`/audits/${audit.id}`)}
-                                                >
-                                                    <Eye className="mr-1.5 h-3 w-3" />
-                                                    İncele
-                                                </Button>
-                                                <Button 
-                                                    variant="outline" 
-                                                    size="sm" 
-                                                    className="h-7 text-xs"
-                                                    onClick={() => setReportAudit(audit)}
-                                                >
-                                                    <FileText className="mr-1.5 h-3 w-3" />
-                                                    Özel Rapor
-                                                </Button>
+                                            <div className="flex flex-col gap-2 pt-2 border-t">
+                                                <div className="flex items-center justify-center gap-2">
+                                                    <Button 
+                                                        variant="outline" 
+                                                        size="sm" 
+                                                        className="flex-1 h-8 text-xs"
+                                                        onClick={() => router.push(`/audits/${audit.id}?mode=view`)}
+                                                    >
+                                                        <Eye className="mr-1.5 h-3 w-3" />
+                                                        İncele
+                                                    </Button>
+                                                    <Button 
+                                                        variant="outline" 
+                                                        size="sm" 
+                                                        className="flex-1 h-8 text-xs"
+                                                        onClick={() => router.push(`/audits/${audit.id}/report`)}
+                                                    >
+                                                        <FileText className="mr-1.5 h-3 w-3" />
+                                                        Özel Rapor
+                                                    </Button>
+                                                </div>
+                                                {hasActions && storeResponded && (
+                                                    <Button 
+                                                        variant="default" 
+                                                        size="sm" 
+                                                        className="w-full h-8 text-xs bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white"
+                                                        onClick={() => router.push(`/audits/${audit.id}/actions`)}
+                                                    >
+                                                        <Zap className="mr-1.5 h-3 w-3" />
+                                                        Mağaza Dönüşü
+                                                    </Button>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
-                                );
+                                    );
+                                })();
                             })}
                         </div>
                     )}
                 </CardContent>
             </Card>
             
-            {reportAudit && (
-                <Dialog open={!!reportAudit} onOpenChange={(open) => { if (!open) setReportAudit(null); }}>
-                    <DialogContent className="!max-w-[95vw] !w-[95vw] max-h-[90vh] overflow-y-auto p-0">
-                        <DialogTitle className="sr-only">Özel Rapor Önizleme</DialogTitle>
-                        <SpecialReportGenerator 
-                            audit={reportAudit}
-                            mode="preview"
-                            onClose={() => setReportAudit(null)}
-                            onComplete={() => {
-                                toast.success("Rapor başarıyla oluşturuldu");
-                            }}
-                            onError={() => {
-                                toast.error("Rapor oluşturulurken hata oluştu");
-                            }}
-                        />
-                    </DialogContent>
-                </Dialog>
-            )}
+
 
             {/* Quick Actions - Placeholder for Reports and Persistent Failures */}
             <div className="grid gap-4 md:grid-cols-2">
