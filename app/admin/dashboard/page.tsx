@@ -56,6 +56,7 @@ import {
     Pencil,
     MapPinOff,
     MapPin,
+    FileText,
 } from "lucide-react";
 import {
     collection,
@@ -78,6 +79,7 @@ import { DataTable } from "@/components/ui/data-table";
 import { ColumnDef, Column, Row } from "@tanstack/react-table";
 import { DataTableColumnHeader } from "@/components/ui/data-table-column-header";
 import { NotificationFeed } from "@/components/announcements/notification-feed";
+import { SpecialReportGenerator } from "@/components/admin/special-report-generator";
 
 export default function AdminDashboard() {
 
@@ -98,7 +100,9 @@ export default function AdminDashboard() {
 
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [auditToDelete, setAuditToDelete] = useState<string | null>(null);
+
     const [deleting, setDeleting] = useState(false);
+    const [specialReportAudit, setSpecialReportAudit] = useState<Audit | null>(null);
 
     useEffect(() => {
         let unsubscribe: () => void;
@@ -443,6 +447,24 @@ export default function AdminDashboard() {
             cell: ({ row }: { row: Row<Audit> }) => <span className="text-sm font-medium">{calculateDuration(row.original.startedAt || null, row.original.completedAt || null)}</span>,
         },
         {
+            id: "specialReport",
+            meta: { title: "Özel Rapor" },
+            header: ({ column }: { column: Column<Audit> }) => <DataTableColumnHeader column={column} title="Özel Rapor" showFilter={false} />,
+            cell: ({ row }) => {
+                return (
+                    <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="h-8 gap-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 border-blue-200"
+                        onClick={() => setSpecialReportAudit(row.original)}
+                    >
+                        <FileText className="h-4 w-4" />
+                        <span>İndir</span>
+                    </Button>
+                );
+            },
+        },
+        {
             id: "actions",
             enableHiding: false,
             cell: ({ row }) => {
@@ -467,6 +489,7 @@ export default function AdminDashboard() {
                                     Düzenle
                                 </Link>
                             </DropdownMenuItem>
+                            {/* Special Report Option Removed as requested */}
                             <DropdownMenuItem
                                 className="text-red-600 cursor-pointer"
                                 onClick={() => {
@@ -487,6 +510,9 @@ export default function AdminDashboard() {
     // Filter audits based on date range before passing to table
     const dateFilteredAudits = audits.filter((audit) => {
         if (!dateRange.from && !dateRange.to) return true;
+        
+        // Safety: if createdAt is missing, show the audit anyway
+        if (!audit.createdAt || !audit.createdAt.toDate) return true;
 
         const auditDate = audit.createdAt.toDate();
         // Reset times for accurate date comparison
@@ -792,6 +818,21 @@ export default function AdminDashboard() {
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
+
+
+            {specialReportAudit && (
+                <SpecialReportGenerator 
+                    audit={specialReportAudit} 
+                    onComplete={() => {
+                        toast.success("Rapor başarıyla oluşturuldu");
+                        setSpecialReportAudit(null);
+                    }}
+                    onError={() => {
+                        toast.error("Rapor oluşturulurken hata oluştu");
+                        setSpecialReportAudit(null);
+                    }}
+                />
+            )}
         </>
     );
 }

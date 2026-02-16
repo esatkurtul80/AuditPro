@@ -101,7 +101,7 @@ const getStoreResponseTime = (audit: Audit): number | null => {
 
     audit.sections.forEach(section => {
         section.answers.forEach(answer => {
-            const isActionNeeded = answer.answer === "hayir" || (answer.questionType === "checkbox" && answer.earnedPoints < answer.maxPoints);
+            const isActionNeeded = answer.answer && answer.answer.trim() !== "" && answer.answer !== "muaf" && (answer.earnedPoints || 0) < (answer.maxPoints || 0);
             if (isActionNeeded && answer.actionData?.submittedAt) {
                 const submissionDate = parseDate(answer.actionData.submittedAt);
                 if (submissionDate && (!earliestSubmission || submissionDate < earliestSubmission)) {
@@ -129,7 +129,7 @@ const getLastSubmissionDate = (audit: Audit): Date | null => {
     let latestSubmission: Date | null = null;
     audit.sections.forEach(section => {
         section.answers.forEach(answer => {
-            const isActionNeeded = answer.answer === "hayir" || (answer.questionType === "checkbox" && answer.earnedPoints < answer.maxPoints);
+            const isActionNeeded = answer.answer && answer.answer.trim() !== "" && answer.answer !== "muaf" && (answer.earnedPoints || 0) < (answer.maxPoints || 0);
             if (isActionNeeded && answer.actionData?.submittedAt) {
                 const submissionDate = parseDate(answer.actionData.submittedAt);
                 if (submissionDate && (!latestSubmission || submissionDate > latestSubmission)) {
@@ -167,7 +167,7 @@ function AdminActionsContent() {
                         // "hayır" cevabı olan veya checkbox sorusunda tam puan alamayan denetimleri al
                         return audit.sections.some((section) =>
                             section.answers.some((answer) =>
-                                answer.answer === "hayir" || (answer.questionType === "checkbox" && answer.earnedPoints < answer.maxPoints)
+                                answer.answer && answer.answer.trim() !== "" && answer.answer !== "muaf" && (answer.earnedPoints || 0) < (answer.maxPoints || 0)
                             )
                         );
                     })
@@ -247,7 +247,7 @@ function AdminActionsContent() {
 
         audit.sections.forEach(section => {
             section.answers.forEach(answer => {
-                const isActionNeeded = answer.answer === "hayir" || (answer.questionType === "checkbox" && answer.earnedPoints < answer.maxPoints);
+                const isActionNeeded = answer.answer && answer.answer.trim() !== "" && answer.answer !== "muaf" && (answer.earnedPoints || 0) < (answer.maxPoints || 0);
 
                 if (isActionNeeded) {
                     const status = answer.actionData?.status || "pending_store";
@@ -435,7 +435,7 @@ function AdminActionsContent() {
                 const audit = row.original;
                 let totalActions = 0;
                 audit.sections.forEach((s: any) => s.answers.forEach((a: any) => {
-                    if (a.answer === "hayir" || (a.questionType === "checkbox" && a.earnedPoints < a.maxPoints)) totalActions++;
+                    if (a.answer && a.answer.trim() !== "" && a.answer !== "muaf" && (a.earnedPoints || 0) < (a.maxPoints || 0)) totalActions++;
                 }));
 
                 const badgeClass = totalActions > 10
@@ -476,7 +476,7 @@ function AdminActionsContent() {
                 let rejectedActions = 0;
 
                 audit.sections.forEach((s: any) => s.answers.forEach((a: any) => {
-                    const isActionNeeded = a.answer === "hayir" || (a.questionType === "checkbox" && a.earnedPoints < a.maxPoints);
+                    const isActionNeeded = a.answer && a.answer.trim() !== "" && a.answer !== "muaf" && (a.earnedPoints || 0) < (a.maxPoints || 0);
                     if (isActionNeeded) {
                         totalActions++;
                         const status = a.actionData?.status || "pending_store";
@@ -506,7 +506,7 @@ function AdminActionsContent() {
                 let pendingStoreActions = 0;
 
                 audit.sections.forEach((s: any) => s.answers.forEach((a: any) => {
-                    const isActionNeeded = a.answer === "hayir" || (a.questionType === "checkbox" && a.earnedPoints < a.maxPoints);
+                    const isActionNeeded = a.answer && a.answer.trim() !== "" && a.answer !== "muaf" && (a.earnedPoints || 0) < (a.maxPoints || 0);
                     if (isActionNeeded) {
                         totalActions++;
                         const s = a.actionData?.status || "pending_store";

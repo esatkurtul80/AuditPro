@@ -66,7 +66,7 @@ const ITEMS_PER_PAGE = 20;
 export function StoreNotificationsView() {
     const router = useRouter();
     const searchParams = useSearchParams();
-    const { userProfile } = useAuth();
+    const { userProfile, loading: authLoading } = useAuth();
 
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [loading, setLoading] = useState(true); // Initial loading true
@@ -77,13 +77,13 @@ export function StoreNotificationsView() {
     const [auditCache, setAuditCache] = useState<Record<string, any>>({});
 
     useEffect(() => {
-        if (userProfile?.uid) {
+        if (userProfile?.uid && !authLoading) {
             const unsubscribeNotifs = loadNotifications();
             return () => {
                 if (unsubscribeNotifs) unsubscribeNotifs();
             };
         }
-    }, [userProfile, filterType]);
+    }, [userProfile, filterType, authLoading]);
 
     useEffect(() => {
         const highlightId = searchParams.get("highlight");
@@ -137,6 +137,11 @@ export function StoreNotificationsView() {
             setNotifications(notifs);
             setLastDoc(snapshot.docs[snapshot.docs.length - 1] || null);
             setHasMore(snapshot.docs.length === ITEMS_PER_PAGE);
+            setLoading(false);
+        }, (error) => {
+            if (error.code !== 'permission-denied') {
+                console.error("StoreNotificationsView: Listener error:", error);
+            }
             setLoading(false);
         });
 

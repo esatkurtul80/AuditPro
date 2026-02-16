@@ -11,11 +11,11 @@ import { db } from "@/lib/firebase";
 
 export function BottomNav() {
     const pathname = usePathname();
-    const { userProfile } = useAuth();
+    const { userProfile, loading } = useAuth();
     const [unreadCount, setUnreadCount] = useState(0);
 
     useEffect(() => {
-        if (userProfile?.uid) {
+        if (userProfile?.uid && !loading) {
             const q = query(
                 collection(db, "notifications"),
                 where("userId", "==", userProfile.uid),
@@ -25,11 +25,16 @@ export function BottomNav() {
 
             const unsubscribe = onSnapshot(q, (snapshot) => {
                 setUnreadCount(snapshot.size);
+            }, (error) => {
+                // Silently handle permission errors causing by auth race conditions
+                if (error.code !== 'permission-denied') {
+                    console.error("BottomNav: Notification listener error:", error);
+                }
             });
 
             return () => unsubscribe();
         }
-    }, [userProfile?.uid]);
+    }, [userProfile?.uid, loading]);
 
     const items = [
         {

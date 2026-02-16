@@ -158,6 +158,12 @@ export interface AuditSection {
     // Duration Tracking
     startedAt?: Timestamp;
     completedAt?: Timestamp;
+
+    // Special Report Feedback
+    feedback?: {
+        note: string;
+        images: string[];
+    };
 }
 
 export type AuditStatus = "devam_ediyor" | "tamamlandi" | "iptal_edildi";

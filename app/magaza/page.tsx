@@ -371,14 +371,8 @@ export default function MagazaPage() {
                                         let pendingActionCount = 0;
                                         audit.sections.forEach(s => {
                                             s.answers.forEach(a => {
-                                                const isCheckboxActionNeeded = a.questionType === "checkbox" && 
-                                                                               a.answer && 
-                                                                               a.answer !== "hicbiri" && 
-                                                                               a.answer !== "muaf" &&
-                                                                               a.earnedPoints < a.maxPoints;
+                                                const isActionNeeded = a.earnedPoints < a.maxPoints && a.answer !== "muaf";
                                                 
-                                                const isActionNeeded = a.answer === "hayir" || isCheckboxActionNeeded;
-
                                                 if (isActionNeeded) {
                                                     const status = a.actionData?.status;
                                                     if (!status || status === "pending_store" || status === "rejected") {
@@ -441,11 +435,31 @@ export default function MagazaPage() {
                                                     </div>
 
                                                     {/* Footer */}
-                                                    <Link href={`/audits/${audit.id}/actions`} className="w-full mt-auto">
-                                                        <Button className="w-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-slate-200 rounded-xl py-5 font-semibold shadow-sm transition-all active:scale-[0.98]">
-                                                            İncele
-                                                        </Button>
-                                                    </Link>
+                                                    <div className="flex gap-2 mt-auto">
+                                                        {((audit.actionStats?.pending_store || 0) > 0 || (audit.actionStats?.rejected || 0) > 0) ? (
+                                                            <Link href={`/audits/${audit.id}/actions`} className="w-full">
+                                                                <Button className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl py-6 font-bold shadow-md shadow-blue-500/20 transition-all hover:scale-[1.02] active:scale-[0.98]">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span>Dönüş Yap</span>
+                                                                        <div className="bg-white/20 rounded-full p-1">
+                                                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-send"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
+                                                                        </div>
+                                                                    </div>
+                                                                </Button>
+                                                            </Link>
+                                                        ) : (
+                                                            <Link href={(audit.actionStats?.pending_admin || 0) > 0 ? `/audits/${audit.id}/actions` : `/audits/${audit.id}`} className="w-full">
+                                                                <Button variant="outline" className="w-full border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl py-5 font-semibold transition-all">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-eye"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                                                                        <span>
+                                                                            {(audit.actionStats?.pending_admin || 0) > 0 ? "Aksiyon Gör" : "İncele"}
+                                                                        </span>
+                                                                    </div>
+                                                                </Button>
+                                                            </Link>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </GridItem>
                                         );

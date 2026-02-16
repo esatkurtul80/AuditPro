@@ -34,7 +34,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Upload, X, CheckCircle2, ArrowLeft, Circle, Plus, Save, WifiOff, Clock, Star, ChevronRight, AlertCircle, MoreHorizontal, ClipboardList } from "lucide-react";
+import { Loader2, Upload, X, CheckCircle2, ArrowLeft, Circle, Plus, Save, WifiOff, Clock, Star, ChevronRight, AlertCircle, MoreHorizontal, ClipboardList, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
 import * as LucideIcons from "lucide-react";
 import Link from "next/link";
@@ -129,6 +129,25 @@ export default function AuditPage() {
             return cleanAnswer;
         });
 
+        // Recalculate totalScore (same logic as updateAnswer)
+        const sectionScores: number[] = [];
+        updatedAudit.sections.forEach(sec => {
+            let sectionEarned = 0;
+            let sectionMax = 0;
+            sec.answers.forEach(ans => {
+                if (ans.answer && ans.answer.trim() !== "" && ans.answer !== "muaf") {
+                    sectionEarned += ans.earnedPoints;
+                    sectionMax += ans.maxPoints;
+                }
+            });
+            if (sectionMax > 0) {
+                sectionScores.push((sectionEarned / sectionMax) * 100);
+            }
+        });
+        updatedAudit.totalScore = sectionScores.length > 0
+            ? Math.round(sectionScores.reduce((sum, s) => sum + s, 0) / sectionScores.length)
+            : 0;
+
         // Update local state
         setAudit(updatedAudit);
         setResetAlertOpen(false);
@@ -147,6 +166,7 @@ export default function AuditPage() {
 
             await updateDoc(doc(db, "audits", auditId), {
                 sections: sectionsToSave,
+                totalScore: updatedAudit.totalScore,
                 updatedAt: Timestamp.now(),
             });
             toast.success("Bölüm başarıyla sıfırlandı");
@@ -435,7 +455,8 @@ export default function AuditPage() {
             );
             const totalQuestions = section.answers.length;
 
-            // Eğer bölümde en az 1 cevap varsa, tüm sorular cevaplanmalı
+            // Eğer bölümde hiç cevap yoksa, o bölümü "muaf" veya "atlanan" olarak kabul et ve zorlama.
+            // Ama eğer en az 1 cevap varsa, tüm sorular cevaplanmalı (kullanıcının isteği).
             if (answeredQuestions.length > 0 && answeredQuestions.length < totalQuestions) {
                 incompleteSections.push(section.sectionName);
             }
@@ -628,6 +649,61 @@ export default function AuditPage() {
     const saveAndNotify = async () => {
         if (!audit || !auditId || !userProfile) return;
 
+        // Same validation as completeAudit — edit mode must enforce same rules
+        
+        // 1. Section consistency check
+        const incompleteSections: string[] = [];
+        audit.sections.forEach(section => {
+            const answeredQuestions = section.answers.filter(
+                answer => answer.answer && answer.answer.trim() !== ""
+            );
+            const totalQuestions = section.answers.length;
+            if (answeredQuestions.length > 0 && answeredQuestions.length < totalQuestions) {
+                incompleteSections.push(section.sectionName);
+            }
+        });
+
+        if (incompleteSections.length > 0) {
+            toast.error(
+                `Lütfen şu bölümlerdeki tüm soruları cevaplayın: ${incompleteSections.join(", ")}`,
+                { duration: 5000 }
+            );
+            return;
+        }
+
+        // 2. Required photo check
+        const missingPhotos: string[] = [];
+        audit.sections.forEach(section => {
+            section.answers.forEach(answer => {
+                if (answer.answer && answer.answer.trim() !== "" && answer.photoRequired) {
+                    if (!answer.photos || answer.photos.length === 0) {
+                        missingPhotos.push(`${section.sectionName}: ${answer.questionText}`);
+                    }
+                }
+            });
+        });
+
+        // 3. Required notes for "Hayır" answers
+        const missingNotes: string[] = [];
+        audit.sections.forEach(section => {
+            section.answers.forEach(answer => {
+                if (answer.answer === "hayir") {
+                    const hasValidNote = answer.notes &&
+                        answer.notes.length > 0 &&
+                        answer.notes.some(note => note && note.trim() !== "");
+                    if (!hasValidNote) {
+                        missingNotes.push(`${section.sectionName}: ${answer.questionText}`);
+                    }
+                }
+            });
+        });
+
+        if (missingPhotos.length > 0 || missingNotes.length > 0) {
+            setValidationErrors({ photos: missingPhotos, notes: missingNotes });
+            setShowValidationModal(true);
+            return;
+        }
+
         setSaving(true);
 
         try {
@@ -818,6 +894,67 @@ export default function AuditPage() {
         } finally {
             setSaving(false);
         }
+    };
+
+    const updateSectionFeedback = async (
+        sectionIndex: number,
+        updates: Partial<{ note: string; images: string[] }>
+    ) => {
+        if (!audit || !auditId) return;
+
+        // Mark as dirty when editing in edit mode
+        if (isEditMode && !isDirty) {
+            setIsDirty(true);
+        }
+
+        const updatedAudit = { ...audit };
+        const section = updatedAudit.sections[sectionIndex];
+
+        // Initialize feedback if not exists
+        if (!section.feedback) {
+            section.feedback = { note: "", images: [] };
+        }
+
+        // Update feedback
+        section.feedback = { ...section.feedback, ...updates };
+
+        // Ensure images is always array
+        if (!section.feedback.images) section.feedback.images = [];
+
+        // Update state
+        setAudit(updatedAudit);
+        
+        // If in edit mode, DON'T save to Firebase (only save when clicking "Kaydet")
+         const currentMode = new URLSearchParams(window.location.search).get('mode');
+         const isInEditMode = currentMode === 'edit' && audit.status === 'tamamlandi';
+
+         if (isInEditMode) {
+             return;
+         }
+
+         try {
+             // Filter out local:// URLs before saving to Firestore
+             const sectionsToSave = updatedAudit.sections.map(sec => ({
+                 ...sec,
+                 answers: sec.answers.map(ans => ({
+                     ...ans,
+                     photos: (ans.photos || []).filter(u => !u.startsWith('local://'))
+                 })),
+                 feedback: sec.feedback ? {
+                    ...sec.feedback,
+                    note: sec.feedback.note || "", // Ensure note is not undefined
+                    images: (sec.feedback.images || []).filter(u => !u.startsWith('local://'))
+                 } : null // Firestore doesn't support undefined in arrays, use null
+             }));
+             
+             await updateDoc(doc(db, "audits", auditId), {
+                 sections: sectionsToSave,
+                 updatedAt: Timestamp.now()
+             });
+         } catch (error) {
+             console.error("Feedback update error", error);
+             toast.error("Görüş kaydedilirken hata oluştu");
+         }
     };
 
     const getAnswerButtonClass = (selected: boolean) => {
@@ -1205,24 +1342,42 @@ export default function AuditPage() {
                                                 <div className="text-sm text-muted-foreground mt-2">
                                                     Kazanılan: {answer.earnedPoints} / {answer.maxPoints} puan
                                                 </div>
-                                                {/* Muaf butonu */}
-                                                <Button
-                                                    variant={answer.answer === "muaf" ? "default" : "outline"}
-                                                    size="sm"
-                                                    className="w-full"
-                                                    disabled={!canEdit}
-                                                    onClick={() => {
-                                                        if (!canEdit) return;
-                                                        updateAnswer(currentSectionIndex, answerIndex, {
-                                                            answer: "muaf",
-                                                            selectedOptions: [],
-                                                            earnedPoints: 0, // Muaf = hesaba katılmaz
-                                                            maxPoints: 0, // Muaf = hesaba katılmaz
-                                                        });
-                                                    }}
-                                                >
-                                                    Muaf
-                                                </Button>
+                                                {/* Muaf ve Hiçbiri butonu */}
+                                                <div className="flex flex-col gap-2">
+                                                    <Button
+                                                        variant={answer.answer === "hicbiri" ? "destructive" : "outline"}
+                                                        size="sm"
+                                                        className="w-full"
+                                                        disabled={!canEdit}
+                                                        onClick={() => {
+                                                            if (!canEdit) return;
+                                                            updateAnswer(currentSectionIndex, answerIndex, {
+                                                                answer: "hicbiri",
+                                                                selectedOptions: [],
+                                                                earnedPoints: 0, // Hiçbiri = 0 puan, soru cevaplanmış sayılır
+                                                                maxPoints: answer.originalMaxPoints || answer.maxPoints,
+                                                            });
+                                                        }}
+                                                    >
+                                                        Hiçbiri
+                                                    </Button>
+                                                    <Button
+                                                        variant={answer.answer === "muaf" ? "default" : "outline"}
+                                                        size="sm"
+                                                        className="w-full"
+                                                        disabled={!canEdit}
+                                                        onClick={() => {
+                                                            if (!canEdit) return;
+                                                            updateAnswer(currentSectionIndex, answerIndex, {
+                                                                answer: "muaf",
+                                                                earnedPoints: 0, // Muaf = hesaba katılmaz
+                                                                maxPoints: 0, // Muaf = hesaba katılmaz
+                                                            });
+                                                        }}
+                                                    >
+                                                        Muaf
+                                                    </Button>
+                                                </div>
                                             </div>
                                         ) : answer.questionType === 'multiple_choice' && answer.options && answer.options.length > 0 ? (
                                             // MULTIPLE CHOICE: Tek seçim
@@ -1322,23 +1477,42 @@ export default function AuditPage() {
                                                 <div className="text-sm text-muted-foreground">
                                                     Kazanılan: {answer.earnedPoints} / {answer.maxPoints} puan
                                                 </div>
-                                                {/* Muaf butonu */}
-                                                <Button
-                                                    variant={answer.answer === "muaf" ? "default" : "outline"}
-                                                    size="sm"
-                                                    className="w-full"
-                                                    disabled={!canEdit}
-                                                    onClick={() => {
-                                                        if (!canEdit) return;
-                                                        updateAnswer(currentSectionIndex, answerIndex, {
-                                                            answer: "muaf",
-                                                            earnedPoints: 0, // Muaf = hesaba katılmaz
-                                                            maxPoints: 0, // Muaf = hesaba katılmaz
-                                                        });
-                                                    }}
-                                                >
-                                                    Muaf
-                                                </Button>
+                                                {/* Muaf ve Hiçbiri butonu */}
+                                                <div className="flex flex-col gap-2">
+                                                    <Button
+                                                        variant={answer.answer === "hicbiri" ? "destructive" : "outline"}
+                                                        size="sm"
+                                                        className="w-full"
+                                                        disabled={!canEdit}
+                                                        onClick={() => {
+                                                            if (!canEdit) return;
+                                                            updateAnswer(currentSectionIndex, answerIndex, {
+                                                                answer: "hicbiri",
+                                                                earnedPoints: 0, // Hiçbiri = 0 puan, soru cevaplanmış sayılır
+                                                                maxPoints: answer.originalMaxPoints || answer.maxPoints,
+                                                            });
+                                                        }}
+                                                    >
+                                                        Hiçbiri
+                                                    </Button>
+                                                    <Button
+                                                        variant={answer.answer === "muaf" ? "default" : "outline"}
+                                                        size="sm"
+                                                        className="w-full"
+                                                        disabled={!canEdit}
+                                                        onClick={() => {
+                                                            if (!canEdit) return;
+                                                            updateAnswer(currentSectionIndex, answerIndex, {
+                                                                answer: "muaf",
+                                                                earnedPoints: 0, // Muaf = hesaba katılmaz
+                                                                maxPoints: 0, // Muaf = hesaba katılmaz
+                                                            });
+                                                        }}
+                                                    >
+                                                        Muaf
+                                                    </Button>
+                                                </div>
+
                                             </div>
                                         ) : (
                                             // YES_NO (varsayılan): Evet/Hayır/Muaf
@@ -1493,6 +1667,53 @@ export default function AuditPage() {
                                     </div>
                                 </Card>
                             ))}
+                        
+                            {/* Section Feedback Area */}
+                            <Card className="mt-6 p-4 border shadow-sm bg-blue-50/50 dark:bg-blue-900/10 border-blue-200 dark:border-blue-800">
+                                <div className="space-y-4">
+                                    <div>
+                                        <h4 className="font-semibold text-lg flex items-center gap-2">
+                                            <MessageSquare className="h-5 w-5" />
+                                            Bölüm Görüş ve Önerileri
+                                        </h4>
+                                        <p className="text-sm text-muted-foreground">
+                                            Bu bölümle ilgili genel görüş, öneri veya notlarınızı buraya ekleyebilirsiniz.
+                                        </p>
+                                    </div>
+
+                                    <div className="space-y-3">
+                                        <div>
+                                            <Label>Notlar</Label>
+                                            <Textarea
+                                                value={audit.sections[currentSectionIndex].feedback?.note || ""}
+                                                onChange={(e) => updateSectionFeedback(currentSectionIndex, { note: e.target.value })}
+                                                placeholder="Bölüm hakkındaki görüşleriniz..."
+                                                disabled={!canEdit}
+                                                className="min-h-[80px] resize-none mt-1.5"
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <Label>Fotoğraflar</Label>
+                                            <div className="mt-2">
+                                                <ImageGallery
+                                                    images={audit.sections[currentSectionIndex].feedback?.images || []}
+                                                    onImagesChange={(newImages) => updateSectionFeedback(currentSectionIndex, { images: newImages })}
+                                                    auditId={auditId}
+                                                    sectionIndex={currentSectionIndex}
+                                                    answerIndex={-1} // Special index for section feedback
+                                                    questionText={`${audit.sections[currentSectionIndex].sectionName} - Görüş ve Öneriler`}
+                                                    disabled={!canEdit}
+                                                    onUploadStart={() => setUploading(true)}
+                                                    onUploadEnd={() => setUploading(false)}
+                                                    syncingImages={syncingImageUrls}
+                                                    uploadedImages={uploadedImageUrls}
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </Card>
                         </div>
                     )}
 

@@ -1,8 +1,13 @@
 # Project Version
 
-**Current Version:** v2.2.27
+**Current Version:** v2.2.28
 
 ## Changelog
+
+### v2.2.28
+- **Hata Düzeltme:** Mağaza panelinde "Aksiyon Gör" ve "İncele" butonlarının yönlendirme mantığı düzeltildi.
+- **Hata Düzeltme:** Admin panelinde aksiyon onaylama mantığı güncellendi. Puan kaybı olan soruların aksiyon gereklilik durumu global kurala göre yeniden düzenlendi.
+- **UI:** Aksiyon detay sayfasında görünürlük iyileştirmeleri yapıldı.
 
 ### v2.2.27
 - **UI Düzeltme:** Denetmen paneli başlığındaki "AuditPro" logosunun konumu mobil cihazlarda (%37) ve tablet/masaüstü cihazlarda (ortada) olacak şekilde responsif olarak ayarlandı.

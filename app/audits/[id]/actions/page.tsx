@@ -730,7 +730,12 @@ export default function AuditActionsPage() {
         const pendingItems = audit.sections.flatMap((section, sIndex) =>
             section.answers
                 .map((answer, aIndex) => ({ answer, section, sIndex, aIndex }))
-                .filter(item => item.answer.answer === "hayir" || (item.answer.questionType === "checkbox" && item.answer.earnedPoints < item.answer.maxPoints))
+                .filter(item => 
+                    item.answer.answer && 
+                    item.answer.answer.trim() !== "" && 
+                    item.answer.answer !== "muaf" && 
+                    (item.answer.earnedPoints || 0) < (item.answer.maxPoints || 0)
+                )
         ).filter(item => {
             const status = item.answer.actionData?.status || "pending_store";
             return status === "pending_store" || status === "rejected";
@@ -1088,7 +1093,7 @@ export default function AuditActionsPage() {
             // Check if all actions are resolved
             const allResolved = updatedSections.every(section =>
                 section.answers.every(a => {
-                    const isActionNeeded = a.answer === "hayir" || (a.questionType === "checkbox" && a.earnedPoints < a.maxPoints);
+                    const isActionNeeded = a.answer && a.answer.trim() !== "" && a.answer !== "muaf" && (a.earnedPoints || 0) < (a.maxPoints || 0);
                     if (!isActionNeeded) return true;
                     return a.actionData?.status === "approved";
                 })
@@ -1474,7 +1479,13 @@ export default function AuditActionsPage() {
     const actions = audit.sections.flatMap((section, sIndex) =>
         section.answers
             .map((answer, aIndex) => ({ answer, section, sIndex, aIndex }))
-            .filter(item => item.answer.answer === "hayir" || (item.answer.questionType === "checkbox" && item.answer.earnedPoints < item.answer.maxPoints))
+            .filter(item => 
+                // Any point loss is an action (unless exempt)
+                item.answer.answer && 
+                item.answer.answer.trim() !== "" && 
+                item.answer.answer !== "muaf" && 
+                (item.answer.earnedPoints || 0) < (item.answer.maxPoints || 0)
+            )
     );
 
     return (
@@ -1730,7 +1741,7 @@ export default function AuditActionsPage() {
 
                                             {/* Submitted Content (View for Admin or Store waiting) */}
                                             {/* Only show if store has actually submitted (not just typed but not submitted) */}
-                                            {actionData?.storeNote && status !== "pending_store" && status !== "rejected" && (
+                                            {actionData && status !== "pending_store" && status !== "rejected" && (
                                                 <div className="space-y-4 border-t pt-4">
                                                     <h4 className="font-medium flex items-center gap-2">
                                                         <CheckCircle2 className="h-4 w-4 text-primary" />

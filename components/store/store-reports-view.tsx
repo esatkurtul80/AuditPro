@@ -75,7 +75,9 @@ export function StoreReportsView() {
 
             audit.sections.forEach((section: any) => {
                 section.answers?.forEach((answer: any) => {
-                    const isFailure = answer.answer === "hayir" || (answer.questionType === "checkbox" && answer.earnedPoints < (answer.maxPoints || 0));
+                    // Skip unanswered or muaf questions
+                    if (!answer.answer || answer.answer.trim() === "" || answer.answer === "muaf") return;
+                    const isFailure = answer.answer === "hayir" || ((answer.questionType === "checkbox" || answer.questionType === "rating") && answer.earnedPoints < (answer.maxPoints || 0));
                     
                     if (isFailure) {
                         const existing = failureMap.get(answer.questionId);

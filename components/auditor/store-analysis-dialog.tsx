@@ -346,8 +346,12 @@ export function StoreAnalysisDialog({ storeId, storeName, isOpen, onClose }: Sto
                                             // Helper logic inline to extract failures
                                             lastAudit.sections.forEach(section => {
                                                 section.answers.forEach(answer => {
-                                                    if ((answer.questionType === 'yes_no' && answer.answer === 'hayir') || answer.earnedPoints < answer.maxPoints) {
-                                                        failures.push({ ...answer, sectionName: section.sectionName });
+                                                    // Only consider questions that have an actual answer (skipped/empty questions are exempt)
+                                                    if (answer.answer && answer.answer.trim() !== "") {
+                                                        if ((answer.questionType === 'yes_no' && answer.answer === 'hayir') || 
+                                                            (answer.answer !== 'muaf' && answer.earnedPoints < answer.maxPoints)) {
+                                                            failures.push({ ...answer, sectionName: section.sectionName });
+                                                        }
                                                     }
                                                 });
                                             });

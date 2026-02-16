@@ -69,7 +69,7 @@ const ITEMS_PER_PAGE = 20;
 function NotificationsContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
-    const { userProfile } = useAuth();
+    const { userProfile, loading: authLoading } = useAuth();
 
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [loading, setLoading] = useState(true);
@@ -78,15 +78,17 @@ function NotificationsContent() {
     const [hasMore, setHasMore] = useState(true);
     const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
     const [auditCache, setAuditCache] = useState<Record<string, any>>({});
+    
+
 
     useEffect(() => {
-        if (userProfile?.uid) {
+        if (userProfile?.uid && !authLoading) {
             const unsubscribeNotifs = loadNotifications();
             return () => {
                 if (unsubscribeNotifs) unsubscribeNotifs();
             };
         }
-    }, [userProfile, filterType]);
+    }, [userProfile, filterType, authLoading]);
 
     useEffect(() => {
         const highlightId = searchParams.get("highlight");
@@ -141,6 +143,14 @@ function NotificationsContent() {
             setLastDoc(snapshot.docs[snapshot.docs.length - 1] || null);
             setHasMore(snapshot.docs.length === ITEMS_PER_PAGE);
             setLoading(false);
+        }, (error) => {
+             if (error.code !== 'permission-denied') {
+                console.error("NotificationsPage: Listener error:", error);
+            } else {
+                // Permission denied usually means auth is not ready or user has no access.
+                // We stop loading to show "No notifications" or similar state instead of infinite spinner
+                setLoading(false);
+            }
         });
 
         return unsubscribe;

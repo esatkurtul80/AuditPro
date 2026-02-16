@@ -108,7 +108,13 @@ export function StoreHomeView() {
                                 hasActions={audit.hasActions}
                                 actionStats={audit.actionStats}
                                 lastSubmittedAt={audit.lastSubmittedAt}
-                                onClick={() => handleAuditClick(audit.id)}
+                                onClick={() => {
+                                    if ((audit.actionStats?.pending_admin || 0) > 0) {
+                                        router.push(`/audits/${audit.id}/actions`);
+                                    } else {
+                                        handleAuditClick(audit.id);
+                                    }
+                                }}
                                 onActionClick={() => router.push(`/audits/${audit.id}/actions`)}
                             />
                         ))}

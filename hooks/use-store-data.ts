@@ -152,14 +152,11 @@ export function useStoreData() {
                             section.answers?.forEach((answer: any) => {
                                 // 2026-02-11: Updated logic to match other files.
                                 // Don't count empty answers or 'hicbiri' as actions.
-                                const isCheckboxActionNeeded = answer.questionType === "checkbox" && 
-                                                               answer.answer && 
-                                                               answer.answer.trim() !== "" &&
-                                                               answer.answer !== "hicbiri" && 
-                                                               answer.answer !== "muaf" &&
-                                                               (answer.earnedPoints || 0) < (answer.maxPoints || 0);
-
-                                const isActionNeeded = answer.answer === "hayir" || isCheckboxActionNeeded;
+                                const isActionNeeded = 
+                                    answer.answer && 
+                                    answer.answer.trim() !== "" && 
+                                    answer.answer !== "muaf" && 
+                                    (answer.earnedPoints || 0) < (answer.maxPoints || 0);
                                 if (isActionNeeded) {
                                     totalActions++;
                                     const status = answer.actionData?.status;

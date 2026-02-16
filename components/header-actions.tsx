@@ -87,7 +87,7 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
     }, [checkPermissionState]);
 
     useEffect(() => {
-        if (userProfile?.uid) {
+        if (userProfile?.uid && !loading) {
             // Listen to user notifications
             const notifQuery = query(
                 collection(db, "notifications"),
@@ -108,6 +108,11 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
                     : notifs;
 
                 setNotifications(filteredNotifs);
+            }, (error) => {
+                // Silently handle permission errors
+                if (error.code !== 'permission-denied') {
+                    console.error("HeaderActions: Notification listener error:", error);
+                }
             });
 
             // Also listen to pending users if admin
@@ -123,6 +128,8 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
                         ...doc.data()
                     }));
                     setPendingUsers(users);
+                }, (error) => {
+                     console.error("HeaderActions: Pending users listener error:", error);
                 });
             }
 
@@ -131,7 +138,7 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
                 if (unsubscribePending) unsubscribePending();
             };
         }
-    }, [userProfile]);
+    }, [userProfile, loading]);
 
     // Listen to online users (admin only) with timeout check
     useEffect(() => {

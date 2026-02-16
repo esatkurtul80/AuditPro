@@ -34,6 +34,10 @@ import {
 import Link from "next/link";
 import { format } from "date-fns";
 import { tr } from "date-fns/locale";
+import { SpecialReportGenerator } from "@/components/admin/special-report-generator";
+import { useRouter } from "next/navigation";
+import { Eye, FileText, Zap } from "lucide-react";
+import { toast } from "sonner";
 
 export function RegionalDashboard() {
     const { userProfile } = useAuth();
@@ -43,6 +47,8 @@ export function RegionalDashboard() {
     const [selectedMonth, setSelectedMonth] = useState<string>("all");
     const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
     const [selectedStore, setSelectedStore] = useState<string>("all");
+    const [reportAudit, setReportAudit] = useState<any>(null);
+    const router = useRouter();
 
     useEffect(() => {
         if (userProfile?.uid) {
@@ -375,43 +381,88 @@ export function RegionalDashboard() {
                                     : 0;
 
                                 return (
-                                    <Link href={`/audits/${audit.id}`} key={audit.id} className="block mb-2 last:mb-0">
-                                        <div className="flex items-center justify-between p-2 border rounded-lg hover:bg-accent/50 transition-colors cursor-pointer group">
-                                            <div className="flex-1 min-w-0 space-y-0.5">
-                                                <p className="text-sm font-medium truncate">{audit.storeName}</p>
-                                                <p className="text-[10px] text-muted-foreground truncate">{audit.auditorName || "Denetmen"}</p>
-                                                <div className="flex items-center gap-2">
-                                                    {audit.status === "devam_ediyor" ? (
-                                                        <Badge variant="outline" className="text-yellow-600 border-yellow-600 text-[10px] px-1.5 py-0">
-                                                            <PlayCircle className="mr-1 h-2.5 w-2.5" />
-                                                            Devam Ediyor
-                                                        </Badge>
-                                                    ) : (
-                                                        <Badge variant="outline" className="text-green-600 border-green-600 text-[10px] px-1.5 py-0">
-                                                            <CheckCircle2 className="mr-1 h-2.5 w-2.5" />
-                                                            Tamamlandı
-                                                        </Badge>
-                                                    )}
-                                                    <span className="text-[10px] text-muted-foreground">
-                                                        {audit.createdAt?.seconds ? format(new Date(audit.createdAt.seconds * 1000), "d MMM yyyy", { locale: tr }) : "-"}
-                                                    </span>
+                                    <div key={audit.id} className="block mb-2 last:mb-0">
+                                        <div className="flex flex-col p-3 border rounded-lg hover:bg-accent/50 transition-colors group gap-3">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex-1 min-w-0 space-y-0.5">
+                                                    <p className="text-sm font-medium truncate">{audit.storeName}</p>
+                                                    <p className="text-[10px] text-muted-foreground truncate">{audit.auditorName || "Denetmen"}</p>
+                                                    <div className="flex items-center gap-2">
+                                                        {audit.status === "devam_ediyor" ? (
+                                                            <Badge variant="outline" className="text-yellow-600 border-yellow-600 text-[10px] px-1.5 py-0">
+                                                                <PlayCircle className="mr-1 h-2.5 w-2.5" />
+                                                                Devam Ediyor
+                                                            </Badge>
+                                                        ) : (
+                                                            <Badge variant="outline" className="text-green-600 border-green-600 text-[10px] px-1.5 py-0">
+                                                                <CheckCircle2 className="mr-1 h-2.5 w-2.5" />
+                                                                Tamamlandı
+                                                            </Badge>
+                                                        )}
+                                                        <span className="text-[10px] text-muted-foreground">
+                                                            {audit.createdAt?.seconds ? format(new Date(audit.createdAt.seconds * 1000), "d MMM yyyy", { locale: tr }) : "-"}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-2 ml-3">
+                                                    <div className="text-right">
+                                                        <div className="text-base font-bold">{scorePercent}</div>
+                                                        <div className="text-[10px] text-muted-foreground">Puan</div>
+                                                    </div>
                                                 </div>
                                             </div>
-                                            <div className="flex items-center gap-2 ml-3">
-                                                <div className="text-right">
-                                                    <div className="text-base font-bold">{scorePercent}</div>
-                                                    <div className="text-[10px] text-muted-foreground">Puan</div>
-                                                </div>
-                                                <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+                                            
+                                            <div className="flex items-center justify-end gap-2 pt-2 border-t">
+                                                <Button 
+                                                    variant="outline" 
+                                                    size="sm" 
+                                                    className="h-7 text-xs"
+                                                    onClick={() => router.push(`/admin/actions?storeId=${audit.storeId}`)}
+                                                >
+                                                    <Zap className="mr-1.5 h-3 w-3" />
+                                                    Mağaza Aksiyonu
+                                                </Button>
+                                                <Button 
+                                                    variant="outline" 
+                                                    size="sm" 
+                                                    className="h-7 text-xs"
+                                                    onClick={() => router.push(`/audits/${audit.id}`)}
+                                                >
+                                                    <Eye className="mr-1.5 h-3 w-3" />
+                                                    İncele
+                                                </Button>
+                                                <Button 
+                                                    variant="outline" 
+                                                    size="sm" 
+                                                    className="h-7 text-xs"
+                                                    onClick={() => setReportAudit(audit)}
+                                                >
+                                                    <FileText className="mr-1.5 h-3 w-3" />
+                                                    Özel Rapor
+                                                </Button>
                                             </div>
                                         </div>
-                                    </Link>
+                                    </div>
                                 );
                             })}
                         </div>
                     )}
                 </CardContent>
             </Card>
+            
+            {reportAudit && (
+                <SpecialReportGenerator 
+                    audit={reportAudit} 
+                    onComplete={() => {
+                        toast.success("Rapor başarıyla oluşturuldu");
+                        setReportAudit(null);
+                    }}
+                    onError={() => {
+                        toast.error("Rapor oluşturulurken hata oluştu");
+                        setReportAudit(null);
+                    }}
+                />
+            )}
 
             {/* Quick Actions - Placeholder for Reports and Persistent Failures */}
             <div className="grid gap-4 md:grid-cols-2">

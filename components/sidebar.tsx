@@ -23,6 +23,7 @@ import {
     CalendarDays,
     Calendar,
     Hotel,
+    Paintbrush,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, useEffect, Suspense } from "react";
@@ -65,6 +66,7 @@ function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar }: 
         { href: "/admin/reports/questions", label: "Soru Raporları", icon: FileQuestion },
         { href: "/admin/reports/auditor-performance", label: "Denetçi Performansı", icon: Users },
         { href: "/admin/reports/auditor-timesheet", label: "Denetmen Puantajı", icon: Calendar },
+        { href: "/admin/reports/special-report-design", label: "Özel Rapor Tasarımı", icon: Paintbrush },
     ];
 
     const scheduleSubLinks = [

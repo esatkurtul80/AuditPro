@@ -39,11 +39,17 @@ export interface StoreAnalysisData {
 
 /**
  * Checks if an answer is considered a failure (incomplete points or "Hayır")
+ * Unanswered questions (empty answer) and muaf questions are NOT failures.
  */
 function isFailure(answer: AuditAnswer): boolean {
+    // Skip unanswered or muaf questions entirely
+    if (!answer.answer || answer.answer.trim() === "" || answer.answer === "muaf") {
+        return false;
+    }
     if (answer.questionType === 'yes_no' || !answer.questionType) {
         return answer.answer === 'hayir';
     }
+    // For checkbox/rating: only fail if answered AND earned < max
     return answer.earnedPoints < answer.maxPoints;
 }
 

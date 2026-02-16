@@ -301,7 +301,7 @@ export function AuditCard({
 
             <CardFooter className="pt-0 p-4 bg-slate-50/50 dark:bg-slate-900/20 border-t border-slate-100 dark:border-slate-800 mt-auto">
                 <div className="flex gap-2 w-full">
-                    {(actionStats?.pending_store || 0) > 0 && (
+                    {((actionStats?.pending_store || 0) > 0 || (actionStats?.rejected || 0) > 0) && (
                         <Button 
                             className="flex-1 h-10 font-bold tracking-wide shadow-md bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white border-0 transition-all hover:-translate-y-0.5"
                             onClick={(e) => {
@@ -318,7 +318,7 @@ export function AuditCard({
                         variant="secondary" 
                         className={cn(
                             "h-10 font-semibold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:text-slate-900 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-700 transition-all",
-                            (actionStats?.pending_store || 0) > 0 ? "flex-1" : "w-full"
+                            ((actionStats?.pending_store || 0) > 0 || (actionStats?.rejected || 0) > 0) ? "flex-1" : "w-full"
                         )}
                         onClick={(e) => {
                             e.stopPropagation();
@@ -326,7 +326,7 @@ export function AuditCard({
                         }}
                     >
                         <Eye className="mr-2 h-4 w-4 text-slate-500" />
-                        İNCELE
+                        {(actionStats?.pending_admin || 0) > 0 ? "AKSİYON GÖR" : "İNCELE"}
                     </Button>
                 </div>
             </CardFooter>
