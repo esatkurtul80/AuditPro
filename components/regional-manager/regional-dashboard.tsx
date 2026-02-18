@@ -325,6 +325,130 @@ export function RegionalDashboard() {
             </div>
 
 
+{/* Persistent Lists - Unified Waiting & Overdue Table */}
+            <Card className="border shadow-sm overflow-hidden">
+                <CardHeader className="px-4 py-3 border-b bg-muted/20">
+                    <div className="flex items-center gap-2">
+                        <Clock className="h-5 w-5 text-orange-600" />
+                        <CardTitle className="text-base">Dönüş Bekleyen Mağazalar</CardTitle>
+                    </div>
+                    <CardDescription className="text-xs">
+                        Mağaza tarafından aksiyon alınması gereken ve süresi geçen tüm denetimler.
+                    </CardDescription>
+                </CardHeader>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-sm text-left">
+                        <thead className="text-xs text-muted-foreground uppercase bg-muted/30 border-b">
+                            <tr>
+                                <th className="px-4 py-3 font-medium">Mağaza</th>
+                                <th className="px-4 py-3 font-medium text-center">Durum</th>
+                                <th className="px-4 py-3 font-medium text-center">İşlem</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y">
+                            {(() => {
+                                // Filter logic: All pending store actions regardless of score
+                                // FIXED: Only include COMPLETED audits. In-progress audits are not "Waiting for Return".
+                                const pendingList = globalPendingAudits.filter(audit => {
+                                     // Check Audit Status
+                                     if (audit.status !== "tamamlandi") return false;
+
+                                     // Check Action Status (Pending Store)
+                                    const hasPendingStoreAction = audit.sections?.some((s: any) => 
+                                        s.answers?.some((a: any) => {
+                                            // Ensure answer is not empty to avoid "unanswered questions" triggering this in edge cases
+                                            if (!a.answer || a.answer.trim() === "") return false;
+
+                                            const needsAction = (a.earnedPoints || 0) < (a.maxPoints || 0) && a.answer !== "muaf" && a.answer !== "evet"; 
+                                            if (!needsAction) return false;
+                                            
+                                            // If status is specifically pending_admin or approved, it is NOT pending store.
+                                            // We explicitly check for the "done" states to be safe.
+                                            const status = a.actionData?.status;
+                                            if (status === "pending_admin" || status === "approved" || status === "pending_review") return false;
+
+                                            // Default to pending_store if no status (and needs action)
+                                            return true; 
+                                        })
+                                    );
+                                    return hasPendingStoreAction;
+                                });
+
+                                if (pendingList.length === 0) {
+                                    return (
+                                        <tr>
+                                            <td colSpan={3} className="px-4 py-8 text-center text-muted-foreground italic">
+                                                Bekleyen aksiyon bulunmuyor.
+                                            </td>
+                                        </tr>
+                                    );
+                                }
+
+                                // Sort logic: Overdue first, then by date (oldest first usually implies urgency, but requested logic implies date sort)
+                                // Let's sort: Overdue items (descending by overdue days), then others (ascending by deadline - closest deadline first)
+                                const sortedList = [...pendingList].sort((a, b) => {
+                                    const getDeadline = (audit: any) => audit.actionDeadline?.seconds ? audit.actionDeadline.seconds * 1000 : 0;
+                                    const now = Date.now();
+                                    
+                                    const da = getDeadline(a);
+                                    const db = getDeadline(b);
+
+                                    const isOverdueA = da > 0 && da < now;
+                                    const isOverdueB = db > 0 && db < now;
+
+                                    if (isOverdueA && !isOverdueB) return -1;
+                                    if (!isOverdueA && isOverdueB) return 1;
+                                    
+                                    // If both overdue or both pending, sort by deadline (earliest deadline first)
+                                    return da - db;
+                                });
+
+                                return sortedList.map(audit => {
+                                    const deadlineMs = audit.actionDeadline?.seconds * 1000 || 0;
+                                    const diffMs = deadlineMs - Date.now();
+                                    const isOverdue = diffMs < 0;
+                                    const daysDiff = Math.ceil(Math.abs(diffMs) / (1000 * 60 * 60 * 24));
+
+                                    return (
+                                        <tr key={audit.id} className="hover:bg-muted/10 transition-colors">
+                                            <td className="px-4 py-3 font-medium">{audit.storeName}</td>
+                                            <td className="px-4 py-3 text-center">
+                                                {isOverdue ? (
+                                                    <Badge variant="outline" className="bg-red-50 text-red-600 border-red-200 hover:bg-red-100 whitespace-nowrap">
+                                                        {daysDiff} gün gecikti
+                                                    </Badge>
+                                                ) : (
+                                                    <Badge variant="outline" className="bg-orange-50 text-orange-600 border-orange-200 hover:bg-orange-100 whitespace-nowrap">
+                                                        {daysDiff} gün kaldı
+                                                    </Badge>
+                                                )}
+                                            </td>
+                                            <td className="px-4 py-3 text-center">
+                                                <Button 
+                                                    variant="outline" 
+                                                    size="sm" 
+                                                    className="h-7 text-xs"
+                                                    onClick={() => router.push(`/audits/${audit.id}/actions`)}
+                                                >
+                                                    İncele
+                                                </Button>
+                                            </td>
+                                        </tr>
+                                    );
+                                });
+                            })()}
+                        </tbody>
+                    </table>
+                </div>
+            </Card>
+
+
+
+            
+
+
+
+
             {/* Recent Audits */}
             <Card className="py-0.5 gap-1">
                 <CardHeader className="pb-0 pt-2 px-3">
@@ -514,165 +638,7 @@ export function RegionalDashboard() {
                     )}
                 </CardContent>
             </Card>
-            
 
-
-            {/* Persistent Lists - No Date Filter */}
-            <div className="grid gap-6 md:grid-cols-2">
-                
-                {/* 1. Düşük Puanlı ve Dönüş Bekleyenler */}
-                <Card className="border-l-4 border-l-orange-500 shadow-sm">
-                    <CardHeader className="pb-3">
-                        <div className="flex items-center gap-2">
-                            <TrendingUp className="h-5 w-5 text-orange-600" />
-                            <CardTitle className="text-base">Ortalama Altı & Dönüş Bekleyenler</CardTitle>
-                        </div>
-                        <CardDescription className="text-xs">
-                           Bu ayın ortalamasının ({currentMonthAverage || "-"}) altında kalan ve henüz aksiyon dönüşü yapmamış mağazalar.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                        {(() => {
-                            // Filter logic
-                            const list1 = globalPendingAudits.filter(audit => {
-                                // 1. Calculate Score
-                                const sectionScores: number[] = [];
-                                if (audit.sections) {
-                                    audit.sections.forEach((section: any) => {
-                                        let earned = 0, max = 0;
-                                        section.answers?.forEach((a: any) => {
-                                            if (a.answer && a.answer !== "muaf" && a.answer.trim() !== "") {
-                                                earned += a.earnedPoints || 0;
-                                                max += a.maxPoints || 0;
-                                            }
-                                        });
-                                        if (max > 0) sectionScores.push((earned / max) * 100);
-                                    });
-                                }
-                                const score = sectionScores.length > 0
-                                    ? Math.round(sectionScores.reduce((a, b) => a + b, 0) / sectionScores.length)
-                                    : 0;
-
-                                // 2. Check Action Status (Pending Store)
-                                const hasPendingStoreAction = audit.sections?.some((s: any) => 
-                                    s.answers?.some((a: any) => {
-                                        const needsAction = (a.earnedPoints || 0) < (a.maxPoints || 0) && a.answer !== "muaf" && a.answer !== "evet"; 
-                                        // Note: 'evet' logic depends on question type, simplified check:
-                                        // Actually logic is: if points < maxPoints.
-                                        if (!needsAction) return false;
-                                        const status = a.actionData?.status || "pending_store";
-                                        return status === "pending_store" || status === "rejected";
-                                    })
-                                );
-
-                                // 3. Condition: Score < Avg AND Has Pending Action
-                                return score < currentMonthAverage && hasPendingStoreAction;
-                            });
-
-                            if (list1.length === 0) {
-                                return <p className="text-sm text-muted-foreground italic">Listelenecek kayıt yok.</p>;
-                            }
-
-                            return list1.map(audit => (
-                                <div key={audit.id} className="flex items-center justify-between p-3 bg-secondary/20 rounded-lg border border-border/50">
-                                    <div className="flex flex-col gap-0.5">
-                                        <span className="text-sm font-semibold">{audit.storeName}</span>
-                                        <span className="text-[10px] text-muted-foreground">
-                                            {audit.createdAt?.seconds ? format(new Date(audit.createdAt.seconds * 1000), "d MMM yyyy", { locale: tr }) : "-"}
-                                        </span>
-                                    </div>
-                                    <div className="flex items-center gap-3">
-                                        <Badge variant="secondary" className="bg-white/80 dark:bg-black/20">
-                                            {(() => {
-                                                // Re-calc score for display (could use cached but fast enough)
-                                                 const sectionScores: number[] = [];
-                                                if (audit.sections) {
-                                                    audit.sections.forEach((section: any) => {
-                                                        let earned = 0, max = 0;
-                                                        section.answers?.forEach((a: any) => {
-                                                            if (a.answer && a.answer !== "muaf") {
-                                                                earned += a.earnedPoints || 0;
-                                                                max += a.maxPoints || 0;
-                                                            }
-                                                        });
-                                                        if (max > 0) sectionScores.push((earned / max) * 100);
-                                                    });
-                                                }
-                                                return sectionScores.length > 0 ? Math.round(sectionScores.reduce((a, b) => a + b, 0)/sectionScores.length) : 0;
-                                            })()}
-                                        </Badge>
-                                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => router.push(`/audits/${audit.id}/actions`)}>
-                                            <ChevronRight className="h-4 w-4" />
-                                        </Button>
-                                    </div>
-                                </div>
-                            ));
-                        })()}
-                    </CardContent>
-                </Card>
-
-                {/* 2. Süresi Geçen Dönüşler */}
-                <Card className="border-l-4 border-l-red-500 shadow-sm">
-                    <CardHeader className="pb-3">
-                        <div className="flex items-center gap-2">
-                            <AlertTriangle className="h-5 w-5 text-red-600" />
-                            <CardTitle className="text-base">Süresi Geçen Dönüşler</CardTitle>
-                        </div>
-                        <CardDescription className="text-xs">
-                           Aksiyon alma süresi dolmuş ancak hala mağaza tarafından dönüş yapılmamış denetimler.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                         {(() => {
-                            // Filter logic
-                            const list2 = globalPendingAudits.filter(audit => {
-                                // 1. Check Deadline
-                                if (!audit.actionDeadline?.seconds) return false; // No deadline
-                                const deadline = new Date(audit.actionDeadline.seconds * 1000);
-                                const now = new Date();
-                                if (deadline >= now) return false; // Not passed yet
-
-                                // 2. Check Action Status (Pending Store)
-                                const hasPendingStoreAction = audit.sections?.some((s: any) => 
-                                    s.answers?.some((a: any) => {
-                                        const needsAction = (a.earnedPoints || 0) < (a.maxPoints || 0);
-                                        if (!needsAction) return false;
-                                        const status = a.actionData?.status || "pending_store";
-                                        return status === "pending_store" || status === "rejected";
-                                    })
-                                );
-
-                                return hasPendingStoreAction;
-                            });
-
-                             if (list2.length === 0) {
-                                return <p className="text-sm text-muted-foreground italic">Süresi geçen kayıt yok.</p>;
-                            }
-
-                             return list2.map(audit => {
-                                const deadlineMs = audit.actionDeadline.seconds * 1000;
-                                const diffMs = Date.now() - deadlineMs;
-                                const daysOverdue = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-
-                                return (
-                                <div key={audit.id} className="flex items-center justify-between p-3 bg-red-50 dark:bg-red-950/20 rounded-lg border border-red-100 dark:border-red-900/50">
-                                    <div className="flex flex-col gap-0.5">
-                                        <span className="text-sm font-semibold">{audit.storeName}</span>
-                                        <div className="flex items-center gap-1.5 text-red-600 dark:text-red-400 font-medium text-[10px]">
-                                            <Clock className="h-3 w-3" />
-                                            <span>{daysOverdue} gün gecikti</span>
-                                        </div>
-                                    </div>
-                                    <Button variant="ghost" size="sm" className="h-8 text-xs text-red-600 hover:text-red-700 hover:bg-red-100" onClick={() => router.push(`/audits/${audit.id}/actions`)}>
-                                        İncele
-                                    </Button>
-                                </div>
-                                );
-                             });
-                        })()}
-                    </CardContent>
-                </Card>
-            </div>
         </div>
     );
 }
