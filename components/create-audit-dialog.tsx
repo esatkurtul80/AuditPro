@@ -391,6 +391,25 @@ export function CreateAuditDialog({ open, onOpenChange }: CreateAuditDialogProps
             // Log audit creation with duration
             auditTimer.stop({ auditId: docRef.id });
 
+            // SEND NOTIFICATION TO REGIONAL MANAGER
+            if (store.regionalManagerId) {
+                 const now = new Date();
+                 const formattedDate = now.toLocaleDateString('tr-TR');
+                 const formattedTime = now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+                 
+                 // Fire and forget notification
+                 fetch('/api/send-notification', {
+                     method: 'POST',
+                     headers: { 'Content-Type': 'application/json' },
+                     body: JSON.stringify({
+                         title: "🚀 Denetim Başladı",
+                         message: `${formattedDate} ${formattedTime} tarihinde ${newAudit.auditorName}, ${store.name} mağazasında ${auditType.name} başlatmıştır.`,
+                         recipients: [{ type: "user", id: store.regionalManagerId }],
+                         url: `/admin/audits/${docRef.id}` // Optional: Link to audit view if needed, or just info
+                     })
+                 }).catch(err => console.error("Failed to send start notification", err));
+            }
+
             if (shouldRedirect) {
                 toast.success(`Denetim oluşturuldu! ${totalQuestions} soru yüklendi.`);
                 onOpenChange(false);

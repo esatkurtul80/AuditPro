@@ -64,6 +64,7 @@ function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar }: 
     const reportsSubLinks = [
         { href: "/admin/reports/puan-raporu", label: "Puan Raporu", icon: BarChart3 },
         { href: "/admin/reports/questions", label: "Soru Raporları", icon: FileQuestion },
+        { href: "/admin/reports/action-performance", label: "Aksiyon Raporu", icon: CheckCircle },
         { href: "/admin/reports/auditor-performance", label: "Denetçi Performansı", icon: Users },
         { href: "/admin/reports/auditor-timesheet", label: "Denetmen Puantajı", icon: Calendar },
         { href: "/admin/reports/special-report-design", label: "Özel Rapor Tasarımı", icon: Paintbrush },

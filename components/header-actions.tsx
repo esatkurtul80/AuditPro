@@ -473,6 +473,12 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
                         <Settings className="mr-2 h-4 w-4" />
                         <span>Ayarlar</span>
                     </DropdownMenuItem>
+                    {userProfile?.role === "admin" && (
+                        <DropdownMenuItem onClick={() => router.push("/admin/info")}>
+                            <AlertCircle className="mr-2 h-4 w-4" />
+                            <span>Sistem Bilgisi</span>
+                        </DropdownMenuItem>
+                    )}
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
                         onClick={handleLogout}
@@ -701,6 +707,12 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
                         <Settings className="mr-2 h-4 w-4" />
                         <span>Ayarlar</span>
                     </DropdownMenuItem>
+                    {userProfile?.role === "admin" && (
+                        <DropdownMenuItem onClick={() => router.push("/admin/info")}>
+                            <AlertCircle className="mr-2 h-4 w-4" />
+                            <span>Sistem Bilgisi</span>
+                        </DropdownMenuItem>
+                    )}
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
                         onClick={handleLogout}

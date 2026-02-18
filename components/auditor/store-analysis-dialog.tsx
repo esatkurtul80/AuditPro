@@ -30,7 +30,7 @@ import { format } from "date-fns";
 import { tr } from "date-fns/locale";
 import { getStoreAnalysis } from "@/lib/store-analysis";
 import type { StoreAnalysisData } from "@/lib/store-analysis";
-import { cn } from "@/lib/utils";
+import { cn, getWorkingDaysPassed } from "@/lib/utils";
 
 interface StoreAnalysisDialogProps {
     storeId: string;
@@ -137,6 +137,88 @@ export function StoreAnalysisDialog({ storeId, storeName, isOpen, onClose }: Sto
                                         {data.daysSinceLastAudit !== null ? `${data.daysSinceLastAudit} Gün Önce` : 'Yeni'}
                                     </div>
                                 </div>
+                                
+                                {/* Action Return Stats */}
+                                {(() => {
+                                    if (!data.auditHistory || data.auditHistory.length === 0) return null;
+                                    const lastAudit = data.auditHistory[0];
+                                    
+                                    // 1. Check if ANY action was needed
+                                    let hasActionItems = false;
+                                    let allResponded = true;
+                                    let firstSubmissionDate: Date | null = null;
+
+                                    lastAudit.sections.forEach(section => {
+                                        section.answers.forEach(answer => {
+                                            const isActionNeeded = answer.answer && answer.answer.trim() !== "" && answer.answer !== "muaf" && (answer.earnedPoints || 0) < (answer.maxPoints || 0);
+                                            if (isActionNeeded) {
+                                                hasActionItems = true;
+                                                const status = answer.actionData?.status;
+                                                if (!status || status === "pending_store") {
+                                                    allResponded = false;
+                                                }
+                                                // Track earliest submission
+                                                if (answer.actionData?.submittedAt) {
+                                                    const subDate = answer.actionData.submittedAt.toDate();
+                                                    if (!firstSubmissionDate || subDate < firstSubmissionDate) {
+                                                        firstSubmissionDate = subDate;
+                                                    }
+                                                }
+                                            }
+                                        });
+                                    });
+
+                                    if (!hasActionItems) {
+                                        return (
+                                            <>
+                                                <div className="w-px h-10 bg-slate-200 mx-1"></div>
+                                                <div className="flex flex-col items-start px-2">
+                                                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Aksiyon</span>
+                                                    <Badge variant="outline" className="text-slate-500 bg-slate-50 border-slate-200 px-3 py-1 font-bold">
+                                                        Gerekmedi
+                                                    </Badge>
+                                                </div>
+                                            </>
+                                        );
+                                    }
+
+                                    // 2. Logic for Response Time
+                                    let content;
+                                    
+                                    if (!allResponded) {
+                                         content = (
+                                            <Badge variant="outline" className="text-rose-600 bg-rose-50 border-rose-200 px-3 py-1 font-bold animate-pulse">
+                                                Dönüş Yapılmadı
+                                            </Badge>
+                                        );
+                                    } else if (firstSubmissionDate && lastAudit.completedAt) {
+                                        // Calculate Business Days
+                                        const count = getWorkingDaysPassed(lastAudit.completedAt.toDate(), firstSubmissionDate);
+                                        
+                                        const isLate = count > 3;
+                                        content = (
+                                            <div className={cn("flex items-center gap-1.5 px-3 py-1 rounded-md text-sm font-bold border", 
+                                                isLate ? "text-amber-600 bg-amber-50 border-amber-200" : "text-emerald-600 bg-emerald-50 border-emerald-200"
+                                            )}>
+                                                {isLate ? <AlertCircle className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
+                                                {isLate ? `Geç Döndü (${count} Gün)` : `Zamanında (${count} Gün)`}
+                                            </div>
+                                        );
+                                    } else {
+                                        // Fallback logic if dates are missing but status is approved (?) - unlikely
+                                        content = <Badge variant="outline">Veri Yok</Badge>;
+                                    }
+
+                                    return (
+                                        <>
+                                            <div className="w-px h-10 bg-slate-200 mx-1"></div>
+                                            <div className="flex flex-col items-start px-2">
+                                                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Aksiyon Dönüşü</span>
+                                                {content}
+                                            </div>
+                                        </>
+                                    );
+                                })()}
                             </div>
                         )}
                     </div>

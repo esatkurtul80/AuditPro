@@ -1,8 +1,12 @@
 # Project Version
 
-**Current Version:** v2.2.31
+**Current Version:** v2.2.32
 
 ## Changelog
+
+### v2.2.32
+- **Bölge Müdürü Bildirimleri:** Denetim başladığında ve bittiğinde Bölge Müdürüne anlık bildirim (Push Notification) gönderilmesi sağlandı.
+- **Rapor Erişimi:** Bitiş bildirimine tıklanıldığında doğrudan ilgili denetimin "Özel Rapor" sayfasına yönlendirme özelliği eklendi.
 
 ### v2.2.31
 - **Bölge Müdürü Paneli:** "Dönüş Bekleyen Mağazalar" tablosundaki sütunlar (Durum, İşlem) ortalandı.

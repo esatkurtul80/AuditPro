@@ -18,7 +18,7 @@ import {
 } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { db, storage } from "@/lib/firebase";
-import { Audit, AuditAnswer } from "@/lib/types";
+import { Audit, AuditAnswer, Store } from "@/lib/types";
 import {
     Card,
     CardContent,
@@ -58,6 +58,18 @@ import { AuditSummary } from "@/components/audit-summary";
 import { Checkbox } from "@/components/ui/checkbox";
 import Logger from "@/lib/logger";
 
+const AuditPageLayout = ({ children, isRegionalManager }: { children: React.ReactNode; isRegionalManager: boolean }) => {
+    if (isRegionalManager) {
+        return (
+            <div className="min-h-screen bg-background pb-20">
+                <RegionalManagerHeader />
+                {children}
+            </div>
+        );
+    }
+    return <DashboardLayout>{children}</DashboardLayout>;
+};
+
 export default function AuditPage() {
     const params = useParams();
     const router = useRouter();
@@ -87,17 +99,8 @@ export default function AuditPage() {
 
     const isRegionalManager = userProfile?.role === 'bolge-muduru';
 
-    const Layout = ({ children }: { children: React.ReactNode }) => {
-        if (isRegionalManager) {
-            return (
-                <div className="min-h-screen bg-background pb-20">
-                    <RegionalManagerHeader />
-                    {children}
-                </div>
-            );
-        }
-        return <DashboardLayout>{children}</DashboardLayout>;
-    };
+// Moved Layout outside or handled inline
+
 
     const handleTouchStart = (index: number) => {
         if (!canEdit) return;
@@ -644,7 +647,7 @@ export default function AuditPage() {
                         );
                         await Promise.all(notificationPromises);
 
-                        // 2. Send Push Notification
+                        // 2. Send Push Notification to Store Users
                         await fetch("/api/send-notification", {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
@@ -655,7 +658,34 @@ export default function AuditPage() {
                                 url: `/audits/${auditId}/summary`
                             })
                         });
+                    }
 
+                    // 3. Send Notification to Regional Manager
+                    try {
+                        const storeDoc = await getDoc(doc(db, "stores", audit.storeId));
+                        if (storeDoc.exists()) {
+                            const storeData = storeDoc.data() as Store;
+                            if (storeData.regionalManagerId) {
+                                const score = audit.totalScore || 0;
+                                const auditorName = userProfile?.firstName && userProfile?.lastName
+                                    ? `${userProfile.firstName} ${userProfile.lastName}`
+                                    : (userProfile?.displayName || "Bir Denetmen");
+
+                                // Regional Manager Notification
+                                await fetch("/api/send-notification", {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({
+                                        title: "✅ Denetim Tamamlandı",
+                                        message: `Sayın Bölge Müdürü, ${storeData.name} mağazasının denetimi tamamlanmıştır. Puan: ${score}. Raporu incelemek için tıklayınız.`,
+                                        recipients: [{ type: "user", id: storeData.regionalManagerId }],
+                                        url: `/admin/reports/special-report/${auditId}`
+                                    })
+                                });
+                            }
+                        }
+                    } catch (rmError) {
+                        console.error("Failed to send RM notification:", rmError);
                     }
                 }
             } catch (notifyErr) {
@@ -999,21 +1029,21 @@ export default function AuditPage() {
 
     if (loading) {
         return (
-            <Layout>
+            <AuditPageLayout isRegionalManager={isRegionalManager}>
                 <div className="flex min-h-screen items-center justify-center">
                     <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 </div>
-            </Layout>
+            </AuditPageLayout>
         );
     }
 
     if (!audit) {
         return (
-            <Layout>
+            <AuditPageLayout isRegionalManager={isRegionalManager}>
                 <div className="flex min-h-screen items-center justify-center">
                     <p>Denetim bulunamadı.</p>
                 </div>
-            </Layout>
+            </AuditPageLayout>
         );
     }
 
@@ -1023,7 +1053,7 @@ export default function AuditPage() {
     const canEdit = !isViewMode;
 
     return (
-        <Layout>
+        <AuditPageLayout isRegionalManager={isRegionalManager}>
             <div className="container mx-auto py-3 px-4 md:px-6">
                 <div className="mb-6 flex items-center justify-between">
                     {currentSectionIndex !== null ? (
@@ -1893,7 +1923,7 @@ export default function AuditPage() {
                 </div>
 
             </div>
-        </Layout>
+        </AuditPageLayout>
     );
 }
 

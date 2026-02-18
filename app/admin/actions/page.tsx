@@ -27,7 +27,7 @@ import { Badge } from "@/components/ui/badge";
 import { useRouter, useSearchParams } from "next/navigation";
 import { DataTable } from "@/components/ui/data-table";
 import { ColumnDef, Column, Row } from "@tanstack/react-table";
-import { cn } from "@/lib/utils";
+import { cn, getWorkingDaysPassed, calculateDeadlineDate } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ArrowUpDown, Search, XCircle, ListFilter } from "lucide-react";
 import { DataTableFacetedFilter } from "@/components/ui/data-table-faceted-filter";
@@ -43,36 +43,6 @@ import {
 } from "@/components/ui/popover";
 
 import { DataTableColumnHeader } from "@/components/ui/data-table-column-header";
-
-// Helper function to calculate working days passed (excluding Sundays)
-const getWorkingDaysPassed = (startDate: Date, endDate: Date) => {
-    let count = 0;
-    let current = new Date(startDate);
-    current.setHours(0, 0, 0, 0);
-    let end = new Date(endDate);
-    end.setHours(0, 0, 0, 0);
-
-    while (current < end) {
-        current.setDate(current.getDate() + 1);
-        if (current.getDay() !== 0) { // 0 is Sunday
-            count++;
-        }
-    }
-    return count;
-};
-
-// Helper function to calculate deadline date (3 working days)
-const calculateDeadlineDate = (startDate: Date) => {
-    let date = new Date(startDate);
-    let daysAdded = 0;
-    while (daysAdded < 3) {
-        date.setDate(date.getDate() + 1);
-        if (date.getDay() !== 0) {
-            daysAdded++;
-        }
-    }
-    return date;
-};
 
 // Helper function to safely parse Firestore Timestamp or Date
 const parseDate = (date: any): Date | null => {
