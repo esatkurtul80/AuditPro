@@ -16,6 +16,7 @@ import {
     getDoc,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import Logger from "@/lib/logger";
 import { AuditType, Store, Audit, Section, Question, DateRangeFilter } from "@/lib/types";
 import {
     Card,
@@ -303,7 +304,15 @@ export default function DenetmenPage() {
                 location: locationString || null,
             };
 
+            const auditTimer = Logger.startTimer("audit", "Audit started", {
+                storeId: store.id,
+                auditType: auditType.name
+            }, { uid: userProfile.uid, role: userProfile.role });
+
             const docRef = await addDoc(collection(db, "audits"), newAudit);
+
+            // Log audit creation with duration
+            auditTimer.stop({ auditId: docRef.id });
 
             toast.success(`Denetim oluşturuldu! ${totalQuestions} soru yüklendi.`);
             setDialogOpen(false);

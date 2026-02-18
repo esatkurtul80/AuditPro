@@ -33,6 +33,8 @@ import { ArrowUpDown, Search, XCircle, ListFilter } from "lucide-react";
 import { DataTableFacetedFilter } from "@/components/ui/data-table-faceted-filter";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { DateRangeFilter } from "@/lib/types";
+import { toast } from "sonner"
+import Logger from "@/lib/logger";
 import { Input } from "@/components/ui/input";
 import {
     Popover,
@@ -89,6 +91,22 @@ const parseDate = (date: any): Date | null => {
     return isNaN(parsed.getTime()) ? null : parsed;
 };
 
+// This file seems to be fetching a DataTable, not the action detail view.
+// Wait, I might be editing the wrong file.
+// The user asked for "Instrument Admin Actions (Approve/Reject) in app/admin/actions/page.tsx"
+// But looking at the file content I just read (AdminActionsPage), it renders a DataTable.
+// It DOES NOT contain the logic for approving/rejecting individual actions.
+// The approval logic must be in a different component, likely a modal or a separate page navigated to.
+// Row click goes to: `/audits/${row.id}/actions` -> which is the store view?
+// Let me check the route.
+// Ah, the admin actions page lists audits with pending actions.
+// The actual APPROVAL/REJECTION might happen inside `app/audits/[id]/actions/page.tsx` IF the user is an admin?
+// OR there is another page.
+// Let me check `app/audits/[id]/actions/page.tsx` again to see if it handles admin logic.
+// The file `app/audits/[id]/actions/page.tsx` has `Admin Rejection State` variables (lines 114-123).
+// And it uses `useAuth` hook.
+// So it seems the same page is used for both Store submission and Admin review?
+// I should check `app/audits/[id]/actions/page.tsx` for admin handlers.
 // Helper function to calculate store response time (excluding Sundays)
 const getStoreResponseTime = (audit: Audit): number | null => {
     if (!audit.completedAt) return null;

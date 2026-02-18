@@ -16,6 +16,7 @@ import {
     where,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import Logger from "@/lib/logger";
 import { AuditType, Store, Audit, Section, Question } from "@/lib/types";
 import {
     Dialog,
@@ -380,7 +381,15 @@ export function CreateAuditDialog({ open, onOpenChange }: CreateAuditDialogProps
                 location: locationString || null,
             };
 
+            const auditTimer = Logger.startTimer("audit", "Audit started via Dialog", {
+                storeId: store.id,
+                auditType: auditType.name
+            }, { uid: userProfile.uid, role: userProfile.role });
+
             const docRef = await addDoc(collection(db, "audits"), newAudit);
+
+            // Log audit creation with duration
+            auditTimer.stop({ auditId: docRef.id });
 
             if (shouldRedirect) {
                 toast.success(`Denetim oluşturuldu! ${totalQuestions} soru yüklendi.`);

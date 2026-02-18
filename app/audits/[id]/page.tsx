@@ -56,6 +56,7 @@ import { useAuditSync } from "@/hooks/useAuditSync";
 import { QuestionHistoryButton } from "@/components/question-history-button";
 import { AuditSummary } from "@/components/audit-summary";
 import { Checkbox } from "@/components/ui/checkbox";
+import Logger from "@/lib/logger";
 
 export default function AuditPage() {
     const params = useParams();
@@ -544,6 +545,13 @@ export default function AuditPage() {
             const actionDeadline = calculateActionDeadline();
             const now = Timestamp.now();
 
+            // Performans ölçümü başlat
+            const timer = Logger.startTimer("audit", "Audit completed", {
+                auditId: auditId,
+                storeId: audit.storeId,
+                score: audit.totalScore
+            }, { uid: userProfile?.uid || "unknown", role: userProfile?.role });
+
             // Prepare updated sections with actionData
             const updatedSections = audit.sections.map(section => ({
                 ...section,
@@ -583,6 +591,9 @@ export default function AuditPage() {
             });
 
             toast.success("Denetim tamamlandı!");
+
+            // Log audit completion with duration
+            timer.stop();
 
             // Send notification to Store Users
             try {
@@ -846,6 +857,13 @@ export default function AuditPage() {
 
             const finalSections = restoreTimestamps(updatedSections);
 
+            // Performans ölçümü başlat
+            const saveTimer = Logger.startTimer("audit", "Audit updated (manual save)", {
+                auditId: auditId,
+                score: audit.totalScore,
+                scoreChanged: scoreChanged
+            }, { uid: userProfile?.uid || "unknown", role: userProfile?.role });
+
             // Update audit in Firestore
             await updateDoc(doc(db, "audits", auditId), {
                 sections: finalSections,
@@ -854,14 +872,14 @@ export default function AuditPage() {
                 allActionsResolved: allActionsResolved
             });
 
-            // Update local state to reflect these structural changes
-            // For local state we can keep using updatedSections (with plain objects) or finalSections (with Timestamps)
-            // React state usually handles objects fine, but consistent types are better.
             setAudit(prev => prev ? {
                 ...prev,
                 sections: finalSections,
                 allActionsResolved: allActionsResolved
             } : null);
+
+            // Log with duration
+            saveTimer.stop();
 
             // Create notification for all admins if score changed or answers changed
             if (scoreChanged || changes.length > 0) {

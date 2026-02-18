@@ -23,13 +23,13 @@ export default function SettingsPage() {
 
   const modules = [
     {
-      title: "Konsol",
-      description: "Sistem durumu, API sağlığı ve performans metriklerini anlık olarak izleyin.",
-      icon: LayoutDashboard,
-      href: "/admin/settings",
-      color: "text-blue-600",
-      bgColor: "bg-blue-50",
-      borderColor: "border-blue-100",
+      title: "Log Kayıtları",
+      description: "Sistem loglarını, API isteklerini ve veritabanı işlemlerini detaylı olarak inceleyin.",
+      icon: Terminal,
+      href: "/admin/settings/logs",
+      color: "text-slate-600",
+      bgColor: "bg-slate-50",
+      borderColor: "border-slate-200",
       status: "Aktif",
       statusColor: "bg-green-50 text-green-700 ring-green-600/20"
     },

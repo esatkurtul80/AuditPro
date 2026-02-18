@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect } from "react";
+import { useEffect, useLayoutEffect, Suspense } from "react";
 import { useAuth } from "@/components/auth-provider";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { RegionalManagerHeader } from "@/components/regional-manager/regional-header";
@@ -9,7 +9,7 @@ import { RegionalDashboard } from "@/components/regional-manager/regional-dashbo
 import { RegionalScores } from "@/components/regional-manager/regional-scores";
 import { Settings } from "lucide-react";
 
-export default function RegionalManagerPage() {
+function RegionalContent() {
     const { userProfile, loading: authLoading } = useAuth();
     const router = useRouter();
     const pathname = usePathname();
@@ -76,5 +76,13 @@ export default function RegionalManagerPage() {
             {/* Bottom Navigation */}
             <RegionalBottomNav activeTab={activeTab} onTabChange={handleTabChange} />
         </div>
+    );
+}
+
+export default function RegionalManagerPage() {
+    return (
+        <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Yükleniyor...</div>}>
+            <RegionalContent />
+        </Suspense>
     );
 }

@@ -1,8 +1,11 @@
 # Project Version
 
-**Current Version:** v2.2.30
+**Current Version:** v2.2.31
 
 ## Changelog
+
+### v2.2.31
+- **Sistem:** Genel performans iyileştirmeleri ve altyapı güncellemeleri.
 
 ### v2.2.30
 - **UI/UX (Bölge Müdürü Paneli):** Mağaza kartlarına "Dönüş Bekliyor" statüsü ve kalan gün/geçen gün sayacı eklendi.

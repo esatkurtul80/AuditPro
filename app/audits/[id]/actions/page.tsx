@@ -27,6 +27,7 @@ import { Audit, AuditAnswer, ActionDataStatus } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
+import Logger from "@/lib/logger";
 import { Label } from "@/components/ui/label";
 import {
     Card,
@@ -818,11 +819,20 @@ export default function AuditActionsPage() {
                 };
             }
 
+            const submitTimer = Logger.startTimer("action", "Store submitted action response", { 
+                auditId: auditId, 
+                actionCount: pendingItems.length 
+            }, { uid: userProfile?.uid || "unknown", role: userProfile?.role });
+
             await updateDoc(doc(db, "audits", auditId), {
                 sections: updatedSections,
                 updatedAt: Timestamp.now()
             });
 
+            // Log successful submission with duration
+            submitTimer.stop();
+
+            toast.success("Aksiyon planı başarıyla kaydedildi.");
             setAudit({ ...audit, sections: updatedSections });
             setSubmissionData({}); // Clear form data
 
@@ -963,6 +973,14 @@ export default function AuditActionsPage() {
                 console.error("Notification trigger failed:", notifError);
             }
 
+            // Log rejection
+            Logger.warn("admin", "Admin rejected action", { 
+                auditId: auditId, 
+                section: selectedAction.sectionIndex, 
+                answer: selectedAction.answerIndex,
+                reason: rejectionReason 
+            }, { uid: userProfile?.uid || "unknown", role: userProfile?.role });
+
             toast.success("Aksiyon reddedildi ve mağazaya bildirim gönderildi");
             setRejectDialogOpen(false);
             setRejectionReason("");
@@ -1001,6 +1019,12 @@ export default function AuditActionsPage() {
                 })
             );
 
+            const revertTimer = Logger.startTimer("admin", "Admin reverted action rejection", { 
+                auditId: auditId, 
+                section: selectedAction.sectionIndex, 
+                answer: selectedAction.answerIndex 
+            }, { uid: userProfile?.uid || "unknown", role: userProfile?.role });
+
             await updateDoc(doc(db, "audits", auditId), {
                 sections: updatedSections,
                 updatedAt: Timestamp.now(),
@@ -1012,6 +1036,10 @@ export default function AuditActionsPage() {
                 sections: updatedSections,
                 allActionsResolved: allResolved
             });
+            
+            // Log revert rejection with duration
+            revertTimer.stop();
+
             toast.success("Reddetme geri alındı");
             setRevertRejectionDialogOpen(false);
             setSelectedAction(null);
@@ -1051,6 +1079,12 @@ export default function AuditActionsPage() {
                 })
             );
 
+            const revertApprovalTimer = Logger.startTimer("admin", "Admin reverted action approval", { 
+                auditId: auditId, 
+                section: selectedAction.sectionIndex, 
+                answer: selectedAction.answerIndex 
+            }, { uid: userProfile?.uid || "unknown", role: userProfile?.role });
+
             await updateDoc(doc(db, "audits", auditId), {
                 sections: updatedSections,
                 updatedAt: Timestamp.now(),
@@ -1062,6 +1096,10 @@ export default function AuditActionsPage() {
                 sections: updatedSections,
                 allActionsResolved: allResolved
             });
+
+            // Log revert approval with duration
+            revertApprovalTimer.stop();
+
             toast.success("Onay geri alındı - Aksiyon tekrar onay bekliyor");
             setRevertApprovalDialogOpen(false);
             setSelectedAction(null);
@@ -1100,6 +1138,12 @@ export default function AuditActionsPage() {
                 })
             );
 
+            const approveTimer = Logger.startTimer("admin", "Admin approved action", { 
+                auditId: auditId, 
+                section: targetSectionIndex, 
+                answer: targetAnswerIndex 
+            }, { uid: userProfile?.uid || "unknown", role: userProfile?.role });
+
             await updateDoc(doc(db, "audits", auditId), {
                 sections: updatedSections,
                 updatedAt: Timestamp.now(),
@@ -1111,6 +1155,10 @@ export default function AuditActionsPage() {
                 sections: updatedSections,
                 allActionsResolved: allResolved
             });
+
+            // Log approval with duration
+            approveTimer.stop();
+
             // toast.success("Aksiyon onaylandı"); // Removed per user request to reduce noise
             setApproveDialogOpen(false);
             setSelectedAction(null);

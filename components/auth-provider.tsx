@@ -31,6 +31,7 @@ import { auth, db } from "@/lib/firebase";
 import { UserProfile } from "@/lib/types";
 import { NameEntryModal } from "@/components/name-entry-modal";
 import { toast } from "sonner";
+import Logger from "@/lib/logger";
 
 interface AuthContextType {
   user: User | null;
@@ -91,6 +92,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       try {
         if (firebaseUser) {
+          const loginTimer = Logger.startTimer("auth", "User logged in", { email: firebaseUser.email, uid: firebaseUser.uid });
           const userDocRef = doc(db, "users", firebaseUser.uid);
           const userDoc = await getDoc(userDocRef);
 
@@ -123,8 +125,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 appVersion: process.env.NEXT_PUBLIC_APP_VERSION || "unknown"
             });
           } else {
+            // ... existing imports ...
+            // import Logger from "@/lib/logger"; // REMOVE THIS LINE IF IT EXISTS OR IF I ADDED IT WRONGLY
+            // Actually, I need to check where I put it.
+            // ... logic restore ...
+
+              if (userDoc.exists()) {
+            const profile = userDoc.data() as UserProfile;
+            setUserProfile(profile);
+            
+            // Cache the fresh profile
+            localStorage.setItem("cached_user_profile", JSON.stringify(profile));
+
+            // Log successful login
+            loginTimer.stop({ role: profile.role });
+
+            if (
+              profile.role !== "pending" &&
+              profile.role !== "magaza" &&
+              (!profile.firstName || !profile.lastName)
+            ) {
+              setShowNameModal(true);
+            }
+
+            // ... sync updates ...
+            await updateDoc(userDocRef, {
+                lastLogin: serverTimestamp(),
+                email: firebaseUser.email,
+                displayName: firebaseUser.displayName || "",
+                photoURL: firebaseUser.photoURL || "",
+                appVersion: process.env.NEXT_PUBLIC_APP_VERSION || "unknown"
+            });
+          } else {
             // Create New User
-            // ✅ Koleksiyon taramak yerine limit(1) ile daha hafif kontrol
             const usersQ = query(collection(db, "users"), limit(1));
             const usersSnapshot = await getDocs(usersQ);
             const isFirstUser = usersSnapshot.empty;
@@ -137,13 +170,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               role: isFirstUser ? "admin" : "pending",
               createdAt: Timestamp.now(),
               updatedAt: Timestamp.now(),
-              appVersion: process.env.NEXT_PUBLIC_APP_VERSION || "unknown", // Added appVersion for new users
+              appVersion: process.env.NEXT_PUBLIC_APP_VERSION || "unknown", 
             };
 
             await setDoc(doc(db, "users", firebaseUser.uid), newProfile);
             setUserProfile(newProfile);
             // Cache new profile
             localStorage.setItem("cached_user_profile", JSON.stringify(newProfile));
+
+            // Log new user registration
+            loginTimer.stop({ role: newProfile.role, newUser: true });
+          }
           }
         } else {
           setUserProfile(null);
@@ -336,6 +373,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.error("Failed to update presence on signout:", e);
       }
     }
+    
+    // Log logout
+    if (userProfile) {
+        const logoutTimer = Logger.startTimer("auth", "User logged out", { uid: userProfile.uid }, { uid: userProfile.uid, role: userProfile.role });
+        logoutTimer.stop();
+    }
+
     localStorage.removeItem("cached_user_profile");
     await firebaseSignOut(auth);
   };
