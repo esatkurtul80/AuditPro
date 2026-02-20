@@ -11,6 +11,16 @@ import {
     DialogTitle,
     DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -52,6 +62,7 @@ export function SendNotificationDialog({ trigger, open: controlledOpen, onOpenCh
     } | null>(null);
     const [showResult, setShowResult] = useState(false);
     const [history, setHistory] = useState<any[]>([]);
+    const [deleteId, setDeleteId] = useState<string | null>(null);
 
     useEffect(() => {
         if (!open) return;
@@ -63,17 +74,17 @@ export function SendNotificationDialog({ trigger, open: controlledOpen, onOpenCh
         return () => unsubscribe();
     }, [open]);
 
-    const handleDeleteHistory = async (id: string, e: React.MouseEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-        if(!confirm("Bu geçmiş kaydını silmek istediğinize emin misiniz?")) return;
+    const handleDeleteHistory = async () => {
+        if (!deleteId) return;
         
         try {
-            await deleteDoc(doc(db, "broadcast_history", id));
+            await deleteDoc(doc(db, "broadcast_history", deleteId));
             toast.success("Geçmiş kaydı silindi");
         } catch (error) {
             console.error("Geçmiş silinemedi:", error);
             toast.error("Geçmiş silinirken bir hata oluştu");
+        } finally {
+            setDeleteId(null);
         }
     };
 
@@ -279,7 +290,11 @@ export function SendNotificationDialog({ trigger, open: controlledOpen, onOpenCh
                                             variant="ghost" 
                                             size="icon" 
                                             className="absolute top-2 right-2 h-6 w-6 text-muted-foreground hover:text-red-600 hover:bg-red-50 bg-background/50 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity"
-                                            onClick={(e) => handleDeleteHistory(item.id, e)}
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                setDeleteId(item.id);
+                                            }}
                                             title="Geçmişi Sil"
                                         >
                                             <Trash2 className="h-3.5 w-3.5" />
@@ -319,6 +334,26 @@ export function SendNotificationDialog({ trigger, open: controlledOpen, onOpenCh
             onOpenChange={setShowResult} 
             results={resultData} 
         />
+
+        <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Geçmiş Kaydını Sil</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        Bu bildirim geçmişi kaydını silmek istediğinize emin misiniz? Bu işlem geri alınamaz.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel>İptal</AlertDialogCancel>
+                    <AlertDialogAction 
+                        onClick={handleDeleteHistory}
+                        className="bg-red-600 hover:bg-red-700 text-white"
+                    >
+                        Sil
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
         </>
     );
 }
