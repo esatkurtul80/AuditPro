@@ -51,6 +51,11 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
     const [fetchedStore, setFetchedStore] = useState<Store | null>(null);
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
+    // Personnel Data States
+    const [personnelEvals, setPersonnelEvals] = useState<any[]>([]);
+    const [showScoresInReport, setShowScoresInReport] = useState(true);
+    const [personnelLoaded, setPersonnelLoaded] = useState(false);
+
 
     // Dynamic Mobile Scaling
     const [mobileScale, setMobileScale] = useState(1);
@@ -284,13 +289,13 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
 
     // Trigger generation once script and settings are ready
     useEffect(() => {
-        if (mode === 'download' && scriptLoaded && configLoaded && !generating) {
+        if (mode === 'download' && scriptLoaded && configLoaded && personnelLoaded && !generating) {
             const timeOut = setTimeout(() => {
                 generatePDF();
             }, 500);
             return () => clearTimeout(timeOut);
         }
-    }, [scriptLoaded, configLoaded, mode]);
+    }, [scriptLoaded, configLoaded, personnelLoaded, mode]);
 
     // State for previous auditor
     const [prevAuditor, setPrevAuditor] = useState<string>("-");
@@ -322,7 +327,38 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
         fetchPrevAuditor();
     }, [audit.storeId, audit.createdAt]);
 
-    if (!configLoaded) return null;
+    // Fetch Personnel Evaluations
+    useEffect(() => {
+        const fetchPersonnelEvals = async () => {
+             if (!audit?.id) {
+                 setPersonnelLoaded(true);
+                 return;
+             }
+             try {
+                // Fetch settings
+                const settingsSnap = await getDoc(doc(db, "settings", "personnel_settings"));
+                if (settingsSnap.exists()) {
+                    const settingsData = settingsSnap.data();
+                    if (settingsData.showScoresInSpecialReport !== undefined) {
+                        setShowScoresInReport(settingsData.showScoresInSpecialReport);
+                    }
+                }
+
+                // Fetch personnel evals
+                const pQuery = query(collection(db, "personnel_evaluations"), where("auditId", "==", audit.id));
+                const pSnap = await getDocs(pQuery);
+                const evalsList = pSnap.docs.map(d => d.data());
+                setPersonnelEvals(evalsList);
+             } catch (e) {
+                 console.error("Error fetching personnel evaluations", e);
+             } finally {
+                 setPersonnelLoaded(true);
+             }
+        };
+        fetchPersonnelEvals();
+    }, [audit.id]);
+
+    if (!configLoaded || !personnelLoaded) return null;
 
     // Format helpers
     const getFormattedDate = (dateVal: any) => {
@@ -604,6 +640,43 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
                                     </div>
                                 </div>
                             </div>
+
+                            {/* PERSONNEL FEEDBACK SECTION */}
+                            {personnelEvals && personnelEvals.length > 0 && (
+                                <div className="section-card">
+                                    <div className="section-banner">
+                                        <span>PERSONEL TUTUM VE DAVRANIŞLARI</span>
+                                        <span>DEĞERLENDİRME</span>
+                                    </div>
+                                    <table>
+                                        <thead>
+                                            <tr style={{ backgroundColor: '#f5f5f5' }}>
+                                                <th style={{ width: '1%', whiteSpace: 'nowrap', paddingRight: '20px' }}>Personel Adı</th>
+                                                <th style={{ width: 'auto' }}>Yorum/Görüş</th>
+                                                {showScoresInReport && <th style={{ width: '15%', minWidth: '80px', textAlign: 'center' }}>Puan</th>}
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {personnelEvals.map((pv, i) => (
+                                                <tr key={i}>
+                                                    <td style={{ verticalAlign: 'top', fontWeight: 'bold', whiteSpace: 'nowrap', paddingRight: '20px' }}>{pv.personnelName}</td>
+                                                    <td style={{ verticalAlign: 'top', fontSize: '13px', color: '#555', fontStyle: 'italic', whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'break-word' }}>{pv.comment || '-'}</td>
+                                                    {showScoresInReport && (
+                                                        <td style={{ verticalAlign: 'top', textAlign: 'center', fontWeight: 'bold' }}>
+                                                            <span className="score-badge" style={{ 
+                                                                background: (pv.score || 0) < 50 ? '#ffcccc' : (pv.score || 0) < 80 ? '#fff3cd' : '#d4edda', 
+                                                                color: '#333' 
+                                                            }}>
+                                                                {pv.score ?? '-'}
+                                                            </span>
+                                                        </td>
+                                                    )}
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
 
                             {/* SECTIONS */}
                             {audit.sections.map((section, sIndex) => {

@@ -15,6 +15,7 @@ import {
     query,
     where,
     getDocs,
+    onSnapshot,
 } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { db, storage } from "@/lib/firebase";
@@ -95,6 +96,7 @@ export default function AuditPage() {
     const [validationErrors, setValidationErrors] = useState<{ photos: string[], notes: string[] }>({ photos: [], notes: [] });
     const [showValidationModal, setShowValidationModal] = useState(false);
     const [historyCache, setHistoryCache] = useState<Record<string, QuestionHistory>>({});
+    const [personnelStatus, setPersonnelStatus] = useState<{ total: number, evaluated: number, initialized: boolean }>({ total: 0, evaluated: 0, initialized: false });
 
     // Reset Section State
     const [resetAlertOpen, setResetAlertOpen] = useState(false);
@@ -230,6 +232,40 @@ export default function AuditPage() {
             setLoading(false);
         }
     }, [auditId]);
+
+    // Track personnel evaluation status
+    useEffect(() => {
+        if (!audit?.id || !audit?.storeId) return;
+
+        let activePersonnelIds: string[] = [];
+        let evaluatedPersonnelIds = new Set<string>();
+
+        const updateStatus = () => {
+            const evaluatedCount = activePersonnelIds.filter(id => evaluatedPersonnelIds.has(id)).length;
+            setPersonnelStatus({ total: activePersonnelIds.length, evaluated: evaluatedCount, initialized: true });
+        };
+
+        const unsubPersonnel = onSnapshot(
+            query(collection(db, "store_personnel"), where("storeId", "==", audit.storeId), where("status", "==", "active")),
+            (snap) => {
+                activePersonnelIds = snap.docs.map(doc => doc.id);
+                updateStatus();
+            }
+        );
+
+        const unsubEvaluations = onSnapshot(
+            query(collection(db, "personnel_evaluations"), where("auditId", "==", audit.id)),
+            (snap) => {
+                evaluatedPersonnelIds = new Set(snap.docs.map(doc => doc.data().personnelId));
+                updateStatus();
+            }
+        );
+
+        return () => {
+            unsubPersonnel();
+            unsubEvaluations();
+        };
+    }, [audit?.id, audit?.storeId]);
 
     const loadAudit = async () => {
         if (!auditId) return;
@@ -1377,11 +1413,18 @@ export default function AuditPage() {
                                                     <UserCircle className="w-5 h-5 md:w-6 md:h-6" />
                                                 </div>
                                                 <div className="flex items-center gap-2 flex-1 min-w-0">
-                                                    <Circle className="h-4 w-4 md:h-5 md:w-5 flex-shrink-0 text-gray-300" />
+                                                    <Circle className={`h-4 w-4 md:h-5 md:w-5 flex-shrink-0 fill-current ${
+                                                        !personnelStatus.initialized ? "text-gray-300 dark:text-gray-700" :
+                                                        personnelStatus.total === 0 ? "text-gray-300 dark:text-gray-700" :
+                                                        personnelStatus.evaluated >= personnelStatus.total ? "text-green-500" :
+                                                        "text-red-500"
+                                                    }`} />
                                                     <div className="flex-1 min-w-0">
                                                         <h3 className="font-bold text-base md:text-2xl mb-1 md:mb-2 truncate text-amber-950 dark:text-amber-50 group-hover:text-amber-700 dark:group-hover:text-amber-300 transition-colors">Personel Değerlendirme</h3>
                                                         <p className="text-sm text-amber-800/70 dark:text-amber-200/70 mt-1 truncate">
-                                                            Zorunlu Puanlamadan bağımsız karar raporu
+                                                            {personnelStatus.initialized 
+                                                                ? (personnelStatus.total === 0 ? "Kayıtlı aktif personel yok" : `${personnelStatus.evaluated} / ${personnelStatus.total} personel değerlendirildi`)
+                                                                : "Zorunlu Puanlamadan bağımsız karar raporu"}
                                                         </p>
                                                     </div>
                                                 </div>

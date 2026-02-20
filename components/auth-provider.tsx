@@ -45,28 +45,41 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  // Initialize userProfile synchronously from localStorage cache.
+  // suppressHydrationWarning on <html> allows the server(null) vs client(cached) mismatch.
   const [user, setUser] = useState<User | null>(null);
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(() => {
+    if (typeof window === "undefined") return null;
+    try {
+      const cached = localStorage.getItem("cached_user_profile");
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed?.role) return parsed as UserProfile;
+      }
+    } catch { /* ignore */ }
+    return null;
+  });
+  // Start loading=true so Firebase can still validate the session.
+  // But because userProfile is pre-populated, UI components won't show skeletons.
   const [loading, setLoading] = useState(true);
   const [showNameModal, setShowNameModal] = useState(false);
 
   const loadingFailsafeRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // 2. Initial Cache Load (Instant Layout)
+  // Removed separate Initial Cache Load useEffect — now handled in useState lazy initializer above.
+
+  // Set a session cookie with the user's role so the server can read it during SSR.
+  // CRITICAL: Firebase Hosting STRIPS all cookies except '__session'.
+  // We must use '__session' to ensure the Next.js Cloud Function receives this value.
   useEffect(() => {
-      try {
-          const cached = localStorage.getItem("cached_user_profile");
-          if (cached) {
-              const parsed = JSON.parse(cached);
-              // Basic validation
-              if (parsed && parsed.role) {
-                  setUserProfile(parsed);
-              }
-          }
-      } catch (e) {
-          console.warn("Failed to load cached profile:", e);
-      }
-  }, []);
+    if (userProfile?.role) {
+      const maxAge = 60 * 60 * 24 * 7; // 7 days
+      document.cookie = `__session=${userProfile.role}; path=/; max-age=${maxAge}; samesite=strict`;
+    } else if (!loading && !userProfile) {
+      // Logged out: clear the cookie
+      document.cookie = "__session=; path=/; max-age=0";
+    }
+  }, [userProfile, loading]);
 
   useEffect(() => {
     // 0) FAILSAFE: auth state gecikirse sonsuz loading olmasın (PWA/iOS koruması)

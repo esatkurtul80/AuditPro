@@ -50,6 +50,7 @@ export function LocationStatusBadge({ compact = false }: LocationStatusBadgeProp
             className={`${compact ? "flex" : "flex"} ${isReady ? "bg-green-600 hover:bg-green-700" : "bg-red-600 hover:bg-red-700"
                 } text-white h-8 w-8 rounded-full p-0 items-center justify-center mx-1 transition-all duration-300 shadow-sm`}
             title={isReady ? "Konum Servisi Açık" : "Konum Servisi Kapalı/İzin Yok"}
+            suppressHydrationWarning
         >
             {isReady ? (
                 <MapPin className="h-4 w-4" />

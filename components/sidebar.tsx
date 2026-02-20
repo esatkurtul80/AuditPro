@@ -37,9 +37,10 @@ interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
     onLinkClick?: () => void;
     isCollapsed?: boolean;
     toggleSidebar?: () => void;
+    initialRole?: string | null;
 }
 
-function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar }: SidebarProps) {
+function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar, initialRole }: SidebarProps) {
     const { userProfile, loading } = useAuth();
     const pathname = usePathname();
     const searchParams = useSearchParams();
@@ -48,6 +49,7 @@ function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar }: 
     const [isProgramMenuOpen, setIsProgramMenuOpen] = useState(false);
     const [isActionsMenuOpen, setIsActionsMenuOpen] = useState(false);
     const [isReportsMenuOpen, setIsReportsMenuOpen] = useState(false);
+
     const [isScheduleMenuOpen, setIsScheduleMenuOpen] = useState(false);
     // Removed isSettingsMenuOpen settings state as it is now a direct link
     const [unreadCount, setUnreadCount] = useState(0);
@@ -177,12 +179,12 @@ function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar }: 
     ];
 
     return (
-        <div className={cn("flex flex-col h-screen border-r bg-gradient-to-b from-slate-50 to-white dark:from-slate-950 dark:to-slate-900 transition-all duration-500", className)}>
+        <div className={cn("flex flex-col h-screen border-r bg-gradient-to-b from-slate-50 to-white dark:from-slate-950 dark:to-slate-900 ", className)}>
             {/* Header / Brand */}
-            <div className={cn("flex items-center h-16 border-b transition-all duration-500 gap-3", isCollapsed ? "justify-center px-2" : "justify-start px-6")}>
+            <div className={cn("flex items-center h-16 border-b gap-3", isCollapsed ? "justify-center px-2" : "justify-start px-6")}>
                 {/* Version Badge - Always visible */}
                 <div className={cn(
-                    "flex items-center justify-center shrink-0 transition-all duration-500 relative",
+                    "flex items-center justify-center shrink-0 relative",
                     isCollapsed ? "h-9 w-9" : "h-9 w-9"
                 )}>
                     <img
@@ -192,7 +194,7 @@ function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar }: 
                     />
                 </div>
                 <span className={cn(
-                    "text-xl font-bold tracking-tight text-slate-900 dark:text-white whitespace-nowrap transition-all duration-500 ease-in-out origin-left",
+                    "text-xl font-bold tracking-tight text-slate-900 dark:text-white whitespace-nowrap ease-in-out origin-left",
                     isCollapsed
                         ? "opacity-0 w-0 -translate-x-5 overflow-hidden scale-90"
                         : "opacity-100 w-auto translate-x-0 scale-100"
@@ -204,13 +206,13 @@ function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar }: 
             {/* Navigation Links */}
             <div className="flex-1 overflow-y-auto px-3 py-4">
                 <nav className="space-y-1">
-                    {loading ? (
+                    {(loading && !userProfile && !initialRole) ? (
                         <div className="space-y-2">
                             <Skeleton className="h-11 w-full" />
                             <Skeleton className="h-11 w-full" />
                             <Skeleton className="h-11 w-full" />
                         </div>
-                    ) : userProfile?.role === "admin" ? (
+                    ) : (userProfile?.role ?? initialRole) === "admin" ? (
                         <>
 
 
@@ -221,7 +223,7 @@ function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar }: 
                                     <Link key={link.href} href={link.href} onClick={onLinkClick} title={isCollapsed ? link.label : undefined}>
                                         <div
                                             className={cn(
-                                                "w-full h-11 px-4 font-medium transition-all duration-500 flex items-center rounded-md cursor-pointer",
+                                                "w-full h-11 px-4 font-medium flex items-center rounded-md cursor-pointer",
                                                 isCollapsed ? "justify-center px-2" : "justify-start",
                                                 isActive
                                                     ? "bg-blue-600 text-white hover:bg-blue-700 shadow-md shadow-blue-500/20"
@@ -233,7 +235,7 @@ function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar }: 
                                                 isActive && "scale-110"
                                             )} />
                                             <span className={cn(
-                                                "text-sm whitespace-nowrap transition-all duration-500 ease-in-out overflow-hidden origin-left",
+                                                "text-sm whitespace-nowrap ease-in-out overflow-hidden origin-left",
                                                 isCollapsed ? "max-w-0 opacity-0 ml-0" : "max-w-[200px] opacity-100 ml-3"
                                             )}>
                                                 {link.label}
@@ -252,7 +254,7 @@ function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar }: 
                                             // Optional: Close sidebar on mobile if needed, but Dialog acts as overlay
                                         }}
                                         className={cn(
-                                            "w-full h-11 px-4 font-medium transition-all duration-500 flex items-center rounded-md cursor-pointer",
+                                            "w-full h-11 px-4 font-medium flex items-center rounded-md cursor-pointer",
                                             isCollapsed ? "justify-center px-2" : "justify-start",
                                             "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100"
                                         )}
@@ -262,7 +264,7 @@ function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar }: 
                                             "h-5 w-5 transition-transform duration-500 shrink-0"
                                         )} />
                                         <span className={cn(
-                                            "text-sm whitespace-nowrap transition-all duration-500 ease-in-out overflow-hidden origin-left",
+                                            "text-sm whitespace-nowrap ease-in-out overflow-hidden origin-left",
                                             isCollapsed ? "max-w-0 opacity-0 ml-0" : "max-w-[200px] opacity-100 ml-3"
                                         )}>
                                             Bildirim Gönder
@@ -285,7 +287,7 @@ function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar }: 
                                         }
                                     }}
                                     className={cn(
-                                        "w-full h-11 px-4 font-medium transition-all duration-500",
+                                        "w-full h-11 px-4 font-medium ",
                                         isCollapsed ? "justify-center px-2" : "justify-start",
                                         pathname.startsWith("/admin/schedule")
                                             ? "bg-blue-600 text-white hover:bg-blue-700 shadow-md shadow-blue-500/20"
@@ -298,7 +300,7 @@ function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar }: 
                                         pathname.startsWith("/admin/schedule") && "scale-110"
                                     )} />
                                     <div className={cn(
-                                        "flex-1 flex items-center justify-between whitespace-nowrap transition-all duration-500 ease-in-out overflow-hidden origin-left",
+                                        "flex-1 flex items-center justify-between whitespace-nowrap ease-in-out overflow-hidden origin-left",
                                         isCollapsed ? "max-w-0 opacity-0 ml-0" : "max-w-[200px] opacity-100 ml-3"
                                     )}>
                                         <span className="text-sm text-left">Denetim Programı</span>
@@ -319,7 +321,7 @@ function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar }: 
                                                 <Link key={link.href} href={link.href} onClick={onLinkClick}>
                                                     <div
                                                         className={cn(
-                                                            "w-full justify-start h-10 px-3 font-medium transition-all duration-500 flex items-center rounded-md cursor-pointer",
+                                                            "w-full justify-start h-10 px-3 font-medium flex items-center rounded-md cursor-pointer",
                                                             isActive
                                                                 ? "bg-blue-600 text-white hover:bg-blue-700 shadow-sm"
                                                                 : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100"
@@ -348,7 +350,7 @@ function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar }: 
                                         }
                                     }}
                                     className={cn(
-                                        "w-full h-11 px-4 font-medium transition-all duration-500",
+                                        "w-full h-11 px-4 font-medium ",
                                         isCollapsed ? "justify-center px-2" : "justify-start",
                                         pathname.startsWith("/admin/actions")
                                             ? "bg-blue-600 text-white hover:bg-blue-700 shadow-md shadow-blue-500/20"
@@ -361,7 +363,7 @@ function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar }: 
                                         pathname.startsWith("/admin/actions") && "scale-110"
                                     )} />
                                     <div className={cn(
-                                        "flex-1 flex items-center justify-between whitespace-nowrap transition-all duration-500 ease-in-out overflow-hidden origin-left",
+                                        "flex-1 flex items-center justify-between whitespace-nowrap ease-in-out overflow-hidden origin-left",
                                         isCollapsed ? "max-w-0 opacity-0 ml-0" : "max-w-[200px] opacity-100 ml-3"
                                     )}>
                                         <span className="text-sm text-left">Aksiyonlar</span>
@@ -386,7 +388,7 @@ function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar }: 
                                                 <Link key={link.href} href={link.href} onClick={onLinkClick}>
                                                     <div
                                                         className={cn(
-                                                            "w-full justify-start h-10 px-3 font-medium transition-all duration-500 flex items-center rounded-md cursor-pointer",
+                                                            "w-full justify-start h-10 px-3 font-medium flex items-center rounded-md cursor-pointer",
                                                             isActive
                                                                 ? "bg-blue-600 text-white hover:bg-blue-700 shadow-sm"
                                                                 : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100"
@@ -415,7 +417,7 @@ function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar }: 
                                         }
                                     }}
                                     className={cn(
-                                        "w-full h-11 px-4 font-medium transition-all duration-500",
+                                        "w-full h-11 px-4 font-medium ",
                                         isCollapsed ? "justify-center px-2" : "justify-start",
                                         pathname.startsWith("/admin/reports")
                                             ? "bg-blue-600 text-white hover:bg-blue-700 shadow-md shadow-blue-500/20"
@@ -428,7 +430,7 @@ function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar }: 
                                         pathname.startsWith("/admin/reports") && "scale-110"
                                     )} />
                                     <div className={cn(
-                                        "flex-1 flex items-center justify-between whitespace-nowrap transition-all duration-500 ease-in-out overflow-hidden origin-left",
+                                        "flex-1 flex items-center justify-between whitespace-nowrap ease-in-out overflow-hidden origin-left",
                                         isCollapsed ? "max-w-0 opacity-0 ml-0" : "max-w-[200px] opacity-100 ml-3"
                                     )}>
                                         <span className="text-sm text-left">Raporlar</span>
@@ -453,7 +455,7 @@ function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar }: 
                                                     <Link key={link.label} href={link.href} onClick={onLinkClick}>
                                                         <div
                                                             className={cn(
-                                                                "w-full justify-start h-10 px-3 font-medium transition-all duration-500 flex items-center rounded-md cursor-pointer",
+                                                                "w-full justify-start h-10 px-3 font-medium flex items-center rounded-md cursor-pointer",
                                                                 isActive
                                                                     ? "bg-blue-600 text-white hover:bg-blue-700 shadow-sm"
                                                                     : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100"
@@ -470,7 +472,7 @@ function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar }: 
                                                 <div
                                                     key={link.label}
                                                     className={cn(
-                                                        "w-full justify-start h-10 px-3 font-medium transition-all duration-500 flex items-center rounded-md cursor-not-allowed opacity-50",
+                                                        "w-full justify-start h-10 px-3 font-medium flex items-center rounded-md cursor-not-allowed opacity-50",
                                                         "text-slate-600 dark:text-slate-400 hover:bg-transparent"
                                                     )}
                                                 >
@@ -496,7 +498,7 @@ function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar }: 
                                         }
                                     }}
                                     className={cn(
-                                        "w-full h-11 px-4 font-medium transition-all duration-500",
+                                        "w-full h-11 px-4 font-medium ",
                                         isCollapsed ? "justify-center px-2" : "justify-start",
                                         isAuditSectionActive
                                             ? "bg-blue-600 text-white hover:bg-blue-700 shadow-md shadow-blue-500/20"
@@ -509,7 +511,7 @@ function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar }: 
                                         isAuditSectionActive && "scale-110"
                                     )} />
                                     <div className={cn(
-                                        "flex-1 flex items-center justify-between whitespace-nowrap transition-all duration-500 ease-in-out overflow-hidden origin-left",
+                                        "flex-1 flex items-center justify-between whitespace-nowrap ease-in-out overflow-hidden origin-left",
                                         isCollapsed ? "max-w-0 opacity-0 ml-0" : "max-w-[200px] opacity-100 ml-3"
                                     )}>
                                         <span className="text-sm text-left">Denetim Yönetimi</span>
@@ -530,7 +532,7 @@ function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar }: 
                                                 <Link key={link.href} href={link.href} onClick={onLinkClick}>
                                                     <div
                                                         className={cn(
-                                                            "w-full justify-start h-10 px-3 font-medium transition-all duration-500 flex items-center rounded-md cursor-pointer",
+                                                            "w-full justify-start h-10 px-3 font-medium flex items-center rounded-md cursor-pointer",
                                                             isActive
                                                                 ? "bg-blue-600 text-white hover:bg-blue-700 shadow-sm"
                                                                 : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100"
@@ -550,7 +552,7 @@ function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar }: 
                             <Link href="/admin/settings" onClick={onLinkClick} title={isCollapsed ? "Ayarlar" : undefined}>
                                 <div
                                     className={cn(
-                                        "w-full h-11 px-4 font-medium transition-all duration-500 flex items-center rounded-md cursor-pointer",
+                                        "w-full h-11 px-4 font-medium flex items-center rounded-md cursor-pointer",
                                         isCollapsed ? "justify-center px-2" : "justify-start",
                                         pathname.startsWith("/admin/settings")
                                             ? "bg-blue-600 text-white hover:bg-blue-700 shadow-md shadow-blue-500/20"
@@ -567,7 +569,7 @@ function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar }: 
                                     )} />
                                     </div>
                                     <span className={cn(
-                                        "text-sm whitespace-nowrap transition-all duration-500 ease-in-out overflow-hidden origin-left",
+                                        "text-sm whitespace-nowrap ease-in-out overflow-hidden origin-left",
                                         isCollapsed ? "max-w-0 opacity-0 ml-0" : "max-w-[200px] opacity-100 ml-3"
                                     )}>
                                         Ayarlar
@@ -584,7 +586,7 @@ function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar }: 
                                     <Link key={link.href} href={link.href} onClick={onLinkClick} title={isCollapsed ? link.label : undefined}>
                                         <div
                                             className={cn(
-                                                "w-full h-11 px-4 font-medium transition-all duration-500 flex items-center rounded-md cursor-pointer",
+                                                "w-full h-11 px-4 font-medium flex items-center rounded-md cursor-pointer",
                                                 isCollapsed ? "justify-center px-2" : "justify-start",
                                                 isActive
                                                     ? "bg-blue-600 text-white hover:bg-blue-700 shadow-md shadow-blue-500/20"
@@ -596,7 +598,7 @@ function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar }: 
                                                 isActive && "scale-110"
                                             )} />
                                             <span className={cn(
-                                                "text-sm whitespace-nowrap transition-all duration-500 ease-in-out overflow-hidden origin-left",
+                                                "text-sm whitespace-nowrap ease-in-out overflow-hidden origin-left",
                                                 isCollapsed ? "max-w-0 opacity-0 ml-0" : "max-w-[200px] opacity-100 ml-3"
                                             )}>
                                                 {link.label}
@@ -615,7 +617,7 @@ function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar }: 
                                     <Link key={link.href} href={link.href} onClick={onLinkClick} title={isCollapsed ? link.label : undefined}>
                                         <div
                                             className={cn(
-                                                "w-full h-11 px-4 font-medium transition-all duration-500 flex items-center rounded-md cursor-pointer",
+                                                "w-full h-11 px-4 font-medium flex items-center rounded-md cursor-pointer",
                                                 isCollapsed ? "justify-center px-2" : "justify-start",
                                                 isActive
                                                     ? "bg-blue-600 text-white hover:bg-blue-700 shadow-md shadow-blue-500/20"
@@ -627,7 +629,7 @@ function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar }: 
                                                 isActive && "scale-110"
                                             )} />
                                             <span className={cn(
-                                                "text-sm whitespace-nowrap transition-all duration-500 ease-in-out overflow-hidden origin-left",
+                                                "text-sm whitespace-nowrap ease-in-out overflow-hidden origin-left",
                                                 isCollapsed ? "max-w-0 opacity-0 ml-0" : "max-w-[200px] opacity-100 ml-3"
                                             )}>
                                                 {link.label}
@@ -641,7 +643,7 @@ function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar }: 
                             <Link href="/denetmen/program/haftalik" onClick={onLinkClick} title={isCollapsed ? "Denetim Programı" : undefined}>
                                 <div
                                     className={cn(
-                                        "w-full h-11 px-4 font-medium transition-all duration-500 flex items-center rounded-md cursor-pointer",
+                                        "w-full h-11 px-4 font-medium flex items-center rounded-md cursor-pointer",
                                         isCollapsed ? "justify-center px-2" : "justify-start",
                                         pathname.startsWith("/denetmen/program")
                                             ? "bg-blue-600 text-white hover:bg-blue-700 shadow-md shadow-blue-500/20"
@@ -653,7 +655,7 @@ function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar }: 
                                         pathname.startsWith("/denetmen/program") && "scale-110"
                                     )} />
                                     <span className={cn(
-                                        "text-sm whitespace-nowrap transition-all duration-500 ease-in-out overflow-hidden origin-left",
+                                        "text-sm whitespace-nowrap ease-in-out overflow-hidden origin-left",
                                         isCollapsed ? "max-w-0 opacity-0 ml-0" : "max-w-[200px] opacity-100 ml-3"
                                     )}>
                                         Denetim Programı
@@ -687,7 +689,7 @@ function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar }: 
                                         isDenetmenAuditSectionActive && "scale-110"
                                     )} />
                                     <div className={cn(
-                                        "flex-1 flex items-center justify-between whitespace-nowrap transition-all duration-500 ease-in-out overflow-hidden origin-left",
+                                        "flex-1 flex items-center justify-between whitespace-nowrap ease-in-out overflow-hidden origin-left",
                                         isCollapsed ? "max-w-0 opacity-0 ml-0" : "max-w-[200px] opacity-100 ml-3"
                                     )}>
                                         <span className="text-sm text-left">Denetimlerim</span>
@@ -707,7 +709,7 @@ function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar }: 
                                                 <Link key={link.href} href={link.href} onClick={onLinkClick}>
                                                     <div
                                                         className={cn(
-                                                            "w-full justify-start h-10 px-3 font-medium transition-all duration-500 flex items-center rounded-md cursor-pointer",
+                                                            "w-full justify-start h-10 px-3 font-medium flex items-center rounded-md cursor-pointer",
                                                             isActive
                                                                 ? "bg-blue-600 text-white hover:bg-blue-700 shadow-sm"
                                                                 : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100"
@@ -738,7 +740,7 @@ function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar }: 
                                 <Link key={link.href} href={link.href} onClick={onLinkClick} title={isCollapsed ? link.label : undefined}>
                                     <div
                                         className={cn(
-                                            "w-full h-11 px-4 font-medium transition-all duration-500 flex items-center rounded-md cursor-pointer",
+                                            "w-full h-11 px-4 font-medium flex items-center rounded-md cursor-pointer",
                                             isCollapsed ? "justify-center px-2" : "justify-start",
                                             isActive
                                                 ? "bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 hover:to-purple-700 shadow-md shadow-purple-500/20"
@@ -750,7 +752,7 @@ function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar }: 
                                             isActive && "scale-110"
                                         )} />
                                         <span className={cn(
-                                            "text-sm whitespace-nowrap transition-all duration-500 ease-in-out overflow-hidden origin-left",
+                                            "text-sm whitespace-nowrap ease-in-out overflow-hidden origin-left",
                                             isCollapsed ? "max-w-0 opacity-0 ml-0" : "max-w-[200px] opacity-100 ml-3"
                                         )}>
                                             {link.label}
@@ -773,3 +775,8 @@ export function Sidebar(props: SidebarProps) {
         </Suspense>
     );
 }
+
+
+
+
+

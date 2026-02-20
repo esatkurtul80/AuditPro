@@ -20,6 +20,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useMemo } from "react";
+import { Switch } from "@/components/ui/switch";
 
 interface EvaluationRow extends PersonnelEvaluation {
     formattedDate: string;
@@ -53,6 +54,9 @@ export default function PersonnelReportPage() {
     const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
     const [selectedPersonnelHistory, setSelectedPersonnelHistory] = useState<EvaluationRow[]>([]);
     const [historyPersonnelName, setHistoryPersonnelName] = useState("");
+
+    // Settings State
+    const [showScoresInReport, setShowScoresInReport] = useState(true);
 
     // Grouping personnel
     const personnelGrouped = useMemo(() => {
@@ -119,6 +123,15 @@ export default function PersonnelReportPage() {
                 }).sort((a, b) => b.parsedDate.getTime() - a.parsedDate.getTime());
 
                 setEvaluations(evalsList);
+
+                // Fetch Settings
+                const settingsSnap = await getDoc(doc(db, "settings", "personnel_settings"));
+                if (settingsSnap.exists()) {
+                    const settingsData = settingsSnap.data();
+                    if (settingsData.showScoresInSpecialReport !== undefined) {
+                        setShowScoresInReport(settingsData.showScoresInSpecialReport);
+                    }
+                }
             } catch (error) {
                 console.error("Data loading error:", error);
             } finally {
@@ -205,6 +218,33 @@ export default function PersonnelReportPage() {
             toast.error("Durum güncellenirken bir hata oluştu.");
         } finally {
             setUpdatingStatus(false);
+        }
+    };
+
+    const handleToggleScoresInReport = async (checked: boolean) => {
+        setShowScoresInReport(checked);
+        try {
+            await updateDoc(doc(db, "settings", "personnel_settings"), {
+                showScoresInSpecialReport: checked
+            });
+            toast.success("Ayar başarıyla kaydedildi.");
+        } catch (error: any) {
+            // Document might not exist
+            if (error.code === 'not-found') {
+                try {
+                    const { setDoc } = await import("firebase/firestore");
+                    await setDoc(doc(db, "settings", "personnel_settings"), {
+                        showScoresInSpecialReport: checked
+                    });
+                    toast.success("Ayar başarıyla oluşturuldu ve kaydedildi.");
+                    return;
+                } catch (e) {
+                    console.error(e);
+                }
+            }
+            console.error("Ayar güncellenirken hata:", error);
+            toast.error("Ayar kaydedilirken bir hata oluştu.");
+            setShowScoresInReport(!checked); // revert UI
         }
     };
 
@@ -354,6 +394,18 @@ export default function PersonnelReportPage() {
                         <div>
                             <CardTitle>Değerlendirmeler</CardTitle>
                             <CardDescription>Tarih, mağaza veya denetmene göre filtreleyin.</CardDescription>
+                        </div>
+                        <div className="flex items-center gap-2 border p-2 rounded-md bg-slate-50 dark:bg-slate-900 mb-2 md:mb-0">
+                            <Label htmlFor="show-scores-switch" className="flex flex-col gap-1 cursor-pointer">
+                                <span className="font-semibold text-sm">Özel Raporda Puanlar Görünsün</span>
+                                <span className="font-normal text-xs text-muted-foreground">Aktif ise personellerin aldığı puanlar özel rapora dahil edilir.</span>
+                            </Label>
+                            <Switch 
+                                id="show-scores-switch"
+                                checked={showScoresInReport} 
+                                onCheckedChange={handleToggleScoresInReport} 
+                                className="ml-2"
+                            />
                         </div>
                         <div className="flex flex-col md:flex-row items-center gap-2">
                             <DateRangePicker value={dateRange} onChange={setDateRange} />

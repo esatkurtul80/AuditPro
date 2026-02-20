@@ -1,8 +1,13 @@
 # Project Version
 
-**Current Version:** v2.2.33
+**Current Version:** v2.2.34
 
 ## Changelog
+
+### v2.2.34
+- **Personel Değerlendirme (Raporlama):** Özel raporda yorumların sıkışmaması için tablo kolon genişlikleri dinamik hale getirildi ve taşmayı önleyen metin kırma (word-break) özelliği eklendi.
+- **Personel Değerlendirme (Denetim Formu):** Denetmen panelindeki "Personel Değerlendirme" sekmesi güncellendi. Artık mağazadaki mevcut aktif personeller ile değerlendirilenler gerçek zamanlı dinleniyor; tümü değerlendirildiğinde gösterge "Yeşil", eksik personel varsa "Kırmızı" oluyor ve ("X / Y personel değerlendirildi" şeklinde) detay gösteriliyor.
+- **Hata Düzeltme (Hydration Opaque):** Header, Çevrimiçi Kullanıcı sayısı, Lokasyon Rozeti ve Çevrimiçi Rozeti gibi sunucu ile istemci arasında verisi farklılık gösterebilen dinamik bileşenlerdeki React Hydration uyuşmazlığı hataları `suppressHydrationWarning` ile çözüldü.
 
 ### v2.2.33
 - **Personel Değerlendirme (Offline):** Manuel IndexedDB kuyruğu kaldırıldı. Artık Firestore SDK'nın yerleşik offline cache'i kullanılıyor; çevrimdışı yazılar bağlantı geldiğinde otomatik senkronize oluyor.

@@ -1,25 +1,19 @@
-"use client";
-
-import { useEffect } from "react";
-import { usePathname } from "next/navigation";
+import { cookies } from "next/headers";
 import { DashboardLayout } from "@/components/dashboard-layout";
 import { ProtectedRoute } from "@/components/protected-route";
+import { SettingsCleanup } from "@/components/admin/settings-cleanup";
 
-// Session key for Settings 2FA - must match the one in settings/layout.tsx
-const SETTINGS_2FA_SESSION_KEY = "settings_2fa_verified";
-
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
-    const pathname = usePathname();
-
-    // Clear settings 2FA session when navigating away from settings
-    useEffect(() => {
-        if (pathname && !pathname.startsWith("/admin/settings")) {
-            sessionStorage.removeItem(SETTINGS_2FA_SESSION_KEY);
-        }
-    }, [pathname]);
+export default async function AdminLayout({ children }: { children: React.ReactNode }) {
+    // Read the session cookie set by AuthProvider on the client.
+    // Firebase Hosting ONLY passes the '__session' cookie to SSR functions.
+    // This lets the server render the correct sidebar menu without skeleton flash.
+    const cookieStore = await cookies();
+    const initialRole = cookieStore.get("__session")?.value ?? null;
 
     return (
-        <DashboardLayout>
+        <DashboardLayout initialRole={initialRole}>
+            {/* Handles 2FA session cleanup on navigation — needs usePathname (client) */}
+            <SettingsCleanup />
             <ProtectedRoute allowedRoles={["admin"]}>
                 {children}
             </ProtectedRoute>

@@ -264,6 +264,7 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
                                     size="icon"
                                     className="relative h-8 w-8 rounded-full border bg-background hover:bg-accent"
                                     title={`${onlineUsers.length} kullanıcı çevrimiçi`}
+                                    suppressHydrationWarning
                                 >
                                     <Users className="h-4 w-4" />
                                     {onlineUsers.length > 0 && (
@@ -508,6 +509,7 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
                                 size="icon"
                                 className="relative h-8 w-8 rounded-full border bg-background hover:bg-accent"
                                 title={`${onlineUsers.length} kullanıcı çevrimiçi`}
+                                suppressHydrationWarning
                             >
                                 <Users className="h-4 w-4" />
                                 {onlineUsers.length > 0 && (

@@ -11,7 +11,7 @@ import { FloatingActionButton } from "@/components/floating-action-button";
 import { usePathname } from "next/navigation";
 import { MobileDebugLogger } from "@/components/mobile-debug-logger";
 
-export function DashboardLayout({ children, forceStoreLayout }: { children: React.ReactNode, forceStoreLayout?: boolean }) {
+export function DashboardLayout({ children, forceStoreLayout, initialRole }: { children: React.ReactNode, forceStoreLayout?: boolean, initialRole?: string | null }) {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
     const { userProfile, loading } = useAuth();
@@ -37,16 +37,14 @@ export function DashboardLayout({ children, forceStoreLayout }: { children: Reac
     };
 
     // Determine if we should show store layout (no hamburger, no sidebar overlay on mobile)
-    // CRITICAL: userProfile is now cached in AuthProvider, so it might be available even if loading=true.
-    // We prioritize using the profile if it exists.
-    // Regional managers (bolge-muduru) should also use the custom layout without sidebar
-    const isStoreUser = forceStoreLayout || userProfile?.role === "magaza" || userProfile?.role === "bolge-muduru" || (!!userProfile?.storeId);
+    // CRITICAL for Hydration: We MUST use initialRole as a fallback so that the server renders the same HTML as the client.
+    const effectiveRole = userProfile?.role ?? initialRole;
+    
+    const isStoreUser = forceStoreLayout || effectiveRole === "magaza" || effectiveRole === "bolge-muduru" || (!!userProfile?.storeId);
 
-    // Optimistically show auditor layout elements during loading to prevent layout shift
-    // If we have a cached profile saying "denetmen" or "admin", we show the full layout regardless of loading state.
-    // If we have NO profile yet and are strictly loading, we fall back to URL sniffing.
-    const hasAuditorProfile = userProfile && (userProfile.role === "denetmen" || userProfile.role === "admin");
-    const isOptimisticAuditor = loading && !userProfile && pathname?.startsWith("/denetmen");
+    // Optimistically show auditor layout elements to prevent layout shift
+    const hasAuditorProfile = effectiveRole === "denetmen" || effectiveRole === "admin";
+    const isOptimisticAuditor = loading && !effectiveRole && pathname?.startsWith("/denetmen");
 
     // Prevent flash of hamburger menu during loading
     // Show if (Not Store AND (Loaded OR HasAuditorProfile OR Optimistic))
@@ -62,6 +60,7 @@ export function DashboardLayout({ children, forceStoreLayout }: { children: Reac
                 <Sidebar
                     isCollapsed={isSidebarCollapsed}
                     toggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+                    initialRole={initialRole}
                 />
             </aside>
 

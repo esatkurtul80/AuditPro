@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { LogoLoader } from "@/components/logo-loader";
 import { UserRole } from "@/lib/types";
-import { toast } from "sonner";
 import { UnauthorizedView } from "@/components/unauthorized-view";
 
 interface ProtectedRouteProps {
@@ -27,12 +26,13 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
         }
     }, [user, userProfile, loading, allowedRoles, router]);
 
-    // SPA Optimization: If we already have a user and profile, render immediately
-    // ignoring the 'loading' state that might trigger on re-focus or navigation
-    if (user && userProfile && userProfile.role !== "pending" && allowedRoles.includes(userProfile.role)) {
+    // AuthProvider now pre-populates userProfile from localStorage cache synchronously.
+    // So this fast-path covers the very first render — no flash, no spinner.
+    if (userProfile && userProfile.role !== "pending" && allowedRoles.includes(userProfile.role)) {
         return <>{children}</>;
     }
 
+    // Genuinely loading (no cache) — Firebase auth hasn't resolved yet
     if (loading) {
         return (
             <div className="flex min-h-screen items-center justify-center">
@@ -46,11 +46,11 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
     }
 
     if (!userProfile) {
-         return (
+        return (
             <div className="flex min-h-screen items-center justify-center bg-background">
-                 <LogoLoader />
+                <LogoLoader />
             </div>
-         );
+        );
     }
 
     if (userProfile.role === "pending") {
