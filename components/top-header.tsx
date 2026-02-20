@@ -16,7 +16,7 @@ import {
 import Link from "next/link";
 import { Clock, AlertCircle, CheckCircle, CalendarOff, Home, ChevronDown, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 
 
 interface TopHeaderProps {
@@ -28,6 +28,11 @@ export function TopHeader({ toggleSidebar, isCollapsed }: TopHeaderProps) {
     const router = useRouter();
     const { userProfile } = useAuth();
     const [isNotificationDialogOpen, setIsNotificationDialogOpen] = useState(false);
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
 
     return (
         <>
@@ -46,7 +51,7 @@ export function TopHeader({ toggleSidebar, isCollapsed }: TopHeaderProps) {
                             <PanelLeft className="h-5 w-5" />
                         </Button>
 
-                        {userProfile && userProfile.role !== "magaza" && userProfile.role !== "denetmen" && (
+                        {mounted && userProfile && userProfile.role !== "magaza" && userProfile.role !== "denetmen" && (
 
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
@@ -91,7 +96,7 @@ export function TopHeader({ toggleSidebar, isCollapsed }: TopHeaderProps) {
                             </DropdownMenu>
                         )}
 
-                        {userProfile?.role === "admin" && (
+                        {mounted && userProfile?.role === "admin" && (
                             <div className="hidden md:flex items-center gap-2">
                                 <SendNotificationDialog 
                                     open={isNotificationDialogOpen} 

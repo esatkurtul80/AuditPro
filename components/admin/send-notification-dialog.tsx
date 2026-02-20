@@ -23,11 +23,13 @@ import {
 } from "@/components/ui/select";
 import { BellRing, Loader2, Send, Users } from "lucide-react";
 import { toast } from "sonner";
-import { collection, addDoc, Timestamp, getDocs, query, where } from "firebase/firestore";
+import { collection, addDoc, Timestamp, getDocs, query, where, onSnapshot, orderBy, limit } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { UserProfile, NotificationType } from "@/lib/types";
 import { useAuth } from "@/components/auth-provider";
 import { NotificationResultDialog } from "./notification-result-dialog";
+import { format } from "date-fns";
+import { tr } from "date-fns/locale";
 
 export function SendNotificationDialog({ trigger, open: controlledOpen, onOpenChange: setControlledOpen }: { trigger?: React.ReactNode, open?: boolean, onOpenChange?: (open: boolean) => void }) {
     const { userProfile } = useAuth();
@@ -49,6 +51,17 @@ export function SendNotificationDialog({ trigger, open: controlledOpen, onOpenCh
         totalTarget?: number;
     } | null>(null);
     const [showResult, setShowResult] = useState(false);
+    const [history, setHistory] = useState<any[]>([]);
+
+    useEffect(() => {
+        if (!open) return;
+        const q = query(collection(db, "broadcast_history"), orderBy("createdAt", "desc"), limit(10));
+        const unsubscribe = onSnapshot(q, (snap) => {
+            const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            setHistory(data);
+        });
+        return () => unsubscribe();
+    }, [open]);
 
     // Basit bir gönderim fonksiyonu
     const handleSend = async () => {
@@ -142,6 +155,18 @@ export function SendNotificationDialog({ trigger, open: controlledOpen, onOpenCh
                     setOpen(false); // Close input dialog
                     setShowResult(true); // Open result dialog
                     
+                    // Save broadcast history
+                    await addDoc(collection(db, "broadcast_history"), {
+                        title,
+                        message,
+                        targetType,
+                        totalTarget: targetUsers.length,
+                        successCount: result.successCount,
+                        senderName,
+                        senderId: userProfile?.uid,
+                        createdAt: Timestamp.now()
+                    });
+
                     setTitle("");
                     setMessage("");
                 }
@@ -169,7 +194,7 @@ export function SendNotificationDialog({ trigger, open: controlledOpen, onOpenCh
                     </Button>
                 )}
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[500px]">
+            <DialogContent className="sm:max-w-[800px] max-h-[90vh] flex flex-col">
                 <DialogHeader>
                     <DialogTitle>Toplu Bildirim Gönder</DialogTitle>
                     <DialogDescription>
@@ -177,45 +202,85 @@ export function SendNotificationDialog({ trigger, open: controlledOpen, onOpenCh
                     </DialogDescription>
                 </DialogHeader>
 
-                <div className="grid gap-4 py-4">
-                    <div className="grid gap-2">
-                        <Label>Gönderilecek Grup</Label>
-                        <Select value={targetType} onValueChange={(v: any) => setTargetType(v)}>
-                            <SelectTrigger>
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="denetmen">Tüm Denetmenler</SelectItem>
-                                <SelectItem value="magaza">Tüm Mağazalar</SelectItem>
-                                <SelectItem value="bolge-muduru">Tüm Bölge Müdürleri</SelectItem>
-                                <SelectItem value="admin">Tüm Adminler</SelectItem>
-                                <SelectItem value="all">Tüm Kullanıcılar</SelectItem>
-                            </SelectContent>
-                        </Select>
+                <div className="grid md:grid-cols-2 gap-6 py-4 flex-1 overflow-hidden">
+                    {/* Left Side: Form */}
+                    <div className="flex flex-col gap-4 overflow-y-auto pr-1">
+                        <div className="grid gap-2">
+                            <Label>Gönderilecek Grup</Label>
+                            <Select value={targetType} onValueChange={(v: any) => setTargetType(v)}>
+                                <SelectTrigger>
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="denetmen">Tüm Denetmenler</SelectItem>
+                                    <SelectItem value="magaza">Tüm Mağazalar</SelectItem>
+                                    <SelectItem value="bolge-muduru">Tüm Bölge Müdürleri</SelectItem>
+                                    <SelectItem value="admin">Tüm Adminler</SelectItem>
+                                    <SelectItem value="all">Tüm Kullanıcılar</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div className="grid gap-2">
+                            <Label>Bildirim Başlığı</Label>
+                            <Input
+                                placeholder="Örn: Sistem Bakımı Hakkında"
+                                value={title}
+                                onChange={(e) => setTitle(e.target.value)}
+                            />
+                        </div>
+
+                        <div className="grid gap-2 flex-1">
+                            <Label>Mesaj İçeriği</Label>
+                            <Textarea
+                                placeholder="Mesajınızı buraya yazın..."
+                                value={message}
+                                onChange={(e) => setMessage(e.target.value)}
+                                className="min-h-[120px] resize-none h-full"
+                            />
+                        </div>
                     </div>
 
-                    <div className="grid gap-2">
-                        <Label>Bildirim Başlığı</Label>
-                        <Input
-                            placeholder="Örn: Sistem Bakımı Hakkında"
-                            value={title}
-                            onChange={(e) => setTitle(e.target.value)}
-                        />
-                    </div>
-
-                    <div className="grid gap-2">
-                        <Label>Mesaj İçeriği</Label>
-                        <Textarea
-                            placeholder="Mesajınızı buraya yazın..."
-                            value={message}
-                            onChange={(e) => setMessage(e.target.value)}
-                            rows={4}
-                        />
+                    {/* Right Side: History */}
+                    <div className="flex flex-col gap-2 overflow-hidden border-t md:border-t-0 md:border-l pt-4 md:pt-0 pl-0 md:pl-6">
+                        <Label className="text-muted-foreground mb-1">Gönderilmiş Bildirimler (Son 10)</Label>
+                        <div className="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar">
+                            {history.length === 0 ? (
+                                <p className="text-sm text-muted-foreground text-center py-8">Henüz bildirim gönderilmemiş.</p>
+                            ) : (
+                                history.map((item) => (
+                                    <div key={item.id} className="rounded-lg border p-3 flex flex-col gap-1.5 bg-accent/30">
+                                        <div className="flex items-start justify-between gap-2">
+                                            <span className="font-semibold text-sm line-clamp-1 flex-1">{item.title}</span>
+                                            <span className="text-[10px] text-muted-foreground whitespace-nowrap bg-background px-1.5 py-0.5 rounded border">
+                                                {item.targetType === "all" ? "Tümü" :
+                                                 item.targetType === "denetmen" ? "Denetmenler" :
+                                                 item.targetType === "magaza" ? "Mağazalar" :
+                                                 item.targetType === "bolge-muduru" ? "Bölge Md." :
+                                                 item.targetType === "admin" ? "Adminler" : item.targetType}
+                                            </span>
+                                        </div>
+                                        <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
+                                            {item.message}
+                                        </p>
+                                        <div className="flex items-center justify-between mt-1 pt-1.5 border-t border-border/50">
+                                            <div className="flex gap-2 items-center text-[10px] text-muted-foreground">
+                                                <span className="font-medium text-foreground">{item.senderName}</span>
+                                                <span className="text-blue-600/70">{item.successCount}/{item.totalTarget} ulaştı</span>
+                                            </div>
+                                            <span className="text-[10px] text-muted-foreground flex-shrink-0">
+                                                {item.createdAt ? format(item.createdAt.toDate(), "dd MMM HH:mm", { locale: tr }) : "Şimdi"}
+                                            </span>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
                     </div>
                 </div>
 
-                <DialogFooter>
-                    <Button variant="outline" onClick={() => setOpen(false)} disabled={loading}>Iptal</Button>
+                <DialogFooter className="mt-auto pt-4">
+                    <Button variant="outline" onClick={() => setOpen(false)} disabled={loading}>İptal</Button>
                     <Button onClick={handleSend} disabled={loading} className="gap-2">
                         {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                         Gönder
