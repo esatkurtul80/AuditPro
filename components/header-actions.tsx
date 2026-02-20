@@ -222,7 +222,7 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
 
     const iconSize = compact ? "h-4 w-4" : "h-5 w-5";
     const avatarSize = compact ? "h-8 w-8" : "h-10 w-10";
-    const isStoreUser = userProfile?.role === "magaza" || !!userProfile?.storeId;
+    const isStoreUser = mounted ? (userProfile?.role === "magaza" || !!userProfile?.storeId) : false;
 
     if (compact && isStoreUser) {
         return (
@@ -256,7 +256,7 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
                     <LocationStatusBadge compact={compact} />
                     
                     {/* Online Users Button - Admin Only */}
-                    {userProfile?.role === "admin" && (
+                    {mounted && userProfile?.role === "admin" && (
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                                 <Button
@@ -474,7 +474,7 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
                         <Settings className="mr-2 h-4 w-4" />
                         <span>Ayarlar</span>
                     </DropdownMenuItem>
-                    {userProfile?.role === "admin" && (
+                    {mounted && userProfile?.role === "admin" && (
                         <DropdownMenuItem onClick={() => router.push("/admin/info")}>
                             <AlertCircle className="mr-2 h-4 w-4" />
                             <span>Sistem Bilgisi</span>
@@ -501,7 +501,7 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
                 <LocationStatusBadge compact={compact} />
                 
                 {/* Online Users Button - Admin Only */}
-                {userProfile?.role === "admin" && (
+                {mounted && userProfile?.role === "admin" && (
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                             <Button
@@ -670,7 +670,7 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
                         className={`relative ${avatarSize} rounded-full p-0`}
                         suppressHydrationWarning
                     >
-                        {loading && !userProfile ? (
+                        {!mounted || (loading && !userProfile) ? (
                             <Skeleton className={`${avatarSize} rounded-full`} />
                         ) : (
                             <Avatar className={avatarSize}>
@@ -709,7 +709,7 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
                         <Settings className="mr-2 h-4 w-4" />
                         <span>Ayarlar</span>
                     </DropdownMenuItem>
-                    {userProfile?.role === "admin" && (
+                    {mounted && userProfile?.role === "admin" && (
                         <DropdownMenuItem onClick={() => router.push("/admin/info")}>
                             <AlertCircle className="mr-2 h-4 w-4" />
                             <span>Sistem Bilgisi</span>
