@@ -62,6 +62,7 @@ function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar }: 
     // Removed settingsSubLinks as they are no longer used in sidebar dropdown
 
     const reportsSubLinks = [
+        { href: "/admin/reports/personnel", label: "Personel Raporu", icon: Users },
         { href: "/admin/reports/puan-raporu", label: "Puan Raporu", icon: BarChart3 },
         { href: "/admin/reports/questions", label: "Soru Raporları", icon: FileQuestion },
         { href: "/admin/reports/action-performance", label: "Aksiyon Raporu", icon: CheckCircle },

@@ -322,3 +322,30 @@ export interface Announcement {
     isArchived?: boolean;
     isDeleted?: boolean;
 }
+
+// Store Personnel Evaluation
+export type PersonnelStatus = "active" | "resigned" | "transferred";
+
+export interface StorePersonnel {
+    id: string;
+    storeId: string;
+    name: string;
+    status: PersonnelStatus;
+    targetStoreId?: string; // If transferred, where did they go?
+    createdAt: Timestamp;
+    updatedAt: Timestamp;
+}
+
+export interface PersonnelEvaluation {
+    id: string;
+    personnelId: string;
+    personnelName: string; // denormalize for easier reporting
+    auditId?: string;
+    storeId: string;
+    storeName: string; // denormalize for easier reporting
+    auditorId: string;
+    auditorName: string; // denormalize
+    score: number; // 0-100
+    comment?: string;
+    createdAt: Timestamp;
+}

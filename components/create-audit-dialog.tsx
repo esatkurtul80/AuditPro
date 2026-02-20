@@ -397,15 +397,29 @@ export function CreateAuditDialog({ open, onOpenChange }: CreateAuditDialogProps
                  const formattedDate = now.toLocaleDateString('tr-TR');
                  const formattedTime = now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
                  
-                 // Fire and forget notification
+                 const notificationData = {
+                    userId: store.regionalManagerId,
+                    type: "new_audit",
+                    title: "🚀 Denetim Başladı",
+                    message: `${formattedDate} ${formattedTime} tarihinde ${newAudit.auditorName}, ${store.name} mağazasında ${auditType.name} başlatmıştır.`,
+                    read: false,
+                    relatedId: docRef.id,
+                    senderName: newAudit.auditorName || "Sistem",
+                    createdAt: Timestamp.now(),
+                 };
+
+                 // 1. Create persistent notification in Firestore
+                 addDoc(collection(db, "notifications"), notificationData).catch(err => console.error("Failed to save notification", err));
+
+                 // 2. Fire and forget push notification
                  fetch('/api/send-notification', {
                      method: 'POST',
                      headers: { 'Content-Type': 'application/json' },
                      body: JSON.stringify({
-                         title: "🚀 Denetim Başladı",
-                         message: `${formattedDate} ${formattedTime} tarihinde ${newAudit.auditorName}, ${store.name} mağazasında ${auditType.name} başlatmıştır.`,
+                         title: notificationData.title,
+                         message: notificationData.message,
                          recipients: [{ type: "user", id: store.regionalManagerId }],
-                         url: `/admin/audits/${docRef.id}` // Optional: Link to audit view if needed, or just info
+                         url: `/notifications` // Link to notifications page
                      })
                  }).catch(err => console.error("Failed to send start notification", err));
             }
@@ -413,7 +427,7 @@ export function CreateAuditDialog({ open, onOpenChange }: CreateAuditDialogProps
             if (shouldRedirect) {
                 toast.success(`Denetim oluşturuldu! ${totalQuestions} soru yüklendi.`);
                 onOpenChange(false);
-                router.push(`/audits/${docRef.id}`);
+                router.push(`/audits/${docRef.id}?mode=edit`);
             }
             
             return docRef.id;
@@ -435,7 +449,7 @@ export function CreateAuditDialog({ open, onOpenChange }: CreateAuditDialogProps
             if (existingAuditId) {
                 toast.info("Devam eden denetime yönlendiriliyorsunuz...");
                 onOpenChange(false);
-                router.push(`/audits/${existingAuditId}`);
+                router.push(`/audits/${existingAuditId}?mode=edit`);
                 return;
             }
         }
@@ -471,7 +485,7 @@ export function CreateAuditDialog({ open, onOpenChange }: CreateAuditDialogProps
             
             // Close dialog and navigate
             onOpenChange(false);
-            router.push(`/audits/${auditId}`);
+            router.push(`/audits/${auditId}?mode=edit`);
             
             // Reset states
             setTimeout(() => {

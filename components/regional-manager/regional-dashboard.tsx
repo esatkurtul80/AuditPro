@@ -179,7 +179,9 @@ export function RegionalDashboard() {
             }
 
             // Enrich audit data with store names
-            const enrichedAudits = auditsData.map(audit => {
+            const enrichedAudits = auditsData
+                .filter((audit: any) => audit.status !== "iptal_edildi")
+                .map(audit => {
                 const store = storesData.find(s => s.id === audit.storeId);
                 return {
                     ...audit,

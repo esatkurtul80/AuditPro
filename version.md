@@ -1,8 +1,13 @@
 # Project Version
 
-**Current Version:** v2.2.32
+**Current Version:** v2.2.33
 
 ## Changelog
+
+### v2.2.33
+- **Personel Değerlendirme (Offline):** Manuel IndexedDB kuyruğu kaldırıldı. Artık Firestore SDK'nın yerleşik offline cache'i kullanılıyor; çevrimdışı yazılar bağlantı geldiğinde otomatik senkronize oluyor.
+- **Personel Değerlendirme (Anlık Kayıt):** Debounce kaldırıldı, her değişimde (skor, yorum, durum) anlık kayıt yapılıyor.
+- **Personel Değerlendirme (Hata Düzeltme):** Geri tuşuna basıp tekrar gelince yorum ve puanların kaybolması sorunu giderildi. Listener sıralamasından bağımsız çalışan `evaluationsRef` yaklaşımı ile race condition ortadan kaldırıldı.
 
 ### v2.2.32
 - **Bölge Müdürü Bildirimleri:** Denetim başladığında ve bittiğinde Bölge Müdürüne anlık bildirim (Push Notification) gönderilmesi sağlandı.

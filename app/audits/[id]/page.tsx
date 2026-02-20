@@ -35,7 +35,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Upload, X, CheckCircle2, ArrowLeft, Circle, Plus, Save, WifiOff, Clock, Star, ChevronRight, AlertCircle, MoreHorizontal, ClipboardList, MessageSquare } from "lucide-react";
+import { Loader2, Upload, X, CheckCircle2, ArrowLeft, Circle, Plus, Save, WifiOff, Clock, Star, ChevronRight, AlertCircle, MoreHorizontal, ClipboardList, MessageSquare, UserCircle } from "lucide-react";
 import { toast } from "sonner";
 import * as LucideIcons from "lucide-react";
 import Link from "next/link";
@@ -57,6 +57,8 @@ import { QuestionHistoryButton } from "@/components/question-history-button";
 import { AuditSummary } from "@/components/audit-summary";
 import { Checkbox } from "@/components/ui/checkbox";
 import Logger from "@/lib/logger";
+import { getStoreAuditHistory, QuestionHistory, QuestionHistoryEntry } from "@/lib/question-history";
+import { PersonnelEvaluationSection } from "@/components/audits/personnel-evaluation-section";
 
 const AuditPageLayout = ({ children, isRegionalManager }: { children: React.ReactNode; isRegionalManager: boolean }) => {
     if (isRegionalManager) {
@@ -81,16 +83,18 @@ export default function AuditPage() {
     const [audit, setAudit] = useState<Audit | null>(null);
     const [loading, setLoading] = useState(true);
     const [uploading, setUploading] = useState(false);
-    const [currentSectionIndex, setCurrentSectionIndex] = useState<number | null>(null);
+    const [currentSectionIndex, setCurrentSectionIndex] = useState<number | 'personnel' | null>(null);
     const [showExitDialog, setShowExitDialog] = useState(false);
     const [showBackDialog, setShowBackDialog] = useState(false);
     const [completing, setCompleting] = useState(false);
     const [saving, setSaving] = useState(false);
+    const [justCompleted, setJustCompleted] = useState(false);
     const [originalScore, setOriginalScore] = useState<number>(0);
     const [originalAudit, setOriginalAudit] = useState<Audit | null>(null);
     const [isDirty, setIsDirty] = useState(false);
     const [validationErrors, setValidationErrors] = useState<{ photos: string[], notes: string[] }>({ photos: [], notes: [] });
     const [showValidationModal, setShowValidationModal] = useState(false);
+    const [historyCache, setHistoryCache] = useState<Record<string, QuestionHistory>>({});
 
     // Reset Section State
     const [resetAlertOpen, setResetAlertOpen] = useState(false);
@@ -99,8 +103,7 @@ export default function AuditPage() {
 
     const isRegionalManager = userProfile?.role === 'bolge-muduru';
 
-// Moved Layout outside or handled inline
-
+    const canEdit = mode === "edit";
 
     const handleTouchStart = (index: number) => {
         if (!canEdit) return;
@@ -219,21 +222,7 @@ export default function AuditPage() {
             }, 5000);
         }
     }, [syncing, hasPending, uploadedImageUrls.length]);
-
-
-    // Reload audit when sync completes (only once)
-    useEffect(() => {
-        if (!syncing && !hasPending && uploadedImageUrls.length > 0 && !reloadedAfterSync.current) {
-            // Sync just completed, reload audit to get Firebase URLs
-            reloadedAfterSync.current = true;
-            loadAudit();
-            // Reset after 5 seconds so next sync can reload
-            setTimeout(() => {
-                reloadedAfterSync.current = false;
-            }, 5000);
-        }
-    }, [syncing, hasPending, uploadedImageUrls.length]);
-
+    
     useEffect(() => {
         if (auditId) {
             loadAudit();
@@ -245,7 +234,19 @@ export default function AuditPage() {
     const loadAudit = async () => {
         if (!auditId) return;
         try {
-            const auditDoc = await getDoc(doc(db, "audits", auditId));
+            // Parallel Fetch: Current Audit & Store History (Last 5)
+            // This ensures "0 delay" for the history buttons
+            const [auditDoc, historyAudits] = await Promise.all([
+                getDoc(doc(db, "audits", auditId)),
+                // We'll fetch history based on storeId AFTER we see the audit, 
+                // BUT we can't know storeId until we fetch the audit.
+                // OPTIMIZATION: We fetch audit first, then history immediately.
+                // To do true parallel, we'd need storeId from URL or params, but we only have auditId.
+                // However, fetching history immediately after audit (in same loading block) 
+                // is fast enough to appear "instant" when loading finishes.
+                Promise.resolve(null) 
+            ]);
+
             if (!auditDoc.exists()) {
                 toast.error("Denetim bulunamadı");
                 router.push("/denetmen");
@@ -253,10 +254,14 @@ export default function AuditPage() {
             }
             const auditData = { id: auditDoc.id, ...auditDoc.data() } as Audit;
 
+            // NOW fetch history concurrently with other operations (like user details)
+            // We do this BEFORE setting loading to false
+            const historyPromise = getStoreAuditHistory(auditData.storeId, 12);
+            
             // Denetmen ismini güncel veritabanından çek
+            let auditorNamePromise = Promise.resolve();
             if (auditData.auditorId) {
-                try {
-                    const userDoc = await getDoc(doc(db, "users", auditData.auditorId));
+                 auditorNamePromise = getDoc(doc(db, "users", auditData.auditorId)).then(userDoc => {
                     if (userDoc.exists()) {
                         const userData = userDoc.data() as any;
                         if (userData.firstName && userData.lastName &&
@@ -267,10 +272,11 @@ export default function AuditPage() {
                             auditData.auditorName = userData.displayName;
                         }
                     }
-                } catch (e) {
-                    console.error("Error fetching auditor name:", e);
-                }
+                 }).catch(e => console.error("Error fetching auditor name:", e));
             }
+
+            // Wait for history and auditor name
+            const [pastAudits, _] = await Promise.all([historyPromise, auditorNamePromise]);
 
             // Ensure each answer has at least one empty note
             auditData.sections.forEach(section => {
@@ -281,7 +287,71 @@ export default function AuditPage() {
                 });
             });
 
+            // PROCESS HISTORY DATA (Client-Side)
+            // We calculate the history status for ALL questions right here, right now.
+            const newHistoryCache: Record<string, QuestionHistory> = {};
+            const relevantAudits = pastAudits.filter(a => a.id !== auditId); // Exclude current
+
+            // Iterate over every question in the current audit to calculate its history
+            auditData.sections.forEach(section => {
+                section.answers.forEach(answer => {
+                    const qId = answer.questionId;
+                    
+                    // Simple "is incomplete" check logic replicated from library
+                    const entries: QuestionHistoryEntry[] = [];
+                    let consecutiveFailCount = 0;
+
+                    for (const pastAudit of relevantAudits) {
+                         // Find the same question in past audit
+                         let foundPastAnswer: AuditAnswer | null = null;
+                         for (const pastSection of pastAudit.sections) {
+                             const found = pastSection.answers.find(a => a.questionId === qId);
+                             if (found) {
+                                 foundPastAnswer = found;
+                                 break;
+                             }
+                         }
+
+                         if (!foundPastAnswer) continue;
+
+                         // Check failure
+                         let isFail = false;
+                         if (foundPastAnswer.questionType === 'yes_no' || !foundPastAnswer.questionType) {
+                             isFail = foundPastAnswer.answer === 'hayir';
+                         } else if (['rating', 'multiple_choice', 'checkbox'].includes(foundPastAnswer.questionType || '')) {
+                             isFail = foundPastAnswer.earnedPoints < foundPastAnswer.maxPoints;
+                         }
+
+                         if (isFail) {
+                             consecutiveFailCount++;
+                             entries.push({
+                                 auditId: pastAudit.id,
+                                 auditorName: pastAudit.auditorName,
+                                 completedAt: pastAudit.completedAt!,
+                                 answer: foundPastAnswer.answer,
+                                 earnedPoints: foundPastAnswer.earnedPoints,
+                                 maxPoints: foundPastAnswer.maxPoints,
+                                 questionType: foundPastAnswer.questionType,
+                                 selectedOptions: foundPastAnswer.selectedOptions,
+                                 options: foundPastAnswer.options,
+                                 ratingMax: foundPastAnswer.ratingMax,
+                                 notes: foundPastAnswer.notes || [],
+                                 photos: foundPastAnswer.photos || [],
+                             });
+                         } else {
+                             break; // Streak broken
+                         }
+                    }
+
+                    if (consecutiveFailCount > 0) {
+                        newHistoryCache[qId] = { consecutiveFailCount, entries };
+                    }
+                });
+            });
+
+            setHistoryCache(newHistoryCache);
             setAudit(auditData);
+            
             // Store original score and full audit when entering edit mode
             if (mode === "edit") {
                 setOriginalScore(auditData.totalScore || 0);
@@ -529,6 +599,30 @@ export default function AuditPage() {
             return;
         }
 
+        // 4. Personel Değerlendirme Zorunluluk Kontrolü
+        try {
+            const pQuery = query(collection(db, "store_personnel"), where("storeId", "==", audit.storeId), where("status", "==", "active"));
+            const pSnap = await getDocs(pQuery);
+            
+            const eQuery = query(collection(db, "personnel_evaluations"), where("auditId", "==", auditId));
+            const eSnap = await getDocs(eQuery);
+            
+            const evaluatedPersonnelIds = new Set(eSnap.docs.map(doc => doc.data().personnelId));
+            const missingEvaluations = pSnap.docs.filter(doc => !evaluatedPersonnelIds.has(doc.id));
+
+            if (missingEvaluations.length > 0) {
+                toast.error("Personel değerlendirmesi zorunludur. Lütfen eksik personelleri değerlendirin veya durumlarını güncelleyin.", { duration: 6000 });
+                return;
+            }
+
+            if (pSnap.docs.length === 0 && eSnap.docs.length === 0) {
+                toast.error("Personel değerlendirmesi zorunludur. Lütfen Personel Değerlendirme bölümüne geçerek personelleri ekleyiniz.", { duration: 6000 });
+                return;
+            }
+        } catch (error) {
+            console.error("Personnel check error:", error);
+        }
+
         setCompleting(true);
 
         try {
@@ -592,6 +686,7 @@ export default function AuditPage() {
                 sections: updatedSections,
                 allActionsResolved: false
             });
+            setJustCompleted(true);
 
             toast.success("Denetim tamamlandı!");
 
@@ -679,7 +774,7 @@ export default function AuditPage() {
                                         title: "✅ Denetim Tamamlandı",
                                         message: `Sayın Bölge Müdürü, ${storeData.name} mağazasının denetimi tamamlanmıştır. Puan: ${score}. Raporu incelemek için tıklayınız.`,
                                         recipients: [{ type: "user", id: storeData.regionalManagerId }],
-                                        url: `/admin/reports/special-report/${auditId}`
+                                        url: `/audits/${auditId}/report`
                                     })
                                 });
                             }
@@ -1048,9 +1143,9 @@ export default function AuditPage() {
     }
 
     const isCompleted = audit.status === "tamamlandi";
-    const isEditMode = mode === "edit" && isCompleted;
+    const isEditMode = mode === "edit" && isCompleted && !justCompleted;
     const isViewMode = mode === "view" || (!isEditMode && isCompleted);
-    const canEdit = !isViewMode;
+    // canEdit is already defined above based on rules
 
     return (
         <AuditPageLayout isRegionalManager={isRegionalManager}>
@@ -1271,9 +1366,43 @@ export default function AuditPage() {
                                             </Card>
                                         );
                                     })}
+                                    {/* Personnel Evaluation Card */}
+                                    <Card
+                                        className="cursor-pointer hover:shadow-lg transition-all border shadow-sm bg-gradient-to-br from-amber-50 to-orange-100 dark:from-amber-950/40 dark:to-orange-950/40 hover:from-amber-100 hover:to-orange-200 dark:hover:from-amber-900/60 dark:hover:to-orange-900/60 border-amber-300 dark:border-amber-700/50 group rounded-xl min-h-[5rem] md:min-h-[7rem] py-3 md:py-6 gap-3 md:gap-6 flex items-center justify-center select-none"
+                                        onClick={() => setCurrentSectionIndex('personnel')}
+                                    >
+                                        <CardHeader className="p-0 px-3 md:p-6 w-full">
+                                            <div className="grid grid-cols-[auto_1fr_auto] items-center gap-3 md:gap-4 w-full">
+                                                <div className="flex items-center justify-center w-10 h-10 md:w-12 md:h-12 rounded-lg bg-orange-200/50 dark:bg-orange-800/50 text-orange-600 dark:text-orange-400">
+                                                    <UserCircle className="w-5 h-5 md:w-6 md:h-6" />
+                                                </div>
+                                                <div className="flex items-center gap-2 flex-1 min-w-0">
+                                                    <Circle className="h-4 w-4 md:h-5 md:w-5 flex-shrink-0 text-gray-300" />
+                                                    <div className="flex-1 min-w-0">
+                                                        <h3 className="font-bold text-base md:text-2xl mb-1 md:mb-2 truncate text-amber-950 dark:text-amber-50 group-hover:text-amber-700 dark:group-hover:text-amber-300 transition-colors">Personel Değerlendirme</h3>
+                                                        <p className="text-sm text-amber-800/70 dark:text-amber-200/70 mt-1 truncate">
+                                                            Zorunlu Puanlamadan bağımsız karar raporu
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-3">
+                                                    <ChevronRight className="h-6 w-6 text-amber-700/50 dark:text-amber-300/50 group-hover:text-amber-600 transition-colors" />
+                                                </div>
+                                            </div>
+                                        </CardHeader>
+                                    </Card>
                                 </div>
                             </>
                         ) : null
+                    ) : currentSectionIndex === 'personnel' ? (
+                        <div className="animate-in slide-in-from-bottom-8 duration-500 fill-mode-both">
+                            <PersonnelEvaluationSection
+                                auditId={audit.id}
+                                storeId={audit.storeId}
+                                storeName={audit.storeName}
+                                canEdit={canEdit}
+                            />
+                        </div>
                     ) : (
                         // SECTION DETAIL VIEW
                         <div className="space-y-6 transition-all duration-500 ease-out animate-in fade-in slide-in-from-bottom-8">
@@ -1342,6 +1471,7 @@ export default function AuditPage() {
                                                     auditTypeId={audit.auditTypeId}
                                                     questionId={answer.questionId}
                                                     currentAuditId={auditId}
+                                                    historyData={historyCache[answer.questionId]}
                                                 />
                                             </div>
                                         </div>

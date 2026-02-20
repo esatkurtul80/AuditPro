@@ -36,8 +36,25 @@ class Logger {
       };
 
       await addDoc(collection(db, "system_logs"), logData);
-    } catch (error) {
-      console.error("Failed to write log:", error);
+    } catch (error: any) {
+      // Handle "Document already exists" error which can happen during offline sync
+      // or if the client generates an ID that collides (extremely rare)
+      if (error?.message?.includes("Document already exists") || error?.code === "already-exists") {
+        try {
+            await addDoc(collection(db, "system_logs"), {
+                ...entry,
+                timestamp: serverTimestamp(),
+                userAgent: typeof window !== "undefined" ? window.navigator.userAgent : "server",
+                path: typeof window !== "undefined" ? window.location.pathname : "server",
+                env: process.env.NODE_ENV,
+                retry: true // Mark as retried
+            });
+        } catch (retryError) {
+             console.error("Failed to write log (retry):", retryError);
+        }
+      } else {
+        console.error("Failed to write log:", error);
+      }
     }
   }
 

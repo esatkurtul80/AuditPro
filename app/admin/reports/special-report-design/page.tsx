@@ -5,7 +5,8 @@ import Script from "next/script";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { storage } from "@/lib/firebase"; // Assuming firebase export includes storage
+import { storage, db } from "@/lib/firebase";
+import { doc, getDoc, setDoc } from "firebase/firestore";
 
 // User's Styles and Templates logic ported to constants/state
 const STYLES = [
@@ -67,37 +68,57 @@ export default function SpecialReportDesignPage() {
 
     // Load saved design
     useEffect(() => {
-        const savedData = localStorage.getItem('auditPro_DesignConfig');
-        if (savedData) {
+        const loadConfig = async () => {
             try {
-                const config = JSON.parse(savedData);
-                if (config.templateId) setTemplateId(config.templateId);
-                if (config.logo) setLogo(config.logo);
+                // Try Firestore first
+                const docRef = doc(db, "settings", "special-report-design");
+                const docSnap = await getDoc(docRef);
 
-                // Safe recursive update for typography to merge with defaults
-                setTypography(prev => ({
-                    ...prev,
-                    fontGlobal: config.globalFont || prev.fontGlobal,
-                    h1Size: config.h1_size || prev.h1Size,
-                    h1Bold: config.h1_bold !== undefined ? config.h1_bold : prev.h1Bold,
-                    h1Italic: config.h1_italic !== undefined ? config.h1_italic : prev.h1Italic,
-                    h2Size: config.h2_size || prev.h2Size,
-                    h2Bold: config.h2_bold !== undefined ? config.h2_bold : prev.h2Bold,
-                    h2Italic: config.h2_italic !== undefined ? config.h2_italic : prev.h2Italic,
-                    thSize: config.th_size || prev.thSize,
-                    thBold: config.th_bold !== undefined ? config.th_bold : prev.thBold,
-                    thItalic: config.th_italic !== undefined ? config.th_italic : prev.thItalic,
-                    tdSize: config.td_size || prev.tdSize,
-                    tdBold: config.td_bold !== undefined ? config.td_bold : prev.tdBold,
-                    tdItalic: config.td_italic !== undefined ? config.td_italic : prev.tdItalic,
-                }));
+                let config = null;
+
+                if (docSnap.exists()) {
+                    config = docSnap.data();
+                    // Update local storage to keep in sync
+                    localStorage.setItem('auditPro_DesignConfig', JSON.stringify(config));
+                } else {
+                    // Fallback to local storage if no firestore data
+                    const savedData = localStorage.getItem('auditPro_DesignConfig');
+                    if (savedData) {
+                        config = JSON.parse(savedData);
+                    }
+                }
+
+                if (config) {
+                    if (config.templateId) setTemplateId(config.templateId);
+                    if (config.logo) setLogo(config.logo);
+
+                    // Safe recursive update for typography to merge with defaults
+                    setTypography(prev => ({
+                        ...prev,
+                        fontGlobal: config.globalFont || prev.fontGlobal,
+                        h1Size: config.h1_size || prev.h1Size,
+                        h1Bold: config.h1_bold !== undefined ? config.h1_bold : prev.h1Bold,
+                        h1Italic: config.h1_italic !== undefined ? config.h1_italic : prev.h1Italic,
+                        h2Size: config.h2_size || prev.h2Size,
+                        h2Bold: config.h2_bold !== undefined ? config.h2_bold : prev.h2Bold,
+                        h2Italic: config.h2_italic !== undefined ? config.h2_italic : prev.h2Italic,
+                        thSize: config.th_size || prev.thSize,
+                        thBold: config.th_bold !== undefined ? config.th_bold : prev.thBold,
+                        thItalic: config.th_italic !== undefined ? config.th_italic : prev.thItalic,
+                        tdSize: config.td_size || prev.tdSize,
+                        tdBold: config.td_bold !== undefined ? config.td_bold : prev.tdBold,
+                        tdItalic: config.td_italic !== undefined ? config.td_italic : prev.tdItalic,
+                    }));
+                }
             } catch (e) {
                 console.error("Error loading design config", e);
             }
-        }
+        };
+
+        loadConfig();
     }, []);
 
-    const handleSave = () => {
+    const handleSave = async () => {
         const config = {
             templateId,
             logo,
@@ -115,8 +136,19 @@ export default function SpecialReportDesignPage() {
             td_bold: typography.tdBold,
             td_italic: typography.tdItalic,
         };
-        localStorage.setItem('auditPro_DesignConfig', JSON.stringify(config));
-        toast.success("Tasarım ayarları kaydedildi!");
+
+        try {
+            // Save to Firestore
+            await setDoc(doc(db, "settings", "special-report-design"), config);
+            
+            // Still save to local storage as backup/cache
+            localStorage.setItem('auditPro_DesignConfig', JSON.stringify(config));
+            
+            toast.success("Tasarım ayarları kaydedildi!");
+        } catch (error) {
+            console.error("Error saving design config:", error);
+            toast.error("Ayarlar kaydedilirken hata oluştu");
+        }
     };
 
     const handleReset = () => {

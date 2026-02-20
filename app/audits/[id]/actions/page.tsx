@@ -100,6 +100,18 @@ const parseDate = (date: any): Date | null => {
     return isNaN(d.getTime()) ? null : d;
 };
 
+const ActionPageLayout = ({ children, role }: { children: React.ReactNode, role?: string }) => {
+    if (role === 'bolge-muduru') {
+        return (
+            <div className="min-h-screen bg-background pb-20">
+                <RegionalManagerHeader />
+                {children}
+            </div>
+        );
+    }
+    return <DashboardLayout>{children}</DashboardLayout>;
+};
+
 export default function AuditActionsPage() {
     const params = useParams();
     const router = useRouter();
@@ -316,9 +328,9 @@ export default function AuditActionsPage() {
         audit.sections.forEach((section, sIndex) => {
             section.answers.forEach((answer, aIndex) => {
                 const actionData = answer.actionData;
-                // Check if we have drafted data on server (pending_store or rejected)
-                const isActionNeeded = answer.answer === "hayir" || (answer.questionType === "checkbox" && answer.earnedPoints < answer.maxPoints);
-                if (isActionNeeded && actionData && (actionData.status === "pending_store" || actionData.status === "rejected")) {
+                // Check if we have drafted data on server
+                // We load it even if logic suggests action might not be needed, to prevent data loss.
+                if (actionData && (actionData.status === "pending_store" || actionData.status === "rejected")) {
                     const key = `${sIndex}-${aIndex}`;
 
                     // Only overwrite if we don't have local unsaved changes? 
@@ -712,6 +724,28 @@ export default function AuditActionsPage() {
             } else {
                 await deletePendingNote(id);
             }
+        }
+
+        // Online Auto-Save with Debounce
+        if (isOnline) {
+            // Clear existing timer
+            if (noteSaveTimerRef.current) {
+                clearTimeout(noteSaveTimerRef.current);
+            }
+
+            // Set new timer
+            noteSaveTimerRef.current = setTimeout(async () => {
+                try {
+                    // Update Firestore with the note as a draft
+                    // We use the same updateActionData function but it's safe because it merges
+                    await updateActionData(sectionIndex, answerIndex, {
+                        storeNote: note
+                    });
+                    // Optional: Show saving indicator or just silent save
+                } catch (err) {
+                    console.error("Auto-save failed", err);
+                }
+            }, 2000); // 2 seconds debounce
         }
     };
 
@@ -1532,21 +1566,11 @@ export default function AuditActionsPage() {
 
     const isRegionalManager = userProfile?.role === 'bolge-muduru';
 
-    const Layout = ({ children }: { children: React.ReactNode }) => {
-        if (isRegionalManager) {
-            return (
-                <div className="min-h-screen bg-background pb-20">
-                    <RegionalManagerHeader />
-                    {children}
-                </div>
-            );
-        }
-        return <DashboardLayout>{children}</DashboardLayout>;
-    };
+
 
     return (
         <ProtectedRoute allowedRoles={["admin", "magaza", "bolge-muduru"]}>
-            <Layout>
+            <ActionPageLayout role={userProfile?.role}>
                 <div className="container mx-auto py-3 px-4 md:px-6">
                     <div className="mb-6">
                         <div className="flex justify-between items-start mb-4">
@@ -2071,7 +2095,8 @@ export default function AuditActionsPage() {
                         onClose={() => setSelectedImage(null)}
                     />
                 )}
-            </Layout>
+            </ActionPageLayout>
+
         </ProtectedRoute >
     );
 }

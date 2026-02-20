@@ -168,4 +168,32 @@ export async function getQuestionHistory(
         consecutiveFailCount,
         entries,
     };
+    return {
+        consecutiveFailCount,
+        entries,
+    };
+}
+
+/**
+ * Fetch last N completed audits for a store to optimize loading
+ */
+export async function getStoreAuditHistory(
+    storeId: string,
+    limitCount: number = 5
+): Promise<Audit[]> {
+    try {
+        const auditsQuery = query(
+            collection(db, "audits"),
+            where("storeId", "==", storeId),
+            where("status", "==", "tamamlandi"),
+            orderBy("completedAt", "desc"),
+            limit(limitCount)
+        );
+
+        const snapshot = await getDocs(auditsQuery);
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Audit));
+    } catch (error) {
+        console.error("Error fetching bulk audit history:", error);
+        return [];
+    }
 }

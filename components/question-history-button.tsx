@@ -29,6 +29,7 @@ interface QuestionHistoryButtonProps {
     auditTypeId: string;
     questionId: string;
     currentAuditId: string;
+    historyData?: QuestionHistory; // Pre-fetched data
 }
 
 export function QuestionHistoryButton({
@@ -36,16 +37,24 @@ export function QuestionHistoryButton({
     auditTypeId,
     questionId,
     currentAuditId,
+    historyData
 }: QuestionHistoryButtonProps) {
     const [open, setOpen] = useState(false);
     const [loading, setLoading] = useState(false);
-    const [history, setHistory] = useState<QuestionHistory | null>(null);
+    const [history, setHistory] = useState<QuestionHistory | null>(historyData || null);
     const [shouldShow, setShouldShow] = useState(false);
-    const [checking, setChecking] = useState(true);
+    const [checking, setChecking] = useState(!historyData);
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
-    // Check if button should be shown (only if previous audit has "hayir")
+    // Initial check
     useEffect(() => {
+        if (historyData) {
+            setHistory(historyData);
+            setShouldShow(historyData.consecutiveFailCount > 0);
+            setChecking(false);
+            return;
+        }
+
         const checkPreviousAudit = async () => {
             try {
                 const result = await getQuestionHistory(
@@ -65,9 +74,15 @@ export function QuestionHistoryButton({
         };
 
         checkPreviousAudit();
-    }, [storeId, auditTypeId, questionId, currentAuditId]);
+    }, [storeId, auditTypeId, questionId, currentAuditId, historyData]);
 
     const loadHistory = async () => {
+        if (historyData) {
+            // Already have data
+            setOpen(true);
+            return;
+        }
+        
         setLoading(true);
         try {
             const result = await getQuestionHistory(

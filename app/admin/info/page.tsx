@@ -1,422 +1,222 @@
 "use client";
 
 import { motion, useScroll, useTransform } from "framer-motion";
+import { useRef } from "react";
+import Image from "next/image";
 import { 
     ShieldCheck, 
-    LayoutDashboard, 
+    Smartphone, 
     Store, 
     Users, 
-    Info,
-    CheckCircle2,
-    ArrowDown,
-    Zap,
-    Cpu,
-    Target,
-    PenTool,
-    Settings,
-    FileText,
     Database,
-    CalendarRange,
-    Bell,
-    BarChart3,
-    Camera,
-    Smartphone,
-    Activity,
-    FileBarChart,
-    MessageSquare,
-    ImagePlus,
-    WifiOff,
-    Search,
-    ListChecks,
-    Table,
-    FileImage
+    Zap,
+    FileText,
+    TrendingUp
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import Link from "next/link";
-import { useRef } from "react";
 
-// Slide Data Interface
-interface SectionData {
-    id: number;
-    title: string;
-    subtitle: string;
-    description: string;
-    highlights: string[];
-    color: string;
-    icon: any;
-    imagePosition?: "left" | "right";
-    visualType?: "icon" | "process" | "tech";
-}
-
-// 17 POINTS MAPPING:
-// 1. Tanıtım -> S1
-// 2. Mağazalar sayfası (eklerken neler var) -> S2
-// 4. Haftalık denetim programı -> S2
-// 7. Denetim yönetimi (formlar sorular bölümler) -> S3
-// 8. Soru puan sistemi detaylı -> S3
-// 10. Online offline fotoğraf -> S4
-// 11. Çoklu fotoğraf ekleme -> S4
-// 12. Bölümlerle ilgili görüş ve öneriler -> S4
-// 13. Denetmen panelinde mağaza analizi -> S5
-// 14. Denetmen panelinde mağaza bilgileri -> S5
-// 15. Tekrarlayan hayırlar -> S5
-// 3. Bildirim ve bilgilendirme -> S6
-// 5. Mağaza aksiyon sistemi -> S6
-// 17. Mağaza panelinde neler var -> S6
-// 16. Bölge müdürü modülü -> S7
-// 6. Raporlama sayfası (tüm raporlar) -> S8
-// 9. Özel rapor sistemi -> S8
-
-const sections: SectionData[] = [
-// Section 1: Intro
+const modules = [
     {
-        id: 1,
-        title: "AuditPro Nedir?", // Point 1
-        subtitle: "BÜTÜNLEŞİK YÖNETİM PLATFORMU",
-        description: "Perakende mağaza denetimlerini dijitalleştiren, operasyonel verimliliği artıran ve anlık veri akışı sağlayan kapsamlı bir sistemdir.",
-        highlights: [
-            "Kağıt/Excel Yerine Dijital Formlar",
-            "Operasyonel Mükemmellik Hedefi",
-            "Veri Odaklı Karar Alma",
-            "Şeffaf Denetim Mekanizması"
-        ],
-        color: "from-blue-600 to-indigo-600",
+        id: "01",
+        title: "Merkezi İstasyon",
+        name: "Yönetim (Admin)",
         icon: ShieldCheck,
-        imagePosition: "right",
-        visualType: "icon"
+        color: "from-blue-500 to-indigo-500",
+        desc: "Sistemin analitik ve operasyonel kalbi. Planlamaların, form yapı taşlarının ve büyük verinin orkestre edildiği tam yetkili kontrol noktası.",
+        features: [
+            { icon: Database, text: "Akıllı Algoritma: 12 Gün Kuralı ve Rota Çizimi" },
+            { icon: FileText, text: "Detaylı Puanlama: Muaf sistemiyle çalışan ağırlıklı modüller" },
+            { icon: Zap, text: "Aksiyon ve Ret Mekanizması: Kapanış Kanıtlarının Onayı" },
+            { icon: TrendingUp, text: "Raporlar: Puan Sıralaması, Aksiyon Performans, Personel Raporu, Özel PDF Raporlar" }
+        ]
     },
     {
-        id: 2,
-        title: "Mağaza & Planlama Yönetimi", // Point 2, 4
-        subtitle: "VERİ GİRİŞİ VE ROTA OLUŞTURMA",
-        description: "Haftalık denetim programı, sistemin akıllı öneri algoritmaları (12 Gün Kuralı, Ayda Min. 1 Ziyaret, Yeni Mağaza Kontrolü) dikkate alınarak oluşturulur.",
-        highlights: [
-            "🏪 Mağaza Ekleme: Konum, Tip, Bölge Detayları", // Point 2
-            "📅 Akıllı Planlama: 12 Gün Kuralı & Ziyaret Sıklığı", // Point 4 Updated
-            "👤 Denetmen Atama & Rota Planlama",
-            "📍 Coğrafi Bölge Yapılandırması"
-        ],
-        color: "from-purple-600 to-pink-600",
-        icon: CalendarRange,
-        imagePosition: "left",
-        visualType: "icon"
-    },
-    {
-        id: 3,
-        title: "Form & Puanlama Mimarisi", // Point 7, 8
-        subtitle: "DİNAMİK SORULAR VE ALGORİTMA",
-        description: "Formlar, bölümler ve sorular esnek bir yapıda yönetilir. Puanlama sistemi, (Kazanılan Puan / Maksimum Puan) * 100 formülüyle çalışır. 'Muaf' seçeneği, ilgili soruyu hesaplamadan çıkararak adaleti sağlar.",
-        highlights: [
-            "📝 Form Yönetimi: Bölüm > Soru Hiyerarşisi", // Point 7
-            "🧮 Puanlama: Ağırlıklı Ortalama Algoritması", // Point 8
-            "⚖️ Muafiyet (Etkisiz Soru) Desteği", // Point 8 Detail
-            "⭐ Soru Tipleri: Evet/Hayır, Puan, Tarih, Çoktan Seçmeli"
-        ],
-        color: "from-cyan-500 to-blue-500",
-        icon: Settings, // or Calculator
-        imagePosition: "right",
-        visualType: "tech"
-    },
-    {
-        id: 4,
-        title: "Saha Denetim Teknolojisi", // Point 10, 11, 12
-        subtitle: "ONLİNE/OFFLİNE & FOTOĞRAF",
-        description: "Denetmenler internet olmadan da çalışabilir; bağlantı geldiğinde veriler senkronize olur. Fotoğraflar cihazda sıkıştırılarak yüklenir. 'Hayır' cevaplarında fotoğraf ve açıklama zorunludur. Denetmen her bölüm sonunda görüş ve önerilerini ekleyebilir.",
-        highlights: [
-            "📶 Online & Offline Çalışma Modu (Senkronizasyon)", // Point 10
-            "📸 Çoklu Fotoğraf Yükleme & Sıkıştırma", // Point 10, 11
-            "💬 Bölüm Sonu Görüş ve Öneri Girişi", // Point 12
-            "🔒 Güvenli Veri Gönderimi" // Replaced GPS with Security generic
-        ],
-        color: "from-emerald-600 to-teal-600",
+        id: "02",
+        title: "Saha Operasyonu",
+        name: "Denetmen Uygulaması",
         icon: Smartphone,
-        imagePosition: "left",
-        visualType: "icon"
+        color: "from-emerald-500 to-teal-500",
+        desc: "Sahadaki personelin, internetin olmadığı kör noktalarda dahi denetim verilerini güvenle toplayabilmesi için izole edilmiş mobil uyumlu terminal.",
+        features: [
+            { icon: Store, text: "Mağaza Analizi: Müdür bilgisi, Eski Puanlar, Kronik (Tekrar Eden) Hatalar" },
+            { icon: Database, text: "Offline-First: Kesintisiz Senkronizasyon" },
+            { icon: FileText, text: "Görüşler: Başarısızlıklarda Zorunlu Fotoğraf ve Ek Ziyaret Notları" }
+        ]
     },
     {
-        id: 5,
-        title: "Mağaza Analizi (Denetmen)", // Point 13, 14, 15
-        subtitle: "DENETİM ÖNCESİ HAZIRLIK",
-        description: "Denetmen, mağazaya gitmeden önce 'Mağaza Analizi' ekranından mağazanın tüm künyesini, geçmiş puanlarını ve özellikle 'Tekrar Eden Hayır' (kronik sorunlar) listesini inceleyerek denetime hazırlıklı başlar.",
-        highlights: [
-            "📊 Mağaza Analiz Ekranı & Geçmiş Puanlar", // Point 13
-            "ℹ️ Mağaza Bilgileri (Müdür, M2, Açılış Tarihi)", // Point 14
-            "⚠️ Tekrarlayan 'Hayır' Cevapları Listesi", // Point 15
-            "📉 Trend Analizi"
-        ],
-        color: "from-amber-500 to-orange-600",
-        icon: Search,
-        imagePosition: "right",
-        visualType: "process"
+        id: "03",
+        title: "Reaksiyon Terminali",
+        name: "Mağaza Portalı",
+        icon: Store,
+        color: "from-rose-500 to-pink-500",
+        desc: "Odak noktası sadece aksiyon almak olan daraltılmış arayüz. Mağaza müdürlerinin eksikliklerini raporlamak için kullandığı geri dönüşüm kanalı.",
+        features: [
+            { icon: Zap, text: "SLA Döngüsü: 72 Saat İçinde 'Kanıtlı Kapatma' Süresi" },
+            { icon: Users, text: "Anında Canlı Bildirim: Denetim Bittiğinde Mağazaya Push Uyarı" },
+            { icon: TrendingUp, text: "Tarihsel Karneler: Reddedilen Aksiyonların İncelemesi" }
+        ]
     },
     {
-        id: 6,
-        title: "Aksiyon ve Bildirim Döngüsü", // Point 3, 5, 17
-        subtitle: "MAĞAZA PANELİ & SÜREÇ",
-        description: "Denetim bittiğinde mağaza yetkilisine anlık bildirim gider. Mağaza panelinde eksikler listelenir. 3 gün içinde eksiklik giderilmeli ve kanıt fotoğrafı yüklenmelidir. Bildirim sistemi tüm süreci (Yeni Denetim, Red, Onay) anlık olarak haber verir.",
-        highlights: [
-            "🔔 Gelişmiş Bildirim Sistemi (Push Notification)", // Point 3
-            "🏪 Mağaza Paneli: Sonuçlar & Aksiyon Listesi", // Point 17
-            "⏳ 3 Gün Kuralı & Kanıt Fotoğrafı Yükleme", // Point 5
-            "✅ Yönetici Onay/Red Mekanizması" // Point 5
-        ],
-        color: "from-rose-500 to-pink-600",
-        icon: Zap,
-        imagePosition: "left",
-        visualType: "icon"
-    },
-    {
-        id: 7,
-        title: "Bölge Yönetimi", // Point 16
-        subtitle: "PERFORMANS TAKİBİ",
-        description: "Bölge müdürü, kendisine bağlı mağazaların anlık durumunu, ortalama puanlarını, yaklaşan denetimlerini ve aksiyon performanslarını (geciken/bekleyen) tek bir dashboard üzerinden izleyebilir.",
-        highlights: [
-            "👔 Bölge Bazlı Performans Karnesi", // Point 16
-            "📅 Denetim Takvimi Görüntüleme", // Point 16
-            "🚨 Geciken/Bekleyen Aksiyon Takibi", // Point 16
-            "📉 Mağaza Karşılaştırma Analizi"
-        ],
-        color: "from-slate-600 to-slate-800",
+        id: "04",
+        title: "Makro Gözetim",
+        name: "Bölge Yöneticisi Paneli",
         icon: Users,
-        imagePosition: "right",
-        visualType: "icon"
-    },
-    {
-        id: 8,
-        title: "Raporlama Sistemi", // Point 6, 9
-        subtitle: "ANALİTİK VE ÖZEL RAPORLAR",
-        description: "Sistemdeki tüm veriler anlamlı raporlara dönüşür. Puan raporları, aksiyon süreleri ve denetmen performansları izlenir. Özel Rapor modülü ile tarih, bölge ve mağaza filtreleri kullanılarak detaylı PDF raporlar oluşturulur.",
-        highlights: [
-            "📄 Özel Rapor: Filtreli PDF Üretimi", // Point 9
-            "📊 Puan Sıralaması & Aksiyon Performans Raporu", // Point 6
-            "👨‍💼 Denetmen Performans Karnesi", // Point 6
-            "📥 Excel (XLSX) Formatında Dışa Aktarım"
-        ],
-        color: "from-violet-600 to-purple-800",
-        icon: FileBarChart,
-        imagePosition: "left",
-        visualType: "icon"
+        color: "from-amber-500 to-orange-500",
+        desc: "Operasyonel işleme doğrudan temas etmeyen, yalnızca altındaki mağaza kümesinin performans nabzını tutan analitik izleme kulesi.",
+        features: [
+            { icon: TrendingUp, text: "Gözlem Hattı: Alt Mağazaların Metrik Kıyaslaması ve Standart Kontrolü" },
+            { icon: Zap, text: "Kritik Alarm Listesi: Geciken Aksiyonlara Sahip Lokasyonlar" },
+            { icon: ShieldCheck, text: "Push İletişimi: Denetim Başladığında ve Bittiğinde Bölge Müdürüne Bildirim" }
+        ]
     }
 ];
 
-export default function InfoPage() {
-    const containerRef = useRef<HTMLDivElement>(null);
+const HeroSection = () => {
+    const ref = useRef(null);
     const { scrollYProgress } = useScroll({
-        target: containerRef,
-        offset: ["start start", "end end"]
+        target: ref,
+        offset: ["start start", "end start"]
     });
+    
+    const y = useTransform(scrollYProgress, [0, 1], ["0%", "50%"]);
+    const opacity = useTransform(scrollYProgress, [0, 1], [1, 0]);
 
     return (
-        <div ref={containerRef} className="bg-slate-50 dark:bg-slate-950 font-sans selection:bg-primary/20">
-            
-            {/* Scroll Progress Bar */}
-            <motion.div 
-                className="fixed top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 z-50 origin-left"
-                style={{ scaleX: scrollYProgress }}
-            />
+        <motion.div 
+            ref={ref}
+            className="h-screen flex flex-col items-center justify-center relative overflow-hidden"
+            style={{ opacity }}
+        >
+            <motion.div style={{ y }} className="flex flex-col items-center text-center z-10 space-y-8 px-6">
+                <div className="relative w-48 h-48 md:w-64 md:h-64 drop-shadow-2xl mb-4">
+                    <Image 
+                        src="/logo.png" 
+                        alt="AuditPro Logo" 
+                        fill 
+                        className="object-contain"
+                        priority
+                    />
+                </div>
+                
+                <h1 className="text-5xl md:text-8xl font-medium tracking-tighter leading-tight">
+                    Sistem Mimarisi.
+                </h1>
+                
+                <p className="text-xl md:text-2xl text-muted-foreground max-w-2xl font-light">
+                    Avant-Garde yaklaşımla tasarlanmış, mağaza standartlarını dijitalleştiren dört terminalli operasyon platformu.
+                </p>
 
-            {/* Hero Section */}
-            <section className="min-h-[90vh] flex flex-col items-center justify-center relative overflow-hidden px-4 md:px-0 bg-white dark:bg-slate-950">
-                {/* Background Pattern */}
-                <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-[0.03] dark:opacity-[0.05]" />
-                <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-slate-200 dark:via-slate-800 to-transparent" />
+                <div className="animate-bounce pt-12 text-muted-foreground">
+                    <span className="text-xs uppercase tracking-[0.3em]">Aşağı Kaydır</span>
+                </div>
+            </motion.div>
 
+            {/* Background elements */}
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[80vw] h-[80vw] md:w-[40vw] md:h-[40vw] bg-primary/5 rounded-full blur-[120px] -z-10" />
+        </motion.div>
+    );
+};
+
+const PresentationSlide = ({ mod, index }: { mod: any, index: number }) => {
+    const isEven = index % 2 === 0;
+
+    return (
+        <div className="min-h-screen flex items-center justify-center py-24 px-6 md:px-12 sticky top-0 bg-background overflow-hidden border-t border-border/40">
+            {/* Background Accent */}
+            <div className={`absolute top-0 opacity-10 blur-[100px] w-full h-[500px] bg-gradient-to-br ${mod.color} ${isEven ? 'left-[-20%]' : 'right-[-20%]'}`} />
+
+            <div className="max-w-7xl w-full grid grid-cols-1 lg:grid-cols-2 gap-16 lg:gap-24 items-center z-10">
+                
                 <motion.div 
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ duration: 1, ease: "easeOut" }}
-                    className="relative z-10 text-center max-w-5xl mx-auto space-y-6"
+                    initial={{ opacity: 0, x: isEven ? -50 : 50 }}
+                    whileInView={{ opacity: 1, x: 0 }}
+                    viewport={{ once: true, margin: "-20%" }}
+                    transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+                    className={`space-y-8 ${isEven ? 'lg:order-1' : 'lg:order-2'}`}
                 >
-                    <Badge variant="outline" className="mb-4 px-4 py-1 text-sm border-blue-200 bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800 backdrop-blur-sm">
-                        v2 Stable Release
-                    </Badge>
+                    <div className="space-y-4">
+                        <div className="flex items-center gap-4">
+                            <span className={`text-sm tracking-[0.3em] uppercase font-bold bg-clip-text text-transparent bg-gradient-to-r ${mod.color}`}>
+                                {mod.title}
+                            </span>
+                        </div>
+                        <h2 className="text-5xl md:text-7xl font-medium tracking-tighter leading-[0.9]">
+                            {mod.name}
+                        </h2>
+                    </div>
 
-                    <h1 className="text-5xl md:text-8xl font-black tracking-tighter text-slate-900 dark:text-white leading-[0.9]">
-                        Denetimde <br />
-                        <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">Dijital Dönüşüm.</span>
-                    </h1>
-
-                    <p className="text-xl md:text-2xl text-slate-500 dark:text-slate-400 max-w-3xl mx-auto font-light leading-relaxed">
-                        <span className="font-semibold text-slate-900 dark:text-slate-200">AuditPro</span>, mağaza operasyonlarının denetim, aksiyon ve analiz süreçlerini tek platformda birleştirir.
+                    <p className="text-lg md:text-xl text-muted-foreground font-light leading-relaxed">
+                        {mod.desc}
                     </p>
 
-                    <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-8">
-                        <Button size="lg" className="rounded-full px-8 h-14 text-lg font-bold shadow-2xl shadow-blue-500/30 bg-blue-600 hover:bg-blue-700 transition-all hover:scale-105" asChild>
-                            <Link href="/admin/dashboard">
-                                Panele Başla
-                            </Link>
-                        </Button>
-                        <Button variant="ghost" size="lg" className="rounded-full px-8 h-14 text-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 transition-all">
-                            Özellikleri Keşfet ↓
-                        </Button>
-                    </div>
-                </motion.div>
-            </section>
-
-            {/* Content Sections */}
-            <div className="flex flex-col">
-                {sections.map((section, index) => (
-                    <section 
-                        key={section.id} 
-                        className={`min-h-screen py-24 flex items-center relative overflow-hidden ${
-                            index % 2 === 0 
-                                ? 'bg-slate-50 dark:bg-slate-950' 
-                                : 'bg-white dark:bg-slate-900 border-y border-slate-100 dark:border-slate-800'
-                        }`}
-                    >
-                         <div className={`absolute -z-10 w-[800px] h-[800px] rounded-full blur-[120px] opacity-[0.03] pointer-events-none 
-                            bg-gradient-to-r ${section.color}
-                            ${index % 2 === 0 ? '-right-96 top-0' : '-left-96 bottom-0'}
-                         `} />
-
-                        <div className="container mx-auto px-6 md:px-12">
-                            <div className={`flex flex-col lg:flex-row items-center gap-16 lg:gap-24 ${
-                                index % 2 === 1 ? 'lg:flex-row-reverse' : ''
-                            }`}>
-                                
-                                {/* Info Block */}
-                                <motion.div 
-                                    initial={{ opacity: 0, y: 40 }}
-                                    whileInView={{ opacity: 1, y: 0 }}
-                                    viewport={{ once: true, margin: "-10%" }}
-                                    transition={{ duration: 0.8, ease: "easeOut" }}
-                                    className="flex-1 space-y-8"
-                                >
-                                    <div className={`inline-flex items-center justify-center p-4 rounded-2xl bg-gradient-to-br ${section.color} shadow-lg text-white mb-2`}>
-                                        <section.icon className="w-8 h-8" />
-                                    </div>
-
-                                    <div className="space-y-4">
-                                        <h3 className={`text-sm font-bold tracking-[0.2em] uppercase bg-clip-text text-transparent bg-gradient-to-r ${section.color}`}>
-                                            {section.subtitle}
-                                        </h3>
-                                        <h2 className="text-4xl md:text-5xl font-bold text-slate-900 dark:text-white leading-tight">
-                                            {section.title}
-                                        </h2>
-                                        <div className="h-1 w-20 rounded-full bg-slate-200 dark:bg-slate-800" />
-                                    </div>
-
-                                    <p className="text-lg md:text-xl text-slate-600 dark:text-slate-300 leading-relaxed font-light">
-                                        {section.description}
-                                    </p>
-
-                                    <div className="grid grid-cols-1 gap-4 pt-4">
-                                        {section.highlights.map((highlight, idx) => (
-                                            <motion.div 
-                                                key={idx}
-                                                initial={{ opacity: 0, x: -20 }}
-                                                whileInView={{ opacity: 1, x: 0 }}
-                                                transition={{ delay: 0.1 * idx, duration: 0.5 }}
-                                                className="flex items-start gap-4 p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 hover:border-slate-200 dark:hover:border-slate-700 transition-colors"
-                                            >
-                                                <div className={`mt-1 flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center bg-gradient-to-br ${section.color}`}> 
-                                                    <CheckCircle2 className="w-3 h-3 text-white" />
-                                                </div>
-                                                <span className="font-medium text-slate-800 dark:text-slate-200">{highlight}</span>
-                                            </motion.div>
-                                        ))}
-                                    </div>
-                                </motion.div>
-
-                                {/* Visual Block */}
-                                <motion.div 
-                                    initial={{ opacity: 0, scale: 0.9, rotate: index % 2 === 0 ? 2 : -2 }}
-                                    whileInView={{ opacity: 1, scale: 1, rotate: 0 }}
-                                    viewport={{ once: true, margin: "-10%" }}
-                                    transition={{ duration: 1, type: "spring", bounce: 0.3 }}
-                                    className="flex-1 w-full relative"
-                                >
-                                    {/* Abstract UI Window */}
-                                    <div className="relative aspect-square md:aspect-[4/3] rounded-[2.5rem] bg-gradient-to-br from-slate-100 to-white dark:from-slate-800 dark:to-slate-900 shadow-2xl border border-white/40 dark:border-white/5 p-4 overflow-hidden group hover:shadow-[0_40px_80px_-20px_rgba(0,0,0,0.1)] transition-shadow duration-500">
-                                        
-                                        {/* Browser Header Visual */}
-                                        <div className="absolute top-6 left-8 right-8 h-10 bg-white/50 dark:bg-black/20 backdrop-blur rounded-full flex items-center px-4 gap-2 border border-black/5 dark:border-white/5">
-                                            <div className="flex gap-1.5">
-                                                <div className="w-2.5 h-2.5 rounded-full bg-red-400" />
-                                                <div className="w-2.5 h-2.5 rounded-full bg-amber-400" />
-                                                <div className="w-2.5 h-2.5 rounded-full bg-green-400" />
-                                            </div>
-                                        </div>
-
-                                        {/* Dynamic Content Visual based on section */}
-                                        <div className="absolute inset-0 top-24 bottom-0 flex items-center justify-center">
-                                            {/* Big Icon Visual */}
-                                            <div className={`w-4/5 h-4/5 rounded-3xl bg-gradient-to-br ${section.color} bg-opacity-10 backdrop-blur-3xl flex items-center justify-center relative overflow-hidden group-hover:scale-105 transition-transform duration-700`}>
-                                                <div className="absolute inset-0 bg-white/10 dark:bg-black/10 mix-blend-overlay" />
-                                                <section.icon className="w-32 h-32 text-white drop-shadow-2xl opacity-90" strokeWidth={1} />
-                                                
-                                                {/* Decorative Circles */}
-                                                <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/20 rounded-full blur-2xl" />
-                                                <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-black/10 rounded-full blur-2xl" />
-                                            </div>
-                                        </div>
-
-                                        {/* Floating Badge (Example) */}
-                                        <div className="absolute bottom-8 right-8 bg-white/80 dark:bg-black/50 backdrop-blur px-6 py-3 rounded-2xl shadow-lg border border-white/20 dark:border-white/10 flex items-center gap-3">
-                                            <div className={`w-3 h-3 rounded-full bg-gradient-to-br ${section.color} animate-pulse`} />
-                                            <span className="text-sm font-semibold text-slate-800 dark:text-slate-200 tracking-wide">
-                                               AuditPro v2
-                                            </span>
-                                        </div>
-
-                                    </div>
-                                </motion.div>
-
+                    <div className="grid gap-6 pt-8 border-t border-border/50">
+                        {mod.features.map((feat: any, i: number) => (
+                            <div key={i} className="flex items-center gap-4">
+                                <div className={`p-2 rounded-xl bg-gradient-to-br ${mod.color} bg-opacity-10 dark:bg-opacity-20`}>
+                                    <feat.icon className="w-5 h-5 text-foreground" />
+                                </div>
+                                <span className="text-sm md:text-base font-medium text-foreground/80">{feat.text}</span>
                             </div>
-                        </div>
-                    </section>
-                ))}
-            </div>
-            
-            {/* System Flow Steps */}
-            <section className="py-32 bg-slate-900 text-white relative">
-                 <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-10" />
-                 <div className="container mx-auto px-6">
-                    <div className="text-center mb-20">
-                        <Badge className="mb-6 bg-blue-600 hover:bg-blue-700 text-white border-none py-1 px-4 text-sm">İŞ AKIŞI</Badge>
-                        <h2 className="text-4xl md:text-5xl font-bold mb-6">Sistem Özet Akışı</h2>
-                        <p className="text-slate-400 max-w-2xl mx-auto text-lg font-light">
-                            Uçtan uca entegre ve kesintisiz denetim süreci.
-                        </p>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                        {[
-                            { step: 1, title: "Planlama", desc: "Admin denetimi planlar ve personel atar.", icon: Settings },
-                            { step: 2, title: "Saha Denetimi", desc: "Denetmen formu doldurur, fotoğraflar ve tamamlar.", icon: FileText },
-                            { step: 3, title: "Hesaplama", desc: "Sistem puanı ve raporu otomatik üretir.", icon: Cpu },
-                            { step: 4, title: "Aksiyon", desc: "Mağaza eksikleri görüp 3 gün içinde düzeltir.", icon: Activity },
-                            { step: 5, title: "Onay", desc: "Admin çözümü inceler ve onaylar.", icon: CheckCircle2 },
-                            { step: 6, title: "Analiz", desc: "Bölge müdürü ve yönetim performansı izler.", icon: LayoutDashboard },
-                        ].map((item, i) => (
-                            <motion.div 
-                                key={i}
-                                initial={{ opacity: 0, y: 20 }}
-                                whileInView={{ opacity: 1, y: 0 }}
-                                transition={{ delay: i * 0.1 }}
-                                className="bg-white/5 border border-white/10 rounded-2xl p-8 hover:bg-white/10 transition-colors relative group"
-                            >
-                                <div className="text-6xl font-black text-white/5 absolute top-4 right-4 group-hover:text-white/10 transition-colors">
-                                    {item.step}
-                                </div>
-                                <div className="w-12 h-12 rounded-xl bg-blue-600/20 text-blue-400 flex items-center justify-center mb-6">
-                                    <item.icon className="w-6 h-6" />
-                                </div>
-                                <h3 className="text-xl font-bold mb-2">{item.title}</h3>
-                                <p className="text-slate-400">{item.desc}</p>
-                            </motion.div>
                         ))}
                     </div>
-                 </div>
-            </section>
+                </motion.div>
 
-             {/* Footer */}
-             <footer className="py-12 bg-slate-950 text-slate-500 text-center border-t border-slate-900">
-                <div className="container mx-auto px-4">
-                    <p className="text-sm font-medium">&copy; {new Date().getFullYear()} AuditPro. Tüm hakları saklıdır.</p>
-                </div>
-             </footer>
+                {/* Abstract Visual Representation */}
+                <motion.div 
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    whileInView={{ opacity: 1, scale: 1 }}
+                    viewport={{ once: true, margin: "-20%" }}
+                    transition={{ duration: 1, ease: [0.22, 1, 0.36, 1] }}
+                    className={`relative w-full aspect-square md:aspect-[4/3] rounded-[2rem] overflow-hidden bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-900 dark:to-black border border-border/50 ${isEven ? 'lg:order-2' : 'lg:order-1'}`}
+                >
+                    {/* Big Typography Number */}
+                    <div className="absolute -bottom-12 -right-12 text-[16rem] font-black text-foreground/5 leading-none select-none pointer-events-none">
+                        {mod.id}
+                    </div>
+
+                    <div className="absolute inset-0 flex items-center justify-center">
+                        <div className={`w-48 h-48 md:w-64 md:h-64 rounded-full bg-gradient-to-br ${mod.color} blur-3xl opacity-20`} />
+                        <mod.icon className="absolute w-32 h-32 md:w-48 md:h-48 text-foreground/80 drop-shadow-2xl" strokeWidth={0.5} />
+                    </div>
+                </motion.div>
+
+            </div>
+        </div>
+    );
+};
+
+export default function PresentationInfoPage() {
+    return (
+        <div className="min-h-[200vh] bg-background text-foreground selection:bg-primary/20">
+            <HeroSection />
+            
+            <div className="relative z-10">
+                {modules.map((mod, index) => (
+                    <PresentationSlide key={mod.id} mod={mod} index={index} />
+                ))}
+            </div>
+
+            <section className="h-screen flex flex-col items-center justify-center border-t border-border/40 relative overflow-hidden">
+                <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-5" />
+                <motion.div 
+                    initial={{ opacity: 0, y: 50 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ duration: 0.8 }}
+                    className="text-center space-y-8 z-10"
+                >
+                    <div className="w-24 h-24 mx-auto relative opacity-50 grayscale">
+                        <Image src="/logo.png" alt="AuditPro" fill className="object-contain" />
+                    </div>
+                    <h2 className="text-4xl md:text-5xl font-medium tracking-tighter">
+                        Kesintisiz Entegrasyon.
+                    </h2>
+                    <p className="text-muted-foreground uppercase tracking-[0.3em] text-sm">
+                        Veriden Aksiyona / AuditPro v2
+                    </p>
+                </motion.div>
+            </section>
         </div>
     );
 }
+
+

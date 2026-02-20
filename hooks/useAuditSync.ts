@@ -135,6 +135,8 @@ export function useAuditSync(auditId: string) {
         }
     };
 
+
+
     // Upload image to Firebase Storage
     const uploadImage = async (image: PendingImage): Promise<string> => {
         return new Promise((resolve, reject) => {
@@ -211,13 +213,13 @@ export function useAuditSync(auditId: string) {
         try {
             const pendingData = await getPendingData(auditId);
 
-            if (pendingData.answers.length === 0 && pendingData.notes.length === 0 && pendingData.images.length === 0) {
+            if (pendingData.answers.length === 0 && pendingData.notes.length === 0 && pendingData.images.length === 0 && pendingData.personnelEvals.length === 0) {
                 setSyncing(false);
                 setHasPending(false);
                 return;
             }
 
-            const total = pendingData.images.length + pendingData.notes.length + pendingData.answers.length;
+            const total = pendingData.images.length + pendingData.notes.length + pendingData.answers.length + pendingData.personnelEvals.length;
 
             // Show sync progress toast
             syncToastId.current = toast.loading(
@@ -280,6 +282,8 @@ export function useAuditSync(auditId: string) {
                     );
                 }
             }
+
+
 
             // Clean up synced data
             await clearSyncedData(auditId);

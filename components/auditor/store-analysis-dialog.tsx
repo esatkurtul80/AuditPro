@@ -122,15 +122,15 @@ export function StoreAnalysisDialog({ storeId, storeName, isOpen, onClose }: Sto
 
                         {/* Top Stats */}
                         {!loading && data && (
-                            <div className="flex items-center gap-3">
-                                <div className="flex flex-col items-start">
+                            <div className="flex items-start gap-3">
+                                <div className="flex flex-col items-start gap-2">
                                     <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Son Puan</span>
                                     <Badge variant="outline" className={cn("text-lg px-3 py-1 font-bold", getScoreColor(data.lastScore || 0))}>
                                         {data.lastScore ? `${data.lastScore.toFixed(0)}` : '-'}
                                     </Badge>
                                 </div>
-                                <div className="w-px h-10 bg-slate-200 mx-1"></div>
-                                <div className="flex flex-col items-start px-2">
+                                <div className="w-px self-stretch bg-slate-200 mx-1"></div>
+                                <div className="flex flex-col items-start px-2 gap-2">
                                     <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Son Denetim</span>
                                     <div className={cn("flex items-center gap-1.5 px-3 py-1 rounded-md text-sm font-bold border", getDaysColor(data.daysSinceLastAudit))}>
                                         <History className="h-4 w-4" />
@@ -211,10 +211,18 @@ export function StoreAnalysisDialog({ storeId, storeName, isOpen, onClose }: Sto
 
                                     return (
                                         <>
-                                            <div className="w-px h-10 bg-slate-200 mx-1"></div>
-                                            <div className="flex flex-col items-start px-2">
-                                                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Aksiyon Dönüşü</span>
-                                                {content}
+                                            <div className="w-px self-stretch bg-slate-200 mx-1"></div>
+                                            <div className="flex flex-col items-start px-2 gap-2">
+                                                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Son Aksiyon Dönüşü</span>
+                                                <div className="flex flex-col gap-0.5">
+                                                    {content}
+                                                    {firstSubmissionDate && lastAudit.completedAt && (
+                                                        <span className="text-[10px] text-slate-400 font-medium">
+                                                            {format(lastAudit.completedAt.toDate(), "d MMM", { locale: tr })} - {format(firstSubmissionDate, "d MMM", { locale: tr })}
+                                                            <span className="ml-1 opacity-70">(Pazar hariç)</span>
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </div>
                                         </>
                                     );

@@ -37,6 +37,23 @@ interface PendingAnswer {
     synced: boolean;
 }
 
+export interface PendingPersonnelEval {
+    id: string; // Evaluation ID or generated UUID
+    auditId: string;
+    personnelId: string;
+    personnelName: string;
+    storeId: string;
+    storeName: string;
+    auditorId: string;
+    auditorName: string;
+    score: number;
+    comment: string;
+    status: string; // The selected status (active, resigned, transferred)
+    targetStoreId?: string; // If transferred
+    timestamp: number;
+    synced: boolean;
+}
+
 interface OfflineDB extends DBSchema {
     pendingImages: {
         key: string;
@@ -53,6 +70,11 @@ interface OfflineDB extends DBSchema {
         value: PendingAnswer;
         indexes: { 'by-audit': string };
     };
+    pendingPersonnelEvals: {
+        key: string;
+        value: PendingPersonnelEval;
+        indexes: { 'by-audit': string };
+    };
 }
 
 let dbInstance: IDBPDatabase<OfflineDB> | null = null;
@@ -60,19 +82,31 @@ let dbInstance: IDBPDatabase<OfflineDB> | null = null;
 async function getDB() {
     if (dbInstance) return dbInstance;
 
-    dbInstance = await openDB<OfflineDB>('audit-offline-storage', 1, {
+    dbInstance = await openDB<OfflineDB>('audit-offline-storage', 2, {
         upgrade(db) {
             // Images store
-            const imageStore = db.createObjectStore('pendingImages', { keyPath: 'id' });
-            imageStore.createIndex('by-audit', 'auditId');
+            if (!db.objectStoreNames.contains('pendingImages')) {
+                const imageStore = db.createObjectStore('pendingImages', { keyPath: 'id' });
+                imageStore.createIndex('by-audit', 'auditId');
+            }
 
             // Notes store
-            const noteStore = db.createObjectStore('pendingNotes', { keyPath: 'id' });
-            noteStore.createIndex('by-audit', 'auditId');
+            if (!db.objectStoreNames.contains('pendingNotes')) {
+                const noteStore = db.createObjectStore('pendingNotes', { keyPath: 'id' });
+                noteStore.createIndex('by-audit', 'auditId');
+            }
 
             // Answers store
-            const answerStore = db.createObjectStore('pendingAnswers', { keyPath: 'id' });
-            answerStore.createIndex('by-audit', 'auditId');
+            if (!db.objectStoreNames.contains('pendingAnswers')) {
+                const answerStore = db.createObjectStore('pendingAnswers', { keyPath: 'id' });
+                answerStore.createIndex('by-audit', 'auditId');
+            }
+
+            // Personnel Evals store
+            if (!db.objectStoreNames.contains('pendingPersonnelEvals')) {
+                const personnelEvalsStore = db.createObjectStore('pendingPersonnelEvals', { keyPath: 'id' });
+                personnelEvalsStore.createIndex('by-audit', 'auditId');
+            }
         },
     });
 
@@ -155,18 +189,45 @@ export async function deletePendingAnswer(id: string) {
     await db.delete('pendingAnswers', id);
 }
 
+// Personnel Eval operations
+export async function savePendingPersonnelEval(evalData: PendingPersonnelEval) {
+    const db = await getDB();
+    await db.put('pendingPersonnelEvals', evalData);
+}
+
+export async function getPendingPersonnelEvals(auditId: string): Promise<PendingPersonnelEval[]> {
+    const db = await getDB();
+    return db.getAllFromIndex('pendingPersonnelEvals', 'by-audit', auditId);
+}
+
+export async function markPersonnelEvalAsSynced(id: string) {
+    const db = await getDB();
+    const evalData = await db.get('pendingPersonnelEvals', id);
+    if (evalData) {
+        evalData.synced = true;
+        await db.put('pendingPersonnelEvals', evalData);
+    }
+}
+
+export async function deletePendingPersonnelEval(id: string) {
+    const db = await getDB();
+    await db.delete('pendingPersonnelEvals', id);
+}
+
 // Unified operations
 export async function getPendingData(auditId: string) {
-    const [images, notes, answers] = await Promise.all([
+    const [images, notes, answers, personnelEvals] = await Promise.all([
         getPendingImages(auditId),
         getPendingNotes(auditId),
         getPendingAnswers(auditId),
+        getPendingPersonnelEvals(auditId),
     ]);
 
     return {
         images: images.filter(img => !img.uploaded),
         notes: notes.filter(note => !note.synced),
         answers: answers.filter(ans => !ans.synced),
+        personnelEvals: personnelEvals.filter(ev => !ev.synced),
     };
 }
 
@@ -176,7 +237,8 @@ export async function getPendingCount(auditId: string) {
         images: pending.images.length,
         notes: pending.notes.length,
         answers: pending.answers.length,
-        total: pending.images.length + pending.notes.length + pending.answers.length,
+        personnelEvals: pending.personnelEvals.length,
+        total: pending.images.length + pending.notes.length + pending.answers.length + pending.personnelEvals.length,
     };
 }
 
@@ -184,10 +246,11 @@ export async function clearSyncedData(auditId: string) {
     const db = await getDB();
 
     // Get all synced items
-    const [images, notes, answers] = await Promise.all([
+    const [images, notes, answers, personnelEvals] = await Promise.all([
         getPendingImages(auditId),
         getPendingNotes(auditId),
         getPendingAnswers(auditId),
+        getPendingPersonnelEvals(auditId),
     ]);
 
     // Delete synced items
@@ -195,6 +258,7 @@ export async function clearSyncedData(auditId: string) {
         ...images.filter(img => img.uploaded).map(img => db.delete('pendingImages', img.id)),
         ...notes.filter(note => note.synced).map(note => db.delete('pendingNotes', note.id)),
         ...answers.filter(ans => ans.synced).map(ans => db.delete('pendingAnswers', ans.id)),
+        ...personnelEvals.filter(ev => ev.synced).map(ev => db.delete('pendingPersonnelEvals', ev.id)),
     ];
 
     await Promise.all(deletePromises);
@@ -208,10 +272,11 @@ export async function clearAllAuditData(auditId: string) {
     const db = await getDB();
 
     // Get all items for this audit
-    const [images, notes, answers] = await Promise.all([
+    const [images, notes, answers, personnelEvals] = await Promise.all([
         getPendingImages(auditId),
         getPendingNotes(auditId),
         getPendingAnswers(auditId),
+        getPendingPersonnelEvals(auditId),
     ]);
 
     // Delete ALL items (synced or not)
@@ -219,6 +284,7 @@ export async function clearAllAuditData(auditId: string) {
         ...images.map(img => db.delete('pendingImages', img.id)),
         ...notes.map(note => db.delete('pendingNotes', note.id)),
         ...answers.map(ans => db.delete('pendingAnswers', ans.id)),
+        ...personnelEvals.map(ev => db.delete('pendingPersonnelEvals', ev.id)),
     ];
 
     await Promise.all(deletePromises);

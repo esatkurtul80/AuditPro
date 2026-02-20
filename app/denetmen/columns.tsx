@@ -106,7 +106,7 @@ export const getAuditColumns = (onCancel?: (auditId: string) => void): ColumnDef
                 <div className="flex gap-2 justify-end">
                     {audit.status === "devam_ediyor" ? (
                         <>
-                            <Link href={`/audits/${audit.id}`} title="Devam Et">
+                            <Link href={`/audits/${audit.id}?mode=edit`} title="Devam Et">
                                 <Button variant="ghost" size="icon">
                                     <PlayCircle className="h-4 w-4" />
                                 </Button>

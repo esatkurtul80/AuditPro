@@ -44,6 +44,7 @@ import {
     ArrowRight,
 } from "lucide-react";
 import { toast } from "sonner";
+import { RegionalManagerHeader } from "@/components/regional-manager/regional-header";
 import {
     Select,
     SelectContent,
@@ -585,12 +586,35 @@ function NotificationsContent() {
     );
 }
 
-export default function NotificationsPage() {
+function NotificationsPageLayout() {
+    const { userProfile, loading } = useAuth();
+    
+    if (loading) return <LogoLoader />;
+
+    const isRegionalManager = userProfile?.role === "bolge-muduru";
+
+    if (isRegionalManager) {
+        return (
+            <div className="min-h-screen bg-background pb-20">
+                <RegionalManagerHeader />
+                <div className="animate-in fade-in duration-300">
+                    <Suspense fallback={<LogoLoader />}>
+                        <NotificationsContent />
+                    </Suspense>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <DashboardLayout>
-            <Suspense fallback={null}>
+            <Suspense fallback={<LogoLoader />}>
                 <NotificationsContent />
             </Suspense>
         </DashboardLayout>
     );
+}
+
+export default function NotificationsPage() {
+    return <NotificationsPageLayout />;
 }

@@ -74,7 +74,13 @@ export default function AuditReportPage() {
                <SpecialReportGenerator 
                     audit={audit}
                     mode="preview"
-                    onClose={() => router.back()}
+                    onClose={() => {
+                        if (isRegionalManager) {
+                            router.push("/bolge-muduru");
+                        } else {
+                            router.back();
+                        }
+                    }}
                     onComplete={() => toast.success("Rapor başarıyla oluşturuldu")}
                     onError={() => toast.error("Rapor oluşturulurken hata oluştu")}
                     headerOffset={isRegionalManager ? 57 : 0}

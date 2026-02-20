@@ -110,35 +110,60 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
     } as React.CSSProperties;
 
     useEffect(() => {
-        // Load settings from new config key
-        const savedData = localStorage.getItem('auditPro_DesignConfig');
-        if (savedData) {
+        // Load settings from Firestore or LocalStorage
+        const loadConfig = async () => {
             try {
-                const config = JSON.parse(savedData);
-                if (config.templateId) setTemplateId(config.templateId);
-                if (config.logo) setLogo(config.logo);
+                // Try Firestore first
+                const docRef = doc(db, "settings", "special-report-design");
+                const docSnap = await getDoc(docRef);
 
-                setTypography(prev => ({
-                    ...prev,
-                    fontGlobal: config.globalFont || prev.fontGlobal,
-                    h1Size: config.h1_size || prev.h1Size,
-                    h1Bold: config.h1_bold !== undefined ? config.h1_bold : prev.h1Bold,
-                    h1Italic: config.h1_italic !== undefined ? config.h1_italic : prev.h1Italic,
-                    h2Size: config.h2_size || prev.h2Size,
-                    h2Bold: config.h2_bold !== undefined ? config.h2_bold : prev.h2Bold,
-                    h2Italic: config.h2_italic !== undefined ? config.h2_italic : prev.h2Italic,
-                    thSize: config.th_size || prev.thSize,
-                    thBold: config.th_bold !== undefined ? config.th_bold : prev.thBold,
-                    thItalic: config.th_italic !== undefined ? config.th_italic : prev.thItalic,
-                    tdSize: config.td_size || prev.tdSize,
-                    tdBold: config.td_bold !== undefined ? config.td_bold : prev.tdBold,
-                    tdItalic: config.td_italic !== undefined ? config.td_italic : prev.tdItalic,
-                }));
+                let config = null;
+
+                if (docSnap.exists()) {
+                    config = docSnap.data();
+                    // Update local storage to keep in sync
+                    if (typeof window !== 'undefined') {
+                        localStorage.setItem('auditPro_DesignConfig', JSON.stringify(config));
+                    }
+                } else {
+                    // Fallback to local storage if no firestore data
+                    if (typeof window !== 'undefined') {
+                        const savedData = localStorage.getItem('auditPro_DesignConfig');
+                        if (savedData) {
+                            config = JSON.parse(savedData);
+                        }
+                    }
+                }
+
+                if (config) {
+                    if (config.templateId) setTemplateId(config.templateId);
+                    if (config.logo) setLogo(config.logo);
+
+                    setTypography(prev => ({
+                        ...prev,
+                        fontGlobal: config.globalFont || prev.fontGlobal,
+                        h1Size: config.h1_size || prev.h1Size,
+                        h1Bold: config.h1_bold !== undefined ? config.h1_bold : prev.h1Bold,
+                        h1Italic: config.h1_italic !== undefined ? config.h1_italic : prev.h1Italic,
+                        h2Size: config.h2_size || prev.h2Size,
+                        h2Bold: config.h2_bold !== undefined ? config.h2_bold : prev.h2Bold,
+                        h2Italic: config.h2_italic !== undefined ? config.h2_italic : prev.h2Italic,
+                        thSize: config.th_size || prev.thSize,
+                        thBold: config.th_bold !== undefined ? config.th_bold : prev.thBold,
+                        thItalic: config.th_italic !== undefined ? config.th_italic : prev.thItalic,
+                        tdSize: config.td_size || prev.tdSize,
+                        tdBold: config.td_bold !== undefined ? config.td_bold : prev.tdBold,
+                        tdItalic: config.td_italic !== undefined ? config.td_italic : prev.tdItalic,
+                    }));
+                }
             } catch (e) {
                 console.error("Error loading design config for generator", e);
+            } finally {
+                setConfigLoaded(true);
             }
-        }
-        setConfigLoaded(true);
+        };
+
+        loadConfig();
     }, []);
 
     // Check if script is already loaded (fix for re-download issue)
