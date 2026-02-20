@@ -21,9 +21,9 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { BellRing, Loader2, Send, Users } from "lucide-react";
+import { BellRing, Loader2, Send, Users, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { collection, addDoc, Timestamp, getDocs, query, where, onSnapshot, orderBy, limit } from "firebase/firestore";
+import { collection, addDoc, Timestamp, getDocs, query, where, onSnapshot, orderBy, limit, doc, deleteDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { UserProfile, NotificationType } from "@/lib/types";
 import { useAuth } from "@/components/auth-provider";
@@ -62,6 +62,20 @@ export function SendNotificationDialog({ trigger, open: controlledOpen, onOpenCh
         });
         return () => unsubscribe();
     }, [open]);
+
+    const handleDeleteHistory = async (id: string, e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if(!confirm("Bu geçmiş kaydını silmek istediğinize emin misiniz?")) return;
+        
+        try {
+            await deleteDoc(doc(db, "broadcast_history", id));
+            toast.success("Geçmiş kaydı silindi");
+        } catch (error) {
+            console.error("Geçmiş silinemedi:", error);
+            toast.error("Geçmiş silinirken bir hata oluştu");
+        }
+    };
 
     // Basit bir gönderim fonksiyonu
     const handleSend = async () => {
@@ -249,8 +263,8 @@ export function SendNotificationDialog({ trigger, open: controlledOpen, onOpenCh
                                 <p className="text-sm text-muted-foreground text-center py-8">Henüz bildirim gönderilmemiş.</p>
                             ) : (
                                 history.map((item) => (
-                                    <div key={item.id} className="rounded-lg border p-3 flex flex-col gap-1.5 bg-accent/30">
-                                        <div className="flex items-start justify-between gap-2">
+                                    <div key={item.id} className="rounded-lg border p-3 flex flex-col gap-1.5 bg-accent/30 relative group">
+                                        <div className="flex items-start justify-between gap-2 pr-6">
                                             <span className="font-semibold text-sm line-clamp-1 flex-1">{item.title}</span>
                                             <span className="text-[10px] text-muted-foreground whitespace-nowrap bg-background px-1.5 py-0.5 rounded border">
                                                 {item.targetType === "all" ? "Tümü" :
@@ -260,6 +274,17 @@ export function SendNotificationDialog({ trigger, open: controlledOpen, onOpenCh
                                                  item.targetType === "admin" ? "Adminler" : item.targetType}
                                             </span>
                                         </div>
+                                        
+                                        <Button 
+                                            variant="ghost" 
+                                            size="icon" 
+                                            className="absolute top-2 right-2 h-6 w-6 text-muted-foreground hover:text-red-600 hover:bg-red-50 bg-background/50 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity"
+                                            onClick={(e) => handleDeleteHistory(item.id, e)}
+                                            title="Geçmişi Sil"
+                                        >
+                                            <Trash2 className="h-3.5 w-3.5" />
+                                        </Button>
+
                                         <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
                                             {item.message}
                                         </p>
