@@ -42,6 +42,8 @@ export function useAuditSync(auditId: string) {
     const [uploadedImageUrls, setUploadedImageUrls] = useState<string[]>([]);
     const syncAttempted = useRef(false);
     const syncToastId = useRef<string | number | null>(null);
+    // Maps local:// URLs → firebase URLs after sync, so consumers can patch their state
+    const [urlReplacements, setUrlReplacements] = useState<Map<string, string>>(new Map());
 
     // Check for pending data once on mount
     useEffect(() => {
@@ -207,6 +209,11 @@ export function useAuditSync(auditId: string) {
                 }
             }
 
+            // Track local→firebase URL replacement for each general feedback image
+            if (image.sectionIndex === -1) {
+                setUrlReplacements(prev => new Map(prev).set(`local://${image.id}`, firebaseUrl));
+            }
+
             // Always mark as uploaded so it doesn't re-sync endlessly
             await markImageAsUploaded(image.id, firebaseUrl);
 
@@ -368,5 +375,6 @@ export function useAuditSync(auditId: string) {
         syncNow: syncPendingData,
         syncingImageUrls,
         uploadedImageUrls,
+        urlReplacements,
     };
 }

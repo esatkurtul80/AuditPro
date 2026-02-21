@@ -202,7 +202,7 @@ export default function AuditPage() {
 
     // Offline sync
     const isOnline = useOnlineStatus();
-    const { syncing, syncProgress, hasPending, syncingImageUrls, uploadedImageUrls } = useAuditSync(auditId);
+    const { syncing, syncProgress, hasPending, syncingImageUrls, uploadedImageUrls, urlReplacements } = useAuditSync(auditId);
     const reloadedAfterSync = useRef(false);
 
     // Time Tracking - Session Based
@@ -211,6 +211,21 @@ export default function AuditPage() {
     // Reset timer when section changes to prevent large durations if user was idle between sections
     // However, user wants "time between questions". If they switch sections and immediately answer, it should count.
     // So we don't reset lastActionTime on section change, just let it run.
+
+    // When sync completes and converts local:// → firebase URLs, patch audit state immediately
+    // This prevents broken image thumbnails without requiring a full Firestore reload
+    useEffect(() => {
+        if (urlReplacements.size === 0 || !audit) return;
+        setAudit(prev => {
+            if (!prev) return prev;
+            const imgs = prev.generalFeedback?.images;
+            if (!imgs || imgs.length === 0) return prev;
+            const patched = imgs.map(url => urlReplacements.get(url) ?? url);
+            // Only update state if something actually changed
+            if (patched.every((u, i) => u === imgs[i])) return prev;
+            return { ...prev, generalFeedback: { ...prev.generalFeedback, images: patched } };
+        });
+    }, [urlReplacements]);
 
     // Reload audit when sync completes (only once)
     useEffect(() => {
