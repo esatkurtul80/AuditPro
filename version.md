@@ -1,8 +1,11 @@
 # Project Version
 
-**Current Version:** v2.2.36
+**Current Version:** v2.2.37
 
 ## Changelog
+
+### v2.2.37
+- **Admin Raporları (Özel Rapor):** Özel raporlardaki (PDF) bölüm değerlendirmesi (Görüş ve Öneriler) kısmında yer alan fotoğraflar artık kırpılmış küçük kareler halinde değil, yüklendiği orijinal boyut ve en-boy oranında tam genişlikte gösteriliyor.
 
 ### v2.2.36
 - **UI (Mağaza ve Rapor Paneli):** 100 tam puan rozetinin (Mükemmel) tasarımı güncellendi. Kullanıcının talebi doğrultusunda arka gölgelendirmesi olmayan, altın rengi, büyük ve şık bir `Star` (Lucide) ikonunun merkeze alındığı "100" tam puan rozet tasarımına geçildi.

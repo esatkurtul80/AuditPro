@@ -837,12 +837,12 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
                                                     {section.feedback?.images && section.feedback.images.length > 0 && (
                                                         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '5px' }}>
                                                              {section.feedback.images.map((img, i) => (
-                                                                 <div key={i} style={{ width: '160px', height: '160px', border: '1px dashed #ccc', padding: '2px' }}>
+                                                                 <div key={i} style={{ border: '1px dashed #ccc', padding: '2px', maxWidth: '100%' }}>
                                                                     <img 
                                                                         src={getProxiedUrl(img)} 
                                                                         data-original-url={img}
                                                                         onClick={() => setSelectedImage(getProxiedUrl(img))}
-                                                                        style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'pointer' }} 
+                                                                        style={{ maxWidth: '100%', height: 'auto', objectFit: 'contain', cursor: 'pointer' }} 
                                                                         crossOrigin="anonymous" 
                                                                     />
                                                                  </div>
