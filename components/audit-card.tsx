@@ -3,7 +3,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardFooter, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, User, FileText, ChevronRight, Eye, Play, Award, CheckCircle2, AlertCircle, Clock, ArrowRight } from "lucide-react";
+import { Calendar, User, FileText, ChevronRight, Eye, Play, Award, CheckCircle2, AlertCircle, Clock, ArrowRight, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
 
@@ -129,12 +129,26 @@ export function AuditCard({
         return "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800";
     };
 
-    const formatDate = (date: Date) => {
+    const formatDate = (date: any) => {
+        if (!date) return "-";
+        let parsedDate: Date;
+        if (date instanceof Date) {
+            parsedDate = date;
+        } else if (typeof date.toDate === 'function') {
+            parsedDate = date.toDate();
+        } else if (date.seconds) {
+            parsedDate = new Date(date.seconds * 1000);
+        } else {
+            parsedDate = new Date(date);
+        }
+
+        if (isNaN(parsedDate.getTime())) return "-";
+
         return new Intl.DateTimeFormat('tr-TR', {
             day: 'numeric',
             month: 'long',
             year: 'numeric'
-        }).format(date);
+        }).format(parsedDate);
     };
 
     // Helper to determine status based on stats
@@ -211,12 +225,6 @@ export function AuditCard({
                              <Badge variant="outline" className="bg-slate-50 text-slate-500 border-slate-200 dark:bg-slate-900/50 dark:text-slate-400 font-normal">
                                  {formatDate(completedAt)}
                              </Badge>
-                             {isPerfectScore && (
-                                <Badge className="bg-amber-100 text-amber-700 border-amber-200 hover:bg-amber-200 dark:bg-amber-900/30 dark:text-amber-500 border-0 px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wider flex items-center gap-1">
-                                    <Award className="h-3 w-3" />
-                                    MÜKEMMEL
-                                </Badge>
-                             )}
                          </div>
                         <CardTitle className="text-lg font-bold line-clamp-1 pr-2 tracking-tight flex items-center gap-2">
                             {storeName}
@@ -228,16 +236,31 @@ export function AuditCard({
                     </div>
 
                     <div className="flex flex-col items-end gap-1">
-                        <div className={cn(
-                            "flex items-center justify-center w-12 h-12 rounded-xl border-2 font-black text-lg shadow-sm transition-colors",
-                            isPerfectScore ? "bg-amber-50 text-amber-600 border-amber-200" :
-                            percentage >= 90 ? "bg-emerald-50 text-emerald-600 border-emerald-200" :
-                            percentage >= 75 ? "bg-blue-50 text-blue-600 border-blue-200" :
-                            percentage >= 60 ? "bg-orange-50 text-orange-600 border-orange-200" :
-                            "bg-red-50 text-red-600 border-red-200"
-                        )}>
-                            {percentage}
-                        </div>
+                        {isPerfectScore ? (
+                            <div className="relative group/badge flex items-center justify-center p-1">
+                                {/* Altın Yıldız */}
+                                <div className="relative flex items-center justify-center text-amber-500">
+                                    <Star className="w-20 h-20 fill-yellow-400 text-amber-500" strokeWidth={1} />
+                                    
+                                    {/* İçindeki 100 Yazısı */}
+                                    <div className="absolute flex flex-col items-center justify-center mt-1.5 ml-[1px]">
+                                        <span className="font-extrabold text-[15px] tracking-tighter text-amber-950 dark:text-amber-900 drop-shadow-[0_1px_1px_rgba(255,255,255,0.7)]">
+                                            100
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className={cn(
+                                "flex items-center justify-center w-12 h-12 rounded-xl border-2 font-black text-lg shadow-sm transition-colors",
+                                percentage >= 90 ? "bg-emerald-50 text-emerald-600 border-emerald-200" :
+                                percentage >= 75 ? "bg-blue-50 text-blue-600 border-blue-200" :
+                                percentage >= 60 ? "bg-orange-50 text-orange-600 border-orange-200" :
+                                "bg-red-50 text-red-600 border-red-200"
+                            )}>
+                                {percentage}
+                            </div>
+                        )}
                     </div>
                  </div>
             </CardHeader>

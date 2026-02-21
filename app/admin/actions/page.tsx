@@ -29,7 +29,8 @@ import { DataTable } from "@/components/ui/data-table";
 import { ColumnDef, Column, Row } from "@tanstack/react-table";
 import { cn, getWorkingDaysPassed, calculateDeadlineDate } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { ArrowUpDown, Search, XCircle, ListFilter } from "lucide-react";
+import { ArrowUpDown, Search, XCircle, ListFilter, FileSpreadsheet } from "lucide-react";
+import * as XLSX from "xlsx";
 import { DataTableFacetedFilter } from "@/components/ui/data-table-faceted-filter";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { DateRangeFilter } from "@/lib/types";
@@ -504,6 +505,42 @@ function AdminActionsContent() {
                     }
                 }));
 
+                if (currentTab === 'pending_store') {
+                    const completedDate = audit.completedAt?.toDate();
+                    if (!completedDate) {
+                        return <Badge variant="outline" className="bg-gray-100 text-gray-500">-</Badge>;
+                    }
+                    const deadlineDate = calculateDeadlineDate(completedDate);
+                    
+                    const today = new Date();
+                    today.setHours(0,0,0,0);
+                    const target = new Date(deadlineDate);
+                    target.setHours(0,0,0,0);
+                    
+                    const diffTime = target.getTime() - today.getTime();
+                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                    
+                    if (diffDays > 0) {
+                        return (
+                            <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-100 w-fit px-3 py-1 text-sm font-medium">
+                                Dönüşe {diffDays} gün var
+                            </Badge>
+                        );
+                    } else if (diffDays === 0) {
+                        return (
+                            <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-200 hover:bg-orange-100 w-fit px-3 py-1 text-sm font-medium">
+                                Son Gün Bugün
+                            </Badge>
+                        );
+                    } else {
+                        return (
+                            <Badge variant="outline" className="bg-red-100 text-red-800 border-red-200 hover:bg-red-100 w-fit px-3 py-1 text-sm font-medium">
+                                {Math.abs(diffDays)} gün gecikti
+                            </Badge>
+                        );
+                    }
+                }
+
                 if (status === "Onaylandı") {
                     return (
                         <div className="flex flex-col gap-1">
@@ -555,9 +592,9 @@ function AdminActionsContent() {
             },
         }
     ].filter(column => {
-        // Durum sütununu 'approved' ve 'pending_store' sekmelerinde gizle
+        // Durum sütununu 'approved' sekmesinde gizle
         if (column.id === 'status') {
-            return currentTab !== 'approved' && currentTab !== 'pending_store';
+            return currentTab !== 'approved';
         }
         // Dönüş Tarihi sütununu sadece 'approved' sekmesinde göster
         if (column.id === 'returnDate') {
@@ -628,6 +665,80 @@ function AdminActionsContent() {
                                             Tarihi Temizle
                                         </Button>
                                     )}
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-8 gap-2 text-emerald-600 border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300"
+                                        onClick={() => {
+                                            const getAuditStatusText = (audit: Audit) => {
+                                                if (currentTab === 'pending_store') {
+                                                    const completedDate = audit.completedAt?.toDate();
+                                                    if (!completedDate) return "-";
+                                                    const deadlineDate = calculateDeadlineDate(completedDate);
+                                                    const today = new Date();
+                                                    today.setHours(0,0,0,0);
+                                                    const target = new Date(deadlineDate);
+                                                    target.setHours(0,0,0,0);
+                                                    const diffTime = target.getTime() - today.getTime();
+                                                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                                                    if (diffDays > 0) return `Dönüşe ${diffDays} gün var`;
+                                                    if (diffDays === 0) return "Son Gün Bugün";
+                                                    return `${Math.abs(diffDays)} gün gecikti`;
+                                                }
+                                                // Compute standard text for other tabs
+                                                let total = 0, apprv = 0, pStore = 0, pAdmin = 0, rej = 0;
+                                                audit.sections.forEach(s => s.answers.forEach(a => {
+                                                    const needed = a.answer && a.answer.trim() !== "muaf" && a.answer.trim() !== "" && (a.earnedPoints||0) < (a.maxPoints||0);
+                                                    if (needed) {
+                                                        total++;
+                                                        const stat = a.actionData?.status || "pending_store";
+                                                        if (stat === "approved") apprv++;
+                                                        else if (stat === "pending_admin") pAdmin++;
+                                                        else if (stat === "rejected") rej++;
+                                                        else pStore++;
+                                                    }
+                                                }));
+                                                if (total === 0) return "-";
+                                                if (apprv === total) return "Onaylandı";
+                                                if (rej > 0) return "Düzeltme Bekleniyor";
+                                                if (pAdmin > 0) return "Onay Bekliyor";
+                                                if (pStore === total) return "Dönüş Yapılmadı";
+                                                return "Mağaza Bekleniyor";
+                                            };
+
+                                            const worksheet = XLSX.utils.json_to_sheet(filteredData.map(audit => {
+                                                const completedDate = audit.completedAt?.toDate();
+                                                const returnDate = getLastSubmissionDate(audit);
+                                                const responseTime = getStoreResponseTime(audit);
+                                                const deadline = completedDate ? calculateDeadlineDate(completedDate) : null;
+                                                
+                                                let totalActions = 0;
+                                                audit.sections.forEach(s => s.answers.forEach(a => {
+                                                    if (a.answer && a.answer.trim() !== "muaf" && a.answer.trim() !== "" && (a.earnedPoints||0) < (a.maxPoints||0)) totalActions++;
+                                                }));
+
+                                                return {
+                                                    "Mağaza Adı": audit.storeName,
+                                                    "Denetmen": audit.auditorName || "-",
+                                                    "Denetim Türü": audit.auditTypeName || "-",
+                                                    "Denetim Tarihi": completedDate ? completedDate.toLocaleDateString("tr-TR") : "-",
+                                                    "Dönüş Tarihi": returnDate ? returnDate.toLocaleDateString("tr-TR") : "-",
+                                                    "Dönüş Süresi (Gün)": responseTime !== null ? responseTime : "-",
+                                                    "Son Dönüş Tarihi": deadline ? deadline.toLocaleDateString("tr-TR") : "-",
+                                                    "Aksiyon Sayısı": totalActions,
+                                                    "Puan": audit.totalScore || 0,
+                                                    "Durum": getAuditStatusText(audit)
+                                                };
+                                            }));
+
+                                            const workbook = XLSX.utils.book_new();
+                                            XLSX.utils.book_append_sheet(workbook, worksheet, getTabTitle());
+                                            XLSX.writeFile(workbook, `Aksiyon_Raporu_${getTabTitle().replace(/ /g, "_")}_${new Date().toLocaleDateString("tr-TR")}.xlsx`);
+                                        }}
+                                    >
+                                        <FileSpreadsheet className="h-4 w-4" />
+                                        Excel
+                                    </Button>
                                 </div>
                             }
                         />

@@ -1,8 +1,11 @@
 # Project Version
 
-**Current Version:** v2.2.35
+**Current Version:** v2.2.36
 
 ## Changelog
+
+### v2.2.36
+- **UI (Mağaza ve Rapor Paneli):** 100 tam puan rozetinin (Mükemmel) tasarımı güncellendi. Kullanıcının talebi doğrultusunda arka gölgelendirmesi olmayan, altın rengi, büyük ve şık bir `Star` (Lucide) ikonunun merkeze alındığı "100" tam puan rozet tasarımına geçildi.
 
 ### v2.2.35
 - **iOS PWA (Hata Düzeltme):** iOS cihazlarda Safari PWA sürümünün yeniden açılışlarda beyaz ekranda kalmasına ve Auth timeout'a düşmesine sebep olan IndexedDB kilidi ve Firestore tab manager yapılandırmaları düzeltildi.

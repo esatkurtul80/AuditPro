@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useAuth } from "@/components/auth-provider";
 import { HeaderActions } from "@/components/header-actions";
 import { usePathname } from "next/navigation";
@@ -10,7 +10,12 @@ import { Menu } from "lucide-react";
 export function GlobalHeader() {
     const { userProfile, loading } = useAuth();
     const pathname = usePathname();
-    
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
     // Mobile Debug Logger activation (10 taps)
     const [tapCount, setTapCount] = useState(0);
     const [showDebugger, setShowDebugger] = useState(false);
@@ -32,6 +37,9 @@ export function GlobalHeader() {
 
     // Don't show on login page
     if (pathname === "/login") return null;
+
+    // Prevent hydration mismatch: Server doesn't know the role (stored in localStorage)
+    if (!mounted) return null;
 
     // Currently only hoisting for Store Users to ensure stability
     // Admin users can continue using DashboardLayout's header for now (complex sidebar logic)

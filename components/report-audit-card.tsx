@@ -47,13 +47,27 @@ export function ReportAuditCard({
         return date instanceof Date && !isNaN(date.getTime());
     };
 
-    const formatDate = (date: Date) => {
-        if (!isValidDate(date)) return "-";
+    const formatDate = (date: any) => {
+        if (!date) return "-";
+        let parsedDate: Date;
+        
+        if (date instanceof Date) {
+            parsedDate = date;
+        } else if (typeof date.toDate === 'function') {
+            parsedDate = date.toDate();
+        } else if (date.seconds) {
+            parsedDate = new Date(date.seconds * 1000);
+        } else {
+            parsedDate = new Date(date);
+        }
+
+        if (!isValidDate(parsedDate)) return "-";
+        
         return new Intl.DateTimeFormat('tr-TR', {
             day: 'numeric',
             month: 'long',
             year: 'numeric'
-        }).format(date);
+        }).format(parsedDate);
     };
 
     const getScoreColor = (score: number, total: number) => {
@@ -137,8 +151,18 @@ export function ReportAuditCard({
                     </span>
                     
                     {isPerfectScore ? (
-                        <div className="flex items-center justify-center w-10 h-10 bg-amber-50 border border-amber-100 rounded-xl shadow-sm">
-                             <i className="fa-solid fa-award text-amber-500 text-lg"></i>
+                        <div className="relative group/badge flex items-center justify-center p-0.5 mt-1 mr-1">
+                            {/* Altın Yıldız */}
+                            <div className="relative flex items-center justify-center text-amber-500">
+                                <Star className="w-16 h-16 fill-yellow-400 text-amber-500" strokeWidth={1} />
+                                
+                                {/* İçindeki 100 Yazısı */}
+                                <div className="absolute flex flex-col items-center justify-center mt-1 ml-[1px]">
+                                    <span className="font-extrabold text-[12px] tracking-tighter text-amber-950 drop-shadow-[0_1px_1px_rgba(255,255,255,0.6)]">
+                                        100
+                                    </span>
+                                </div>
+                            </div>
                         </div>
                     ) : (
                         <div className={cn(
