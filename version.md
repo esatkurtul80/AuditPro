@@ -2,13 +2,16 @@
 
 ```json
 {
-  "version": "2.2.40",
-  "build": "102",
+  "version": "2.2.41",
+  "build": "103",
   "status": "stable"
 }
 ```
 
 ## Changelog
+
+### v2.2.41
+- **Toplu Mağaza Ekleme & Tablo Geliştirmeleri:** Mağazalar paneline Excel yükleme (.xlsx) ile toplu mağaza ekleme ve şablon indirme özellikleri eklendi. "Puan Raporu" sekmesindeki iki tabloda ve "Mağazalar" tablosunda başlıklar üzerinden manuel sıralama (yukarı/aşağı ok) butonları aktif edilip, tablolara varsayılan olarak "A'dan Z'ye" (alfabetik) sıralı açılma eklendi.
 
 ### v2.2.40
 - **Hata Düzeltme (Genel Değerlendirme):** "Genel Değerlendirme" bölümüne çevrimdışı fotoğraf eklendiğinde oluşan "sonsuz yükleme döngüsü" (infinite upload loop) ve ağa geri dönüldüğünde/denetim kaydedildiğinde ortaya çıkan "kırık görsel" (broken image URL) hataları tamamen çözüldü. Artık genel değerlendirme yorumları ve fotoğrafları, diğer bölüm soruları gibi anlık olarak (`updateGeneralFeedback`) veritabanına işleniyor.

@@ -14,7 +14,7 @@ import { ColumnDef } from "@tanstack/react-table";
 import { collection, getDocs, query, where, Timestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Store, Audit, DateRangeFilter } from "@/lib/types";
-import { Loader2, Search, CheckCircle2, ThumbsUp, MinusCircle, AlertCircle, Calendar, FileSpreadsheet } from "lucide-react";
+import { Loader2, Search, CheckCircle2, ThumbsUp, MinusCircle, AlertCircle, Calendar, FileSpreadsheet, ArrowUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import * as XLSX from "xlsx";
 
@@ -298,12 +298,24 @@ export default function PuanRaporuPage() {
     const scoreColumns: ColumnDef<StoreScoreRow>[] = [
         {
             accessorKey: "storeName",
-            header: "Mağaza Adı",
+            header: ({ column }) => (
+                <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")} className="-ml-4">
+                    Mağaza Adı
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            ),
             cell: ({ row }) => <div className="font-semibold">{row.original.storeName}</div>
         },
         {
             accessorKey: "score1",
-            header: () => <div className="text-center">1. Puan</div>,
+            header: ({ column }) => (
+                <div className="flex justify-center">
+                    <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
+                        1. Puan
+                        <ArrowUpDown className="ml-2 h-4 w-4" />
+                    </Button>
+                </div>
+            ),
             meta: { title: "1. Puan" },
             cell: ({ row }) => {
                 const score = row.original.score1;
@@ -322,7 +334,14 @@ export default function PuanRaporuPage() {
         },
         {
             accessorKey: "score2",
-            header: () => <div className="text-center">2. Puan</div>,
+            header: ({ column }) => (
+                <div className="flex justify-center">
+                    <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
+                        2. Puan
+                        <ArrowUpDown className="ml-2 h-4 w-4" />
+                    </Button>
+                </div>
+            ),
             meta: { title: "2. Puan" },
             cell: ({ row }) => {
                 const score = row.original.score2;
@@ -341,7 +360,14 @@ export default function PuanRaporuPage() {
         },
         {
             accessorKey: "score3",
-            header: () => <div className="text-center">3. Puan</div>,
+            header: ({ column }) => (
+                <div className="flex justify-center">
+                    <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
+                        3. Puan
+                        <ArrowUpDown className="ml-2 h-4 w-4" />
+                    </Button>
+                </div>
+            ),
             meta: { title: "3. Puan" },
             cell: ({ row }) => {
                 const score = row.original.score3;
@@ -360,7 +386,14 @@ export default function PuanRaporuPage() {
         },
         {
             accessorKey: "score4",
-            header: () => <div className="text-center">4. Puan</div>,
+            header: ({ column }) => (
+                <div className="flex justify-center">
+                    <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
+                        4. Puan
+                        <ArrowUpDown className="ml-2 h-4 w-4" />
+                    </Button>
+                </div>
+            ),
             meta: { title: "4. Puan" },
             cell: ({ row }) => {
                 const score = row.original.score4;
@@ -379,7 +412,14 @@ export default function PuanRaporuPage() {
         },
         {
             accessorKey: "average",
-            header: () => <div className="text-center font-bold text-primary">Ortalama</div>,
+            header: ({ column }) => (
+                <div className="flex justify-center">
+                    <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")} className="font-bold text-primary">
+                        Ortalama
+                        <ArrowUpDown className="ml-2 h-4 w-4" />
+                    </Button>
+                </div>
+            ),
             cell: ({ row }) => {
                 if (!row.original.hasAudits) return <div className="text-center">-</div>;
                 const avg = row.original.average;
@@ -401,14 +441,26 @@ export default function PuanRaporuPage() {
     const monthlyColumns: ColumnDef<MonthlyScoreRow>[] = [
         {
             accessorKey: "storeName",
-            header: "Mağaza Adı",
+            header: ({ column }) => (
+                <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")} className="-ml-4">
+                    Mağaza Adı
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            ),
             meta: { title: "Mağaza Adı" },
             cell: ({ row }) => <div className="font-semibold min-w-[150px] sticky left-0 bg-card group-hover:bg-accent z-10 p-2 border-r transition-colors">{row.original.storeName}</div>,
         },
 
         ...MONTH_NAMES.map((month, index) => ({
             id: `month-${index}`,
-            header: () => <div className="text-center whitespace-nowrap px-2">{month}</div>,
+            header: ({ column }: { column: any }) => (
+                <div className="flex justify-center">
+                    <Button variant="ghost" size="sm" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")} className="whitespace-nowrap px-1 h-8 text-xs sm:text-sm">
+                        {month}
+                        <ArrowUpDown className="ml-1 h-3 w-3 shrink-0 opacity-70" />
+                    </Button>
+                </div>
+            ),
             meta: { title: month },
             cell: ({ row }: { row: any }) => {
                 const score = row.original.months[index];
@@ -485,6 +537,7 @@ export default function PuanRaporuPage() {
                                 data={scoreRows}
                                 searchKey="storeName"
                                 searchPlaceholder="Mağaza ara..."
+                                initialSorting={[{ id: "storeName", desc: false }]}
                                 pageSizeOptions={[10, 20, 50, 100, 200]}
                                 defaultPageSize={200}
                                 toolbar={
@@ -546,6 +599,7 @@ export default function PuanRaporuPage() {
                                     data={monthlyRows}
                                     searchKey="storeName"
                                     searchPlaceholder="Mağaza ara..."
+                                    initialSorting={[{ id: "storeName", desc: false }]}
                                     pageSizeOptions={[10, 20, 50, 100]}
                                     defaultPageSize={200}
                                     toolbar={

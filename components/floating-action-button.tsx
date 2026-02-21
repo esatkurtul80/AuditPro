@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter, usePathname } from "next/navigation";
 import { CreateAuditDialog } from "@/components/create-audit-dialog";
-import { WhatsAppShareDialog } from "@/components/whatsapp-share-dialog";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Audit } from "@/lib/types";
@@ -25,7 +24,6 @@ import { toast } from "sonner";
 export function FloatingActionButton() {
     const [isOpen, setIsOpen] = useState(false);
     const [isCreateAuditOpen, setIsCreateAuditOpen] = useState(false);
-    const [isWhatsAppOpen, setIsWhatsAppOpen] = useState(false);
     const [showConfirmDialog, setShowConfirmDialog] = useState(false);
     const router = useRouter();
     const pathname = usePathname();
@@ -80,7 +78,6 @@ export function FloatingActionButton() {
     return (
         <>
             <CreateAuditDialog open={isCreateAuditOpen} onOpenChange={setIsCreateAuditOpen} />
-            <WhatsAppShareDialog open={isWhatsAppOpen} onOpenChange={setIsWhatsAppOpen} />
 
             <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
                 <AlertDialogContent>
@@ -128,16 +125,13 @@ export function FloatingActionButton() {
                             >
                                 <Button
                                     variant="default"
-                                    className="h-16 pr-6 pl-3 rounded-full bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 shadow-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-750 flex items-center gap-3 group transition-all"
-                                    onClick={() => {
-                                        setIsWhatsAppOpen(true);
-                                        setIsOpen(false);
-                                    }}
+                                    disabled
+                                    className="h-16 pr-6 pl-3 rounded-full bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 shadow-xl border border-slate-200 dark:border-slate-700 opacity-50 cursor-not-allowed flex items-center gap-3"
                                 >
-                                    <div className="flex items-center justify-center w-12 h-12 rounded-full bg-green-100 dark:bg-green-900/50 text-green-600 dark:text-green-500 group-hover:scale-110 transition-transform">
+                                    <div className="flex items-center justify-center w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-900/50 text-slate-400 dark:text-slate-500">
                                         <MessageCircle className="h-6 w-6" />
                                     </div>
-                                    <span className="font-semibold text-lg">WhatsApp ile Paylaş</span>
+                                    <span className="font-semibold text-lg text-slate-400">WhatsApp ile Paylaş</span>
                                 </Button>
                             </motion.div>
 
@@ -151,15 +145,13 @@ export function FloatingActionButton() {
                             >
                                 <Button
                                     variant="default"
-                                    className="h-16 pr-6 pl-3 rounded-full bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 shadow-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-750 flex items-center gap-3 group transition-all"
-                                    onClick={() => {
-                                        setIsOpen(false);
-                                    }}
+                                    disabled
+                                    className="h-16 pr-6 pl-3 rounded-full bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 shadow-xl border border-slate-200 dark:border-slate-700 opacity-50 cursor-not-allowed flex items-center gap-3"
                                 >
-                                    <div className="flex items-center justify-center w-12 h-12 rounded-full bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-500 group-hover:scale-110 transition-transform">
+                                    <div className="flex items-center justify-center w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-900/50 text-slate-400 dark:text-slate-500">
                                         <Bell className="h-6 w-6" />
                                     </div>
-                                    <span className="font-semibold text-lg">Bildirim Yap</span>
+                                    <span className="font-semibold text-lg text-slate-400">Bildirim Yap</span>
                                 </Button>
                             </motion.div>
 

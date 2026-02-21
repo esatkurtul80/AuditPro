@@ -84,7 +84,8 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-import { Loader2, Plus, Trash2, Store as StoreIcon, MapPin, ArrowUpDown, Check, ChevronsUpDown } from "lucide-react";
+import { Loader2, Plus, Trash2, Store as StoreIcon, MapPin, ArrowUpDown, Check, ChevronsUpDown, Upload, Download, FileSpreadsheet } from "lucide-react";
+import * as XLSX from "xlsx";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -131,6 +132,11 @@ export default function AdminStoresPage() {
     const [openCityCreateCombobox, setOpenCityCreateCombobox] = useState(false);
     const [openCityEditCombobox, setOpenCityEditCombobox] = useState(false);
     const [deleteAlertOpen, setDeleteAlertOpen] = useState(false);
+    
+    // Bulk Upload State
+    const [bulkOpen, setBulkOpen] = useState(false);
+    const [bulkFile, setBulkFile] = useState<File | null>(null);
+    const [bulkUploading, setBulkUploading] = useState(false);
 
     useEffect(() => {
         loadData();
@@ -160,6 +166,138 @@ export default function AdminStoresPage() {
             toast.error("Veriler yüklenirken hata oluştu");
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleDownloadTemplate = () => {
+        const wsData = [
+            ["Mağaza Adı*", "İl*", "Mağaza Türü (ŞUBE, AVM, MİGROS)", "Konum (Lat, Lng)", "Adres", "Açılış Tarihi (YYYY-AA-GG)", "IP Adresi", "Sevkiyat Günü", "Sevkiyat Saati", "Mail Adresi", "Telefon Numarası", "Telefon Kısa Kod", "Bölge Müdürü E-posta"],
+            ["İstanbul - Kadıköy", "İstanbul", "ŞUBE", "40.9901, 29.0292", "Kadıköy Merkez", "2024-01-01", "192.168.1.5", "Pazartesi", "08:00", "kadikoy@magaza.com", "02161234567", "2161", "bolgemuduru1@ornek.com"]
+        ];
+        const ws = XLSX.utils.aoa_to_sheet(wsData);
+        // Add minimal styling/column widths
+        ws["!cols"] = [
+            { wch: 25 }, { wch: 15 }, { wch: 30 }, { wch: 20 }, { wch: 40 }, { wch: 25 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 25 }, { wch: 20 }, { wch: 15 }, { wch: 35 }
+        ];
+        
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Magazalar_Sablon");
+        XLSX.writeFile(wb, "magaza_ekleme_sablonu.xlsx");
+    };
+
+    const handleBulkUpload = async () => {
+        if (!bulkFile) {
+            toast.error("Lütfen bir Excel dosyası seçin");
+            return;
+        }
+
+        setBulkUploading(true);
+        try {
+            const data = await bulkFile.arrayBuffer();
+            const workbook = XLSX.read(data, { type: "array" });
+            const firstSheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[firstSheetName];
+            
+            // Read as json array of arrays to skip header row easily
+            const rows = XLSX.utils.sheet_to_json<any[]>(worksheet, { header: 1 });
+            
+            if (rows.length < 2) {
+                toast.error("Dosyada geçerli veri bulunamadı");
+                return;
+            }
+
+            // Map standard column indexes (based on template)
+            // 0: Adı, 1: İl, 2: Tür, 3: Konum, 4: Adres, 5: Açılış Tarihi, 6: IP, 7: Sevk Gün, 8: Sevk Saat, 9: Mail, 10: Telefon, 11: Kısa Kod, 12: Bölge Müdürü E-posta
+            let successCount = 0;
+            let errorCount = 0;
+
+            for (let i = 1; i < rows.length; i++) {
+                const row = rows[i];
+                if (!row || row.length === 0 || !row[0]) continue; // Skip empty rows or rows without store name
+                
+                const storeName = String(row[0] || "").trim();
+                const city = String(row[1] || "").trim();
+                const typeRaw = String(row[2] || "").trim().toUpperCase();
+                // Validate enum
+                let type: "ŞUBE" | "AVM" | "MİGROS" | "" = "";
+                if (typeRaw === "ŞUBE" || typeRaw === "AVM" || typeRaw === "MİGROS") {
+                    type = typeRaw;
+                }
+                
+                const location = String(row[3] || "").trim();
+                const address = String(row[4] || "").trim();
+                const rawDate = row[5];
+                let openingDate = "";
+                if (rawDate) {
+                    if (typeof rawDate === "number") {
+                         // Excel date serial number handling
+                         const dateObj = XLSX.SSF.parse_date_code(rawDate);
+                         openingDate = `${dateObj.y}-${String(dateObj.m).padStart(2, '0')}-${String(dateObj.d).padStart(2, '0')}`;
+                    } else {
+                         openingDate = String(rawDate).trim();
+                    }
+                }
+                const ipAddress = String(row[6] || "").trim();
+                const shipmentDay = String(row[7] || "").trim();
+                
+                 // Format time nicely if it arrived as decimal from excel
+                let shipmentTime = "";
+                const rawTime = row[8];
+                if (typeof rawTime === "number" && rawTime < 1) {
+                    const totalMinutes = Math.round(rawTime * 24 * 60);
+                    const hours = Math.floor(totalMinutes / 60);
+                    const mins = totalMinutes % 60;
+                    shipmentTime = `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
+                } else {
+                    shipmentTime = String(rawTime || "").trim();
+                }
+
+                const email = String(row[9] || "").trim();
+                const phone = String(row[10] || "").trim();
+                const phoneShortCode = String(row[11] || "").trim();
+                const rmEmail = String(row[12] || "").trim().toLowerCase();
+
+                let regionalManagerId = "";
+                if (rmEmail) {
+                    const manager = regionalManagers.find(m => m.email?.toLowerCase() === rmEmail);
+                    if (manager) {
+                        regionalManagerId = manager.uid;
+                    }
+                }
+
+                try {
+                    await addDoc(collection(db, "stores"), {
+                        name: storeName,
+                        city,
+                        type,
+                        location,
+                        address,
+                        openingDate,
+                        ipAddress,
+                        shipmentDay,
+                        shipmentTime,
+                        email,
+                        phone,
+                        phoneShortCode,
+                        regionalManagerId,
+                        createdAt: Timestamp.now(),
+                    });
+                    successCount++;
+                } catch (err) {
+                    console.error(`Error adding store ${storeName}:`, err);
+                    errorCount++;
+                }
+            }
+
+            toast.success(`Yükleme tamamlandı. Başarılı: ${successCount}, Başarısız: ${errorCount}`);
+            setBulkOpen(false);
+            setBulkFile(null);
+            loadData();
+        } catch (error) {
+            console.error("Error processing Excel:", error);
+            toast.error("Dosya okunurken bir hata oluştu");
+        } finally {
+            setBulkUploading(false);
         }
     };
 
@@ -364,18 +502,77 @@ export default function AdminStoresPage() {
                         data={stores}
                         searchKey="Mağaza Adı"
                         searchPlaceholder="Mağaza ara..."
+                        initialSorting={[{ id: "Mağaza Adı", desc: false }]}
                         onRowClick={handleRowClick}
                         actionElement={
-                            <Button
-                                size="lg"
-                                onClick={openCreateDialog}
-                                className="bg-blue-600 text-white hover:bg-blue-700 shadow-md shadow-blue-500/20"
-                            >
-                                <Plus className="mr-2 h-5 w-5" />
-                                Yeni Mağaza
-                            </Button>
+                            <div className="flex gap-2">
+                                <Button
+                                    size="lg"
+                                    onClick={() => setBulkOpen(true)}
+                                    variant="outline"
+                                    className="bg-green-50 text-green-700 border-green-200 hover:bg-green-100 hover:text-green-800"
+                                >
+                                    <FileSpreadsheet className="mr-2 h-5 w-5" />
+                                    Toplu Ekle
+                                </Button>
+                                <Button
+                                    size="lg"
+                                    onClick={openCreateDialog}
+                                    className="bg-blue-600 text-white hover:bg-blue-700 shadow-md shadow-blue-500/20"
+                                >
+                                    <Plus className="mr-2 h-5 w-5" />
+                                    Yeni Mağaza
+                                </Button>
+                            </div>
                         }
                     />
+
+                    {/* Bulk Upload Dialog */}
+                    <Dialog open={bulkOpen} onOpenChange={setBulkOpen}>
+                        <DialogContent className="sm:max-w-[425px]">
+                            <DialogHeader>
+                                <DialogTitle>Toplu Mağaza Yükle</DialogTitle>
+                                <DialogDescription>
+                                    Önce şablonu indirin, Excel ile mağaza bilgilerini eksiksiz (Mağaza Adı ve İl zorunludur) doldurun ve ardından dosyayı buradan yükleyin.
+                                </DialogDescription>
+                            </DialogHeader>
+                            <div className="grid gap-4 py-4">
+                                <Button 
+                                    onClick={handleDownloadTemplate} 
+                                    variant="outline" 
+                                    className="w-full justify-start text-blue-600 border-blue-200 bg-blue-50"
+                                >
+                                    <Download className="h-4 w-4 mr-2" />
+                                    Örnek Şablonu İndir
+                                </Button>
+                                
+                                <div className="space-y-2 mt-4">
+                                    <Label>Doldurulmuş Excel Dosyası (.xlsx)</Label>
+                                    <Input 
+                                        type="file" 
+                                        accept=".xlsx, .xls"
+                                        onChange={(e) => {
+                                            const file = e.target.files?.[0];
+                                            if (file) setBulkFile(file);
+                                        }}
+                                        className="cursor-pointer"
+                                    />
+                                    {bulkFile && (
+                                        <div className="text-sm text-muted-foreground flex items-center justify-between">
+                                            <span>Seçilen dosya: {bulkFile.name}</span>
+                                            <Button variant="ghost" size="sm" onClick={() => setBulkFile(null)} className="h-6 w-6 p-0 text-red-500">X</Button>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                            <DialogFooter>
+                                <Button variant="outline" onClick={() => setBulkOpen(false)} disabled={bulkUploading}>İptal</Button>
+                                <Button onClick={handleBulkUpload} disabled={!bulkFile || bulkUploading} className="min-w-[100px]">
+                                    {bulkUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Yükle"}
+                                </Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
 
                     <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
                         <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
