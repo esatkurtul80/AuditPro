@@ -11,7 +11,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     const initialRole = cookieStore.get("__session")?.value ?? null;
 
     return (
-        <DashboardLayout initialRole={initialRole}>
+        <DashboardLayout>
             {/* Handles 2FA session cleanup on navigation — needs usePathname (client) */}
             <SettingsCleanup />
             <ProtectedRoute allowedRoles={["admin"]}>

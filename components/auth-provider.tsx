@@ -44,20 +44,34 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+export function AuthProvider({ children, initialRole }: { children: ReactNode, initialRole?: string | null }) {
   // Initialize userProfile synchronously from localStorage cache.
   // suppressHydrationWarning on <html> allows the server(null) vs client(cached) mismatch.
   const [user, setUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(() => {
-    if (typeof window === "undefined") return null;
+    if (typeof window === "undefined") {
+      return initialRole ? { role: initialRole } as UserProfile : null;
+    }
+    
+    // Client Side First Render:
+    // We MUST return an object where `role === initialRole` to avoid hydration errors.
+    // If the server didn't see a cookie, we MUST render as logged out initially.
+    if (!initialRole) return null;
+
     try {
       const cached = localStorage.getItem("cached_user_profile");
       if (cached) {
         const parsed = JSON.parse(cached);
-        if (parsed?.role) return parsed as UserProfile;
+        // If the cached profile matches the server's understanding of the role, use it
+        if (parsed?.role === initialRole) {
+            return parsed as UserProfile;
+        }
       }
     } catch { /* ignore */ }
-    return null;
+    
+    // If cache is missing or role mismatch, fallback to a minimal profile
+    // just to match the server-rendered HTML layout.
+    return { role: initialRole } as UserProfile;
   });
   // Start loading=true so Firebase can still validate the session.
   // But because userProfile is pre-populated, UI components won't show skeletons.
@@ -111,40 +125,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             // Cache the fresh profile
             localStorage.setItem("cached_user_profile", JSON.stringify(profile));
 
-            if (
-              profile.role !== "pending" &&
-              profile.role !== "magaza" &&
-              (!profile.firstName || !profile.lastName)
-            ) {
-              setShowNameModal(true);
-            }
-
-            // FCM Token Logic removed (Handled by useFcm hook)
-
-            // 3. Update Sync
-            // Always update last login time and basic info
-            // Added: appVersion tracking for Admin Dashboard
-            await updateDoc(userDocRef, {
-                lastLogin: serverTimestamp(),
-                email: firebaseUser.email,
-                displayName: firebaseUser.displayName || "",
-                photoURL: firebaseUser.photoURL || "",
-                // Track which version the user is currently using
-                appVersion: process.env.NEXT_PUBLIC_APP_VERSION || "unknown"
-            });
-          } else {
-            // ... existing imports ...
-            // import Logger from "@/lib/logger"; // REMOVE THIS LINE IF IT EXISTS OR IF I ADDED IT WRONGLY
-            // Actually, I need to check where I put it.
-            // ... logic restore ...
-
-              if (userDoc.exists()) {
-            const profile = userDoc.data() as UserProfile;
-            setUserProfile(profile);
-            
-            // Cache the fresh profile
-            localStorage.setItem("cached_user_profile", JSON.stringify(profile));
-
             // Log successful login
             loginTimer.stop({ role: profile.role });
 
@@ -156,12 +136,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               setShowNameModal(true);
             }
 
-            // ... sync updates ...
+            // 3. Update Sync
+            // Always update last login time and basic info
+            // Added: appVersion tracking for Admin Dashboard
             await updateDoc(userDocRef, {
                 lastLogin: serverTimestamp(),
                 email: firebaseUser.email,
                 displayName: firebaseUser.displayName || "",
                 photoURL: firebaseUser.photoURL || "",
+                // Track which version the user is currently using
                 appVersion: process.env.NEXT_PUBLIC_APP_VERSION || "unknown"
             });
           } else {
@@ -188,7 +171,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
             // Log new user registration
             loginTimer.stop({ role: newProfile.role, newUser: true });
-          }
           }
         } else {
           setUserProfile(null);

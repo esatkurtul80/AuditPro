@@ -11,7 +11,7 @@ import { FloatingActionButton } from "@/components/floating-action-button";
 import { usePathname } from "next/navigation";
 import { MobileDebugLogger } from "@/components/mobile-debug-logger";
 
-export function DashboardLayout({ children, forceStoreLayout, initialRole }: { children: React.ReactNode, forceStoreLayout?: boolean, initialRole?: string | null }) {
+export function DashboardLayout({ children, forceStoreLayout }: { children: React.ReactNode, forceStoreLayout?: boolean }) {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
     const { userProfile, loading } = useAuth();
@@ -38,7 +38,7 @@ export function DashboardLayout({ children, forceStoreLayout, initialRole }: { c
 
     // Determine if we should show store layout (no hamburger, no sidebar overlay on mobile)
     // CRITICAL for Hydration: We MUST use initialRole as a fallback so that the server renders the same HTML as the client.
-    const effectiveRole = userProfile?.role ?? initialRole;
+    const effectiveRole = userProfile?.role;
     
     const isStoreUser = forceStoreLayout || effectiveRole === "magaza" || effectiveRole === "bolge-muduru" || (!!userProfile?.storeId);
 
@@ -60,7 +60,6 @@ export function DashboardLayout({ children, forceStoreLayout, initialRole }: { c
                 <Sidebar
                     isCollapsed={isSidebarCollapsed}
                     toggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-                    initialRole={initialRole}
                 />
             </aside>
 

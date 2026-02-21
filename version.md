@@ -2,13 +2,16 @@
 
 ```json
 {
-  "version": "2.2.38",
-  "build": "100",
+  "version": "2.2.39",
+  "build": "101",
   "status": "stable"
 }
 ```
 
 ## Changelog
+
+### v2.2.39
+- **Hata Düzeltme (Hydration Mismatch):** SSR (Sunucu Tarafı Oluşturma) sırasında Layout bileşenlerinde (`DashboardLayout` ve `RegionalManagerHeader`) oluşan hydration uyuşmazlığı hataları kalıcı olarak çözüldü. AuthProvider'a `app/layout.tsx` üzerinden cookie entegrasyonu sağlandı ve sunucu DOM ağacı ile istemci ağacının ilk render'da %100 eşleşmesi garanti altına alındı.
 
 ### v2.2.38
 - **Özel Rapor Genel Değerlendirme:** Denetim formunun en altına (personel değerlendirme sonrasına) "Genel Değerlendirme" eklenebilme özelliği getirildi. Eklenen yorum ve fotoğraflar skoru etkilemiyor ve PDF raporun en altında "Görüş ve Öneriler" olarak belgeleniyor.

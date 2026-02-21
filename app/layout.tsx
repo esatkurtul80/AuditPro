@@ -11,6 +11,7 @@ import { GlobalHeader } from "@/components/global-header";
 import { FcmInitializer } from "@/components/fcm-initializer";
 
 import NextTopLoader from "nextjs-toploader";
+import { cookies } from "next/headers";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -54,11 +55,14 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const cookieStore = await cookies();
+  const initialRole = cookieStore.get("__session")?.value || null;
+
   return (
     <html lang="tr" suppressHydrationWarning>
 
@@ -72,7 +76,7 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <AuthProvider>
+          <AuthProvider initialRole={initialRole}>
             <NextTopLoader
               color="#2563eb"
               height={2}

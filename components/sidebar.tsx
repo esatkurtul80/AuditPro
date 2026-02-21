@@ -37,10 +37,9 @@ interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
     onLinkClick?: () => void;
     isCollapsed?: boolean;
     toggleSidebar?: () => void;
-    initialRole?: string | null;
 }
 
-function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar, initialRole }: SidebarProps) {
+function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar }: SidebarProps) {
     const { userProfile, loading } = useAuth();
     const pathname = usePathname();
     const searchParams = useSearchParams();
@@ -206,13 +205,13 @@ function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar, in
             {/* Navigation Links */}
             <div className="flex-1 overflow-y-auto px-3 py-4">
                 <nav className="space-y-1">
-                    {(loading && !userProfile && !initialRole) ? (
+                    {(loading && !userProfile) ? (
                         <div className="space-y-2">
                             <Skeleton className="h-11 w-full" />
                             <Skeleton className="h-11 w-full" />
                             <Skeleton className="h-11 w-full" />
                         </div>
-                    ) : (userProfile?.role ?? initialRole) === "admin" ? (
+                    ) : (userProfile?.role) === "admin" ? (
                         <>
 
 
