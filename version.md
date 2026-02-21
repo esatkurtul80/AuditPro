@@ -1,8 +1,12 @@
 # Project Version
 
-**Current Version:** v2.2.34
+**Current Version:** v2.2.35
 
 ## Changelog
+
+### v2.2.35
+- **iOS PWA (Hata Düzeltme):** iOS cihazlarda Safari PWA sürümünün yeniden açılışlarda beyaz ekranda kalmasına ve Auth timeout'a düşmesine sebep olan IndexedDB kilidi ve Firestore tab manager yapılandırmaları düzeltildi.
+- **Bölge Müdürü Paneli (SPA):** Bölge Müdürü paneli URL yönlendirmesiz sıfır-milisaniye gecikmeli salt SPA (Single Page Application) yapısına geçirilerek performans iyileştirmesi sağlandı, cache ihtiyacı ortadan kaldırıldı.
 
 ### v2.2.34
 - **Personel Değerlendirme (Raporlama):** Özel raporda yorumların sıkışmaması için tablo kolon genişlikleri dinamik hale getirildi ve taşmayı önleyen metin kırma (word-break) özelliği eklendi.

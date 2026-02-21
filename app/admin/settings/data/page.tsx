@@ -3,105 +3,98 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { 
-  Trash2, 
-  AlertTriangle, 
-  Database, 
-  HardDrive, 
-  Server, 
-  ShieldAlert, 
-  CheckCircle,
-  XCircle,
-  AlertOctagon,
-  Loader2
+  Trash2, AlertTriangle, Database, HardDrive, Server, ShieldAlert,
+  Bed, ClipboardType, CalendarDays, Key, FileText, HelpCircle, LayoutTemplate,
+  Users, UserCog, Activity, AlertOctagon, Loader2, Bell, Megaphone,
+  Store
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
-import { collection, getCountFromServer, getDocs, writeBatch, doc } from "firebase/firestore";
+import { collection, getCountFromServer, getDocs, writeBatch } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
 export default function DataManagementPage() {
-  const [confirmAuditDelete, setConfirmAuditDelete] = useState(false);
-  const [confirmStoreDelete, setConfirmStoreDelete] = useState(false);
-  const [confirmProgramDelete, setConfirmProgramDelete] = useState(false);
-  const [confirmUserDelete, setConfirmUserDelete] = useState(false);
-  
-  const [counts, setCounts] = useState({
-    audits: 0,
-    stores: 0,
-    programs: 0,
-    users: 0
-  });
-
-  const [loading, setLoading] = useState(false);
+  const [counts, setCounts] = useState<Record<string, number>>({});
+  const [confirmations, setConfirmations] = useState<Record<string, boolean>>({});
+  const [loadingIds, setLoadingIds] = useState<Record<string, boolean>>({});
   const router = useRouter();
+
+  const targetCollections = [
+    { id: "accommodation_types", name: "Konaklama Tipleri", desc: "Sistemde tanımlı tüm konaklama tipi tanımlarını siler.", icon: Bed },
+    { id: "announcements", name: "Duyurular / Bilg.", desc: "Sistemdeki tüm genel duyuruları ve bilgilendirmeleri siler.", icon: Megaphone },
+    { id: "auditTypes", name: "Denetim Türleri", desc: "Tüm denetim türü (Kategori) tanımlarını kalıcı olarak siler.", icon: ClipboardType },
+    { id: "audit_schedules", name: "Denetim Takvimleri", desc: "Tüm haftalık / aylık planlanmış denetmen programlarını siler.", icon: CalendarDays },
+    { id: "audits", name: "Denetim Raporları", desc: "Tüm tamamlanmış ve taslak halinde olan denetim raporlarını tamamen siler.", icon: FileText },
+    { id: "leave_types", name: "İzin Tipleri", desc: "Personel izin tipi tanımlarını siler.", icon: Key },
+    { id: "notifications", name: "Sistem Bildirimleri", desc: "Kullanıcılara giden tüm panel anlık bildirimlerini siler.", icon: Bell },
+    { id: "personnel_evaluations", name: "Personel Değerlendirmeleri", desc: "Yapılan tüm personel değerlendirmelerini ve puanlarını siler.", icon: UserCog },
+    { id: "questions", name: "Sorular", desc: "Denetim soru formlarındaki tüm soruları ve puan ağırlıklarını temizler.", icon: HelpCircle },
+    { id: "sections", name: "Bölümler", desc: "Denetim formlarındaki tüm alt bölümleri ve kategori başlıklarını siler.", icon: LayoutTemplate },
+    { id: "settings", name: "Sistem Ayarları", desc: "Sistem konfigürasyonlarını siler. DİKKAT: Sistemin çalışmasını bozabilir.", icon: Activity, danger: true },
+    { id: "store_personnel", name: "Mağaza Personelleri", desc: "Sisteme kayıtlı mağazalarda çalışan tüm personel listelerini siler.", icon: Users },
+    { id: "stores", name: "Mağazalar", desc: "Sisteme kayıtlı tüm şube/mağazaları ve detaylarını siler.", icon: Store },
+    { id: "system_logs", name: "Sistem Kayıtları", desc: "Sistemdeki tüm işlem hareketlerini (logları) temizler.", icon: Database },
+    { id: "users", name: "Kullanıcılar", desc: "Tüm yöneticileri ve hesapları siler. Sizi sistemden atar.", icon: AlertOctagon, danger: true }
+  ];
 
   useEffect(() => {
     const fetchCounts = async () => {
-        try {
-            const auditSnap = await getCountFromServer(collection(db, "audits"));
-            const storeSnap = await getCountFromServer(collection(db, "stores"));
-            const progSnap = await getCountFromServer(collection(db, "programs")); // Assuming 'programs' or relevant schedule collection
-            const userSnap = await getCountFromServer(collection(db, "users"));
-
-            setCounts({
-                audits: auditSnap.data().count,
-                stores: storeSnap.data().count,
-                programs: progSnap.data().count,
-                users: userSnap.data().count
-            });
-        } catch (error) {
-            console.error("Error fetching counts:", error);
-        }
+      const newCounts: Record<string, number> = {};
+      await Promise.allSettled(
+        targetCollections.map(async (col) => {
+          try {
+            const snap = await getCountFromServer(collection(db, col.id));
+            newCounts[col.id] = snap.data().count;
+          } catch (e) {
+             console.error(`Count fetch failed for ${col.id}`, e);
+             newCounts[col.id] = 0;
+          }
+        })
+      );
+      setCounts(newCounts);
     };
     fetchCounts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const toggleConfirm = (colId: string, val: boolean) => {
+     setConfirmations(prev => ({ ...prev, [colId]: val }));
+  };
+
   const handleWipe = async (collectionName: string) => {
-      setLoading(true);
+      setLoadingIds(prev => ({ ...prev, [collectionName]: true }));
       try {
-          // Implement batch delete logic
-          // Firestore has a 500 limit for batches, so we need to loop
           const q = collection(db, collectionName);
           const snapshot = await getDocs(q);
           
           if (snapshot.empty) {
               toast.info(`${collectionName} koleksiyonunda veri bulunamadı.`);
-              setLoading(false);
+              setLoadingIds(prev => ({ ...prev, [collectionName]: false }));
+              toggleConfirm(collectionName, false);
               return;
           }
 
-          const total = snapshot.size;
-          let deleted = 0;
           const batchSize = 400;
           const chunks = [];
-
-          const docs = snapshot.docs;
-          for (let i = 0; i < docs.length; i += batchSize) {
-              chunks.push(docs.slice(i, i + batchSize));
+          for (let i = 0; i < snapshot.docs.length; i += batchSize) {
+              chunks.push(snapshot.docs.slice(i, i + batchSize));
           }
 
+          let deleted = 0;
           for (const chunk of chunks) {
               const batch = writeBatch(db);
-              chunk.forEach((doc) => {
-                  batch.delete(doc.ref);
-              });
+              chunk.forEach((docSnap) => batch.delete(docSnap.ref));
               await batch.commit();
               deleted += chunk.length;
           }
 
           toast.success(`${collectionName} koleksiyonundan ${deleted} kayıt silindi.`);
-          
-          // Refresh counts
           setCounts(prev => ({ ...prev, [collectionName]: 0 }));
-          
-          // Reset switch
-          if (collectionName === 'audits') setConfirmAuditDelete(false);
-          if (collectionName === 'stores') setConfirmStoreDelete(false);
-          if (collectionName === 'programs') setConfirmProgramDelete(false);
+          toggleConfirm(collectionName, false);
+
           if (collectionName === 'users') {
-              setConfirmUserDelete(false);
               router.push("/login"); // Force logout if users deleted
           }
 
@@ -109,7 +102,7 @@ export default function DataManagementPage() {
           console.error("Wipe error:", error);
           toast.error(`Silme işlemi başarısız: ${error.message}`);
       } finally {
-          setLoading(false);
+          setLoadingIds(prev => ({ ...prev, [collectionName]: false }));
       }
   };
 
@@ -117,7 +110,7 @@ export default function DataManagementPage() {
     <div className="flex-1 flex flex-col h-full overflow-hidden relative font-sans bg-slate-50">
       
       {/* Header */}
-      <header className="h-16 bg-white/80 backdrop-blur-md border-b border-slate-200 flex items-center justify-between px-6 z-10">
+      <header className="h-16 bg-white/80 backdrop-blur-md border-b border-slate-200 flex items-center justify-between px-6 z-10 shrink-0">
         <div className="flex items-center gap-2 text-sm">
           <Link href="/admin/settings" className="text-slate-500 hover:text-blue-600 transition-colors">Ayarlar</Link>
           <span className="text-slate-300">/</span>
@@ -149,7 +142,7 @@ export default function DataManagementPage() {
                </div>
                <div>
                  <p className="text-slate-500 text-xs font-semibold uppercase tracking-wider">Toplam Denetim</p>
-                 <p className="text-2xl font-black text-slate-900">{counts.audits}</p>
+                 <p className="text-2xl font-black text-slate-900">{counts.audits !== undefined ? counts.audits : "..."}</p>
                </div>
             </div>
             <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm flex items-center gap-4">
@@ -158,7 +151,7 @@ export default function DataManagementPage() {
                </div>
                <div>
                  <p className="text-slate-500 text-xs font-semibold uppercase tracking-wider">Toplam Mağaza</p>
-                 <p className="text-2xl font-black text-slate-900">{counts.stores}</p>
+                 <p className="text-2xl font-black text-slate-900">{counts.stores !== undefined ? counts.stores : "..."}</p>
                </div>
             </div>
             <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm flex items-center gap-4">
@@ -174,208 +167,72 @@ export default function DataManagementPage() {
 
           <h2 className="text-xl font-bold text-slate-900 mt-4 flex items-center gap-2">
             <ShieldAlert className="h-5 w-5 text-red-500" />
-            Tehlikeli Bölge
+            Tehlikeli Bölge - Veritabanı Koleksiyonları
           </h2>
 
-          <div className="space-y-4">
-            
-            {/* Audits Wipe */}
-            <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm transition-all hover:border-red-200 hover:shadow-red-50/50">
-              <div className="p-6">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                  <div className="flex items-start gap-4">
-                    <div className="p-3 bg-slate-100 rounded-lg text-slate-600">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-clipboard-list"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/></svg>
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-bold text-slate-900">Tüm Denetimleri Sil</h3>
-                      <p className="text-slate-500 text-sm mt-1">Tüm denetim raporlarını, puanları ve ilişkili resimleri kalıcı olarak siler.</p>
-                      <div className="flex items-center gap-3 mt-3">
-                        <span className="text-xs font-mono bg-slate-100 px-2 py-1 rounded text-slate-600">Koleksiyon: audits</span>
-                        <span className="text-xs font-bold text-slate-400">•</span>
-                        <span className="text-xs text-slate-500">~{counts.audits} kayıt</span>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-6 pl-0 md:pl-6 md:border-l border-slate-100 min-w-48">
-                    <div className="flex flex-col items-end gap-2">
-                       <div className="flex items-center gap-2">
-                         <span className="text-xs font-semibold text-slate-500 uppercase">Onayla</span>
-                         <Switch 
-                            checked={confirmAuditDelete} 
-                            onCheckedChange={setConfirmAuditDelete} 
-                            className="data-[state=checked]:bg-red-600"
-                         />
-                       </div>
-                    </div>
-                    <div>
-                        <Button 
-                            variant="destructive" 
-                            disabled={!confirmAuditDelete || loading}
-                            onClick={() => handleWipe('audits')}
-                            className="bg-red-600 hover:bg-red-700 text-white font-bold shadow-md shadow-red-500/20 disabled:opacity-50 disabled:shadow-none"
-                        >
-                            {loading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
-                            Verileri Sil
-                        </Button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              {confirmAuditDelete && (
-                <div className="bg-red-50 px-6 py-3 border-t border-red-100 flex items-center gap-2 text-sm text-red-700 animate-in fade-in slide-in-from-top-2">
-                    <AlertTriangle className="h-4 w-4" />
-                    <strong>Dikkat:</strong> Tüm denetim kayıtlarını silmek üzeresiniz. Bu işlem geri alınamaz.
-                </div>
-              )}
-            </div>
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+            {targetCollections.map((col) => {
+                const Icon = col.icon;
+                const isConfirmed = confirmations[col.id] || false;
+                const isLoading = loadingIds[col.id] || false;
+                const count = counts[col.id] !== undefined ? counts[col.id] : "...";
 
-            {/* Stores Wipe */}
-            <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm transition-all hover:border-red-200 hover:shadow-red-50/50">
-              <div className="p-6">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                  <div className="flex items-start gap-4">
-                    <div className="p-3 bg-slate-100 rounded-lg text-slate-600">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-store"><path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7"/><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4"/><path d="M2 7h20"/><path d="M22 7v3a2 2 0 0 1-2 2v0a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 16 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 12 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 8 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 4 12v0a2 2 0 0 1-2-2V7"/></svg>
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-bold text-slate-900">Tüm Mağazaları Sil</h3>
-                      <p className="text-slate-500 text-sm mt-1">Tüm mağaza veritabanını ve bölgesel eşleşmeleri kaldırır.</p>
-                      <div className="flex items-center gap-3 mt-3">
-                        <span className="text-xs font-mono bg-slate-100 px-2 py-1 rounded text-slate-600">Koleksiyon: stores</span>
-                        <span className="text-xs font-bold text-slate-400">•</span>
-                        <span className="text-xs text-slate-500">~{counts.stores} kayıt</span>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-6 pl-0 md:pl-6 md:border-l border-slate-100 min-w-48">
-                    <div className="flex flex-col items-end gap-2">
-                       <div className="flex items-center gap-2">
-                         <span className="text-xs font-semibold text-slate-500 uppercase">Onayla</span>
-                         <Switch 
-                            checked={confirmStoreDelete} 
-                            onCheckedChange={setConfirmStoreDelete}
-                            className="data-[state=checked]:bg-red-600"
-                         />
-                       </div>
-                    </div>
-                    <div>
-                        <Button 
-                            variant="destructive" 
-                            disabled={!confirmStoreDelete || loading}
-                            onClick={() => handleWipe('stores')}
-                            className="bg-red-600 hover:bg-red-700 text-white font-bold shadow-md shadow-red-500/20 disabled:opacity-50 disabled:shadow-none"
-                        >
-                            {loading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
-                            Verileri Sil
-                        </Button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+                return (
+                    <div key={col.id} className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm transition-all hover:border-red-200 hover:shadow-red-50/50 flex flex-col">
+                        <div className="p-5 flex-1">
+                            <div className="flex items-start gap-4">
+                                <div className={`p-3 rounded-lg shrink-0 ${col.danger ? 'bg-red-50 text-red-600' : 'bg-slate-100 text-slate-600'}`}>
+                                    <Icon className="h-6 w-6" />
+                                </div>
+                                <div className="flex-1">
+                                    <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                                        {col.name}
+                                        {col.danger && <span className="bg-red-100 text-red-600 text-[10px] px-2 py-0.5 rounded uppercase font-black tracking-wider">Kritik</span>}
+                                    </h3>
+                                    <p className="text-slate-500 text-sm mt-1 mb-3 leading-snug">{col.desc}</p>
+                                    <div className="flex items-center gap-3">
+                                        <span className="text-xs font-mono bg-slate-100 px-2 py-1 rounded text-slate-600">DB: {col.id}</span>
+                                        <span className="text-xs font-bold text-slate-400">•</span>
+                                        <span className="text-xs text-slate-500 font-medium">~{count} kayıt</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
 
-            {/* Programs Wipe */}
-            <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm transition-all hover:border-red-200 hover:shadow-red-50/50">
-              <div className="p-6">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                  <div className="flex items-start gap-4">
-                    <div className="p-3 bg-slate-100 rounded-lg text-slate-600">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-calendar-days"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M16 14h.01"/><path d="M8 18h.01"/><path d="M12 18h.01"/><path d="M16 18h.01"/></svg>
+                        <div className="bg-slate-50 border-t border-slate-100 p-4 flex items-center justify-between gap-4 mt-auto">
+                            <div className="flex items-center gap-2 pl-2">
+                                <Switch 
+                                    checked={isConfirmed} 
+                                    onCheckedChange={(checked) => toggleConfirm(col.id, checked)}
+                                    className="data-[state=checked]:bg-red-600"
+                                />
+                                <span className={`text-xs font-bold uppercase ${isConfirmed ? 'text-red-600' : 'text-slate-400'}`}>
+                                    Onayla
+                                </span>
+                            </div>
+                            
+                            <Button 
+                                variant="destructive" 
+                                disabled={!isConfirmed || isLoading}
+                                onClick={() => handleWipe(col.id)}
+                                className="bg-red-600 hover:bg-red-700 text-white font-bold shadow-md shadow-red-500/20 disabled:opacity-50 disabled:shadow-none"
+                            >
+                                {isLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
+                                Temizle
+                            </Button>
+                        </div>
+                        
+                        {isConfirmed && col.danger && (
+                            <div className="bg-red-600 px-5 py-2 flex items-center gap-2 text-xs text-white animate-in fade-in">
+                                <AlertOctagon className="h-3.5 w-3.5 shrink-0" />
+                                <strong>DİKKAT!</strong> Bu işlemi geri alamazsınız.
+                            </div>
+                        )}
                     </div>
-                    <div>
-                      <h3 className="text-lg font-bold text-slate-900">Tüm Programları Sil</h3>
-                      <p className="text-slate-500 text-sm mt-1">Tüm denetim takvimlerini ve gelecek atamaları temizler.</p>
-                      <div className="flex items-center gap-3 mt-3">
-                        <span className="text-xs font-mono bg-slate-100 px-2 py-1 rounded text-slate-600">Koleksiyon: programs</span>
-                        <span className="text-xs font-bold text-slate-400">•</span>
-                        <span className="text-xs text-slate-500">~{counts.programs} kayıt</span>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-6 pl-0 md:pl-6 md:border-l border-slate-100 min-w-48">
-                    <div className="flex flex-col items-end gap-2">
-                       <div className="flex items-center gap-2">
-                         <span className="text-xs font-semibold text-slate-500 uppercase">Onayla</span>
-                         <Switch 
-                            checked={confirmProgramDelete} 
-                            onCheckedChange={setConfirmProgramDelete}
-                            className="data-[state=checked]:bg-red-600"
-                         />
-                       </div>
-                    </div>
-                    <div>
-                        <Button 
-                            variant="destructive" 
-                            disabled={!confirmProgramDelete || loading}
-                            onClick={() => handleWipe('programs')}
-                            className="bg-red-600 hover:bg-red-700 text-white font-bold shadow-md shadow-red-500/20 disabled:opacity-50 disabled:shadow-none"
-                        >
-                            {loading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
-                            Verileri Sil
-                        </Button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-             {/* Users Wipe */}
-             <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm transition-all hover:border-red-200 hover:shadow-red-50/50">
-              <div className="p-6">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                  <div className="flex items-start gap-4">
-                    <div className="p-3 bg-slate-100 rounded-lg text-slate-600">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-users"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-bold text-slate-900">Tüm Kullanıcıları Sil</h3>
-                      <p className="text-slate-500 text-sm mt-1">Tüm kullanıcı hesaplarını siler. <span className="text-red-600 font-bold">Bu işlem sizi sistemden anında atacaktır.</span></p>
-                      <div className="flex items-center gap-3 mt-3">
-                        <span className="text-xs font-mono bg-slate-100 px-2 py-1 rounded text-slate-600">Koleksiyon: users</span>
-                        <span className="text-xs font-bold text-slate-400">•</span>
-                        <span className="text-xs text-slate-500">~{counts.users} kayıt</span>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-6 pl-0 md:pl-6 md:border-l border-slate-100 min-w-48">
-                    <div className="flex flex-col items-end gap-2">
-                       <div className="flex items-center gap-2">
-                         <span className="text-xs font-semibold text-slate-500 uppercase">Onayla</span>
-                         <Switch 
-                            checked={confirmUserDelete} 
-                            onCheckedChange={setConfirmUserDelete}
-                            className="data-[state=checked]:bg-red-600"
-                         />
-                       </div>
-                    </div>
-                    <div>
-                        <Button 
-                            variant="destructive" 
-                            disabled={!confirmUserDelete || loading}
-                            onClick={() => handleWipe('users')}
-                            className="bg-red-600 hover:bg-red-700 text-white font-bold shadow-md shadow-red-500/20 disabled:opacity-50 disabled:shadow-none"
-                        >
-                            {loading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
-                            Verileri Sil
-                        </Button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              {confirmUserDelete && (
-                <div className="bg-red-600 px-6 py-3 border-t border-red-700 flex items-center gap-2 text-sm text-white animate-in fade-in slide-in-from-top-2">
-                    <AlertOctagon className="h-4 w-4 fill-white text-red-600" />
-                    <strong>KRİTİK UYARI:</strong> Bu işlem kendi yönetici hesabınızı da silecektir. Sadece ne yaptığınızdan eminseniz devam edin.
-                </div>
-              )}
-            </div>
-
+                );
+            })}
           </div>
+
         </div>
       </main>
     </div>

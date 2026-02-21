@@ -2,7 +2,7 @@
 
 import { useAuth } from "@/components/auth-provider";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { LogoLoader } from "@/components/logo-loader";
 import { UserRole } from "@/lib/types";
 import { UnauthorizedView } from "@/components/unauthorized-view";
@@ -15,6 +15,11 @@ interface ProtectedRouteProps {
 export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
     const { user, userProfile, loading } = useAuth();
     const router = useRouter();
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
 
     useEffect(() => {
         if (!loading) {
@@ -27,8 +32,9 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
     }, [user, userProfile, loading, allowedRoles, router]);
 
     // AuthProvider now pre-populates userProfile from localStorage cache synchronously.
-    // So this fast-path covers the very first render — no flash, no spinner.
-    if (userProfile && userProfile.role !== "pending" && allowedRoles.includes(userProfile.role)) {
+    // We use `mounted` here to ensure the very first hydration render EXACTLY matches
+    // the server's output (which doesn't have localStorage and returns LogoLoader).
+    if (mounted && userProfile && userProfile.role !== "pending" && allowedRoles.includes(userProfile.role)) {
         return <>{children}</>;
     }
 

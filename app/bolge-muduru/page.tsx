@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, Suspense } from "react";
+import { useState, useEffect, useLayoutEffect, Suspense } from "react";
 import { useAuth } from "@/components/auth-provider";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { RegionalManagerHeader } from "@/components/regional-manager/regional-header";
@@ -15,8 +15,17 @@ function RegionalContent() {
     const pathname = usePathname();
     const searchParams = useSearchParams();
     
-    // Get active tab from URL or default to "panel"
-    const activeTab = (searchParams.get("tab") as "panel" | "scores" | "settings") || "panel";
+    // Initialize from URL or default to 'panel'
+    const initialTab = (searchParams.get('tab') as 'panel' | 'scores' | 'settings') || 'panel';
+    const [activeTab, setActiveTab] = useState<'panel' | 'scores' | 'settings'>(initialTab);
+
+    // Sync state when URL updates (e.g. back button)
+    useEffect(() => {
+        const tab = searchParams.get('tab') as 'panel' | 'scores' | 'settings';
+        if (tab && ['panel', 'scores', 'settings'].includes(tab)) {
+            setActiveTab(tab);
+        }
+    }, [searchParams]);
 
     useEffect(() => {
         if (!authLoading) {
@@ -27,11 +36,14 @@ function RegionalContent() {
         }
     }, [authLoading, userProfile, router]);
 
-    // Handle Tab Change - Update URL
+    // Handle Tab Change (Client-side only to prevent reloads, exactly like magaza/panel)
     const handleTabChange = (tab: "panel" | "scores" | "settings") => {
+        setActiveTab(tab);
+        // We avoid full router push to prevent Next.js from re-fetching server data.
+        // We only update the URL state locally so browser 'back' button feels correct.
         const params = new URLSearchParams(searchParams);
         params.set("tab", tab);
-        router.push(`${pathname}?${params.toString()}`);
+        window.history.replaceState({}, '', `${pathname}?${params.toString()}`);
     };
 
     // Scroll to top on tab change
@@ -54,7 +66,7 @@ function RegionalContent() {
             {/* Header */}
             <RegionalManagerHeader />
 
-            {/* Main Content - Render based on activeTab */}
+            {/* Main Content - Render ALL components but control visibility with CSS */}
             <main className="animate-in fade-in duration-300">
                 <div className={activeTab === "panel" ? "block" : "hidden"}>
                     <RegionalDashboard />

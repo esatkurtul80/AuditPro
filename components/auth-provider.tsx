@@ -88,16 +88,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     }, 12000); // 12s - istersen 8-10s yapabilirsin
 
-    // 1) Persistence Setup (Robust Strategy)
-    setPersistence(auth, indexedDBLocalPersistence)
-      .catch((err) => {
-        console.warn(
-          "IndexedDB persistence failed (likely locked tab), falling back to LocalStorage:",
-          err
-        );
-        return setPersistence(auth, browserLocalPersistence);
-      })
-      .catch((e) => console.error("Persistence error (Both failed):", e));
+    // 1) iOS Safari PWA IndexedDB Freeze Workaround
+    // We previously tried to force browserLocalPersistence here, but calling setPersistence
+    // asynchronously during the redirect callback clears the pending redirect result.
+    // Instead, we rely on Firebase Auth's defaults. The real root cause of the iOS freeze
+    // was Firestore's IndexedDB lock, which we've now disabled in lib/firebase.ts.
 
     // 2) Auth State Listener (Critical)
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {

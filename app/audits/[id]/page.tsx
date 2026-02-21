@@ -409,7 +409,8 @@ export default function AuditPage() {
             // Determine back destination based on user role
             const backDestination = userProfile?.role === 'admin' ? '/admin/dashboard'
                 : userProfile?.role === 'magaza' ? '/magaza/panel'
-                    : '/denetmen/tamamlanan';
+                : userProfile?.role === 'bolge-muduru' ? '/bolge-muduru'
+                : '/denetmen/tamamlanan';
 
             // If in view mode (just viewing completed audit), go directly back without dialog
             if (isViewMode) {

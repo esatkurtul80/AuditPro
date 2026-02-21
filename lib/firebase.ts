@@ -1,7 +1,7 @@
 // Import the functions you need from the SDKs you need
 import { initializeApp, getApps } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from "firebase/firestore";
+import { initializeFirestore, persistentLocalCache } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { getFunctions } from "firebase/functions";
 import { getMessaging } from "firebase/messaging";
@@ -27,8 +27,12 @@ const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0
 // Initialize Firebase services
 // Initialize Firebase services
 export const auth = getAuth(app);
-export const db = initializeFirestore(app, {
-    localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
+
+// Detect iOS to disable IndexedDB because iOS Safari PWAs hang infinitely on restart
+const isIos = typeof window !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent);
+
+export const db = initializeFirestore(app, isIos ? {} : {
+    localCache: persistentLocalCache()
 });
 export const storage = getStorage(app);
 export const functions = getFunctions(app);
