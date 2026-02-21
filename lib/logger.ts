@@ -27,7 +27,7 @@ class Logger {
         );
       }
 
-      const logData = {
+      const rawLogData = {
         ...entry,
         timestamp: serverTimestamp(),
         userAgent: typeof window !== "undefined" ? window.navigator.userAgent : "server",
@@ -35,20 +35,29 @@ class Logger {
         env: process.env.NODE_ENV
       };
 
+      // Firestore rejects documents with `undefined` values — strip them out.
+      const logData = Object.fromEntries(
+        Object.entries(rawLogData).filter(([, v]) => v !== undefined)
+      );
+
       await addDoc(collection(db, "system_logs"), logData);
     } catch (error: any) {
       // Handle "Document already exists" error which can happen during offline sync
       // or if the client generates an ID that collides (extremely rare)
       if (error?.message?.includes("Document already exists") || error?.code === "already-exists") {
         try {
-            await addDoc(collection(db, "system_logs"), {
+            const rawRetryData = {
                 ...entry,
                 timestamp: serverTimestamp(),
                 userAgent: typeof window !== "undefined" ? window.navigator.userAgent : "server",
                 path: typeof window !== "undefined" ? window.location.pathname : "server",
                 env: process.env.NODE_ENV,
-                retry: true // Mark as retried
-            });
+                retry: true
+            };
+            const retryData = Object.fromEntries(
+                Object.entries(rawRetryData).filter(([, v]) => v !== undefined)
+            );
+            await addDoc(collection(db, "system_logs"), retryData);
         } catch (retryError) {
              console.error("Failed to write log (retry):", retryError);
         }

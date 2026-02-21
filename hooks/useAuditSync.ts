@@ -179,22 +179,38 @@ export function useAuditSync(auditId: string) {
             }
 
             const auditData = auditSnap.data();
-            const sections = auditData.sections || [];
 
-            if (sections[image.sectionIndex] && sections[image.sectionIndex].answers[image.answerIndex]) {
-                const answer = sections[image.sectionIndex].answers[image.answerIndex];
-                answer.photos = answer.photos || [];
-                answer.photos.push(firebaseUrl);
+            // SPECIAL CASE: sectionIndex === -1 means this is a General Feedback image
+            if (image.sectionIndex === -1) {
+                const generalFeedback = auditData.generalFeedback || {};
+                const existingImages: string[] = (generalFeedback.images || [])
+                    .filter((url: string) => !url.startsWith("local://"));
+
+                existingImages.push(firebaseUrl);
 
                 await updateDoc(auditRef, {
-                    sections,
+                    "generalFeedback.images": existingImages,
                     updatedAt: Timestamp.now(),
                 });
+            } else {
+                const sections = auditData.sections || [];
 
-                await markImageAsUploaded(image.id, firebaseUrl);
+                if (sections[image.sectionIndex] && sections[image.sectionIndex].answers[image.answerIndex]) {
+                    const answer = sections[image.sectionIndex].answers[image.answerIndex];
+                    answer.photos = answer.photos || [];
+                    answer.photos.push(firebaseUrl);
+
+                    await updateDoc(auditRef, {
+                        sections,
+                        updatedAt: Timestamp.now(),
+                    });
+                }
             }
 
-            // Mark as uploaded
+            // Always mark as uploaded so it doesn't re-sync endlessly
+            await markImageAsUploaded(image.id, firebaseUrl);
+
+            // Mark as uploaded in UI
             setSyncingImageUrls(prev => prev.filter(url => url !== localUrl));
             setUploadedImageUrls(prev => [...prev, firebaseUrl]);
         } catch (error) {
