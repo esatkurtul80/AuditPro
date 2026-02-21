@@ -856,6 +856,46 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
                                 );
                             })}
                         </div>
+                        
+                        {/* GENERAL FEEDBACK (Puanlamadan Bağımsız) */}
+                        {(audit.generalFeedback?.note || (audit.generalFeedback?.images && audit.generalFeedback.images.length > 0)) && (
+                            <div className="report-page avoid-break" style={{ margin: '0 20px 20px', backgroundColor: '#fff', border: '1px solid #ddd' }}>
+                                <div style={{ 
+                                    background: '#111', 
+                                    color: '#fff', 
+                                    padding: '12px 20px', 
+                                    fontSize: '16px', 
+                                    fontWeight: 'bold',
+                                    borderBottom: '2px solid #ed1b24',
+                                    textTransform: 'uppercase'
+                                }}>
+                                    GENEL GÖRÜŞ VE ÖNERİLER
+                                </div>
+                                <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                                    {audit.generalFeedback.note && (
+                                        <div style={{ fontSize: '14px', color: '#333', fontStyle: 'italic', lineHeight: '1.5' }}>
+                                            "{audit.generalFeedback.note}"
+                                        </div>
+                                    )}
+                                    
+                                    {audit.generalFeedback.images && audit.generalFeedback.images.length > 0 && (
+                                        <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', marginTop: '10px' }}>
+                                            {audit.generalFeedback.images.map((img, i) => (
+                                                <div key={i} style={{ border: '1px dashed #ccc', padding: '3px', maxWidth: '100%' }}>
+                                                   <img 
+                                                       src={getProxiedUrl(img)} 
+                                                       data-original-url={img}
+                                                       onClick={() => setSelectedImage(getProxiedUrl(img))}
+                                                       style={{ maxWidth: '100%', height: 'auto', objectFit: 'contain', cursor: 'pointer' }} 
+                                                       crossOrigin="anonymous" 
+                                                   />
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
 
                         <footer style={{ textAlign: 'center', fontSize: '11px', color: '#999', marginTop: '20px', paddingBottom: '20px' }}>
                             AuditPro Denetim Sistemi | © {new Date().getFullYear()} Tüm Hakları Saklıdır.

@@ -198,6 +198,12 @@ export interface Audit {
     actionStats?: ActionStats;
     score?: number;
     lastSubmittedAt?: Date | any; // Using any to be safe with mixed implementations
+
+    // New Feature: Optional general feedback independent of score
+    generalFeedback?: {
+        note?: string;
+        images?: string[];
+    };
 }
 
 export interface ActionStats {

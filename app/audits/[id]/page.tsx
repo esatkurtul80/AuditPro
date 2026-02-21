@@ -84,7 +84,7 @@ export default function AuditPage() {
     const [audit, setAudit] = useState<Audit | null>(null);
     const [loading, setLoading] = useState(true);
     const [uploading, setUploading] = useState(false);
-    const [currentSectionIndex, setCurrentSectionIndex] = useState<number | 'personnel' | null>(null);
+    const [currentSectionIndex, setCurrentSectionIndex] = useState<number | 'personnel' | 'general' | null>(null);
     const [showExitDialog, setShowExitDialog] = useState(false);
     const [showBackDialog, setShowBackDialog] = useState(false);
     const [completing, setCompleting] = useState(false);
@@ -1435,6 +1435,36 @@ export default function AuditPage() {
                                             </div>
                                         </CardHeader>
                                     </Card>
+                                    
+                                    {/* General Feedback Card */}
+                                    <Card
+                                        className="cursor-pointer hover:shadow-lg transition-all border shadow-sm bg-gradient-to-br from-slate-50 to-slate-200 dark:from-slate-900/60 dark:to-slate-800/60 hover:from-slate-100 hover:to-slate-300 dark:hover:from-slate-800/80 dark:hover:to-slate-700/80 border-slate-300 dark:border-slate-700 group rounded-xl min-h-[5rem] md:min-h-[7rem] py-3 md:py-6 gap-3 md:gap-6 flex items-center justify-center select-none"
+                                        onClick={() => setCurrentSectionIndex('general')}
+                                    >
+                                        <CardHeader className="p-0 px-3 md:p-6 w-full">
+                                            <div className="grid grid-cols-[auto_1fr_auto] items-center gap-3 md:gap-4 w-full">
+                                                <div className="flex items-center justify-center w-10 h-10 md:w-12 md:h-12 rounded-lg bg-slate-200/80 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-600">
+                                                    <MessageSquare className="w-5 h-5 md:w-6 md:h-6" />
+                                                </div>
+                                                <div className="flex items-center gap-2 flex-1 min-w-0">
+                                                    <Circle className={`h-4 w-4 md:h-5 md:w-5 flex-shrink-0 fill-current ${
+                                                        audit?.generalFeedback?.note || (audit?.generalFeedback?.images && audit.generalFeedback.images.length > 0)
+                                                            ? "text-blue-500" 
+                                                            : "text-gray-300 dark:text-gray-700"
+                                                    }`} />
+                                                    <div className="flex-1 min-w-0">
+                                                        <h3 className="font-bold text-base md:text-2xl mb-1 md:mb-2 truncate text-slate-900 dark:text-slate-100 group-hover:text-slate-700 dark:group-hover:text-slate-300 transition-colors">Genel Değerlendirme</h3>
+                                                        <p className="text-sm text-slate-600 dark:text-slate-400 mt-1 truncate">
+                                                            Puanlamadan bağımsız genel görüş ve öneriler
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-3">
+                                                    <ChevronRight className="h-6 w-6 text-slate-400 dark:text-slate-500 group-hover:text-slate-600 dark:group-hover:text-slate-400 transition-colors" />
+                                                </div>
+                                            </div>
+                                        </CardHeader>
+                                    </Card>
                                 </div>
                             </>
                         ) : null
@@ -1446,6 +1476,62 @@ export default function AuditPage() {
                                 storeName={audit.storeName}
                                 canEdit={canEdit}
                             />
+                        </div>
+                    ) : currentSectionIndex === 'general' ? (
+                        <div className="animate-in slide-in-from-bottom-8 duration-500 fill-mode-both">
+                            <Card className="p-4 md:p-6 border shadow-sm bg-slate-50/50 dark:bg-slate-900/10 border-slate-200 dark:border-slate-800">
+                                <div className="space-y-6">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Genel Değerlendirme</h2>
+                                        <Badge variant="outline" className="bg-slate-100 text-slate-800">Puana Etki Etmez</Badge>
+                                    </div>
+                                    <p className="text-sm text-muted-foreground">
+                                        Bu mağaza denetimi hakkında puanlamaya yansımayan ancak raporun sonunda yer alacak genel görüş, öneri veya notlarınızı buraya ekleyebilirsiniz.
+                                    </p>
+
+                                    <div className="space-y-4 pt-4 border-t border-slate-200 dark:border-slate-800">
+                                        <div>
+                                            <Label>Genel Görüş & Notlar</Label>
+                                            <Textarea
+                                                value={audit?.generalFeedback?.note || ""}
+                                                onChange={(e) => {
+                                                    const newFeedback = { ...audit?.generalFeedback, note: e.target.value };
+                                                    const updatedAudit = { ...audit, generalFeedback: newFeedback };
+                                                    setAudit(updatedAudit);
+                                                    setIsDirty(true);
+                                                }}
+                                                placeholder="Genel görüşleriniz..."
+                                                disabled={!canEdit}
+                                                className="min-h-[120px] resize-none mt-2"
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <Label>Ek Görseller</Label>
+                                            <div className="mt-2">
+                                                <ImageGallery
+                                                    images={audit?.generalFeedback?.images || []}
+                                                    onImagesChange={(newImages) => {
+                                                        const newFeedback = { ...audit?.generalFeedback, images: newImages };
+                                                        const updatedAudit = { ...audit, generalFeedback: newFeedback };
+                                                        setAudit(updatedAudit);
+                                                        setIsDirty(true);
+                                                    }}
+                                                    auditId={auditId}
+                                                    sectionIndex={-1} 
+                                                    answerIndex={-2} // Special magic number for general feedback photos
+                                                    questionText="Genel Değerlendirme"
+                                                    disabled={!canEdit}
+                                                    onUploadStart={() => setUploading(true)}
+                                                    onUploadEnd={() => setUploading(false)}
+                                                    syncingImages={syncingImageUrls}
+                                                    uploadedImages={uploadedImageUrls}
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </Card>
                         </div>
                     ) : (
                         // SECTION DETAIL VIEW

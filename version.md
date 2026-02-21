@@ -1,8 +1,17 @@
 # Project Version
 
-**Current Version:** v2.2.37
+```json
+{
+  "version": "2.2.38",
+  "build": "100",
+  "status": "stable"
+}
+```
 
 ## Changelog
+
+### v2.2.38
+- **Özel Rapor Genel Değerlendirme:** Denetim formunun en altına (personel değerlendirme sonrasına) "Genel Değerlendirme" eklenebilme özelliği getirildi. Eklenen yorum ve fotoğraflar skoru etkilemiyor ve PDF raporun en altında "Görüş ve Öneriler" olarak belgeleniyor.
 
 ### v2.2.37
 - **Admin Raporları (Özel Rapor):** Özel raporlardaki (PDF) bölüm değerlendirmesi (Görüş ve Öneriler) kısmında yer alan fotoğraflar artık kırpılmış küçük kareler halinde değil, yüklendiği orijinal boyut ve en-boy oranında tam genişlikte gösteriliyor.
