@@ -569,11 +569,22 @@ export default function AuditPage() {
                 }))
             }));
 
-            await updateDoc(doc(db, "audits", auditId), {
+            // Prepare generalFeedback: strip local:// images before saving
+            const generalFeedbackToSave = updatedAudit.generalFeedback
+                ? {
+                    ...updatedAudit.generalFeedback,
+                    images: (updatedAudit.generalFeedback.images || []).filter((url: string) => !url.startsWith('local://')),
+                  }
+                : undefined;
+
+            const firestorePayload: Record<string, unknown> = {
                 sections: sectionsToSave,
                 totalScore: updatedAudit.totalScore,
                 updatedAt: updatedAudit.updatedAt,
-            });
+            };
+            if (generalFeedbackToSave) firestorePayload.generalFeedback = generalFeedbackToSave;
+
+            await updateDoc(doc(db, "audits", auditId), firestorePayload);
         } catch (error) {
             console.error("Error updating answer:", error);
             toast.error("Cevap kaydedilirken hata oluştu");
@@ -725,7 +736,13 @@ export default function AuditPage() {
                 updatedAt: now,
                 actionDeadline: actionDeadline,
                 sections: updatedSections,
-                allActionsResolved: false // Initially false if there are actions
+                allActionsResolved: false, // Initially false if there are actions
+                ...(audit.generalFeedback ? {
+                    generalFeedback: {
+                        ...audit.generalFeedback,
+                        images: (audit.generalFeedback.images || []).filter((url: string) => !url.startsWith('local://')),
+                    }
+                } : {})
             });
 
             // Local state'i güncelle ki UI hemen güncellensin ve özet görünsün
