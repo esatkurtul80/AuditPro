@@ -401,6 +401,18 @@ export default function AuditPage() {
             });
 
             setHistoryCache(newHistoryCache);
+
+            // Clean up stale local:// URLs that may have been saved to Firestore by the old buggy sync.
+            // These can never be resolved on a fresh page load.
+            if (auditData.generalFeedback?.images?.some((u: string) => u.startsWith('local://'))) {
+                const cleanedImages = auditData.generalFeedback.images.filter((u: string) => !u.startsWith('local://'));
+                auditData.generalFeedback = { ...auditData.generalFeedback, images: cleanedImages };
+                // Write back to Firestore silently so this doesn't repeat on next load
+                updateDoc(doc(db, "audits", auditId), {
+                    "generalFeedback.images": cleanedImages,
+                }).catch(() => {}); // best-effort
+            }
+
             setAudit(auditData);
             
             // Store original score and full audit when entering edit mode
@@ -593,7 +605,34 @@ export default function AuditPage() {
         }
     };
 
+    // Saves generalFeedback (note + images) to Firestore immediately — same pattern as updateAnswer.
+    // This ensures photos and notes persist after page reload / logout-login.
+    const updateGeneralFeedback = async (patch: { note?: string; images?: string[] }) => {
+        if (!audit || !auditId) return;
+        if (isEditMode && !isDirty) setIsDirty(true);
 
+        const newFeedback = { ...audit.generalFeedback, ...patch };
+        const updatedAudit = { ...audit, generalFeedback: newFeedback };
+        setAudit(updatedAudit);
+
+        // In edit mode don't auto-save to Firestore (user must click Kaydet)
+        const currentMode = new URLSearchParams(window.location.search).get('mode');
+        if (currentMode === 'edit' && audit.status === 'tamamlandi') return;
+
+        try {
+            const feedbackToSave = {
+                ...newFeedback,
+                // Strip local:// offline images — server can't display them
+                images: (newFeedback.images || []).filter((url: string) => !url.startsWith('local://')),
+            };
+            await updateDoc(doc(db, "audits", auditId), {
+                generalFeedback: feedbackToSave,
+                updatedAt: Timestamp.now(),
+            });
+        } catch (error) {
+            console.error("Error saving general feedback:", error);
+        }
+    };
 
     const completeAudit = async () => {
         if (!audit || !auditId) return;
@@ -1526,12 +1565,7 @@ export default function AuditPage() {
                                             <Label>Genel Görüş & Notlar</Label>
                                             <Textarea
                                                 value={audit?.generalFeedback?.note || ""}
-                                                onChange={(e) => {
-                                                    const newFeedback = { ...audit?.generalFeedback, note: e.target.value };
-                                                    const updatedAudit = { ...audit, generalFeedback: newFeedback };
-                                                    setAudit(updatedAudit);
-                                                    setIsDirty(true);
-                                                }}
+                                                onChange={(e) => updateGeneralFeedback({ note: e.target.value })}
                                                 placeholder="Genel görüşleriniz..."
                                                 disabled={!canEdit}
                                                 className="min-h-[120px] resize-none mt-2"
@@ -1543,15 +1577,10 @@ export default function AuditPage() {
                                             <div className="mt-2">
                                                 <ImageGallery
                                                     images={audit?.generalFeedback?.images || []}
-                                                    onImagesChange={(newImages) => {
-                                                        const newFeedback = { ...audit?.generalFeedback, images: newImages };
-                                                        const updatedAudit = { ...audit, generalFeedback: newFeedback };
-                                                        setAudit(updatedAudit);
-                                                        setIsDirty(true);
-                                                    }}
+                                                    onImagesChange={(newImages) => updateGeneralFeedback({ images: newImages })}
                                                     auditId={auditId}
                                                     sectionIndex={-1} 
-                                                    answerIndex={-2} // Special magic number for general feedback photos
+                                                    answerIndex={-2}
                                                     questionText="Genel Değerlendirme"
                                                     disabled={!canEdit}
                                                     onUploadStart={() => setUploading(true)}

@@ -2,13 +2,16 @@
 
 ```json
 {
-  "version": "2.2.39",
-  "build": "101",
+  "version": "2.2.40",
+  "build": "102",
   "status": "stable"
 }
 ```
 
 ## Changelog
+
+### v2.2.40
+- **Hata Düzeltme (Genel Değerlendirme):** "Genel Değerlendirme" bölümüne çevrimdışı fotoğraf eklendiğinde oluşan "sonsuz yükleme döngüsü" (infinite upload loop) ve ağa geri dönüldüğünde/denetim kaydedildiğinde ortaya çıkan "kırık görsel" (broken image URL) hataları tamamen çözüldü. Artık genel değerlendirme yorumları ve fotoğrafları, diğer bölüm soruları gibi anlık olarak (`updateGeneralFeedback`) veritabanına işleniyor.
 
 ### v2.2.39
 - **Hata Düzeltme (Hydration Mismatch):** SSR (Sunucu Tarafı Oluşturma) sırasında Layout bileşenlerinde (`DashboardLayout` ve `RegionalManagerHeader`) oluşan hydration uyuşmazlığı hataları kalıcı olarak çözüldü. AuthProvider'a `app/layout.tsx` üzerinden cookie entegrasyonu sağlandı ve sunucu DOM ağacı ile istemci ağacının ilk render'da %100 eşleşmesi garanti altına alındı.

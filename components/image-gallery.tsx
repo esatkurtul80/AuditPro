@@ -270,6 +270,11 @@ export default function ImageGallery({
                                     alt={`Fotoğraf ${index + 1}`}
                                     className={`h-24 w-24 object-cover rounded-lg border cursor-pointer transition-all hover:scale-105 ${isPending ? 'opacity-50' : 'opacity-100'}`}
                                     onClick={() => setSelectedImage(imageUrl)}
+                                    onError={() => {
+                                        // Auto-remove broken image URLs (e.g. orphaned firebase storage objects)
+                                        const newImages = images.filter((_, i) => i !== index);
+                                        onImagesChange(newImages);
+                                    }}
                                 />
 
                                 {/* Syncing Spinner Overlay */}
