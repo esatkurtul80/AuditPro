@@ -16,6 +16,21 @@ export interface LogEntry {
   path?: string;
 }
 
+// Recursively removes all `undefined` values from an object before writing to Firestore.
+// Firestore rejects documents with any `undefined` — even in nested objects.
+function deepStripUndefined(obj: Record<string, unknown>): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(obj)
+      .filter(([, v]) => v !== undefined)
+      .map(([k, v]) => [
+        k,
+        v !== null && typeof v === "object" && !Array.isArray(v) && typeof (v as any).toMillis !== "function"
+          ? deepStripUndefined(v as Record<string, unknown>)
+          : v,
+      ])
+  );
+}
+
 class Logger {
   private static async log(entry: LogEntry) {
     try {
@@ -27,7 +42,7 @@ class Logger {
         );
       }
 
-      const rawLogData = {
+      const rawLogData: Record<string, unknown> = {
         ...entry,
         timestamp: serverTimestamp(),
         userAgent: typeof window !== "undefined" ? window.navigator.userAgent : "server",
@@ -35,10 +50,7 @@ class Logger {
         env: process.env.NODE_ENV
       };
 
-      // Firestore rejects documents with `undefined` values — strip them out.
-      const logData = Object.fromEntries(
-        Object.entries(rawLogData).filter(([, v]) => v !== undefined)
-      );
+      const logData = deepStripUndefined(rawLogData);
 
       await addDoc(collection(db, "system_logs"), logData);
     } catch (error: any) {
@@ -46,7 +58,7 @@ class Logger {
       // or if the client generates an ID that collides (extremely rare)
       if (error?.message?.includes("Document already exists") || error?.code === "already-exists") {
         try {
-            const rawRetryData = {
+            const rawRetryData: Record<string, unknown> = {
                 ...entry,
                 timestamp: serverTimestamp(),
                 userAgent: typeof window !== "undefined" ? window.navigator.userAgent : "server",
@@ -54,10 +66,7 @@ class Logger {
                 env: process.env.NODE_ENV,
                 retry: true
             };
-            const retryData = Object.fromEntries(
-                Object.entries(rawRetryData).filter(([, v]) => v !== undefined)
-            );
-            await addDoc(collection(db, "system_logs"), retryData);
+            await addDoc(collection(db, "system_logs"), deepStripUndefined(rawRetryData));
         } catch (retryError) {
              console.error("Failed to write log (retry):", retryError);
         }
