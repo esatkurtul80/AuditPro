@@ -2,13 +2,16 @@
 
 ```json
 {
-  "version": "2.2.41",
-  "build": "103",
+  "version": "2.2.42",
+  "build": "104",
   "status": "stable"
 }
 ```
 
 ## Changelog
+
+### v2.2.42
+- **PDF İndirme (Haftalık Program):** Haftalık denetim programı PDF indirme özelliği yeniden yazıldı. `html2pdf.js`/`html2canvas` yerine `jsPDF` + `jspdf-autotable` kullanılarak Tailwind v4'ün `oklab`/`color-mix` CSS renk fonksiyonlarından kaynaklanan konsol hatası tamamen giderildi. Roboto fontları `/public/fonts` üzerinden yüklenerek Türkçe karakter bozulması çözüldü. PDF dosyası artık `X. HAFTA DENETİM PROGRAMI YYYY.pdf` formatında indiriliyor.
 
 ### v2.2.41
 - **Toplu Mağaza Ekleme & Tablo Geliştirmeleri:** Mağazalar paneline Excel yükleme (.xlsx) ile toplu mağaza ekleme ve şablon indirme özellikleri eklendi. "Puan Raporu" sekmesindeki iki tabloda ve "Mağazalar" tablosunda başlıklar üzerinden manuel sıralama (yukarı/aşağı ok) butonları aktif edilip, tablolara varsayılan olarak "A'dan Z'ye" (alfabetik) sıralı açılma eklendi.

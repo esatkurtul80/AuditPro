@@ -54,6 +54,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { DataTable } from "@/components/ui/data-table";
+import { DataTableColumnHeader } from "@/components/ui/data-table-column-header";
 import { ColumnDef } from "@tanstack/react-table";
 import {
     Command,
@@ -428,13 +429,21 @@ export default function AdminStoresPage() {
         },
         {
             accessorKey: "city",
-            header: "İl",
-            cell: ({ row }) => <span>{row.original.city || "-"}</span>
+            header: ({ column }) => <DataTableColumnHeader column={column} title="İl" />,
+            meta: { title: "İl" },
+            cell: ({ row }) => <span>{row.original.city || "-"}</span>,
+            filterFn: (row, id, value) => {
+                return Array.isArray(value) && value.includes(row.getValue(id));
+            },
         },
         {
             accessorKey: "type",
-            header: "Tür",
-            cell: ({ row }) => <Badge variant="outline">{row.original.type || "-"}</Badge>
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Tür" />,
+            meta: { title: "Tür" },
+            cell: ({ row }) => <Badge variant="outline">{row.original.type || "-"}</Badge>,
+            filterFn: (row, id, value) => {
+                return Array.isArray(value) && value.includes(row.getValue(id));
+            },
         },
         {
             accessorKey: "location",
@@ -461,7 +470,11 @@ export default function AdminStoresPage() {
         },
         {
             accessorKey: "regionalManagerId",
-            header: "Bölge Müdürü",
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Bölge Müdürü" />,
+            meta: { 
+                title: "Bölge Müdürü",
+                filterOptions: regionalManagers.map(m => ({ label: getManagerName(m.uid), value: m.uid }))
+            },
             cell: ({ row }) => {
                 const managerId = row.getValue("regionalManagerId") as string;
                 return managerId ? (
@@ -471,17 +484,28 @@ export default function AdminStoresPage() {
                 ) : (
                     <span className="text-muted-foreground text-sm italic">Atanmadı</span>
                 );
-            }
+            },
+            filterFn: (row, id, value) => {
+                return Array.isArray(value) && value.includes(row.getValue(id));
+            },
         },
         {
             accessorKey: "shipmentDay",
-            header: "Sevkiyat Günü",
-            cell: ({ row }) => <span>{row.original.shipmentDay || "-"}</span>
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Sevkiyat Günü" />,
+            meta: { title: "Sevkiyat Günü" },
+            cell: ({ row }) => <span>{row.original.shipmentDay || "-"}</span>,
+            filterFn: (row, id, value) => {
+                return Array.isArray(value) && value.includes(row.getValue(id));
+            },
         },
         {
             accessorKey: "shipmentTime",
-            header: "Sevkiyat Saati",
-            cell: ({ row }) => <span>{row.original.shipmentTime || "-"}</span>
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Sevkiyat Saati" />,
+            meta: { title: "Sevkiyat Saati" },
+            cell: ({ row }) => <span>{row.original.shipmentTime || "-"}</span>,
+            filterFn: (row, id, value) => {
+                return Array.isArray(value) && value.includes(row.getValue(id));
+            },
         },
     ];
 
@@ -504,8 +528,37 @@ export default function AdminStoresPage() {
                         searchPlaceholder="Mağaza ara..."
                         initialSorting={[{ id: "Mağaza Adı", desc: false }]}
                         onRowClick={handleRowClick}
-                        actionElement={
+                        actionElement={(table) => (
                             <div className="flex gap-2">
+                                <Button
+                                    size="lg"
+                                    onClick={() => {
+                                        const filteredStores = table.getFilteredRowModel().rows.map((row: any) => row.original);
+                                        const worksheet = XLSX.utils.json_to_sheet(filteredStores.map((store: Store) => ({
+                                            "Mağaza Adı": store.name || "",
+                                            "İl": store.city || "-",
+                                            "Tür": store.type || "-",
+                                            "Bölge Müdürü": store.regionalManagerId ? getManagerName(store.regionalManagerId) : "Atanmadı",
+                                            "Sevkiyat Günü": store.shipmentDay || "-",
+                                            "Sevkiyat Saati": store.shipmentTime || "-",
+                                            "Açılış Tarihi": store.openingDate || "-",
+                                            "Adres": store.address || "-",
+                                            "Konum": store.location || "-",
+                                            "IP Adresi": store.ipAddress || "-",
+                                            "Mail Adresi": store.email || "-",
+                                            "Telefon Numarası": store.phone || "-",
+                                            "Kısa Kod": store.phoneShortCode || "-"
+                                        })));
+                                        const workbook = XLSX.utils.book_new();
+                                        XLSX.utils.book_append_sheet(workbook, worksheet, "Mağazalar");
+                                        XLSX.writeFile(workbook, `Magazalar_Listesi_${new Date().toLocaleDateString("tr-TR")}.xlsx`);
+                                    }}
+                                    variant="outline"
+                                    className="bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100 hover:text-purple-800"
+                                >
+                                    <FileSpreadsheet className="mr-2 h-5 w-5" />
+                                    Excel İndir
+                                </Button>
                                 <Button
                                     size="lg"
                                     onClick={() => setBulkOpen(true)}
@@ -513,7 +566,7 @@ export default function AdminStoresPage() {
                                     className="bg-green-50 text-green-700 border-green-200 hover:bg-green-100 hover:text-green-800"
                                 >
                                     <FileSpreadsheet className="mr-2 h-5 w-5" />
-                                    Toplu Ekle
+                                    Toplu Mağaza Ekle
                                 </Button>
                                 <Button
                                     size="lg"
@@ -524,7 +577,7 @@ export default function AdminStoresPage() {
                                     Yeni Mağaza
                                 </Button>
                             </div>
-                        }
+                        )}
                     />
 
                     {/* Bulk Upload Dialog */}

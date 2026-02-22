@@ -4,8 +4,9 @@ import { useState, useEffect, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
-    CalendarDays, Save, Send, ChevronLeft, ChevronRight, Search, Sparkles, ChevronDown, Ban
+    CalendarDays, Save, Send, ChevronLeft, ChevronRight, Search, Sparkles, ChevronDown, Ban, Loader2, Download
 } from "lucide-react";
+import Script from "next/script";
 import {
     NavigationMenu,
     NavigationMenuContent,
@@ -739,10 +740,156 @@ function DroppableCell({
 
 export default function SchedulePage() {
     const [currentDate, setCurrentDate] = useState(new Date());
+    const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
     const [auditors, setAuditors] = useState<UserProfile[]>([]);
     const [stores, setStores] = useState<Store[]>([]);
     const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
     const [accommodationTypes, setAccommodationTypes] = useState<AccommodationType[]>([]);
+
+    const handleDownloadPDF = async () => {
+        try {
+            setIsGeneratingPDF(true);
+
+            const { default: jsPDF } = await import('jspdf');
+            const { default: autoTable } = await import('jspdf-autotable');
+
+            const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+
+            // Load Roboto TTF from /public/fonts and register with jsPDF
+            // This ensures proper Turkish character rendering (ş, ğ, ü, ö, ç, ı)
+            const loadFont = async (path: string): Promise<string> => {
+                const resp = await fetch(path);
+                const buffer = await resp.arrayBuffer();
+                const bytes = new Uint8Array(buffer);
+                let binary = '';
+                bytes.forEach(b => { binary += String.fromCharCode(b); });
+                return btoa(binary);
+            };
+
+            const [regularB64, boldB64] = await Promise.all([
+                loadFont('/fonts/Roboto-Regular.ttf'),
+                loadFont('/fonts/Roboto-Bold.ttf'),
+            ]);
+
+            doc.addFileToVFS('Roboto-Regular.ttf', regularB64);
+            doc.addFont('Roboto-Regular.ttf', 'Roboto', 'normal');
+            doc.addFileToVFS('Roboto-Bold.ttf', boldB64);
+            doc.addFont('Roboto-Bold.ttf', 'Roboto', 'bold');
+            doc.setFont('Roboto', 'normal');
+
+            const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
+            const weekEnd = endOfWeek(currentDate, { weekStartsOn: 1 });
+            const days = eachDayOfInterval({ start: weekStart, end: weekEnd });
+
+            const weekItems = schedule.filter(item =>
+                item.date >= startOfDay(weekStart) && item.date <= startOfDay(weekEnd)
+            );
+
+            const weekNum = getISOWeek(currentDate);
+
+            // Title
+            doc.setFont('Roboto', 'bold');
+            doc.setFontSize(14);
+            doc.text(`${weekNum}. Hafta Denetim Programı`, 14, 14);
+            doc.setFont('Roboto', 'normal');
+            doc.setFontSize(9);
+            doc.setTextColor(100);
+            doc.text(
+                `${format(weekStart, 'd MMM', { locale: tr })} - ${format(weekEnd, 'd MMM yyyy', { locale: tr })}`,
+                14, 20
+            );
+            doc.setTextColor(0);
+
+            // Build column headers: day name on first line, date (d MMM) on second line
+            // Using an array per cell gives autoTable explicit two-line header cells
+            const head = [
+                [
+                    'Denetmen',
+                    ...days.map(d => ({
+                        content: `${format(d, 'EEEE', { locale: tr })}\n${format(d, 'd MMM', { locale: tr })}`,
+                        styles: { halign: 'center' as const }
+                    }))
+                ]
+            ];
+
+            const body = auditors.map(auditor => {
+                const row: string[] = [`${auditor.firstName} ${auditor.lastName}`];
+                days.forEach(day => {
+                    const cellItems = weekItems.filter(
+                        item => item.auditorId === auditor.uid && isSameDay(item.date, day)
+                    );
+                    if (cellItems.length === 0) {
+                        row.push('');
+                    } else {
+                        row.push(
+                            cellItems.map(item => {
+                                if (item.type === 'leave') return item.storeName;
+                                if (item.type === 'blocked') return '';
+                                return item.storeName;
+                            }).filter(Boolean).join('\n\n')
+                        );
+                    }
+                });
+                return row;
+            });
+
+            autoTable(doc, {
+                head,
+                body,
+                startY: 25,
+                margin: { left: 10, right: 10 },
+                tableWidth: 277, // A4 landscape 297mm - 10mm*2 margins = 277mm
+                styles: {
+                    font: 'Roboto',
+                    fontStyle: 'normal',
+                    fontSize: 11,
+                    cellPadding: 4,
+                    overflow: 'linebreak',
+                    valign: 'middle',
+                    halign: 'center',
+                    lineColor: [180, 180, 180],
+                    lineWidth: 0.4,
+                },
+                headStyles: {
+                    font: 'Roboto',
+                    fontStyle: 'bold',
+                    fontSize: 11,
+                    fillColor: [30, 41, 59],
+                    textColor: 255,
+                    halign: 'center',
+                    minCellHeight: 16,
+                },
+                columnStyles: {
+                    0: { fontStyle: 'bold', cellWidth: 36, halign: 'left' },
+                },
+                alternateRowStyles: {
+                    fillColor: [248, 250, 252],
+                },
+                didParseCell: (data: any) => {
+                    const colIdx = data.column.index;
+                    if (colIdx > 0) {
+                        const day = days[colIdx - 1];
+                        if (day && (day.getDay() === 0 || day.getDay() === 6)) {
+                            if (data.row.section !== 'head') {
+                                data.cell.styles.fillColor = [241, 245, 249];
+                            } else {
+                                data.cell.styles.fillColor = [51, 65, 85];
+                            }
+                        }
+                    }
+                },
+            });
+
+            doc.save(`${weekNum}. HAFTA DENETİM PROGRAMI ${format(currentDate, 'yyyy')}.pdf`);
+            toast.success('PDF başarıyla indirildi.');
+        } catch (error) {
+            console.error('PDF generation error:', error);
+            toast.error('PDF oluşturulurken bir hata oluştu.');
+        } finally {
+            setIsGeneratingPDF(false);
+        }
+    };
+
 
     // Note Dialog State
     const [noteDialog, setNoteDialog] = useState<{ open: boolean, itemId: string | null, note: string }>({
@@ -1252,13 +1399,15 @@ export default function SchedulePage() {
 
 
     const handleAddStore = async (auditorId: string, date: Date, storeId: string, storeName: string, accommodationTypeId?: string | null) => {
-        // Validation: Max 2 items per cell
+        // Validation: Max 2 real items per cell
         const existingItemsInCell = schedule.filter(s =>
             s.auditorId === auditorId &&
-            isSameDay(s.date, date)
+            isSameDay(s.date, date) &&
+            s.type !== 'blocked'
         );
 
         if (existingItemsInCell.length >= 2) {
+            toast.error("Bir güne en fazla 2 mağaza/işlem eklenebilir.");
             return;
         }
 
@@ -1393,7 +1542,15 @@ export default function SchedulePage() {
             const dayOfWeek = itemToRemove.date.getDay();
             const isWeekend = dayOfWeek === 0 || dayOfWeek === 6; // 0=Sun, 6=Sat
 
-            if (isWeekend) {
+            // Check if there is already a blocked item for this cell
+            const cellAlreadyHasBlocked = schedule.some(i => 
+                i.auditorId === itemToRemove.auditorId && 
+                isSameDay(i.date, itemToRemove.date) && 
+                i.type === 'blocked' &&
+                i.id !== itemId
+            );
+
+            if (isWeekend && !cellAlreadyHasBlocked) {
                 // Check if any OTHER items remain for this auditor/date? 
                 // Since we just optimistically filtered, we check the *new* state relative to that cell.
                 // Or simpler: Just always block. If there's another item, the block is fine (invisible usually).
@@ -1470,7 +1627,15 @@ export default function SchedulePage() {
         let blockedItem: ScheduleItem | undefined;
         let blockedId: string | undefined;
 
-        if (isWeekend) {
+        // Check if there is already a blocked item for this cell
+        const cellAlreadyHasBlocked = schedule.some(i => 
+            i.auditorId === itemToRemove.auditorId && 
+            isSameDay(i.date, itemToRemove.date) && 
+            i.type === 'blocked' &&
+            i.id !== itemId
+        );
+
+        if (isWeekend && !cellAlreadyHasBlocked) {
             blockedId = generateUUID();
             blockedItem = {
                 id: blockedId,
@@ -2077,7 +2242,23 @@ export default function SchedulePage() {
                             </NavigationMenu>
 
                             <div className="flex items-center gap-3">
-                                {/* Removed Legend as requested */}
+
+                                {viewMode === 'week' && (
+                                    <Button
+                                        onClick={handleDownloadPDF}
+                                        disabled={isGeneratingPDF || !hasItems}
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-9 transition-all bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:text-slate-900"
+                                    >
+                                        {isGeneratingPDF ? (
+                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        ) : (
+                                            <Download className="mr-2 h-4 w-4" />
+                                        )}
+                                        PDF İndir
+                                    </Button>
+                                )}
 
                                 <Button
                                     onClick={handleTogglePublish}
@@ -2107,7 +2288,7 @@ export default function SchedulePage() {
                         </div>
 
                         <div className="flex-1 overflow-auto rounded-xl border shadow-sm bg-white/50 backdrop-blur-sm relative scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
-                            <table className={cn("w-full h-full border-separate border-spacing-0 text-sm text-left", viewMode === 'week' ? "table-fixed" : "table-auto min-w-max")}>
+                            <table id="schedule-export-content" className={cn("w-full h-full border-separate border-spacing-0 text-sm text-left bg-white", viewMode === 'week' ? "table-fixed" : "table-auto min-w-max")}>
                                 <thead className="bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60 sticky top-0 z-40 border-b border-slate-200/60 shadow-sm">
                                     <tr>
                                         <th className="w-[200px] min-w-[200px] p-4 text-left font-bold text-slate-700 tracking-tight text-sm uppercase bg-slate-50/90 backdrop-blur border-b border-slate-200/60 sticky left-0 z-50 align-middle">
@@ -2643,6 +2824,10 @@ export default function SchedulePage() {
                     );
                 })() : null}
             </DragOverlay >
+            <Script
+                src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"
+                strategy="lazyOnload"
+            />
         </DndContext >
     );
 }

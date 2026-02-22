@@ -43,7 +43,7 @@ interface DataTableProps<TData, TValue> {
     searchPlaceholder?: string
     onRowClick?: (row: TData) => void
     toolbar?: React.ReactNode | ((table: import("@tanstack/react-table").Table<TData>) => React.ReactNode)
-    actionElement?: React.ReactNode
+    actionElement?: React.ReactNode | ((table: import("@tanstack/react-table").Table<TData>) => React.ReactNode)
     mobileHiddenColumns?: string[]
     initialColumnVisibility?: VisibilityState
     initialSorting?: SortingState
@@ -192,7 +192,7 @@ export function DataTable<TData, TValue>({
                             })}
                     </DropdownMenuContent>
                 </DropdownMenu>
-                {actionElement}
+                {typeof actionElement === "function" ? actionElement(table) : actionElement}
             </div>
             <div className="rounded-md border">
                 <Table>

@@ -48,6 +48,7 @@
     "firebase": "^12.6.0",
     "firebase-admin": "^13.6.0",
     "framer-motion": "^12.34.0",
+    "html2pdf.js": "^0.14.0",
     "idb": "^8.0.3",
     "jspdf": "^3.0.4",
     "jspdf-autotable": "^5.0.2",
@@ -69,6 +70,8 @@
     "zod": "^4.1.13"
   },
   "devDependencies": {
+    "@csstools/postcss-color-mix-function": "^4.0.2",
+    "@csstools/postcss-oklab-function": "^5.0.2",
     "@tailwindcss/postcss": "^4",
     "@tailwindcss/typography": "^0.5.19",
     "@types/node": "20.19.27",
