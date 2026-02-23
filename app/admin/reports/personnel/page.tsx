@@ -6,12 +6,14 @@ import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { DataTable } from "@/components/ui/data-table";
+import { DataTableColumnHeader } from "@/components/ui/data-table-column-header";
 import { ColumnDef } from "@tanstack/react-table";
 import { collection, getDocs, query, orderBy, Timestamp, getDoc, doc, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { PersonnelEvaluation, Store, UserProfile, DateRangeFilter, PersonnelStatus, StorePersonnel } from "@/lib/types";
-import { Loader2, FileSpreadsheet, Star, Settings2, Save, Eye } from "lucide-react";
+import { Loader2, FileSpreadsheet, Star, Settings2, Save, Eye, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
@@ -25,18 +27,24 @@ import { Switch } from "@/components/ui/switch";
 interface EvaluationRow extends PersonnelEvaluation {
     formattedDate: string;
     parsedDate: Date;
+    regionalManagerName?: string;
 }
+
+const turkishSort = (rowA: any, rowB: any, columnId: string) => {
+    const a = String(rowA.getValue(columnId) || "");
+    const b = String(rowB.getValue(columnId) || "");
+    return a.localeCompare(b, 'tr-TR');
+};
 
 export default function PersonnelReportPage() {
     const [loading, setLoading] = useState(true);
     const [evaluations, setEvaluations] = useState<EvaluationRow[]>([]);
     const [stores, setStores] = useState<Store[]>([]);
     const [auditors, setAuditors] = useState<UserProfile[]>([]);
+    const [regionalManagers, setRegionalManagers] = useState<UserProfile[]>([]);
 
     // Filters
     const [dateRange, setDateRange] = useState<DateRangeFilter>({ from: undefined, to: undefined });
-    const [selectedStore, setSelectedStore] = useState<string>("all");
-    const [selectedAuditor, setSelectedAuditor] = useState<string>("all");
 
     // Processed Data
     const [filteredData, setFilteredData] = useState<EvaluationRow[]>([]);
@@ -98,14 +106,17 @@ export default function PersonnelReportPage() {
                 // Fetch stores
                 const storesSnap = await getDocs(collection(db, "stores"));
                 const storesList = storesSnap.docs.map(d => ({ id: d.id, ...d.data() } as Store));
+                storesList.sort((a,b) => (a.name || "").localeCompare(b.name || ""));
                 setStores(storesList);
 
-                // Fetch auditors
                 const usersSnap = await getDocs(collection(db, "users"));
-                const auditorsList = usersSnap.docs
-                    .map(d => d.data() as UserProfile)
-                    .filter(u => u.role === "denetmen" || u.role === "admin");
+                const allUsers = usersSnap.docs.map(d => d.data() as UserProfile);
+
+                const auditorsList = allUsers.filter(u => u.role === "denetmen" || u.role === "admin");
                 setAuditors(auditorsList);
+
+                const rmList = allUsers.filter(u => u.role === "bolge-muduru");
+                setRegionalManagers(rmList);
 
                 // Fetch evaluations
                 // Ordering by createdAt desc if possible, otherwise we sort in memory
@@ -119,6 +130,13 @@ export default function PersonnelReportPage() {
                         id: d.id,
                         parsedDate,
                         formattedDate: parsedDate.toLocaleDateString("tr-TR")
+                    };
+                }).map(ev => {
+                    const store = storesList.find(s => s.id === ev.storeId);
+                    const rm = rmList.find(r => r.uid === store?.regionalManagerId);
+                    return {
+                        ...ev,
+                        regionalManagerName: rm ? (rm.displayName || `${rm.firstName} ${rm.lastName}`) : undefined
                     };
                 }).sort((a, b) => b.parsedDate.getTime() - a.parsedDate.getTime());
 
@@ -155,22 +173,15 @@ export default function PersonnelReportPage() {
             result = result.filter(e => e.parsedDate <= to);
         }
 
-        if (selectedStore !== "all") {
-            result = result.filter(e => e.storeId === selectedStore);
-        }
-
-        if (selectedAuditor !== "all") {
-            result = result.filter(e => e.auditorId === selectedAuditor);
-        }
-
         setFilteredData(result);
-    }, [evaluations, dateRange, selectedStore, selectedAuditor]);
+    }, [evaluations, dateRange]);
 
-    const handleExport = () => {
-        const dataToExport = filteredData.map(row => ({
-            "Tarih": row.formattedDate,
+    const handleExport = (exportData: any[] = filteredData) => {
+        const dataToExport = exportData.map(row => ({
+            "Tarih": row.formattedDate || "-",
+            "Bölge Müdürü": row.regionalManagerName || "-",
             "Mağaza": row.storeName || "-",
-            "Personel Adı": row.personnelName,
+            "Personel Adı": row.personnelName || "-",
             "Puan": row.score?.toString() || "-",
             "Yorum": row.comment || "-",
             "Değerlendiren": row.auditorName || "-"
@@ -256,16 +267,34 @@ export default function PersonnelReportPage() {
             cell: ({ row }) => <div className="font-medium text-sm">{row.original.formattedDate}</div>
         },
         {
+            accessorKey: "regionalManagerName",
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Bölge Müdürü" />,
+            meta: { 
+                title: "Bölge Müdürü",
+                filterOptions: regionalManagers.map(rm => ({ label: rm.displayName || rm.firstName + ' ' + rm.lastName, value: rm.displayName || rm.firstName + ' ' + rm.lastName }))
+            },
+            cell: ({ row }) => <div className="text-sm">{row.original.regionalManagerName || "-"}</div>,
+            filterFn: (row, id, value) => Array.isArray(value) && value.includes(row.getValue(id)),
+            sortingFn: turkishSort
+        },
+        {
             accessorKey: "storeName",
-            header: "Mağaza",
-            meta: { title: "Mağaza" },
-            cell: ({ row }) => <div className="font-medium">{row.original.storeName || "-"}</div>
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Mağaza" />,
+            meta: { 
+                title: "Mağaza",
+                filterOptions: stores.map(s => ({ label: s.name || s.id, value: s.name || s.id }))
+            },
+            cell: ({ row }) => <div className="font-medium">{row.original.storeName || "-"}</div>,
+            filterFn: (row, id, value) => Array.isArray(value) && value.includes(row.getValue(id)),
+            sortingFn: turkishSort
         },
         {
             accessorKey: "personnelName",
-            header: "Personel",
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Personel" />,
             meta: { title: "Personel" },
-            cell: ({ row }) => <div className="font-bold">{row.original.personnelName}</div>
+            cell: ({ row }) => <div className="font-bold">{row.original.personnelName}</div>,
+            filterFn: (row, id, value) => Array.isArray(value) && value.includes(row.getValue(id)),
+            sortingFn: turkishSort
         },
         {
             accessorKey: "score",
@@ -301,22 +330,36 @@ export default function PersonnelReportPage() {
         },
         {
             accessorKey: "auditorName",
-            header: "Denetmen",
-            meta: { title: "Denetmen" },
-            cell: ({ row }) => <div className="text-sm">{row.original.auditorName || "-"}</div>
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Denetmen" />,
+            meta: { 
+                title: "Denetmen",
+                filterOptions: auditors.map(a => ({ label: a.displayName || a.firstName + ' ' + a.lastName, value: a.displayName || a.firstName + ' ' + a.lastName }))
+            },
+            cell: ({ row }) => <div className="text-sm">{row.original.auditorName || "-"}</div>,
+            filterFn: (row, id, value) => Array.isArray(value) && value.includes(row.getValue(id)),
+            sortingFn: turkishSort
         },
     ];
 
     const personnelColumns: ColumnDef<any>[] = [
         {
             accessorKey: "personnelName",
-            header: "Personel Adı",
-            cell: ({ row }) => <div className="font-bold">{row.original.personnelName}</div>
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Personel Adı" />,
+            meta: { title: "Personel Adı" },
+            cell: ({ row }) => <div className="font-bold">{row.original.personnelName}</div>,
+            filterFn: (row, id, value) => Array.isArray(value) && value.includes(row.getValue(id)),
+            sortingFn: turkishSort
         },
         {
             accessorKey: "storeName",
-            header: "Son Çalıştığı Mağaza",
-            cell: ({ row }) => <div className="font-medium text-muted-foreground">{row.original.storeName || "-"}</div>
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Son Çalıştığı Mağaza" />,
+            meta: {
+                title: "Son Çalıştığı Mağaza",
+                filterOptions: stores.map(s => ({ label: s.name || s.id, value: s.name || s.id }))
+            },
+            cell: ({ row }) => <div className="font-medium text-muted-foreground">{row.original.storeName || "-"}</div>,
+            filterFn: (row, id, value) => Array.isArray(value) && value.includes(row.getValue(id)),
+            sortingFn: turkishSort
         },
         {
             accessorKey: "averageScore",
@@ -409,36 +452,22 @@ export default function PersonnelReportPage() {
                         </div>
                         <div className="flex flex-col md:flex-row items-center gap-2">
                             <DateRangePicker value={dateRange} onChange={setDateRange} />
-                            
-                            <Select value={selectedStore} onValueChange={setSelectedStore}>
-                                <SelectTrigger className="w-[180px]">
-                                    <SelectValue placeholder="Tüm Mağazalar" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">Tüm Mağazalar</SelectItem>
-                                    {stores.map(s => (
-                                        <SelectItem key={s.id} value={s.id}>{s.name || s.id}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-
-                            <Select value={selectedAuditor} onValueChange={setSelectedAuditor}>
-                                <SelectTrigger className="w-[180px]">
-                                    <SelectValue placeholder="Tüm Denetmenler" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">Tüm Denetmenler</SelectItem>
-                                    {auditors.map(a => (
-                                        <SelectItem key={a.uid} value={a.uid}>{a.displayName || a.firstName + ' ' + a.lastName}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            {(dateRange.from || dateRange.to) && (
+                                <Button 
+                                    variant="outline" 
+                                    size="icon" 
+                                    onClick={() => setDateRange({ from: undefined, to: undefined })}
+                                    title="Tarihi Temizle"
+                                >
+                                    <X className="h-4 w-4 text-muted-foreground" />
+                                </Button>
+                            )}
                         </div>
                     </div>
                 </CardHeader>
                 <CardContent>
                     <Tabs defaultValue="evaluations" className="w-full">
-                        <TabsList className="grid w-full grid-cols-2 mb-6 max-w-[400px]">
+                        <TabsList className="grid w-full grid-cols-2 mb-0 max-w-[400px]">
                             <TabsTrigger value="evaluations">Değerlendirmeler</TabsTrigger>
                             <TabsTrigger value="personnel">Personeller</TabsTrigger>
                         </TabsList>
@@ -447,18 +476,16 @@ export default function PersonnelReportPage() {
                             <DataTable
                                 columns={columns}
                                 data={filteredData}
-                                searchKey="personnelName"
-                                searchPlaceholder="Personel ara..."
                                 pageSizeOptions={[10, 20, 50, 100]}
                                 defaultPageSize={20}
-                                toolbar={
-                                    <div className="flex w-full">
-                                        <Button variant="outline" onClick={handleExport} className="ml-auto gap-2">
+                                toolbar={(table) => (
+                                    <div className="flex items-center justify-end gap-2 w-full flex-wrap">
+                                        <Button variant="outline" onClick={() => handleExport(table.getSortedRowModel().rows.map(r => r.original))} className="ml-auto gap-2">
                                             <FileSpreadsheet className="h-4 w-4" />
                                             Excel İndir
                                         </Button>
                                     </div>
-                                }
+                                )}
                             />
                         </TabsContent>
 
@@ -466,10 +493,16 @@ export default function PersonnelReportPage() {
                             <DataTable
                                 columns={personnelColumns}
                                 data={personnelGrouped}
-                                searchKey="personnelName"
-                                searchPlaceholder="Personel ara..."
                                 pageSizeOptions={[10, 20, 50, 100]}
                                 defaultPageSize={20}
+                                toolbar={(table) => (
+                                    <div className="flex items-center gap-2 w-full flex-wrap">
+                                        <Button variant="outline" onClick={() => handleExport(table.getSortedRowModel().rows.map(r => r.original))} className="ml-auto gap-2 invisible">
+                                            <FileSpreadsheet className="h-4 w-4" />
+                                            Excel İndir
+                                        </Button>
+                                    </div>
+                                )}
                             />
                         </TabsContent>
                     </Tabs>

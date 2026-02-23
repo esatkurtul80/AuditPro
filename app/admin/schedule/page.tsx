@@ -1158,14 +1158,15 @@ export default function SchedulePage() {
             // Deduplicate by UID just in case
             const uniqueAuditors = Array.from(new Map(auditorsData.map(item => [item.uid, item])).values());
 
-            // Sort alphabetically
-            uniqueAuditors.sort((a, b) => (a.firstName || '').localeCompare(b.firstName || ''));
+            // Sort alphabetically with Turkish locale
+            uniqueAuditors.sort((a, b) => (a.firstName || '').localeCompare(b.firstName || '', 'tr-TR'));
 
             setAuditors(uniqueAuditors);
 
             // 2. Fetch Stores
             const storesSnap = await getDocs(collection(db, "stores"));
             const storesData = storesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Store));
+            storesData.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'tr-TR'));
             setStores(storesData);
 
             // 3. Fetch Leave Types

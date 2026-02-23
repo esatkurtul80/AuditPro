@@ -2,15 +2,25 @@
 
 ```json
 {
-  "version": "2.2.42",
-  "build": "104",
+  "version": "2.2.44",
+  "build": "106",
   "status": "stable"
 }
 ```
 
 ## Changelog
 
-### v2.2.42
+### v2.2.44
+- **Fotoğraf Zorunluluğu (Denetim):** "Fotoğraf Zorunlu" seçeneği artık yalnızca "Hayır" cevabı verildiğinde veya tam puan alınamadığında (checkbox, derece, çoktan seçmeli) devreye giriyor. "Muaf" cevabında fotoğraf zorunluluğu kalktı.
+- **Fotoğraf Zorunluluğu (Aksiyon):** "Aksiyon İçin Fotoğraf Zorunlu" kuralı aynı mantıkla güncellendi. Mağaza aksiyon dönüşünde de yalnızca "Hayır" veya tam puan alınamayan sorularda fotoğraf zorunlu hale geldi.
+- **Admin Soru Tanımı:** "Aksiyon İçin Fotoğraf Zorunlu" toggle'ının yanındaki açıklama metni "(Hayır cevabı verilirse)" → "(Hayır veya tam puan alınamazsa)" olarak güncellendi.
+- **Bölüm Soru Ataması (Hata Düzeltme):** "Atanan Sorular" sekmesinde görünen sayı artık Firestore'daki ham ID sayısı yerine gerçekte var olan sorularla eşleşen sayıyı gösteriyor. Silinmiş/geçersiz soru ID'leri sayfa açılışında otomatik temizleniyor.
+
+### v2.2.43
+- **Denetçi Performans Raporu (Bölüm Bazlı Puanlar):** "Bölüm Bazlı Puan Ortalamaları" tablosu artık her denetim formu (örn: Puanlı Şube Denetimi, Puanlı Migros) için ayrı sekme gösteriyor. Puan hesaplama ham puan toplamı yerine yüzdelik oran `(kazanılan/maksimum)*100` şeklinde düzeltildi.
+- **Personel Raporu:** "Değerlendirmeler" tablosuna ve Excel çıktısına **Bölge Müdürü** sütunu eklendi. Mağazanın atanmış bölge müdürüne göre filtreleme desteği de geldi.
+- **Denetçi Puantaj Raporu:** "BLOCKED" iç işaretleyici kayıtlarının raporda görünmesi engellendi. Bu kayıtlar programın kendi içinde kullandığı placeholder olduğu için tabloda gizleniyor.
+
 - **PDF İndirme (Haftalık Program):** Haftalık denetim programı PDF indirme özelliği yeniden yazıldı. `html2pdf.js`/`html2canvas` yerine `jsPDF` + `jspdf-autotable` kullanılarak Tailwind v4'ün `oklab`/`color-mix` CSS renk fonksiyonlarından kaynaklanan konsol hatası tamamen giderildi. Roboto fontları `/public/fonts` üzerinden yüklenerek Türkçe karakter bozulması çözüldü. PDF dosyası artık `X. HAFTA DENETİM PROGRAMI YYYY.pdf` formatında indiriliyor.
 
 ### v2.2.41

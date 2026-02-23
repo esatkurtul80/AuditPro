@@ -163,6 +163,7 @@ export interface AuditSection {
     feedback?: {
         note: string;
         images: string[];
+        type?: "important" | "note" | "suggestion" | null;
     };
 }
 
@@ -203,6 +204,7 @@ export interface Audit {
     generalFeedback?: {
         note?: string;
         images?: string[];
+        type?: "important" | "note" | "suggestion" | null;
     };
 }
 

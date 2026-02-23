@@ -110,6 +110,18 @@ function SectionDetailContent() {
                 ...doc.data(),
             })) as Question[];
             setAllQuestions(questions);
+
+            // Firestore'da kayıtlı eski/silinmiş soru ID'lerini temizle
+            const validIds = new Set(questions.map(q => q.id));
+            const cleanedIds = (sectionData.questionIds || []).filter(id => validIds.has(id));
+            setSelectedQuestions(cleanedIds);
+            if (cleanedIds.length !== (sectionData.questionIds || []).length) {
+                // Sessizce Firestore'u güncelle
+                updateDoc(doc(db, "sections", sectionId), {
+                    questionIds: cleanedIds,
+                    updatedAt: Timestamp.now(),
+                }).catch(() => {});
+            }
         } catch (error) {
             console.error("Error loading data:", error);
             toast.error("Yükleme hatası");
@@ -189,6 +201,9 @@ function SectionDetailContent() {
         );
     }
 
+    // Sadece gerçekten var olan sorularla eşleşen seçili ID'ler
+    const assignedQuestions = allQuestions.filter(q => selectedQuestions.includes(q.id));
+
     return (
         <div className="container mx-auto py-8 max-w-6xl">
             <div className="mb-6 flex items-center justify-between">
@@ -211,7 +226,7 @@ function SectionDetailContent() {
                 <p className="text-muted-foreground mt-1">{section.description}</p>
                 <div className="mt-2">
                     <Badge variant="secondary">
-                        {selectedQuestions.length} Soru Seçildi
+                        {assignedQuestions.length} Soru Seçildi
                     </Badge>
                 </div>
             </div>
@@ -225,7 +240,7 @@ function SectionDetailContent() {
                         <TabsList className="grid w-full max-w-md grid-cols-2">
                             <TabsTrigger value="all">Tüm Sorular</TabsTrigger>
                             <TabsTrigger value="assigned">
-                                Atanan Sorular ({selectedQuestions.length})
+                                Atanan Sorular ({assignedQuestions.length})
                             </TabsTrigger>
                         </TabsList>
 

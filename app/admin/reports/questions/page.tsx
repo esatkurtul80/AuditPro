@@ -524,7 +524,7 @@ export default function QuestionAnalysisPage() {
 
                                 <Button
                                     variant="outline"
-                                    onClick={() => exportToExcel(table.getFilteredRowModel().rows.map((row: any) => row.original))}
+                                    onClick={() => exportToExcel(table.getSortedRowModel().rows.map((row: any) => row.original))}
                                     disabled={table.getFilteredRowModel().rows.length === 0}
                                     className="ml-2"
                                 >

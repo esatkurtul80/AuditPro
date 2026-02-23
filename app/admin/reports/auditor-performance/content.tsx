@@ -505,7 +505,7 @@ export function AuditorPerformanceContent() {
     });
     const [hawkDoveData, setHawkDoveData] = useState<HawkDoveMetric[]>([]);
     const [durationData, setDurationData] = useState<DurationMetric[]>([]);
-    const [deviationData, setDeviationData] = useState<DeviationMetric[]>([]);
+    const [deviationDataByAuditType, setDeviationDataByAuditType] = useState<Record<string, DeviationMetric[]>>({});
     const [globalAverage, setGlobalAverage] = useState(0);
     const [auditorNames, setAuditorNames] = useState<string[]>([]);
 
@@ -517,6 +517,7 @@ export function AuditorPerformanceContent() {
     const [auditorMap, setAuditorMap] = useState<Record<string, string>>({});
     const [storeMap, setStoreMap] = useState<Record<string, string>>({});
     const [sectionMap, setSectionMap] = useState<Record<string, string>>({});
+    const [auditTypesList, setAuditTypesList] = useState<AuditType[]>([]);
 
     // New Stats
     const [auditorStats, setAuditorStats] = useState<AuditorStat[]>([]);
@@ -562,10 +563,11 @@ export function AuditorPerformanceContent() {
             setAuditorNames(Object.values(aMap));
             setAuditorMap(aMap);
 
-            // 2. Fetch Sections (for categories) and Stores
-            const [sectionsSnapshot, storesSnapshot] = await Promise.all([
+            // 2. Fetch Sections (for categories) and Stores and AuditTypes
+            const [sectionsSnapshot, storesSnapshot, auditTypesSnapshot] = await Promise.all([
                 getDocs(collection(db, "sections")),
-                getDocs(collection(db, "stores"))
+                getDocs(collection(db, "stores")),
+                getDocs(collection(db, "auditTypes"))
             ]);
 
             const fetchedSections = sectionsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Section));
@@ -582,6 +584,9 @@ export function AuditorPerformanceContent() {
             fetchedStores.forEach(s => sMap[s.id] = s.name);
             setStoreMap(sMap);
 
+            const fetchedAuditTypes = auditTypesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as AuditType[];
+            setAuditTypesList(fetchedAuditTypes);
+
             // 3. Fetch Completed Audits
             const auditsQuery = query(collection(db, "audits"), where("status", "==", "tamamlandi"));
             const auditsSnapshot = await getDocs(auditsQuery);
@@ -596,7 +601,7 @@ export function AuditorPerformanceContent() {
             setAllAudits(fetchedAudits);
 
             // Initial Process
-            processAudits(fetchedAudits, aMap, sMap, secMap, fetchedAuditors, fetchedSections, fetchedStores);
+            processAudits(fetchedAudits, aMap, sMap, secMap, fetchedAuditors, fetchedSections, fetchedStores, fetchedAuditTypes);
             setLoading(false);
 
         } catch (error) {
@@ -705,7 +710,8 @@ export function AuditorPerformanceContent() {
         currentSectionMap = sectionMap,
         currentAuditors = auditors,
         currentSections = sections,
-        currentStores = stores
+        currentStores = stores,
+        currentAuditTypesList = auditTypesList
     ) => {
         // Filter by Date Range
         const filteredAudits = auditsToProcess.filter(audit => {
@@ -928,47 +934,87 @@ export function AuditorPerformanceContent() {
         })).filter(s => s.totalAudits > 0);
         setStoreStats(finalStoreStats);
 
-        // C. Deviation (Category based) - UNCHANGED LOGIC
-        const deviationStats: Record<string, Record<string, { totalPercent: 0, count: 0 }>> = {};
+        // C. Deviation (Category based) - GROUPED BY AUDIT TYPE
+        const typeSectionsMap: Record<string, Set<string>> = {}; 
+        const deviationStats: Record<string, Record<string, Record<string, { totalPercent: number, count: number }>>> = {};
 
-        currentSections.forEach(s => {
-            deviationStats[s.id] = {};
-            currentAuditors.forEach(a => {
-                deviationStats[s.id][a.uid] = { totalPercent: 0, count: 0 };
-            });
+        // Initialize empty sets for all know audit types so they always appear as tabs
+        currentAuditTypesList.forEach(at => {
+            const tName = at.name;
+            typeSectionsMap[tName] = new Set();
+            deviationStats[tName] = {};
+            
+            // Optionally, pre-fill sections for this form so the table isn't 100% empty
+            // But since sections are mapped to auditType differently (via sectionIds),
+            // We can just rely on data, or map sectionIds if available:
+            if (at.sectionIds && Array.isArray(at.sectionIds)) {
+                at.sectionIds.forEach(secId => {
+                    const secName = currentSectionMap[secId] || "Bilinmeyen Bölüm";
+                    typeSectionsMap[tName].add(secName);
+                    deviationStats[tName][secName] = {};
+                });
+            }
         });
 
         filteredAudits.forEach(audit => {
             const auditorId = audit.auditorId;
+            const typeName = audit.auditTypeName || "Bilinmeyen Form";
+
             if (!currentAuditors.find(a => a.uid === auditorId)) return;
+            if (!deviationStats[typeName]) deviationStats[typeName] = {};
+            if (!typeSectionsMap[typeName]) typeSectionsMap[typeName] = new Set();
 
             audit.sections.forEach(sectionRes => {
-                if (!deviationStats[sectionRes.sectionId]) return;
+                const sectionName = currentSectionMap[sectionRes.sectionId] || sectionRes.sectionName || "Bilinmeyen Bölüm";
+                typeSectionsMap[typeName].add(sectionName);
 
-                if (!deviationStats[sectionRes.sectionId]) return;
-
-                if (!deviationStats[sectionRes.sectionId][auditorId]) return;
-
-                const sectionScore = sectionRes.answers.reduce((sum, a) => sum + (a.earnedPoints || 0), 0);
-                deviationStats[sectionRes.sectionId][auditorId].totalPercent += sectionScore;
-                deviationStats[sectionRes.sectionId][auditorId].count += 1;
-            });
-        });
-
-        const deviationProcessed: DeviationMetric[] = currentSections.map(sec => {
-            const row: DeviationMetric = { category: sec.name };
-            currentAuditors.forEach(a => {
-                const stats = deviationStats[sec.id] ? deviationStats[sec.id][a.uid] : undefined;
-                if (stats && stats.count > 0) {
-                    const avg = stats.totalPercent / stats.count;
-                    row[currentAuditorMap[a.uid]] = isNaN(avg) ? "-" : Math.round(avg);
-                } else {
-                    row[currentAuditorMap[a.uid]] = "-";
+                if (!deviationStats[typeName][sectionName]) deviationStats[typeName][sectionName] = {};
+                if (!deviationStats[typeName][sectionName][auditorId]) {
+                    deviationStats[typeName][sectionName][auditorId] = { totalPercent: 0, count: 0 };
                 }
+
+                let sectionEarned = 0;
+                let sectionMax = 0;
+                
+                sectionRes.answers.forEach(a => {
+                    // Only count scored questions towards the percentage
+                    if (a.questionType !== 'short_text' && a.questionType !== 'date' && a.questionType !== 'number') {
+                        sectionEarned += (a.earnedPoints || 0);
+                        sectionMax += (a.maxPoints || 0);
+                    }
+                });
+
+                let sectionPercent = 0;
+                if (sectionMax > 0) {
+                    sectionPercent = (sectionEarned / sectionMax) * 100;
+                } else if (sectionEarned > 0) {
+                    sectionPercent = 100; // Safeguard
+                }
+
+                deviationStats[typeName][sectionName][auditorId].totalPercent += sectionPercent;
+                deviationStats[typeName][sectionName][auditorId].count += 1;
             });
-            return row;
         });
-        setDeviationData(deviationProcessed);
+
+        const deviationProcessed: Record<string, DeviationMetric[]> = {};
+        
+        Object.entries(deviationStats).forEach(([typeName, secStats]) => {
+            deviationProcessed[typeName] = Array.from(typeSectionsMap[typeName] || []).map(secName => {
+                const row: DeviationMetric = { category: secName };
+                currentAuditors.forEach(a => {
+                    const stats = secStats[secName] ? secStats[secName][a.uid] : undefined;
+                    if (stats && stats.count > 0) {
+                        const avg = stats.totalPercent / stats.count;
+                        row[currentAuditorMap[a.uid]] = isNaN(avg) ? "-" : Math.round(avg);
+                    } else {
+                        row[currentAuditorMap[a.uid]] = "-";
+                    }
+                });
+                return row;
+            });
+        });
+        
+        setDeviationDataByAuditType(deviationProcessed);
     }
 
     if (loading) {
@@ -1107,31 +1153,52 @@ export function AuditorPerformanceContent() {
                     <Card>
                         <CardHeader>
                             <CardTitle>Bölüm Bazlı Puan Ortalamaları</CardTitle>
-                            <CardDescription>Denetmenlerin bölümlere verdiği ortalama puanlar ve genel sapmalar</CardDescription>
+                            <CardDescription>Denetmenlerin bölümlere verdiği ortalama puanlar ve genel sapmalar (%)</CardDescription>
                         </CardHeader>
                         <CardContent>
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Bölüm/Kategori</TableHead>
-                                        {auditorNames.map((name, idx) => (
-                                            <TableHead key={idx} className="text-right">{name}</TableHead>
+                            {Object.keys(deviationDataByAuditType).length > 0 ? (
+                                <Tabs defaultValue={Object.keys(deviationDataByAuditType)[0]} className="w-full">
+                                    <TabsList 
+                                        className="grid w-full lg:w-fit" 
+                                        style={{ gridTemplateColumns: `repeat(${Object.keys(deviationDataByAuditType).length}, minmax(150px, 1fr))` }}
+                                    >
+                                        {Object.keys(deviationDataByAuditType).map((typeName) => (
+                                            <TabsTrigger key={typeName} value={typeName}>
+                                                {typeName}
+                                            </TabsTrigger>
                                         ))}
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {deviationData.map((row, idx) => (
-                                        <TableRow key={idx}>
-                                            <TableCell className="font-medium">{row.category}</TableCell>
-                                            {auditorNames.map((name, aIdx) => (
-                                                <TableCell key={aIdx} className="text-right">
-                                                    {(Number.isNaN(row[name]) || row[name] === undefined) ? "-" : row[name]}
-                                                </TableCell>
-                                            ))}
-                                        </TableRow>
+                                    </TabsList>
+                                    
+                                    {Object.entries(deviationDataByAuditType).map(([typeName, dataRows]) => (
+                                        <TabsContent key={typeName} value={typeName} className="mt-0 outline-none">
+                                            <Table>
+                                                <TableHeader>
+                                                    <TableRow>
+                                                        <TableHead>Bölüm/Kategori</TableHead>
+                                                        {auditorNames.map((name, idx) => (
+                                                            <TableHead key={idx} className="text-right">{name}</TableHead>
+                                                        ))}
+                                                    </TableRow>
+                                                </TableHeader>
+                                                <TableBody>
+                                                    {dataRows.map((row, idx) => (
+                                                        <TableRow key={idx}>
+                                                            <TableCell className="font-medium">{row.category}</TableCell>
+                                                            {auditorNames.map((name, aIdx) => (
+                                                                <TableCell key={aIdx} className="text-right">
+                                                                    {(Number.isNaN(row[name]) || row[name] === undefined) ? "-" : row[name]}
+                                                                </TableCell>
+                                                            ))}
+                                                        </TableRow>
+                                                    ))}
+                                                </TableBody>
+                                            </Table>
+                                        </TabsContent>
                                     ))}
-                                </TableBody>
-                            </Table>
+                                </Tabs>
+                            ) : (
+                                <div className="text-center py-6 text-muted-foreground">Gösterilecek veri bulunamadı.</div>
+                            )}
                         </CardContent>
                     </Card>
 

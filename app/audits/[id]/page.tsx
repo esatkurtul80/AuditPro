@@ -102,6 +102,8 @@ export default function AuditPage() {
     const [resetAlertOpen, setResetAlertOpen] = useState(false);
     const [sectionToReset, setSectionToReset] = useState<number | null>(null);
     const touchTimer = useRef<NodeJS.Timeout | null>(null);
+    const sectionFeedbackRef = useRef<HTMLTextAreaElement>(null);
+    const generalFeedbackRef = useRef<HTMLTextAreaElement>(null);
 
     const isRegionalManager = userProfile?.role === 'bolge-muduru';
 
@@ -607,7 +609,7 @@ export default function AuditPage() {
 
     // Saves generalFeedback (note + images) to Firestore immediately — same pattern as updateAnswer.
     // This ensures photos and notes persist after page reload / logout-login.
-    const updateGeneralFeedback = async (patch: { note?: string; images?: string[] }) => {
+    const updateGeneralFeedback = async (patch: { note?: string; images?: string[]; type?: "important" | "note" | "suggestion" | null }) => {
         if (!audit || !auditId) return;
         if (isEditMode && !isDirty) setIsDirty(true);
 
@@ -666,11 +668,14 @@ export default function AuditPage() {
 
         audit.sections.forEach(section => {
             section.answers.forEach(answer => {
-                // Sorunun cevaplanmış ve fotoğraf zorunlu olup olmadığını kontrol et
-                if (answer.answer && answer.answer.trim() !== "" && answer.photoRequired) {
-                    if (!answer.photos || answer.photos.length === 0) {
-                        missingPhotos.push(`${section.sectionName}: ${answer.questionText}`);
-                    }
+                if (!answer.photoRequired) return;
+                if (!answer.answer || answer.answer.trim() === "" || answer.answer === "muaf") return;
+                // Fotoğraf zorunlu: "hayır" cevabı VEYA tam puan alınamamışsa
+                const isPhotoNeeded =
+                    answer.answer === "hayir" ||
+                    (answer.earnedPoints < answer.maxPoints);
+                if (isPhotoNeeded && (!answer.photos || answer.photos.length === 0)) {
+                    missingPhotos.push(`${section.sectionName}: ${answer.questionText}`);
                 }
             });
         });
@@ -934,10 +939,14 @@ export default function AuditPage() {
         const missingPhotos: string[] = [];
         audit.sections.forEach(section => {
             section.answers.forEach(answer => {
-                if (answer.answer && answer.answer.trim() !== "" && answer.photoRequired) {
-                    if (!answer.photos || answer.photos.length === 0) {
-                        missingPhotos.push(`${section.sectionName}: ${answer.questionText}`);
-                    }
+                if (!answer.photoRequired) return;
+                if (!answer.answer || answer.answer.trim() === "" || answer.answer === "muaf") return;
+                // Fotoğraf zorunlu: "hayır" cevabı VEYA tam puan alınamamışsa
+                const isPhotoNeeded =
+                    answer.answer === "hayir" ||
+                    (answer.earnedPoints < answer.maxPoints);
+                if (isPhotoNeeded && (!answer.photos || answer.photos.length === 0)) {
+                    missingPhotos.push(`${section.sectionName}: ${answer.questionText}`);
                 }
             });
         });
@@ -1164,7 +1173,7 @@ export default function AuditPage() {
 
     const updateSectionFeedback = async (
         sectionIndex: number,
-        updates: Partial<{ note: string; images: string[] }>
+        updates: Partial<{ note: string; images: string[]; type: "important" | "note" | "suggestion" | null }>
     ) => {
         if (!audit || !auditId) return;
 
@@ -1209,7 +1218,8 @@ export default function AuditPage() {
                  feedback: sec.feedback ? {
                     ...sec.feedback,
                     note: sec.feedback.note || "", // Ensure note is not undefined
-                    images: (sec.feedback.images || []).filter(u => !u.startsWith('local://'))
+                    images: (sec.feedback.images || []).filter(u => !u.startsWith('local://')),
+                    type: sec.feedback.type || null
                  } : null // Firestore doesn't support undefined in arrays, use null
              }));
              
@@ -1520,7 +1530,7 @@ export default function AuditPage() {
                                                 <div className="flex items-center gap-2 flex-1 min-w-0">
                                                     <Circle className={`h-4 w-4 md:h-5 md:w-5 flex-shrink-0 fill-current ${
                                                         audit?.generalFeedback?.note || (audit?.generalFeedback?.images && audit.generalFeedback.images.length > 0)
-                                                            ? "text-blue-500" 
+                                                            ? "text-green-500" 
                                                             : "text-gray-300 dark:text-gray-700"
                                                     }`} />
                                                     <div className="flex-1 min-w-0">
@@ -1562,13 +1572,99 @@ export default function AuditPage() {
 
                                     <div className="space-y-4 pt-4 border-t border-slate-200 dark:border-slate-800">
                                         <div>
+                                            <Label className="mb-3 block">Hızlı Kategori Ekle (Yazının Başına)</Label>
+                                            <div className="flex flex-wrap gap-2 mb-4">
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="hover:bg-red-50 hover:text-red-600 border-slate-200 dark:border-slate-800"
+                                                    onClick={() => {
+                                                        const el = generalFeedbackRef.current;
+                                                        const currentNote = audit?.generalFeedback?.note || "";
+                                                        const cursorStart = el?.selectionStart ?? currentNote.length;
+                                                        const cursorEnd = el?.selectionEnd ?? currentNote.length;
+                                                        
+                                                        const textToInsert = currentNote.length === 0 || cursorStart === 0 ? "ÖNEMLİ: " : "\nÖNEMLİ: ";
+                                                        const newNote = currentNote.slice(0, cursorStart) + textToInsert + currentNote.slice(cursorEnd);
+                                                        
+                                                        updateGeneralFeedback({ note: newNote });
+                                                        
+                                                        setTimeout(() => {
+                                                            if (el) {
+                                                                el.focus();
+                                                                el.setSelectionRange(cursorStart + textToInsert.length, cursorStart + textToInsert.length);
+                                                            }
+                                                        }, 50);
+                                                    }}
+                                                    disabled={!canEdit}
+                                                >
+                                                    Önemli
+                                                </Button>
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="hover:bg-green-50 hover:text-green-600 border-slate-200 dark:border-slate-800"
+                                                    onClick={() => {
+                                                        const el = generalFeedbackRef.current;
+                                                        const currentNote = audit?.generalFeedback?.note || "";
+                                                        const cursorStart = el?.selectionStart ?? currentNote.length;
+                                                        const cursorEnd = el?.selectionEnd ?? currentNote.length;
+                                                        
+                                                        const textToInsert = currentNote.length === 0 || cursorStart === 0 ? "NOT: " : "\nNOT: ";
+                                                        const newNote = currentNote.slice(0, cursorStart) + textToInsert + currentNote.slice(cursorEnd);
+                                                        
+                                                        updateGeneralFeedback({ note: newNote });
+                                                        
+                                                        setTimeout(() => {
+                                                            if (el) {
+                                                                el.focus();
+                                                                el.setSelectionRange(cursorStart + textToInsert.length, cursorStart + textToInsert.length);
+                                                            }
+                                                        }, 50);
+                                                    }}
+                                                    disabled={!canEdit}
+                                                >
+                                                    Not
+                                                </Button>
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="hover:bg-blue-50 hover:text-blue-600 border-slate-200 dark:border-slate-800"
+                                                    onClick={() => {
+                                                        const el = generalFeedbackRef.current;
+                                                        const currentNote = audit?.generalFeedback?.note || "";
+                                                        const cursorStart = el?.selectionStart ?? currentNote.length;
+                                                        const cursorEnd = el?.selectionEnd ?? currentNote.length;
+                                                        
+                                                        const textToInsert = currentNote.length === 0 || cursorStart === 0 ? "ÖNERİ: " : "\nÖNERİ: ";
+                                                        const newNote = currentNote.slice(0, cursorStart) + textToInsert + currentNote.slice(cursorEnd);
+                                                        
+                                                        updateGeneralFeedback({ note: newNote });
+                                                        
+                                                        setTimeout(() => {
+                                                            if (el) {
+                                                                el.focus();
+                                                                el.setSelectionRange(cursorStart + textToInsert.length, cursorStart + textToInsert.length);
+                                                            }
+                                                        }, 50);
+                                                    }}
+                                                    disabled={!canEdit}
+                                                >
+                                                    Öneri
+                                                </Button>
+                                            </div>
+
                                             <Label>Genel Görüş & Notlar</Label>
                                             <Textarea
+                                                ref={generalFeedbackRef}
                                                 value={audit?.generalFeedback?.note || ""}
                                                 onChange={(e) => updateGeneralFeedback({ note: e.target.value })}
-                                                placeholder="Genel görüşleriniz..."
+                                                placeholder="Genel görüşleriniz... (Örn: ÖNEMLİ: Temizliğe dikkat edilmemiş)"
                                                 disabled={!canEdit}
-                                                className="min-h-[120px] resize-none mt-2"
+                                                className="min-h-[120px] resize-none mt-2 focus-visible:ring-1 focus-visible:ring-offset-0 focus-visible:ring-slate-400"
                                             />
                                         </div>
 
@@ -2063,13 +2159,99 @@ export default function AuditPage() {
 
                                     <div className="space-y-3">
                                         <div>
+                                            <Label className="mb-3 block">Hızlı Kategori Ekle (Yazının Başına)</Label>
+                                            <div className="flex flex-wrap gap-2 mb-4">
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="hover:bg-red-50 hover:text-red-600 border-slate-200 dark:border-slate-800"
+                                                    onClick={() => {
+                                                        const el = sectionFeedbackRef.current;
+                                                        const currentNote = audit.sections[currentSectionIndex].feedback?.note || "";
+                                                        const cursorStart = el?.selectionStart ?? currentNote.length;
+                                                        const cursorEnd = el?.selectionEnd ?? currentNote.length;
+                                                        
+                                                        const textToInsert = currentNote.length === 0 || cursorStart === 0 ? "ÖNEMLİ: " : "\nÖNEMLİ: ";
+                                                        const newNote = currentNote.slice(0, cursorStart) + textToInsert + currentNote.slice(cursorEnd);
+                                                        
+                                                        updateSectionFeedback(currentSectionIndex, { note: newNote });
+                                                        
+                                                        setTimeout(() => {
+                                                            if (el) {
+                                                                el.focus();
+                                                                el.setSelectionRange(cursorStart + textToInsert.length, cursorStart + textToInsert.length);
+                                                            }
+                                                        }, 50);
+                                                    }}
+                                                    disabled={!canEdit}
+                                                >
+                                                    Önemli
+                                                </Button>
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="hover:bg-green-50 hover:text-green-600 border-slate-200 dark:border-slate-800"
+                                                    onClick={() => {
+                                                        const el = sectionFeedbackRef.current;
+                                                        const currentNote = audit.sections[currentSectionIndex].feedback?.note || "";
+                                                        const cursorStart = el?.selectionStart ?? currentNote.length;
+                                                        const cursorEnd = el?.selectionEnd ?? currentNote.length;
+                                                        
+                                                        const textToInsert = currentNote.length === 0 || cursorStart === 0 ? "NOT: " : "\nNOT: ";
+                                                        const newNote = currentNote.slice(0, cursorStart) + textToInsert + currentNote.slice(cursorEnd);
+                                                        
+                                                        updateSectionFeedback(currentSectionIndex, { note: newNote });
+                                                        
+                                                        setTimeout(() => {
+                                                            if (el) {
+                                                                el.focus();
+                                                                el.setSelectionRange(cursorStart + textToInsert.length, cursorStart + textToInsert.length);
+                                                            }
+                                                        }, 50);
+                                                    }}
+                                                    disabled={!canEdit}
+                                                >
+                                                    Not
+                                                </Button>
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="hover:bg-blue-50 hover:text-blue-600 border-slate-200 dark:border-slate-800"
+                                                    onClick={() => {
+                                                        const el = sectionFeedbackRef.current;
+                                                        const currentNote = audit.sections[currentSectionIndex].feedback?.note || "";
+                                                        const cursorStart = el?.selectionStart ?? currentNote.length;
+                                                        const cursorEnd = el?.selectionEnd ?? currentNote.length;
+                                                        
+                                                        const textToInsert = currentNote.length === 0 || cursorStart === 0 ? "ÖNERİ: " : "\nÖNERİ: ";
+                                                        const newNote = currentNote.slice(0, cursorStart) + textToInsert + currentNote.slice(cursorEnd);
+                                                        
+                                                        updateSectionFeedback(currentSectionIndex, { note: newNote });
+                                                        
+                                                        setTimeout(() => {
+                                                            if (el) {
+                                                                el.focus();
+                                                                el.setSelectionRange(cursorStart + textToInsert.length, cursorStart + textToInsert.length);
+                                                            }
+                                                        }, 50);
+                                                    }}
+                                                    disabled={!canEdit}
+                                                >
+                                                    Öneri
+                                                </Button>
+                                            </div>
+
                                             <Label>Notlar</Label>
                                             <Textarea
+                                                ref={sectionFeedbackRef}
                                                 value={audit.sections[currentSectionIndex].feedback?.note || ""}
                                                 onChange={(e) => updateSectionFeedback(currentSectionIndex, { note: e.target.value })}
                                                 placeholder="Bölüm hakkındaki görüşleriniz..."
                                                 disabled={!canEdit}
-                                                className="min-h-[80px] resize-none mt-1.5"
+                                                className="min-h-[80px] resize-none mt-1.5 focus-visible:ring-1 focus-visible:ring-offset-0 focus-visible:ring-slate-400"
                                             />
                                         </div>
 

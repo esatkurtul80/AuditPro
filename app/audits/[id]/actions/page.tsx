@@ -794,8 +794,12 @@ export default function AuditActionsPage() {
             }
 
             // Check photo requirement
+            // Fotoğraf zorunlu: "hayır" cevabı VEYA tam puan alınamamışsa (muaf hariç)
             if (item.answer.actionPhotoRequired) {
-                if (!data.images || data.images.length === 0) {
+                const isPhotoNeeded =
+                    item.answer.answer === "hayir" ||
+                    ((item.answer.earnedPoints || 0) < (item.answer.maxPoints || 0));
+                if (isPhotoNeeded && (!data.images || data.images.length === 0)) {
                     toast.error(`"${item.answer.questionText}" maddesi için fotoğraf yüklemelisiniz (Zorunlu)`, { duration: 4000 });
                     return;
                 }

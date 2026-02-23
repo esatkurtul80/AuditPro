@@ -116,6 +116,9 @@ export default function AuditorTimesheetPage() {
                     } as ScheduleItem;
                 });
 
+                // Filter out 'blocked' internal markers — these are schedule placeholders, not real activities
+                items = items.filter(item => item.type !== 'blocked');
+
                 // Filter for Published only (unless showDrafts is true)
                 if (!showDrafts) {
                     items = items.filter(item => item.status === 'published');

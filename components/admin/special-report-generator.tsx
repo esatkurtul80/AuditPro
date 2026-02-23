@@ -1,15 +1,12 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, Fragment } from "react";
 import { Audit, Store } from "@/lib/types";
 import { doc, getDoc, collection, query, where, orderBy, limit, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { format } from "date-fns";
 import { tr } from "date-fns/locale";
 import { Loader2, Download, X, ArrowLeft } from "lucide-react";
-
-// ... existing imports
-
 
 import { toast } from "sonner";
 import Script from "next/script";
@@ -23,14 +20,44 @@ interface SpecialReportGeneratorProps {
     onComplete?: () => void;
     onError?: (error: any) => void;
     onClose?: () => void;
-    headerOffset?: string | number; // New prop for sticky offset
+    headerOffset?: string | number;
 }
 
 declare global {
     interface Window {
         html2pdf: any;
+        jspdf: any;
     }
 }
+
+const renderFeedbackText = (text: string) => {
+    if (!text) return null;
+    
+    // Split the text by the keywords
+    const parts = text.split(/(ÖNEMLİ:|NOT:|ÖNERİ:)/g);
+    
+    return parts.map((part, index) => {
+        if (part === 'ÖNEMLİ:') {
+            return <span key={index} style={{ backgroundColor: '#ef4444', color: 'white', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold', marginRight: '4px' }}>ÖNEMLİ:</span>;
+        } else if (part === 'NOT:') {
+            return <span key={index} style={{ backgroundColor: '#22c55e', color: 'white', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold', marginRight: '4px' }}>NOT:</span>;
+        } else if (part === 'ÖNERİ:') {
+            return <span key={index} style={{ backgroundColor: '#3b82f6', color: 'white', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold', marginRight: '4px' }}>ÖNERİ:</span>;
+        }
+        
+        // Handle normal text and newlines
+        return (
+            <span key={index}>
+                {part.split('\n').map((line, i, arr) => (
+                    <Fragment key={i}>
+                        {line}
+                        {i < arr.length - 1 && <br />}
+                    </Fragment>
+                ))}
+            </span>
+        );
+    });
+};
 
 export function SpecialReportGenerator({ audit, store, mode = 'download', onComplete, onError, onClose, headerOffset = 0 }: SpecialReportGeneratorProps) {
     const reportRef = useRef<HTMLDivElement>(null);
@@ -660,7 +687,7 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
                                             {personnelEvals.map((pv, i) => (
                                                 <tr key={i}>
                                                     <td style={{ verticalAlign: 'top', fontWeight: 'bold', whiteSpace: 'nowrap', paddingRight: '20px' }}>{pv.personnelName}</td>
-                                                    <td style={{ verticalAlign: 'top', fontSize: '13px', color: '#555', fontStyle: 'italic', whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'break-word' }}>{pv.comment || '-'}</td>
+                                                    <td style={{ verticalAlign: 'top', fontSize: '13px', color: '#555', fontStyle: 'italic', whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'break-word' }}>{pv.comment ? renderFeedbackText(pv.comment) : '-'}</td>
                                                     {showScoresInReport && (
                                                         <td style={{ verticalAlign: 'top', textAlign: 'center', fontWeight: 'bold' }}>
                                                             <span className="score-badge" style={{ 
@@ -830,7 +857,7 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
                                                 }}>
                                                     {section.feedback?.note && (
                                                         <div style={{ fontSize: '13px', color: '#333', fontStyle: 'italic' }}>
-                                                            "{section.feedback.note}"
+                                                            {renderFeedbackText(section.feedback.note)}
                                                         </div>
                                                     )}
                                                     
@@ -855,11 +882,10 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
                                     </div>
                                 );
                             })}
-                        </div>
-                        
+                         
                         {/* GENERAL FEEDBACK (Puanlamadan Bağımsız) */}
                         {(audit.generalFeedback?.note || (audit.generalFeedback?.images && audit.generalFeedback.images.length > 0)) && (
-                            <div className="report-page avoid-break" style={{ margin: '0 20px 20px', backgroundColor: '#fff', border: '1px solid #ddd' }}>
+                            <div className="section-card">
                                 <div style={{ 
                                     background: '#111', 
                                     color: '#fff', 
@@ -874,7 +900,7 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
                                 <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '15px' }}>
                                     {audit.generalFeedback.note && (
                                         <div style={{ fontSize: '14px', color: '#333', fontStyle: 'italic', lineHeight: '1.5' }}>
-                                            "{audit.generalFeedback.note}"
+                                            {renderFeedbackText(audit.generalFeedback.note)}
                                         </div>
                                     )}
                                     
@@ -900,6 +926,7 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
                         <footer style={{ textAlign: 'center', fontSize: '11px', color: '#999', marginTop: '20px', paddingBottom: '20px' }}>
                             AuditPro Denetim Sistemi | © {new Date().getFullYear()} Tüm Hakları Saklıdır.
                         </footer>
+                        </div>
                     </div>
                 </div>
             </div>

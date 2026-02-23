@@ -678,7 +678,7 @@ export default function QuestionsPage() {
                                     />
                                     <Label>Aksiyon İçin Fotoğraf Zorunlu</Label>
                                     <p className="text-xs text-muted-foreground ml-2">
-                                        (Hayır cevabı verilirse)
+                                        (Hayır veya tam puan alınamazsa)
                                     </p>
                                 </div>
 

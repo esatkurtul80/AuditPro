@@ -36,14 +36,19 @@ export function DataTableColumnHeader<TData, TValue>({
         try {
             const facilities = column.getFacetedUniqueValues();
             const metaOptions = (column.columnDef.meta as any)?.filterOptions;
-    
-            options = metaOptions || (facilities ? Array.from(facilities.keys())
-                .filter((key: any) => key !== undefined && key !== null && key !== "")
-                .sort()
-                .map((key: any) => ({
-                    label: String(key),
-                    value: String(key),
-                })) : []);
+            if (metaOptions) {
+                options = metaOptions;
+            } else if (facilities) {
+                options = Array.from(facilities.keys())
+                    .filter((key: any) => key !== undefined && key !== null && key !== "")
+                    .map((key: any) => ({
+                        label: String(key),
+                        value: String(key),
+                    }));
+                options.sort((a, b) => a.label.localeCompare(b.label, 'tr-TR'));
+            } else {
+                options = [];
+            }
         } catch (e) {
             console.warn("Failed to get faceted unique values", e);
             options = [];

@@ -76,6 +76,9 @@ export function PersonnelEvaluationSection({ auditId, storeId, storeName, canEdi
     const [isSearchingGlobal, setIsSearchingGlobal] = useState(false);
     const [pullingPersonnelId, setPullingPersonnelId] = useState<string | null>(null);
 
+    // Refs for textareas to manage cursor positioning
+    const textareaRefs = useRef<{ [key: string]: HTMLTextAreaElement | null }>({});
+
     useEffect(() => {
         if (!storeId) return;
 
@@ -633,8 +636,100 @@ export function PersonnelEvaluationSection({ auditId, storeId, storeName, canEdi
 
                                             {/* Comment Input */}
                                             <div className="space-y-2">
-                                                <Label className="font-semibold text-slate-700 dark:text-slate-300">Yorum & İzlenim</Label>
+                                                <div className="flex items-center justify-between">
+                                                    <Label className="font-semibold text-slate-700 dark:text-slate-300">Yorum & İzlenim</Label>
+                                                </div>
+                                                <div className="flex flex-wrap gap-1.5 mb-1">
+                                                    <Button
+                                                        type="button"
+                                                        variant="outline"
+                                                        size="sm"
+                                                        className="h-7 text-xs px-2 hover:bg-red-50 hover:text-red-600 border-slate-200"
+                                                        onClick={() => {
+                                                            const el = textareaRefs.current[personnel.id];
+                                                            const currentNote = draft.comment || "";
+                                                            const cursorStart = el?.selectionStart ?? currentNote.length;
+                                                            const cursorEnd = el?.selectionEnd ?? currentNote.length;
+                                                            
+                                                            const textToInsert = currentNote.length === 0 || cursorStart === 0 ? "ÖNEMLİ: " : "\nÖNEMLİ: ";
+                                                            const newNote = currentNote.slice(0, cursorStart) + textToInsert + currentNote.slice(cursorEnd);
+                                                            
+                                                            const newDraft = { ...draft, comment: newNote };
+                                                            setDrafts(p => ({ ...p, [personnel.id]: newDraft }));
+                                                            instantSaveEvaluation(personnel.id, personnel, newDraft);
+                                                            
+                                                            setTimeout(() => {
+                                                                if (el) {
+                                                                    el.focus();
+                                                                    el.setSelectionRange(cursorStart + textToInsert.length, cursorStart + textToInsert.length);
+                                                                }
+                                                            }, 50);
+                                                        }}
+                                                        disabled={!canEdit || isInactiveLocked || draft.status !== 'active'}
+                                                    >
+                                                        Önemli
+                                                    </Button>
+                                                    <Button
+                                                        type="button"
+                                                        variant="outline"
+                                                        size="sm"
+                                                        className="h-7 text-xs px-2 hover:bg-green-50 hover:text-green-600 border-slate-200"
+                                                        onClick={() => {
+                                                            const el = textareaRefs.current[personnel.id];
+                                                            const currentNote = draft.comment || "";
+                                                            const cursorStart = el?.selectionStart ?? currentNote.length;
+                                                            const cursorEnd = el?.selectionEnd ?? currentNote.length;
+                                                            
+                                                            const textToInsert = currentNote.length === 0 || cursorStart === 0 ? "NOT: " : "\nNOT: ";
+                                                            const newNote = currentNote.slice(0, cursorStart) + textToInsert + currentNote.slice(cursorEnd);
+                                                            
+                                                            const newDraft = { ...draft, comment: newNote };
+                                                            setDrafts(p => ({ ...p, [personnel.id]: newDraft }));
+                                                            instantSaveEvaluation(personnel.id, personnel, newDraft);
+                                                            
+                                                            setTimeout(() => {
+                                                                if (el) {
+                                                                    el.focus();
+                                                                    el.setSelectionRange(cursorStart + textToInsert.length, cursorStart + textToInsert.length);
+                                                                }
+                                                            }, 50);
+                                                        }}
+                                                        disabled={!canEdit || isInactiveLocked || draft.status !== 'active'}
+                                                    >
+                                                        Not
+                                                    </Button>
+                                                    <Button
+                                                        type="button"
+                                                        variant="outline"
+                                                        size="sm"
+                                                        className="h-7 text-xs px-2 hover:bg-blue-50 hover:text-blue-600 border-slate-200"
+                                                        onClick={() => {
+                                                            const el = textareaRefs.current[personnel.id];
+                                                            const currentNote = draft.comment || "";
+                                                            const cursorStart = el?.selectionStart ?? currentNote.length;
+                                                            const cursorEnd = el?.selectionEnd ?? currentNote.length;
+                                                            
+                                                            const textToInsert = currentNote.length === 0 || cursorStart === 0 ? "ÖNERİ: " : "\nÖNERİ: ";
+                                                            const newNote = currentNote.slice(0, cursorStart) + textToInsert + currentNote.slice(cursorEnd);
+                                                            
+                                                            const newDraft = { ...draft, comment: newNote };
+                                                            setDrafts(p => ({ ...p, [personnel.id]: newDraft }));
+                                                            instantSaveEvaluation(personnel.id, personnel, newDraft);
+                                                            
+                                                            setTimeout(() => {
+                                                                if (el) {
+                                                                    el.focus();
+                                                                    el.setSelectionRange(cursorStart + textToInsert.length, cursorStart + textToInsert.length);
+                                                                }
+                                                            }, 50);
+                                                        }}
+                                                        disabled={!canEdit || isInactiveLocked || draft.status !== 'active'}
+                                                    >
+                                                        Öneri
+                                                    </Button>
+                                                </div>
                                                 <Textarea
+                                                    ref={(el) => { textareaRefs.current[personnel.id] = el; }}
                                                     placeholder="Personelin kılık kıyafet, davranış, mesai giriş çıkış ve görev bilinci hakkında detyalı yorumunuzu yazın..."
                                                     value={draft.comment}
                                                     onChange={(e) => {

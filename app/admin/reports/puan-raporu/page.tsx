@@ -55,6 +55,13 @@ const MONTH_NAMES = [
 ];
 
 // --- HELPERS ---
+
+const turkishSort = (rowA: any, rowB: any, columnId: string) => {
+    const a = String(rowA.getValue(columnId) || "");
+    const b = String(rowB.getValue(columnId) || "");
+    return a.localeCompare(b, 'tr-TR');
+};
+
 const getScoreBadge = (score: number) => {
     if (score >= 95) return { label: "ÇOK İYİ", color: "bg-emerald-500 hover:bg-emerald-600", icon: CheckCircle2, textColor: "text-emerald-700 bg-emerald-50 border-emerald-200" };
     if (score >= 90) return { label: "İYİ", color: "bg-blue-500 hover:bg-blue-600", icon: ThumbsUp, textColor: "text-blue-700 bg-blue-50 border-blue-200" };
@@ -257,8 +264,8 @@ export default function PuanRaporuPage() {
     }, [auditData, stores, selectedYear, loading]);
 
     // --- Export Functions ---
-    const handleExportScores = () => {
-        const dataToExport = scoreRows.map(row => ({
+    const handleExportScores = (exportData: StoreScoreRow[] = scoreRows) => {
+        const dataToExport = exportData.map(row => ({
             "Mağaza Adı": row.storeName,
             "1. Puan": row.score1 !== undefined ? row.score1.toFixed(0) : "-",
             "1. Puan Tarihi": row.date1 ? row.date1.toLocaleDateString("tr-TR") : "-",
@@ -277,8 +284,8 @@ export default function PuanRaporuPage() {
         XLSX.writeFile(wb, "Son_Denetim_Puanlari.xlsx");
     };
 
-    const handleExportMonthly = () => {
-        const dataToExport = monthlyRows.map(row => {
+    const handleExportMonthly = (exportData: MonthlyScoreRow[] = monthlyRows) => {
+        const dataToExport = exportData.map(row => {
             const rowData: any = { "Mağaza Adı": row.storeName };
             MONTH_NAMES.forEach((month, index) => {
                 const score = row.months[index];
@@ -304,7 +311,8 @@ export default function PuanRaporuPage() {
                     <ArrowUpDown className="ml-2 h-4 w-4" />
                 </Button>
             ),
-            cell: ({ row }) => <div className="font-semibold">{row.original.storeName}</div>
+            cell: ({ row }) => <div className="font-semibold">{row.original.storeName}</div>,
+            sortingFn: turkishSort
         },
         {
             accessorKey: "score1",
@@ -449,6 +457,7 @@ export default function PuanRaporuPage() {
             ),
             meta: { title: "Mağaza Adı" },
             cell: ({ row }) => <div className="font-semibold min-w-[150px] sticky left-0 bg-card group-hover:bg-accent z-10 p-2 border-r transition-colors">{row.original.storeName}</div>,
+            sortingFn: turkishSort
         },
 
         ...MONTH_NAMES.map((month, index) => ({
@@ -540,14 +549,14 @@ export default function PuanRaporuPage() {
                                 initialSorting={[{ id: "storeName", desc: false }]}
                                 pageSizeOptions={[10, 20, 50, 100, 200]}
                                 defaultPageSize={200}
-                                toolbar={
+                                toolbar={(table) => (
                                     <div className="flex w-full">
-                                        <Button variant="outline" onClick={handleExportScores} className="ml-auto gap-2">
+                                        <Button variant="outline" onClick={() => handleExportScores(table.getSortedRowModel().rows.map((r: any) => r.original))} className="ml-auto gap-2">
                                             <FileSpreadsheet className="h-4 w-4" />
                                             Excel İndir
                                         </Button>
                                     </div>
-                                }
+                                )}
                             />
                         </CardContent>
                     </Card>
@@ -602,14 +611,14 @@ export default function PuanRaporuPage() {
                                     initialSorting={[{ id: "storeName", desc: false }]}
                                     pageSizeOptions={[10, 20, 50, 100]}
                                     defaultPageSize={200}
-                                    toolbar={
+                                    toolbar={(table) => (
                                         <div className="flex w-full gap-2">
-                                            <Button variant="outline" onClick={handleExportMonthly} className="ml-auto gap-2">
+                                            <Button variant="outline" onClick={() => handleExportMonthly(table.getSortedRowModel().rows.map((r: any) => r.original))} className="ml-auto gap-2">
                                                 <FileSpreadsheet className="h-4 w-4" />
                                                 Excel İndir
                                             </Button>
                                         </div>
-                                    }
+                                    )}
                                 />
                             </div>
                         </CardContent>

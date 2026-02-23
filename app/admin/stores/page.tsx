@@ -102,6 +102,12 @@ const TURKISH_CITIES = [
     "Şırnak", "Sivas", "Tekirdağ", "Tokat", "Trabzon", "Tunceli", "Uşak", "Van", "Yalova", "Yozgat", "Zonguldak"
 ];
 
+const turkishSort = (rowA: any, rowB: any, columnId: string) => {
+    const a = String(rowA.getValue(columnId) || "");
+    const b = String(rowB.getValue(columnId) || "");
+    return a.localeCompare(b, 'tr-TR');
+};
+
 const DAYS_OF_WEEK = [
     "Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"
 ];
@@ -410,31 +416,47 @@ export default function AdminStoresPage() {
         return fullName || manager.email || id;
     };
 
+    const dayWeights: { [key: string]: number } = {
+        "Pazartesi": 1,
+        "Salı": 2,
+        "Çarşamba": 3,
+        "Perşembe": 4,
+        "Cuma": 5,
+        "Cumartesi": 6,
+        "Pazar": 7,
+    };
+
     const columns: ColumnDef<Store>[] = [
         {
             accessorKey: "name",
             id: "Mağaza Adı",
-            header: ({ column }) => {
-                return (
-                    <Button
-                        variant="ghost"
-                        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-                    >
-                        Mağaza Adı
-                        <ArrowUpDown className="ml-2 h-4 w-4" />
-                    </Button>
-                )
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Mağaza Adı" />,
+            meta: { 
+                title: "Mağaza Adı",
+                filterOptions: stores
+                    .map(s => ({ label: s.name || s.id, value: s.name || s.id }))
+                    .sort((a, b) => a.label.localeCompare(b.label, 'tr-TR', { sensitivity: 'base' }))
             },
-            cell: ({ row }) => <span className="font-medium">{row.original.name}</span>
+            cell: ({ row }) => <span className="font-medium">{row.original.name}</span>,
+            filterFn: (row, id, value) => {
+                return Array.isArray(value) && value.includes(row.getValue(id));
+            },
+            sortingFn: turkishSort
         },
         {
             accessorKey: "city",
             header: ({ column }) => <DataTableColumnHeader column={column} title="İl" />,
-            meta: { title: "İl" },
+            meta: { 
+                title: "İl",
+                filterOptions: Array.from(new Set(stores.map(s => s.city).filter(Boolean)))
+                    .map(city => ({ label: city as string, value: city as string }))
+                    .sort((a, b) => a.label.localeCompare(b.label, 'tr-TR', { sensitivity: 'base' }))
+            },
             cell: ({ row }) => <span>{row.original.city || "-"}</span>,
             filterFn: (row, id, value) => {
                 return Array.isArray(value) && value.includes(row.getValue(id));
             },
+            sortingFn: turkishSort
         },
         {
             accessorKey: "type",
@@ -444,6 +466,7 @@ export default function AdminStoresPage() {
             filterFn: (row, id, value) => {
                 return Array.isArray(value) && value.includes(row.getValue(id));
             },
+            sortingFn: turkishSort
         },
         {
             accessorKey: "location",
@@ -488,15 +511,39 @@ export default function AdminStoresPage() {
             filterFn: (row, id, value) => {
                 return Array.isArray(value) && value.includes(row.getValue(id));
             },
+            sortingFn: (rowA, rowB, columnId) => {
+                const a = getManagerName(rowA.getValue(columnId) as string);
+                const b = getManagerName(rowB.getValue(columnId) as string);
+                return a.localeCompare(b, 'tr-TR');
+            }
         },
         {
             accessorKey: "shipmentDay",
             header: ({ column }) => <DataTableColumnHeader column={column} title="Sevkiyat Günü" />,
-            meta: { title: "Sevkiyat Günü" },
+            meta: { 
+                title: "Sevkiyat Günü",
+                filterOptions: [
+                    { label: "Pazartesi", value: "Pazartesi" },
+                    { label: "Salı", value: "Salı" },
+                    { label: "Çarşamba", value: "Çarşamba" },
+                    { label: "Perşembe", value: "Perşembe" },
+                    { label: "Cuma", value: "Cuma" },
+                    { label: "Cumartesi", value: "Cumartesi" },
+                    { label: "Pazar", value: "Pazar" },
+                ]
+            },
             cell: ({ row }) => <span>{row.original.shipmentDay || "-"}</span>,
             filterFn: (row, id, value) => {
                 return Array.isArray(value) && value.includes(row.getValue(id));
             },
+            sortingFn: (rowA, rowB, columnId) => {
+                const a = String(rowA.getValue(columnId) || "-");
+                const b = String(rowB.getValue(columnId) || "-");
+                const weightA = dayWeights[a] || 99;
+                const weightB = dayWeights[b] || 99;
+                if (weightA !== weightB) return weightA - weightB;
+                return a.localeCompare(b, 'tr-TR');
+            }
         },
         {
             accessorKey: "shipmentTime",
@@ -506,6 +553,7 @@ export default function AdminStoresPage() {
             filterFn: (row, id, value) => {
                 return Array.isArray(value) && value.includes(row.getValue(id));
             },
+            sortingFn: turkishSort
         },
     ];
 
@@ -524,8 +572,6 @@ export default function AdminStoresPage() {
                     <DataTable
                         columns={columns}
                         data={stores}
-                        searchKey="Mağaza Adı"
-                        searchPlaceholder="Mağaza ara..."
                         initialSorting={[{ id: "Mağaza Adı", desc: false }]}
                         onRowClick={handleRowClick}
                         actionElement={(table) => (
@@ -533,7 +579,7 @@ export default function AdminStoresPage() {
                                 <Button
                                     size="lg"
                                     onClick={() => {
-                                        const filteredStores = table.getFilteredRowModel().rows.map((row: any) => row.original);
+                                        const filteredStores = table.getSortedRowModel().rows.map((row: any) => row.original);
                                         const worksheet = XLSX.utils.json_to_sheet(filteredStores.map((store: Store) => ({
                                             "Mağaza Adı": store.name || "",
                                             "İl": store.city || "-",
