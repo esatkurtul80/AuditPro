@@ -814,12 +814,21 @@ export default function SchedulePage() {
 
             const body = auditors.map(auditor => {
                 const row: string[] = [`${auditor.firstName} ${auditor.lastName}`];
+                const defaultLeave = leaveTypes.find(t => t.isDefault);
+                
                 days.forEach(day => {
+                    const isWeekend = day.getDay() === 0 || day.getDay() === 6;
                     const cellItems = weekItems.filter(
                         item => item.auditorId === auditor.uid && isSameDay(item.date, day)
                     );
+                    
                     if (cellItems.length === 0) {
-                        row.push('');
+                        // Eğer hücre boşsa ve haftasonuysa (örn: henüz taslak aşamasındayken), varsayılan izni koy
+                        if (isWeekend && defaultLeave && !schedule.some(i => i.auditorId === auditor.uid && isSameDay(i.date, day) && i.type === 'blocked')) {
+                            row.push(defaultLeave.name);
+                        } else {
+                            row.push('');
+                        }
                     } else {
                         row.push(
                             cellItems.map(item => {
@@ -1848,9 +1857,12 @@ export default function SchedulePage() {
                     );
 
                     if (!hasItem) {
-                        const dayName = format(date, "EEEE", { locale: tr });
-                        const dateStr = format(date, "dd MMMM", { locale: tr });
-                        violations.push(`${auditor.firstName} ${auditor.lastName}: ${dateStr} (${dayName}) için hiçbir atama yapılmamış.`);
+                        const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+                        if (!isWeekend) {
+                            const dayName = format(date, "EEEE", { locale: tr });
+                            const dateStr = format(date, "dd MMMM", { locale: tr });
+                            violations.push(`${auditor.firstName} ${auditor.lastName}: ${dateStr} (${dayName}) için hiçbir atama yapılmamış.`);
+                        }
                     }
                 });
             });

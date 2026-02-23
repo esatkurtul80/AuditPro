@@ -2,13 +2,16 @@
 
 ```json
 {
-  "version": "2.2.44",
-  "build": "106",
+  "version": "2.2.45",
+  "build": "107",
   "status": "stable"
 }
 ```
 
 ## Changelog
+
+### v2.2.45
+- **Denetmen Programı (PDF İndirme):** Taslak anında (yayınlamadan önce) haftalık denetim programı PDF indirildiğinde hafta sonlarının hatalı/boş görünmesi engellendi. Hafta sonu günleri için artık sistem veritabanı yansımasını beklemeye gerek kalmadan otomatik olarak "Hafta Tatili" ibaresini PDF üzerine işliyor, "hiçbir atama yapılmamış" kural ihlali uyarısı hafta sonları için by-pass ediliyor.
 
 ### v2.2.44
 - **Fotoğraf Zorunluluğu (Denetim):** "Fotoğraf Zorunlu" seçeneği artık yalnızca "Hayır" cevabı verildiğinde veya tam puan alınamadığında (checkbox, derece, çoktan seçmeli) devreye giriyor. "Muaf" cevabında fotoğraf zorunluluğu kalktı.
