@@ -46,9 +46,10 @@ interface Props {
     storeId: string;
     storeName: string;
     canEdit: boolean;
+    onPersonnelChange?: () => void;
 }
 
-export function PersonnelEvaluationSection({ auditId, storeId, storeName, canEdit }: Props) {
+export function PersonnelEvaluationSection({ auditId, storeId, storeName, canEdit, onPersonnelChange }: Props) {
     const { userProfile } = useAuth();
     const [personnelList, setPersonnelList] = useState<StorePersonnel[]>([]);
     const [evaluations, setEvaluations] = useState<Record<string, PersonnelEvaluation>>({});
@@ -369,6 +370,8 @@ export function PersonnelEvaluationSection({ auditId, storeId, storeName, canEdi
                     await setDoc(newDocRef, evalData);
                 }
             }
+
+            if (onPersonnelChange) onPersonnelChange();
 
         } catch (error) {
             console.error("Error saving eval:", error);

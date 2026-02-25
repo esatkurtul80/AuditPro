@@ -90,14 +90,12 @@ export function ReportAuditCard({
         if (!lastSubmittedAt || !isValidDate(lastSubmittedAt)) return null;
         
         const deadline = new Date(lastSubmittedAt);
-        // Add 3 days (excluding Sunday) logic could be implemented here if needed broadly
+        // Add 3 days logic could be implemented here if needed broadly
         // For now just basic date + 3 days
         let daysAdded = 0;
         while (daysAdded < 3) {
             deadline.setDate(deadline.getDate() + 1);
-            if (deadline.getDay() !== 0) { // 0 is Sunday
-                daysAdded++;
-            }
+            daysAdded++;
         }
         
         const now = new Date();

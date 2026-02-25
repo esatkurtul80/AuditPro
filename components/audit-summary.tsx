@@ -8,15 +8,19 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Star, FileText, Image as ImageIcon, ChevronDown, ChevronUp, CheckCircle2, XCircle, AlertCircle, Download } from "lucide-react";
+import { Star, FileText, Image as ImageIcon, ChevronDown, ChevronUp, CheckCircle2, XCircle, AlertCircle, Download, Circle } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useMediaQuery } from "@/hooks/use-media-query";
+import { collection, query, where, getDocs } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { StorePersonnel, PersonnelEvaluation } from "@/lib/types";
 
-interface AuditSummaryProps { audit: Audit; }
+interface AuditSummaryProps { audit: Audit; isPreview?: boolean; }
 
-function isIncompleteAnswer(answer: AuditAnswer): boolean {
-  if (!answer.answer || answer.answer.trim() === "" || answer.answer === "muaf") return false;
+function isIncompleteAnswer(answer: AuditAnswer, isPreview: boolean = false): boolean {
+  if (!answer.answer || answer.answer.trim() === "") return isPreview; // In preview, blank is incomplete. Otherwise it's 'not filled'.
+  if (answer.answer === "muaf") return false;
   if (answer.questionType === 'yes_no' || !answer.questionType) return answer.answer === 'hayir';
   if (answer.questionType === 'rating' || answer.questionType === 'multiple_choice' || answer.questionType === 'checkbox') return answer.earnedPoints < answer.maxPoints;
   return false;
@@ -49,13 +53,41 @@ function formatDate(timestamp: any): string {
   return date.toLocaleDateString('tr-TR');
 }
 
-export function AuditSummary({ audit }: AuditSummaryProps) {
+export function AuditSummary({ audit, isPreview = false }: AuditSummaryProps) {
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
   const [activeTab, setActiveTab] = useState<'all' | 'incomplete' | 'incomplete-notes'>('all');
   const [isDownloading, setIsDownloading] = useState(false);
   const [robotoFont, setRobotoFont] = useState<string | null>(null);
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
   const isDesktop = useMediaQuery("(min-width: 1024px)");
+
+  const [personnelList, setPersonnelList] = useState<StorePersonnel[]>([]);
+  const [evaluations, setEvaluations] = useState<Record<string, PersonnelEvaluation>>({});
+
+  useEffect(() => {
+    if (!isPreview) return;
+
+    const fetchPersonnelData = async () => {
+      try {
+        const pQuery = query(collection(db, "store_personnel"), where("storeId", "==", audit.storeId));
+        const pSnap = await getDocs(pQuery);
+        const pList = pSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as StorePersonnel)).filter(p => p.status === 'active');
+        setPersonnelList(pList);
+
+        const eQuery = query(collection(db, "personnel_evaluations"), where("auditId", "==", audit.id));
+        const eSnap = await getDocs(eQuery);
+        const evals: Record<string, PersonnelEvaluation> = {};
+        eSnap.docs.forEach(doc => {
+          const data = { id: doc.id, ...doc.data() } as PersonnelEvaluation;
+          evals[data.personnelId] = data;
+        });
+        setEvaluations(evals);
+      } catch (error) {
+        console.error("Error fetching personnel data:", error);
+      }
+    };
+    fetchPersonnelData();
+  }, [isPreview, audit.id, audit.storeId]);
 
   // Font yükleme işlemi sadece PDF indirirken yapılacak
   // useEffect removed for performance optimization
@@ -76,16 +108,24 @@ export function AuditSummary({ audit }: AuditSummaryProps) {
   const getCount = (type: 'all' | 'incomplete' | 'incomplete-notes') => {
     let count = 0;
     audit.sections.forEach(section => {
+      // If preview, hide totally empty sections from count unless specifically looking for them
+      const isSectionStarted = section.answers.some(a => a.answer && a.answer.trim() !== "");
+      if (isPreview && !isSectionStarted) return; // Skip counting in empty sections
+
       section.answers.forEach(answer => {
-        if (type === 'all') { if (answer.answer && answer.answer.trim() !== "" && answer.answer !== "muaf") count++; }
-        else if (type === 'incomplete' && isIncompleteAnswer(answer)) count++;
-        else if (type === 'incomplete-notes' && (isIncompleteAnswer(answer) || hasNotes(answer))) count++;
+        if (type === 'all') { if (isPreview || (answer.answer && answer.answer.trim() !== "" && answer.answer !== "muaf")) count++; }
+        else if (type === 'incomplete' && isIncompleteAnswer(answer, isPreview)) count++;
+        else if (type === 'incomplete-notes' && (isIncompleteAnswer(answer, isPreview) || hasNotes(answer))) count++;
       });
     });
     return count;
   };
 
   const renderAnswer = (answer: AuditAnswer) => {
+    if (!answer.answer || answer.answer.trim() === "") {
+        if (isPreview) return <Badge variant="secondary" className="bg-slate-100 text-slate-600">Cevaplanmadı</Badge>;
+        return <span className="text-sm">-</span>;
+    }
     if (answer.questionType === 'yes_no' || !answer.questionType) {
       return (
         <Badge variant={answer.answer === 'hayir' ? 'destructive' : 'outline'} className={answer.answer === 'evet' ? 'bg-green-100 text-green-800 border-green-200 hover:bg-green-100' : ''}>
@@ -128,15 +168,22 @@ export function AuditSummary({ audit }: AuditSummaryProps) {
   };
 
   const renderMobileCard = (answer: AuditAnswer, sectionName: string, idx: number, qIdx: number) => {
-    const isIncomplete = isIncompleteAnswer(answer);
+    const isIncomplete = isIncompleteAnswer(answer, isPreview);
     const hasNotesFlag = hasNotes(answer);
+    const isBlank = !answer.answer || answer.answer.trim() === "";
+    
+    // Check missing justifications for preview
+    const missingNotes = isPreview && isIncomplete && !isBlank && !hasNotesFlag;
+    const missingPhotos = isPreview && isIncomplete && !isBlank && (!answer.photos || answer.photos.length === 0);
 
     return (
       <Card key={`mobile-q-${idx}-${qIdx}`} className={`mb-4 overflow-hidden border-2 transition-all hover:shadow-lg ${isIncomplete ? 'border-red-300 bg-gradient-to-br from-red-50 to-white dark:from-red-950/30 dark:to-slate-900' : 'border-green-300 bg-gradient-to-br from-green-50 to-white dark:from-green-950/30 dark:to-slate-900'}`}>
         <CardContent className="p-0">
           {/* Header with status icon */}
-          <div className={`px-4 py-3 flex items-center gap-3 ${isIncomplete ? 'bg-red-100/50 dark:bg-red-900/30' : 'bg-green-100/50 dark:bg-green-900/30'}`}>
-            {isIncomplete ? (
+          <div className={`px-4 py-3 flex items-center gap-3 ${isBlank && isPreview ? 'bg-slate-100 dark:bg-slate-800' : isIncomplete ? 'bg-red-100/50 dark:bg-red-900/30' : 'bg-green-100/50 dark:bg-green-900/30'}`}>
+            {isBlank && isPreview ? (
+              <Circle className="h-5 w-5 text-slate-400 flex-shrink-0" />
+            ) : isIncomplete ? (
               <XCircle className="h-5 w-5 text-red-600 dark:text-red-400 flex-shrink-0" />
             ) : (
               <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400 flex-shrink-0" />
@@ -204,6 +251,22 @@ export function AuditSummary({ audit }: AuditSummaryProps) {
                 </div>
               </div>
             )}
+
+            {/* Warning Flags */}
+            {(missingNotes || missingPhotos) && (
+              <div className="flex flex-wrap gap-2 pt-2">
+                {missingNotes && (
+                   <Badge variant="destructive" className="bg-red-100 text-red-800 font-bold border-red-200">
+                     <AlertCircle className="w-3 h-3 mr-1" />Açıklayıcı Not Eksik
+                   </Badge>
+                )}
+                {missingPhotos && (
+                   <Badge variant="destructive" className="bg-red-100 text-red-800 font-bold border-red-200">
+                     <ImageIcon className="w-3 h-3 mr-1" />Zorunlu Fotoğraf Eksik
+                   </Badge>
+                )}
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -212,10 +275,13 @@ export function AuditSummary({ audit }: AuditSummaryProps) {
 
   const renderSectionGroup = (filterType: 'all' | 'incomplete' | 'incomplete-notes') => {
     const hasAnyQuestions = audit.sections.some(section => {
+      const isSectionStarted = section.answers.some(a => a.answer && a.answer.trim() !== "");
+      if (isPreview && !isSectionStarted) return false;
+
       const filtered = section.answers.filter(a => {
-        if (filterType === 'all') return a.answer && a.answer.trim() !== "" && a.answer !== "muaf";
-        if (filterType === 'incomplete') return isIncompleteAnswer(a);
-        if (filterType === 'incomplete-notes') return isIncompleteAnswer(a) || hasNotes(a);
+        if (filterType === 'all') return isPreview || (a.answer && a.answer.trim() !== "" && a.answer !== "muaf");
+        if (filterType === 'incomplete') return isIncompleteAnswer(a, isPreview);
+        if (filterType === 'incomplete-notes') return isIncompleteAnswer(a, isPreview) || hasNotes(a);
         return false;
       });
       return filtered.length > 0;
@@ -252,6 +318,9 @@ export function AuditSummary({ audit }: AuditSummaryProps) {
                   </thead>
                   <tbody>
                     {audit.sections.map((section, idx) => {
+                      const isSectionStarted = section.answers.some(a => a.answer && a.answer.trim() !== "");
+                      if (isPreview && !isSectionStarted) return null;
+
                       let sectionEarned = 0;
                       let sectionMax = 0;
                       section.answers.forEach(answer => {
@@ -263,9 +332,9 @@ export function AuditSummary({ audit }: AuditSummaryProps) {
                       const sectionScore = sectionMax > 0 ? Math.round((sectionEarned / sectionMax) * 100) : 0;
 
                       const filteredQuestions = section.answers.filter(a => {
-                        if (filterType === 'all') return a.answer && a.answer.trim() !== "" && a.answer !== "muaf";
-                        if (filterType === 'incomplete') return isIncompleteAnswer(a);
-                        if (filterType === 'incomplete-notes') return isIncompleteAnswer(a) || hasNotes(a);
+                        if (filterType === 'all') return isPreview || (a.answer && a.answer.trim() !== "" && a.answer !== "muaf");
+                        if (filterType === 'incomplete') return isIncompleteAnswer(a, isPreview);
+                        if (filterType === 'incomplete-notes') return isIncompleteAnswer(a, isPreview) || hasNotes(a);
                         return false;
                       });
 
@@ -284,15 +353,20 @@ export function AuditSummary({ audit }: AuditSummaryProps) {
                             </td>
                           </tr>
                           {filteredQuestions.map((answer, qIdx) => {
-                            const isIncomplete = isIncompleteAnswer(answer);
+                            const isIncomplete = isIncompleteAnswer(answer, isPreview);
+                            const isBlank = !answer.answer || answer.answer.trim() === "";
                             const hasPhotos = answer.photos && answer.photos.length > 0;
+                            const missingNotes = isPreview && isIncomplete && !isBlank && !hasNotes(answer);
+                            const missingPhotos = isPreview && isIncomplete && !isBlank && !hasPhotos;
 
                             return (
                               <React.Fragment key={`q-${idx}-${qIdx}`}>
-                                <tr className={`hover:bg-slate-50/50 dark:hover:bg-slate-800/50 border-b dark:border-slate-700 transition-colors ${isIncomplete ? 'bg-red-50/30 dark:bg-red-950/20' : ''}`}>
+                                <tr className={`hover:bg-slate-50/50 dark:hover:bg-slate-800/50 border-b dark:border-slate-700 transition-colors ${isBlank && isPreview ? 'bg-slate-50/20' : isIncomplete ? 'bg-red-50/30 dark:bg-red-950/20' : ''}`}>
                                   <td className="align-top py-4 px-6">
                                     <div className="flex items-start gap-2">
-                                      {isIncomplete ? (
+                                      {isBlank && isPreview ? (
+                                        <Circle className="h-4 w-4 text-slate-400 mt-0.5 flex-shrink-0" />
+                                      ) : isIncomplete ? (
                                         <XCircle className="h-4 w-4 text-red-500 dark:text-red-400 mt-0.5 flex-shrink-0" />
                                       ) : (
                                         <CheckCircle2 className="h-4 w-4 text-green-500 dark:text-green-400 mt-0.5 flex-shrink-0" />
@@ -322,9 +396,19 @@ export function AuditSummary({ audit }: AuditSummaryProps) {
                                       </div>
                                     )}
 
-                                    {!hasNotes(answer) && !hasPhotos && (
+                                    {!hasNotes(answer) && !hasPhotos && !missingNotes && !missingPhotos && (
                                       <span className="text-xs text-muted-foreground italic">-</span>
                                     )}
+
+                                    {/* Warnings */}
+                                    <div className="flex flex-col gap-1 mt-1">
+                                      {missingNotes && (
+                                        <span className="text-xs font-bold text-red-600 flex items-center gap-1"><AlertCircle className="w-3 h-3"/> Açıklayıcı Not Eksik</span>
+                                      )}
+                                      {missingPhotos && (
+                                        <span className="text-xs font-bold text-red-600 flex items-center gap-1"><ImageIcon className="w-3 h-3"/> Zorunlu Fotoğraf Eksik</span>
+                                      )}
+                                    </div>
                                   </td>
                                 </tr>
                                 {hasPhotos && (
@@ -356,6 +440,38 @@ export function AuditSummary({ audit }: AuditSummaryProps) {
                               </React.Fragment>
                             );
                           })}
+                          
+                          {/* Section Feedback in Preview */}
+                          {isPreview && (section.feedback?.note || (section.feedback?.images && section.feedback.images.length > 0)) && (
+                            <tr>
+                              <td colSpan={4} className="py-4 px-6 bg-slate-50 border-b dark:bg-slate-800/50">
+                                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-4 shadow-sm">
+                                  <h4 className="flex items-center gap-2 font-bold text-slate-800 dark:text-slate-200 mb-3 pb-2 border-b">
+                                    <FileText className="w-4 h-4 text-blue-500" />
+                                    Bölüm Görüş ve Önerileri
+                                  </h4>
+                                  {section.feedback.note && (
+                                    <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed mb-4">
+                                      {section.feedback.note}
+                                    </p>
+                                  )}
+                                  {section.feedback.images && section.feedback.images.length > 0 && (
+                                    <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2 mt-2">
+                                      {section.feedback.images.map((photo, i) => (
+                                        <div
+                                            key={i}
+                                            className="relative aspect-square rounded-md overflow-hidden border border-slate-200 dark:border-slate-700 cursor-pointer hover:opacity-80 transition-opacity"
+                                            onClick={() => setLightboxImage(photo)}
+                                        >
+                                          <img src={photo} alt={`Görüş Fotoğrafı ${i + 1}`} className="object-cover w-full h-full" />
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          )}
                         </React.Fragment>
                       );
                     })}
@@ -366,6 +482,9 @@ export function AuditSummary({ audit }: AuditSummaryProps) {
         ) : (
             <div className="space-y-5">
               {audit.sections.map((section, idx) => {
+                const isSectionStarted = section.answers.some(a => a.answer && a.answer.trim() !== "");
+                if (isPreview && !isSectionStarted) return null;
+
                 let sectionEarned = 0;
                 let sectionMax = 0;
                 section.answers.forEach(answer => {
@@ -377,9 +496,9 @@ export function AuditSummary({ audit }: AuditSummaryProps) {
                 const sectionScore = sectionMax > 0 ? Math.round((sectionEarned / sectionMax) * 100) : 0;
 
                 const filteredQuestions = section.answers.filter(a => {
-                  if (filterType === 'all') return a.answer && a.answer.trim() !== "" && a.answer !== "muaf";
-                  if (filterType === 'incomplete') return isIncompleteAnswer(a);
-                  if (filterType === 'incomplete-notes') return isIncompleteAnswer(a) || hasNotes(a);
+                  if (filterType === 'all') return isPreview || (a.answer && a.answer.trim() !== "" && a.answer !== "muaf");
+                  if (filterType === 'incomplete') return isIncompleteAnswer(a, isPreview);
+                  if (filterType === 'incomplete-notes') return isIncompleteAnswer(a, isPreview) || hasNotes(a);
                   return false;
                 });
 
@@ -413,6 +532,34 @@ export function AuditSummary({ audit }: AuditSummaryProps) {
                       <CollapsibleContent>
                         <CardContent className="pt-4 pb-2 px-3">
                           {filteredQuestions.map((answer, qIdx) => renderMobileCard(answer, section.sectionName, idx, qIdx))}
+                          
+                          {/* Section Feedback Mobile in Preview */}
+                          {isPreview && (section.feedback?.note || (section.feedback?.images && section.feedback.images.length > 0)) && (
+                            <div className="mt-4 mb-2 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg p-4 shadow-sm">
+                              <h4 className="flex items-center gap-2 font-bold text-slate-800 dark:text-slate-200 mb-2 pb-2 border-b border-slate-200 dark:border-slate-700 text-sm">
+                                <FileText className="w-4 h-4 text-blue-500" />
+                                Bölüm Görüş ve Önerileri
+                              </h4>
+                              {section.feedback.note && (
+                                <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed mb-3">
+                                  {section.feedback.note}
+                                </p>
+                              )}
+                              {section.feedback.images && section.feedback.images.length > 0 && (
+                                <div className="grid grid-cols-4 gap-2">
+                                  {section.feedback.images.map((photo, i) => (
+                                    <div
+                                        key={i}
+                                        className="relative aspect-square rounded-md overflow-hidden border border-slate-200 dark:border-slate-700 cursor-pointer hover:opacity-80"
+                                        onClick={() => setLightboxImage(photo)}
+                                    >
+                                      <img src={photo} alt={`Görüş Fotoğrafı ${i + 1}`} className="object-cover w-full h-full" />
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </CardContent>
                       </CollapsibleContent>
                     </Card>
@@ -1064,6 +1211,94 @@ export function AuditSummary({ audit }: AuditSummaryProps) {
         <TabsContent value="incomplete" className="mt-0">{renderSectionGroup('incomplete')}</TabsContent>
         <TabsContent value="incomplete-notes" className="mt-0">{renderSectionGroup('incomplete-notes')}</TabsContent>
       </Tabs>
+
+      {/* Preview Exclusive Bottom Content */}
+      {isPreview && (
+        <div className="mt-6 space-y-6">
+          {/* Personnel Evaluations */}
+          {personnelList.length > 0 && (
+            <Card className="border-2 border-indigo-100 dark:border-indigo-900/50 shadow-sm overflow-hidden">
+              <CardHeader className="bg-indigo-50/50 dark:bg-indigo-950/20 py-3 px-4 flex flex-row items-center justify-center border-b border-indigo-100 dark:border-indigo-900/50">
+                <CardTitle className="flex items-center justify-center gap-2 text-indigo-900 dark:text-indigo-100 text-lg m-0 text-center">
+                  <Star className="w-5 h-5 text-indigo-500" />
+                  Personel Değerlendirmeleri
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-700">
+                        <th className="py-3 px-4 font-semibold text-slate-700 dark:text-slate-300 text-sm">Personel</th>
+                        <th className="py-3 px-4 font-semibold text-slate-700 dark:text-slate-300 text-sm w-24 text-center">Puan</th>
+                        <th className="py-3 px-4 font-semibold text-slate-700 dark:text-slate-300 text-sm">Değerlendirme Notu</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {personnelList.map((p) => {
+                        const evalData = evaluations[p.id];
+                        return (
+                          <tr key={p.id} className="border-b border-slate-100 dark:border-slate-800 last:border-0 hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
+                            <td className="py-3 px-4 font-medium">{p.name}</td>
+                            <td className="py-3 px-4 text-center">
+                              {evalData?.score !== undefined ? (
+                                <Badge variant="outline" className={`font-bold text-base ${
+                                  evalData.score >= 80 ? 'text-green-600 border-green-200 bg-green-50' : 
+                                  evalData.score >= 50 ? 'text-yellow-600 border-yellow-200 bg-yellow-50' : 
+                                  'text-red-600 border-red-200 bg-red-50'
+                                }`}>
+                                  {evalData.score}
+                                </Badge>
+                              ) : (
+                                <span className="text-slate-400 text-sm">-</span>
+                              )}
+                            </td>
+                            <td className="py-3 px-4 text-sm text-slate-600 dark:text-slate-400">
+                              {evalData?.comment || <span className="italic text-slate-400">Not girilmemiş</span>}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* General Feedback */}
+          {(audit.generalFeedback?.note || (audit.generalFeedback?.images && audit.generalFeedback.images.length > 0)) && (
+            <Card className="border-2 border-slate-200 dark:border-slate-700 shadow-sm">
+              <CardHeader className="bg-slate-50 dark:bg-slate-800/50 py-3 px-4 flex flex-row items-center justify-center border-b border-slate-200 dark:border-slate-700">
+                <CardTitle className="flex items-center justify-center gap-2 text-slate-800 dark:text-slate-200 text-lg m-0 text-center">
+                  <AlertCircle className="w-5 h-5 text-slate-500" />
+                  Genel Değerlendirme
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-6">
+                {audit.generalFeedback.note && (
+                  <p className="whitespace-pre-wrap leading-relaxed text-slate-700 dark:text-slate-300">
+                    {audit.generalFeedback.note}
+                  </p>
+                )}
+                {audit.generalFeedback.images && audit.generalFeedback.images.length > 0 && (
+                  <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-4 mt-6">
+                    {audit.generalFeedback.images.map((photo, i) => (
+                      <div
+                        key={i}
+                        className="relative aspect-square rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 cursor-pointer shadow-sm hover:opacity-80 transition-all hover:scale-[1.02]"
+                        onClick={() => setLightboxImage(photo)}
+                      >
+                        <img src={photo} alt={`Genel Değerlendirme ${i + 1}`} className="object-cover w-full h-full" />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
 
       {/* Lightbox Modal */}
       {lightboxImage && (

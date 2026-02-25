@@ -23,9 +23,7 @@ export const getWorkingDaysPassed = (startDate: Date, endDate: Date) => {
 
     while (current < end) {
         current.setDate(current.getDate() + 1);
-        if (current.getDay() !== 0) { // 0 is Sunday
-            count++;
-        }
+        count++;
     }
     return count;
 };
@@ -41,9 +39,7 @@ export const calculateDeadlineDate = (startDate: Date) => {
     // We add 3 working days
     while (daysAdded < 3) {
         date.setDate(date.getDate() + 1);
-        if (date.getDay() !== 0) {
-            daysAdded++;
-        }
+        daysAdded++;
     }
     return date;
 };

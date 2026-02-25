@@ -219,7 +219,6 @@ export function StoreAnalysisDialog({ storeId, storeName, isOpen, onClose }: Sto
                                                     {firstSubmissionDate && lastAudit.completedAt && (
                                                         <span className="text-[10px] text-slate-400 font-medium">
                                                             {format(lastAudit.completedAt.toDate(), "d MMM", { locale: tr })} - {format(firstSubmissionDate, "d MMM", { locale: tr })}
-                                                            <span className="ml-1 opacity-70">(Pazar hariç)</span>
                                                         </span>
                                                     )}
                                                 </div>

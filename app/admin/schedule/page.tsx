@@ -19,7 +19,7 @@ import { startOfWeek, endOfWeek, eachDayOfInterval, format, isSameDay, addDays, 
 import { tr } from "date-fns/locale";
 import { Timestamp, collection, doc, getDocs, query, setDoc, where, deleteDoc, updateDoc, deleteField } from "firebase/firestore";
 import { db } from "@/lib/firebase"; // Adjust path as needed
-import { UserProfile, Store } from "@/lib/types";
+import { UserProfile, Store, Audit } from "@/lib/types";
 import { toast } from "sonner";
 
 
@@ -243,7 +243,8 @@ function DroppableCell({
     setNoteDialog,
     accommodationTypes,
     handleUpdateScheduleItem,
-    onStoreAction
+    onStoreAction,
+    audits
 }: {
     dropId: string;
     isToday: boolean;
@@ -265,6 +266,7 @@ function DroppableCell({
     accommodationTypes: AccommodationType[];
     handleUpdateScheduleItem: (itemId: string, updates: Partial<ScheduleItem>) => Promise<void>;
     onStoreAction: (action: 'add' | 'change' | 'replace_leave', date: Date, auditorId: string, item?: ScheduleItem) => void;
+    audits: Audit[];
 }) {
     // Filter out blocked items for display
     const filteredItems = rawItems.filter(i => i.type !== 'blocked');
@@ -377,6 +379,14 @@ function DroppableCell({
                     }
 
                     const violation = getViolation(item);
+                    
+                    // Check if this specific item has been completed
+                    const isCompleted = audits.some(a => 
+                        a.storeId === item.storeId && 
+                        a.auditorId === item.auditorId && 
+                        a.status === 'tamamlandi' &&
+                        isSameDay(a.createdAt instanceof Date ? a.createdAt : a.createdAt?.toDate?.() || new Date(a.createdAt as unknown as string), item.date)
+                    );
 
                     const content = (
                         <div
@@ -389,9 +399,11 @@ function DroppableCell({
                                 "group/item text-xs px-1.5 py-0.5 rounded border shadow-sm select-none transition-all relative flex items-center justify-between flex-1 min-h-0 cursor-pointer",
                                 violation
                                     ? "bg-red-50 border-red-200 text-red-700 font-medium"
-                                    : item.status === 'published'
-                                        ? "bg-blue-50 border-blue-200 text-blue-700 font-medium"
-                                        : "bg-white border-slate-300 text-slate-700 font-medium"
+                                    : isCompleted
+                                        ? "bg-green-50 border-green-400 text-green-700 font-medium ring-1 ring-inset ring-green-500/20"
+                                        : item.status === 'published'
+                                            ? "bg-blue-50 border-blue-200 text-blue-700 font-medium"
+                                            : "bg-white border-slate-300 text-slate-700 font-medium"
                             )}
                             onContextMenu={(e) => {
                                 // Prevent default context menu to allow our custom one
@@ -400,6 +412,7 @@ function DroppableCell({
                             }}
                         >
                             <div className="flex items-center justify-center gap-1 min-w-0 flex-1">
+                                {isCompleted && <Check className="h-3 w-3 text-green-600 shrink-0" />}
                                 {item.note && <StickyNote className="h-3 w-3 text-yellow-500 fill-yellow-100 shrink-0" />}
                                 <span className="truncate block text-center uppercase">{item.storeName}</span>
                             </div>
@@ -1713,7 +1726,8 @@ export default function SchedulePage() {
         const monthlyAuditsList = audits.filter(a =>
             a.storeId === item.storeId &&
             a.createdAt >= itemMonthStart &&
-            a.createdAt <= itemMonthEnd
+            a.createdAt <= itemMonthEnd &&
+            a.status === 'tamamlandi'
         );
 
         const monthlyScheduleList = schedule.filter(s =>
@@ -1759,7 +1773,7 @@ export default function SchedulePage() {
 
         // 3. 12-Day Rule Check
         const allDates = [
-            ...audits.filter(a => a.storeId === item.storeId).map(a => a.createdAt),
+            ...audits.filter(a => a.storeId === item.storeId && a.status === 'tamamlandi').map(a => a.createdAt),
             ...schedule.filter(s => s.storeId === item.storeId && s.id !== item.id).map(s => s.date)
         ];
 
@@ -2417,6 +2431,7 @@ export default function SchedulePage() {
 
                                                             handleUpdateScheduleItem={handleUpdateScheduleItem}
                                                             onStoreAction={handleStoreAction}
+                                                            audits={audits}
                                                         />
                                                     );
                                                 })}

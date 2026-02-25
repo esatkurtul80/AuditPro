@@ -36,7 +36,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Upload, X, CheckCircle2, ArrowLeft, Circle, Plus, Save, WifiOff, Clock, Star, ChevronRight, AlertCircle, MoreHorizontal, ClipboardList, MessageSquare, UserCircle } from "lucide-react";
+import { Loader2, Upload, X, CheckCircle2, ArrowLeft, Circle, Plus, Save, WifiOff, Clock, Star, ChevronRight, AlertCircle, MoreHorizontal, ClipboardList, MessageSquare, UserCircle, Eye } from "lucide-react";
 import { toast } from "sonner";
 import * as LucideIcons from "lucide-react";
 import Link from "next/link";
@@ -95,8 +95,10 @@ export default function AuditPage() {
     const [isDirty, setIsDirty] = useState(false);
     const [validationErrors, setValidationErrors] = useState<{ photos: string[], notes: string[] }>({ photos: [], notes: [] });
     const [showValidationModal, setShowValidationModal] = useState(false);
+    const [showPreviewModal, setShowPreviewModal] = useState(false);
     const [historyCache, setHistoryCache] = useState<Record<string, QuestionHistory>>({});
     const [personnelStatus, setPersonnelStatus] = useState<{ total: number, evaluated: number, initialized: boolean }>({ total: 0, evaluated: 0, initialized: false });
+    const [hasPersonnelChanges, setHasPersonnelChanges] = useState(false);
 
     // Reset Section State
     const [resetAlertOpen, setResetAlertOpen] = useState(false);
@@ -611,7 +613,7 @@ export default function AuditPage() {
     // This ensures photos and notes persist after page reload / logout-login.
     const updateGeneralFeedback = async (patch: { note?: string; images?: string[]; type?: "important" | "note" | "suggestion" | null }) => {
         if (!audit || !auditId) return;
-        if (isEditMode && !isDirty) setIsDirty(true);
+        if (canEdit && !isDirty) setIsDirty(true);
 
         const newFeedback = { ...audit.generalFeedback, ...patch };
         const updatedAudit = { ...audit, generalFeedback: newFeedback };
@@ -733,15 +735,13 @@ export default function AuditPage() {
         setCompleting(true);
 
         try {
-            // Calculate deadline (3 working days, excluding Sunday)
+            // Calculate deadline (3 days)
             const calculateActionDeadline = () => {
                 let date = new Date();
                 let daysAdded = 0;
                 while (daysAdded < 3) {
                     date.setDate(date.getDate() + 1);
-                    if (date.getDay() !== 0) { // 0 is Sunday
-                        daysAdded++;
-                    }
+                    daysAdded++;
                 }
                 return Timestamp.fromDate(date);
             };
@@ -987,6 +987,7 @@ export default function AuditPage() {
                 newAnswer: string;
                 oldScore: number;
                 newScore: number;
+                type?: 'answer' | 'feedback' | 'general_feedback';
             }> = [];
 
             // Prepare updated sections with proper actionData handling
@@ -1015,8 +1016,30 @@ export default function AuditPage() {
                                 oldAnswer: oldAns || "boş",
                                 newAnswer: newAns || "boş",
                                 oldScore: originalAnswer.earnedPoints,
-                                newScore: answer.earnedPoints
+                                newScore: answer.earnedPoints,
+                                type: 'answer'
                             });
+                        }
+
+                        // Check section feedback changes
+                        if (originalSection) {
+                            const oldNote = originalSection.feedback?.note || "";
+                            const newNote = section.feedback?.note || "";
+                            if (oldNote !== newNote) {
+                                // Add only once per section by checking if it already exists
+                                if (!changes.some(c => c.sectionName === section.sectionName && c.type === 'feedback')) {
+                                    changes.push({
+                                        sectionName: section.sectionName,
+                                        questionId: `feedback-${section.sectionId}`,
+                                        questionText: `${section.sectionName} Personel Görüşü`,
+                                        oldAnswer: oldNote || "boş",
+                                        newAnswer: newNote || "boş",
+                                        oldScore: 0,
+                                        newScore: 0,
+                                        type: 'feedback'
+                                    });
+                                }
+                            }
                         }
 
                         // REACTIVATION LOGIC:
@@ -1061,6 +1084,38 @@ export default function AuditPage() {
                         return answer;
                     })
                 }));
+            }
+
+            // Check General Feedback changes
+            if (originalAudit) {
+                const oldGenNote = originalAudit.generalFeedback?.note || "";
+                const newGenNote = audit.generalFeedback?.note || "";
+                if (oldGenNote !== newGenNote) {
+                    changes.push({
+                        sectionName: "Genel Değerlendirme",
+                        questionId: "general-feedback",
+                        questionText: "Genel Rapor Notu",
+                        oldAnswer: oldGenNote || "boş",
+                        newAnswer: newGenNote || "boş",
+                        oldScore: 0,
+                        newScore: 0,
+                        type: 'general_feedback'
+                    });
+                }
+            }
+
+            // Check Personnel evaluation changes
+            if (hasPersonnelChanges) {
+                changes.push({
+                    sectionName: "Personel Değerlendirme",
+                    questionId: "personnel",
+                    questionText: "Personel Yorumları",
+                    oldAnswer: "Önceki Kayıtlar",
+                    newAnswer: "Güncellendi",
+                    oldScore: 0,
+                    newScore: 0,
+                    type: 'feedback'
+                });
             }
 
             // Recalculate allActionsResolved
@@ -1138,8 +1193,15 @@ export default function AuditPage() {
                     notificationMessage += ` Puan ${originalScore} iken ${newScore} oldu (${scoreDirection}).`;
                 }
 
-                if (changes.length > 0) {
-                    notificationMessage += ` Toplam ${changes.length} soru değiştirildi.`;
+                const answerChanges = changes.filter(c => c.type === 'answer');
+                const feedbackChanges = changes.filter(c => c.type === 'feedback' || c.type === 'general_feedback');
+
+                let details = [];
+                if (answerChanges.length > 0) details.push(`${answerChanges.length} soru`);
+                if (feedbackChanges.length > 0) details.push(`${feedbackChanges.length} görüş/yorum alanı`);
+                
+                if (details.length > 0) {
+                    notificationMessage += ` Toplam ${details.join(" ve ")} değiştirildi.`;
                 }
 
                 // Create notifications for all admins
@@ -1178,7 +1240,7 @@ export default function AuditPage() {
         if (!audit || !auditId) return;
 
         // Mark as dirty when editing in edit mode
-        if (isEditMode && !isDirty) {
+        if (canEdit && !isDirty) {
             setIsDirty(true);
         }
 
@@ -1322,41 +1384,54 @@ export default function AuditPage() {
                             </Button>
                         )}
                         {!isCompleted && currentSectionIndex === null && (
-                            <Button
-                                onClick={completeAudit}
-                                disabled={completing || hasPending || !isOnline}
-                                size="lg"
-                                className="bg-blue-600 hover:bg-blue-700 text-white shadow-md"
-                                title={
-                                    !isOnline
-                                        ? "Denetimi tamamlamak için internet bağlantısı gerekli"
-                                        : hasPending
-                                            ? "Lütfen tüm verilerin senkronize olmasını bekleyin"
-                                            : ""
-                                }
-                            >
-                                {completing ? (
-                                    <>
-                                        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                                        Tamamlanıyor...
-                                    </>
-                                ) : !isOnline ? (
-                                    <>
-                                        <WifiOff className="mr-2 h-5 w-5" />
-                                        Offline - Tamamlanamaz
-                                    </>
-                                ) : hasPending ? (
-                                    <>
-                                        <Clock className="mr-2 h-5 w-5" />
-                                        Senkronizasyon Bekleniyor...
-                                    </>
-                                ) : (
-                                    <>
-                                        <CheckCircle2 className="mr-2 h-5 w-5" />
-                                        Denetimi Tamamla
-                                    </>
-                                )}
-                            </Button>
+                            <div className="flex gap-2">
+                                <Button
+                                    onClick={(e) => { e.preventDefault(); setShowPreviewModal(true); }}
+                                    disabled={!audit}
+                                    size="lg"
+                                    variant="outline"
+                                    className="border-blue-200 text-blue-700 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-300 dark:hover:bg-blue-900/50 shadow-sm"
+                                    title="Eksikleri ve mevcut durumu önizleyin"
+                                >
+                                    <Eye className="mr-2 h-5 w-5" />
+                                    Önizleme
+                                </Button>
+                                <Button
+                                    onClick={completeAudit}
+                                    disabled={completing || hasPending || !isOnline}
+                                    size="lg"
+                                    className="bg-blue-600 hover:bg-blue-700 text-white shadow-md"
+                                    title={
+                                        !isOnline
+                                            ? "Denetimi tamamlamak için internet bağlantısı gerekli"
+                                            : hasPending
+                                                ? "Lütfen tüm verilerin senkronize olmasını bekleyin"
+                                                : ""
+                                    }
+                                >
+                                    {completing ? (
+                                        <>
+                                            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                                            Tamamlanıyor...
+                                        </>
+                                    ) : !isOnline ? (
+                                        <>
+                                            <WifiOff className="mr-2 h-5 w-5" />
+                                            Offline - Tamamlanamaz
+                                        </>
+                                    ) : hasPending ? (
+                                        <>
+                                            <Clock className="mr-2 h-5 w-5" />
+                                            Senkronizasyon Bekleniyor...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <CheckCircle2 className="mr-2 h-5 w-5" />
+                                            Denetimi Tamamla
+                                        </>
+                                    )}
+                                </Button>
+                            </div>
                         )}
                     </div>
                 </div>
@@ -1556,6 +1631,10 @@ export default function AuditPage() {
                                 storeId={audit.storeId}
                                 storeName={audit.storeName}
                                 canEdit={canEdit}
+                                onPersonnelChange={() => {
+                                    setIsDirty(true);
+                                    setHasPersonnelChanges(true);
+                                }}
                             />
                         </div>
                     ) : currentSectionIndex === 'general' ? (
@@ -2419,6 +2498,44 @@ export default function AuditPage() {
                                     className="bg-blue-600 hover:bg-blue-700"
                                 >
                                     Anladım
+                                </AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
+
+                    {/* Preview Modal */}
+                    <AlertDialog open={showPreviewModal} onOpenChange={setShowPreviewModal}>
+                        <AlertDialogContent className="w-[95vw] max-w-5xl h-[90vh] max-h-[90vh] flex flex-col p-0 gap-0 overflow-hidden">
+                            <AlertDialogHeader className="px-6 py-4 border-b bg-slate-50 dark:bg-slate-900/50 flex-shrink-0 flex flex-row items-center justify-between">
+                                <div>
+                                    <AlertDialogTitle className="text-xl flex items-center gap-2">
+                                        <Eye className="h-5 w-5 text-blue-600" />
+                                        Denetim Önizleme
+                                    </AlertDialogTitle>
+                                    <AlertDialogDescription className="mt-1">
+                                        Tamamlamadan önce mevcut durumun özetini inceleyin. Değişiklik yapmak için kapatın.
+                                    </AlertDialogDescription>
+                                </div>
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => setShowPreviewModal(false)}
+                                    className="h-8 w-8 rounded-full"
+                                >
+                                    <X className="h-4 w-4" />
+                                </Button>
+                            </AlertDialogHeader>
+
+                            <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-50/50 dark:bg-slate-950/50">
+                                {audit && <AuditSummary audit={audit} isPreview={true} />}
+                            </div>
+                            
+                            <AlertDialogFooter className="px-6 py-4 border-t bg-slate-50 dark:bg-slate-900/50 flex-shrink-0 sm:justify-end">
+                                <AlertDialogAction
+                                    onClick={() => setShowPreviewModal(false)}
+                                    className="bg-slate-800 hover:bg-slate-900 text-white w-full sm:w-auto"
+                                >
+                                    Kapat ve Forma Dön
                                 </AlertDialogAction>
                             </AlertDialogFooter>
                         </AlertDialogContent>

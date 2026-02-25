@@ -78,7 +78,7 @@ import {
     AuditType,
     DateRangeFilter,
 } from "@/lib/types";
-import { softDeleteAudit } from "@/lib/firebase-utils";
+import { permanentlyDeleteAudit } from "@/lib/firebase-utils";
 import { toast } from "sonner";
 import { DataTable } from "@/components/ui/data-table";
 import { ColumnDef, Column, Row } from "@tanstack/react-table";
@@ -199,7 +199,7 @@ export default function AdminDashboard() {
 
         try {
             setDeleting(true);
-            await softDeleteAudit(auditToDelete);
+            await permanentlyDeleteAudit(auditToDelete);
             toast.success("Denetim çöp kutusuna taşındı");
             setDeleteDialogOpen(false);
             

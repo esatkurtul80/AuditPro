@@ -30,16 +30,13 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { NotificationFeed } from "@/components/announcements/notification-feed";
 
-// Helper function to calculate days excluding Sundays
-const calculateDaysExcludingSundays = (fromDate: Date, toDate: Date): number => {
+// Helper function to calculate days
+const calculateDays = (fromDate: Date, toDate: Date): number => {
     let count = 0;
     const current = new Date(fromDate);
 
     while (current <= toDate) {
-        // 0 = Sunday, skip it
-        if (current.getDay() !== 0) {
-            count++;
-        }
+        count++;
         current.setDate(current.getDate() + 1);
     }
 
@@ -53,19 +50,16 @@ const getReturnDeadline = (completedAt: any) => {
     const completedDate = completedAt.toDate();
     const now = new Date();
 
-    // Calculate deadline: 3 days from completion (excluding Sundays)
+    // Calculate deadline: 3 days from completion
     let daysAdded = 0;
     const deadline = new Date(completedDate);
 
     while (daysAdded < 3) {
         deadline.setDate(deadline.getDate() + 1);
-        // Skip Sundays
-        if (deadline.getDay() !== 0) {
-            daysAdded++;
-        }
+        daysAdded++;
     }
 
-    // Calculate days remaining (excluding Sundays)
+    // Calculate days remaining
     // Start from tomorrow to avoid inconsistencies based on time of day
     const tomorrow = new Date(now);
     tomorrow.setHours(0, 0, 0, 0);
@@ -74,11 +68,11 @@ const getReturnDeadline = (completedAt: any) => {
     const deadlineDate = new Date(deadline);
     deadlineDate.setHours(0, 0, 0, 0);
 
-    const daysRemaining = calculateDaysExcludingSundays(tomorrow, deadlineDate);
+    const daysRemaining = calculateDays(tomorrow, deadlineDate);
 
     if (now > deadline) {
         // Overdue
-        const daysOverdue = calculateDaysExcludingSundays(deadline, now);
+        const daysOverdue = calculateDays(deadline, now);
         return {
             deadline,
             daysRemaining: -daysOverdue,
