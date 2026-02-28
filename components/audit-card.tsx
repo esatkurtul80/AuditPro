@@ -7,15 +7,13 @@ import { Calendar, User, FileText, ChevronRight, Eye, Play, Award, CheckCircle2,
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
 
-// Helper function to calculate days excluding Sundays
-const calculateDaysExcludingSundays = (fromDate: Date, toDate: Date): number => {
+// Helper function to calculate days
+const calculateDays = (fromDate: Date, toDate: Date): number => {
     let count = 0;
     const current = new Date(fromDate);
 
     while (current <= toDate) {
-        if (current.getDay() !== 0) { // 0 = Sunday
-            count++;
-        }
+        count++;
         current.setDate(current.getDate() + 1);
     }
     return count;
@@ -33,19 +31,16 @@ const getReturnDeadline = (completedAt: any) => {
 
     const now = new Date();
 
-    // Calculate deadline: 3 days from completion (excluding Sundays)
+    // Calculate deadline: 3 days from completion
     let daysAdded = 0;
     const deadline = new Date(completedDate);
 
     while (daysAdded < 3) {
         deadline.setDate(deadline.getDate() + 1);
-        // Skip Sundays
-        if (deadline.getDay() !== 0) {
-            daysAdded++;
-        }
+        daysAdded++;
     }
 
-    // Calculate days remaining (excluding Sundays)
+    // Calculate days remaining
     const tomorrow = new Date(now);
     tomorrow.setHours(0, 0, 0, 0);
     tomorrow.setDate(tomorrow.getDate() + 1);
@@ -53,10 +48,10 @@ const getReturnDeadline = (completedAt: any) => {
     const deadlineDate = new Date(deadline);
     deadlineDate.setHours(0, 0, 0, 0);
 
-    const daysRemaining = calculateDaysExcludingSundays(tomorrow, deadlineDate);
+    const daysRemaining = calculateDays(tomorrow, deadlineDate);
 
     if (now > deadline) {
-        const daysOverdue = calculateDaysExcludingSundays(deadline, now);
+        const daysOverdue = calculateDays(deadline, now);
         return {
             deadline,
             daysRemaining: -daysOverdue,

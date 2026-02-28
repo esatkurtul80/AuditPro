@@ -54,9 +54,9 @@ export function DashboardLayout({ children, forceStoreLayout }: { children: Reac
     const mainPadding = isSidebarCollapsed ? "lg:pl-[70px]" : "lg:pl-64";
 
     return (
-        <div className="h-screen overflow-hidden bg-background">
+        <div className="min-h-screen bg-background">
             {/* Desktop Sidebar - Fixed Position */}
-            <aside className={`hidden lg:fixed lg:inset-y-0 lg:left-0 lg:z-50 lg:flex ${sidebarWidth} lg:flex-col transition-all duration-300`}>
+            <aside className={`hidden lg:fixed lg:inset-y-0 lg:left-0 lg:z-50 lg:flex ${sidebarWidth} lg:flex-col transition-all duration-300 h-screen`}>
                 <Sidebar
                     isCollapsed={isSidebarCollapsed}
                     toggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
@@ -121,7 +121,7 @@ export function DashboardLayout({ children, forceStoreLayout }: { children: Reac
                 </div>
 
                 {/* Page Content */}
-                <div id="main-content-scroll-area" className="h-[calc(100vh-64px)] lg:h-[calc(100vh-64px)] overflow-y-auto overscroll-y-contain pb-20 lg:pb-0">
+                <div id="main-content-scroll-area" className="w-full pb-20 lg:pb-8 flex-1">
                     {children}
                 </div>
 
