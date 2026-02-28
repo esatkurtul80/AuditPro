@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/components/auth-provider";
 import { Audit } from "@/lib/types";
@@ -31,7 +31,24 @@ export default function AuditSummaryPage() {
                 const docSnap = await getDoc(docRef);
 
                 if (docSnap.exists()) {
-                    setAudit({ id: docSnap.id, ...docSnap.data() } as Audit);
+                    let auditData = { id: docSnap.id, ...docSnap.data() } as Audit;
+                    
+                    // Eğer admin, denetmen veya bölge müdürü ise personnel evaluations'ı da çek
+                    if (userProfile && (userProfile.role === "admin" || userProfile.role === "denetmen" || userProfile.role === "bolge-muduru")) {
+                       try {
+                           const pQuery = query(collection(db, "personnel_evaluations"), where("auditId", "==", auditId));
+                           const pSnap = await getDocs(pQuery);
+                           
+                           if (!pSnap.empty) {
+                               const pEvals = pSnap.docs.map(d => ({ id: d.id, ...d.data() } as any));
+                               auditData.personnelEvaluations = pEvals;
+                           }
+                       } catch (e) {
+                           console.error("Failed to load personnel evaluations:", e);
+                       }
+                    }
+
+                    setAudit(auditData);
                 } else {
                     toast.error("Denetim bulunamadı");
                     router.back();
@@ -44,8 +61,10 @@ export default function AuditSummaryPage() {
             }
         };
 
-        fetchAudit();
-    }, [auditId, router]);
+        if (userProfile) { // Ensure userProfile is loaded before fetching to accurately attach restricted data
+            fetchAudit();
+        }
+    }, [auditId, router, userProfile]);
 
     // Permission check
     if (!loading && audit && userProfile) {
@@ -101,7 +120,10 @@ export default function AuditSummaryPage() {
                         Geri Dön
                     </Button>
                 </div>
-                <AuditSummary audit={audit} />
+                <AuditSummary 
+                  audit={audit} 
+                  showRestrictedFeedback={userProfile?.role === "admin" || userProfile?.role === "denetmen" || userProfile?.role === "bolge-muduru"} 
+                />
             </div>
         </DashboardLayout>
     );

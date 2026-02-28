@@ -4,9 +4,11 @@ import { ColumnDef } from "@tanstack/react-table"
 import { Audit } from "@/lib/types"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { PlayCircle, CheckCircle2, Eye, Edit, XCircle } from "lucide-react"
+import { PlayCircle, CheckCircle2, Eye, Edit, XCircle, FileText, MoreHorizontal } from "lucide-react"
 import Link from "next/link"
 import { Timestamp } from "firebase/firestore"
+
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 
 const formatDate = (timestamp: Timestamp) => {
     return timestamp.toDate().toLocaleDateString("tr-TR", {
@@ -102,43 +104,66 @@ export const getAuditColumns = (onCancel?: (auditId: string) => void): ColumnDef
         header: () => <div className="text-right">İşlem</div>,
         cell: ({ row }) => {
             const audit = row.original
+
             return (
-                <div className="flex gap-2 justify-end">
-                    {audit.status === "devam_ediyor" ? (
-                        <>
-                            <Link href={`/audits/${audit.id}?mode=edit`} title="Devam Et">
-                                <Button variant="ghost" size="icon">
-                                    <PlayCircle className="h-4 w-4" />
-                                </Button>
-                            </Link>
-                            {onCancel && (
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                                    onClick={() => onCancel(audit.id)}
-                                    title="İptal Et"
-                                >
-                                    <XCircle className="h-4 w-4" />
-                                </Button>
+                <div className="flex justify-end">
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" className="h-8 w-8 p-0">
+                                <span className="sr-only">Menüyü aç</span>
+                                <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-[160px]">
+                            <DropdownMenuLabel>İşlemler</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            
+                            {audit.status === "devam_ediyor" ? (
+                                <>
+                                    <Link href={`/audits/${audit.id}?mode=edit`}>
+                                        <DropdownMenuItem className="cursor-pointer gap-2 font-medium">
+                                            <PlayCircle className="h-4 w-4 text-slate-600" />
+                                            <span>Devam Et</span>
+                                        </DropdownMenuItem>
+                                    </Link>
+                                    {onCancel && (
+                                        <DropdownMenuItem 
+                                            className="cursor-pointer text-red-600 focus:bg-red-50 focus:text-red-700 gap-2 font-medium"
+                                            onClick={() => onCancel(audit.id)}
+                                        >
+                                            <XCircle className="h-4 w-4" />
+                                            <span>İptal Et</span>
+                                        </DropdownMenuItem>
+                                    )}
+                                </>
+                            ) : (
+                                <>
+                                    {audit.status === "tamamlandi" && (
+                                        <>
+                                            <Link href={`/audits/${audit.id}/summary`}>
+                                                <DropdownMenuItem className="cursor-pointer gap-2 font-medium">
+                                                    <Eye className="h-4 w-4 text-slate-600" />
+                                                    <span>Özet Rapor</span>
+                                                </DropdownMenuItem>
+                                            </Link>
+                                            <Link href={`/audits/${audit.id}/report`}>
+                                                <DropdownMenuItem className="cursor-pointer text-indigo-700 focus:bg-indigo-50 focus:text-indigo-800 gap-2 font-medium">
+                                                    <FileText className="h-4 w-4" />
+                                                    <span>Özel Rapor</span>
+                                                </DropdownMenuItem>
+                                            </Link>
+                                        </>
+                                    )}
+                                    <Link href={`/audits/${audit.id}?mode=edit`}>
+                                        <DropdownMenuItem className="cursor-pointer gap-2 font-medium">
+                                            <Edit className="h-4 w-4 text-slate-600" />
+                                            <span>Düzenle</span>
+                                        </DropdownMenuItem>
+                                    </Link>
+                                </>
                             )}
-                        </>
-                    ) : (
-                        <>
-                            {audit.status === "tamamlandi" && (
-                                <Link href={`/audits/${audit.id}?mode=view`}>
-                                    <Button variant="ghost" size="icon" title="Görüntüle">
-                                        <Eye className="h-4 w-4" />
-                                    </Button>
-                                </Link>
-                            )}
-                            <Link href={`/audits/${audit.id}?mode=edit`}>
-                                <Button variant="ghost" size="icon" title="Düzenle">
-                                    <Edit className="h-4 w-4" />
-                                </Button>
-                            </Link>
-                        </>
-                    )}
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 </div>
             )
         },

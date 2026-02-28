@@ -935,7 +935,7 @@ export function AuditorPerformanceContent() {
         setStoreStats(finalStoreStats);
 
         // C. Deviation (Category based) - GROUPED BY AUDIT TYPE
-        const typeSectionsMap: Record<string, Set<string>> = {}; 
+        const typeSectionsMap: Record<string, Set<string>> = {};
         const deviationStats: Record<string, Record<string, Record<string, { totalPercent: number, count: number }>>> = {};
 
         // Initialize empty sets for all know audit types so they always appear as tabs
@@ -943,7 +943,7 @@ export function AuditorPerformanceContent() {
             const tName = at.name;
             typeSectionsMap[tName] = new Set();
             deviationStats[tName] = {};
-            
+
             // Optionally, pre-fill sections for this form so the table isn't 100% empty
             // But since sections are mapped to auditType differently (via sectionIds),
             // We can just rely on data, or map sectionIds if available:
@@ -975,7 +975,7 @@ export function AuditorPerformanceContent() {
 
                 let sectionEarned = 0;
                 let sectionMax = 0;
-                
+
                 sectionRes.answers.forEach(a => {
                     // Only count scored questions towards the percentage
                     if (a.questionType !== 'short_text' && a.questionType !== 'date' && a.questionType !== 'number') {
@@ -997,7 +997,7 @@ export function AuditorPerformanceContent() {
         });
 
         const deviationProcessed: Record<string, DeviationMetric[]> = {};
-        
+
         Object.entries(deviationStats).forEach(([typeName, secStats]) => {
             deviationProcessed[typeName] = Array.from(typeSectionsMap[typeName] || []).map(secName => {
                 const row: DeviationMetric = { category: secName };
@@ -1013,7 +1013,7 @@ export function AuditorPerformanceContent() {
                 return row;
             });
         });
-        
+
         setDeviationDataByAuditType(deviationProcessed);
     }
 
@@ -1027,17 +1027,20 @@ export function AuditorPerformanceContent() {
 
     return (
         <div className="p-6 space-y-6">
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight">Denetçi Performans Sistemleri</h1>
                     <p className="text-muted-foreground mt-2">
                         Denetçi performansını ölçmek ve analiz etmek için geliştirilmiş ekran.
                     </p>
                 </div>
-                <DateRangePicker
-                    value={dateRange}
-                    onChange={setDateRange}
-                />
+                <div className="w-full sm:w-auto">
+                    <DateRangePicker
+                        value={dateRange}
+                        onChange={setDateRange}
+                        className="w-full sm:w-[260px]"
+                    />
+                </div>
             </div>
 
             <Tabs defaultValue="auditors" className="w-full">
@@ -1050,68 +1053,70 @@ export function AuditorPerformanceContent() {
                 <TabsContent value="auditors" className="space-y-4">
                     {/* Grid Layout for Summary and Chart */}
                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-                        <Card className="col-span-4">
+                        <Card className="md:col-span-2 lg:col-span-4 overflow-hidden">
                             <CardHeader>
                                 <CardTitle>Denetmen Özet Tablosu</CardTitle>
                                 <CardDescription>Ortalama denetim süreleri ve puanları</CardDescription>
                             </CardHeader>
-                            <CardContent>
-                                <div className='[&>div]:rounded-sm [&>div]:border'>
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow className='hover:bg-transparent'>
-                                                <TableHead>Denetmen</TableHead>
-                                                <TableHead className="text-center">Top. Denetim</TableHead>
-                                                <TableHead className="text-center">Ort. Süre (sa:dk)</TableHead>
-                                                <TableHead className="text-center">Ort. Puan</TableHead>
-                                                <TableHead></TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {auditorStats.map((stat) => (
-                                                <TableRow key={stat.uid}>
-                                                    <TableCell>
-                                                        <div className='flex items-center gap-3'>
-                                                            <Avatar>
-                                                                <AvatarImage src={stat.photoURL || undefined} alt={stat.name} />
-                                                                <AvatarFallback className='text-xs'>{stat.name.substring(0, 2).toUpperCase()}</AvatarFallback>
-                                                            </Avatar>
-                                                            <div className='font-medium'>{stat.name}</div>
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell className="text-center">{stat.totalAudits}</TableCell>
-                                                    <TableCell className="text-center">{formatDuration(stat.avgDuration)}</TableCell>
-                                                    <TableCell className="text-center">{(stat.avgScore || 0).toFixed(0)}</TableCell>
-                                                    <TableCell>
-                                                        <Sheet>
-                                                            <SheetTrigger asChild>
-                                                                <Button variant="ghost" size="sm">Detay</Button>
-                                                            </SheetTrigger>
-                                                            <SheetContent side="right" className="w-full sm:max-w-3xl overflow-hidden flex flex-col gap-4 p-6">
-                                                                <SheetHeader className="flex-shrink-0">
-                                                                    <SheetTitle>{stat.name} - Denetim Geçmişi</SheetTitle>
-                                                                </SheetHeader>
-                                                                <div className="flex-1 overflow-auto min-h-0">
-                                                                    <DataTable
-                                                                        columns={auditHistoryColumns}
-                                                                        data={stat.audits}
-                                                                        searchKey="storeName"
-                                                                        searchPlaceholder="Mağaza ara..."
-                                                                    />
-                                                                </div>
-                                                            </SheetContent>
-                                                        </Sheet>
-                                                    </TableCell>
+                            <CardContent className="p-0 sm:p-6 overflow-hidden">
+                                <div className='w-full overflow-x-auto'>
+                                    <div className='min-w-[500px] border-y sm:border sm:rounded-md'>
+                                        <Table>
+                                            <TableHeader>
+                                                <TableRow className='hover:bg-transparent'>
+                                                    <TableHead className="pl-4 sm:pl-2">Denetmen</TableHead>
+                                                    <TableHead className="text-center whitespace-nowrap">Top. Denetim</TableHead>
+                                                    <TableHead className="text-center whitespace-nowrap">Ort. Süre (sa:dk)</TableHead>
+                                                    <TableHead className="text-center whitespace-nowrap">Ort. Puan</TableHead>
+                                                    <TableHead className="pr-4 sm:pr-2"></TableHead>
                                                 </TableRow>
-                                            ))}
-                                        </TableBody>
-                                    </Table>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {auditorStats.map((stat) => (
+                                                    <TableRow key={stat.uid}>
+                                                        <TableCell className="whitespace-nowrap">
+                                                            <div className='flex items-center gap-3'>
+                                                                <Avatar>
+                                                                    <AvatarImage src={stat.photoURL || undefined} alt={stat.name} />
+                                                                    <AvatarFallback className='text-xs'>{stat.name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                                                                </Avatar>
+                                                                <div className='font-medium'>{stat.name}</div>
+                                                            </div>
+                                                        </TableCell>
+                                                        <TableCell className="text-center">{stat.totalAudits}</TableCell>
+                                                        <TableCell className="text-center">{formatDuration(stat.avgDuration)}</TableCell>
+                                                        <TableCell className="text-center">{(stat.avgScore || 0).toFixed(0)}</TableCell>
+                                                        <TableCell>
+                                                            <Sheet>
+                                                                <SheetTrigger asChild>
+                                                                    <Button variant="ghost" size="sm">Detay</Button>
+                                                                </SheetTrigger>
+                                                                <SheetContent side="right" className="w-full sm:max-w-3xl overflow-hidden flex flex-col gap-4 p-6">
+                                                                    <SheetHeader className="flex-shrink-0">
+                                                                        <SheetTitle>{stat.name} - Denetim Geçmişi</SheetTitle>
+                                                                    </SheetHeader>
+                                                                    <div className="flex-1 overflow-auto min-h-0">
+                                                                        <DataTable
+                                                                            columns={auditHistoryColumns}
+                                                                            data={stat.audits}
+                                                                            searchKey="storeName"
+                                                                            searchPlaceholder="Mağaza ara..."
+                                                                        />
+                                                                    </div>
+                                                                </SheetContent>
+                                                            </Sheet>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))}
+                                            </TableBody>
+                                        </Table>
+                                    </div>
                                 </div>
                             </CardContent>
                         </Card>
 
                         {/* Hawk/Dove Chart */}
-                        <Card className="col-span-3">
+                        <Card className="md:col-span-2 lg:col-span-3 overflow-hidden">
                             <CardHeader>
                                 <CardTitle>Mağazaya verilen puan ortalaması</CardTitle>
                                 <CardDescription>Ortalama puan dağılımı</CardDescription>
@@ -1121,14 +1126,14 @@ export function AuditorPerformanceContent() {
                                     {hawkDoveData.length > 0 ? (
                                         <div className="space-y-3">
                                             {hawkDoveData.map((item, idx) => (
-                                                <div 
-                                                    key={idx} 
+                                                <div
+                                                    key={idx}
                                                     className="flex items-center gap-3 cursor-pointer hover:bg-muted/50 p-2 rounded-lg transition-colors"
                                                     onClick={() => handleBarClick(item)}
                                                 >
                                                     <div className="w-24 font-medium text-sm truncate">{item.name}</div>
                                                     <div className="flex-1 h-6 bg-muted rounded-full overflow-hidden">
-                                                        <div 
+                                                        <div
                                                             className="h-full bg-blue-500 rounded-full transition-all"
                                                             style={{ width: `${item.score}%` }}
                                                         />
@@ -1150,16 +1155,16 @@ export function AuditorPerformanceContent() {
                     </div>
 
                     {/* Section/Category Analysis */}
-                    <Card>
+                    <Card className="overflow-hidden">
                         <CardHeader>
                             <CardTitle>Bölüm Bazlı Puan Ortalamaları</CardTitle>
                             <CardDescription>Denetmenlerin bölümlere verdiği ortalama puanlar ve genel sapmalar (%)</CardDescription>
                         </CardHeader>
-                        <CardContent>
+                        <CardContent className="p-0 sm:p-6 overflow-hidden">
                             {Object.keys(deviationDataByAuditType).length > 0 ? (
                                 <Tabs defaultValue={Object.keys(deviationDataByAuditType)[0]} className="w-full">
-                                    <TabsList 
-                                        className="grid w-full lg:w-fit" 
+                                    <TabsList
+                                        className="grid w-full lg:w-fit"
                                         style={{ gridTemplateColumns: `repeat(${Object.keys(deviationDataByAuditType).length}, minmax(150px, 1fr))` }}
                                     >
                                         {Object.keys(deviationDataByAuditType).map((typeName) => (
@@ -1168,31 +1173,37 @@ export function AuditorPerformanceContent() {
                                             </TabsTrigger>
                                         ))}
                                     </TabsList>
-                                    
+
                                     {Object.entries(deviationDataByAuditType).map(([typeName, dataRows]) => (
                                         <TabsContent key={typeName} value={typeName} className="mt-0 outline-none">
-                                            <Table>
-                                                <TableHeader>
-                                                    <TableRow>
-                                                        <TableHead>Bölüm/Kategori</TableHead>
-                                                        {auditorNames.map((name, idx) => (
-                                                            <TableHead key={idx} className="text-right">{name}</TableHead>
-                                                        ))}
-                                                    </TableRow>
-                                                </TableHeader>
-                                                <TableBody>
-                                                    {dataRows.map((row, idx) => (
-                                                        <TableRow key={idx}>
-                                                            <TableCell className="font-medium">{row.category}</TableCell>
-                                                            {auditorNames.map((name, aIdx) => (
-                                                                <TableCell key={aIdx} className="text-right">
-                                                                    {(Number.isNaN(row[name]) || row[name] === undefined) ? "-" : row[name]}
-                                                                </TableCell>
+                                            <div className='w-full overflow-x-auto'>
+                                                <div className='min-w-[500px] border-y sm:border sm:rounded-md mt-4 sm:mt-0'>
+                                                    <Table>
+                                                        <TableHeader>
+                                                            <TableRow className='hover:bg-transparent'>
+                                                                <TableHead className="pl-4 sm:pl-2 whitespace-nowrap">Bölüm/Kategori</TableHead>
+                                                                {auditorNames.map((name, idx) => (
+                                                                    <TableHead key={idx} className="text-right whitespace-nowrap">{name}</TableHead>
+                                                                ))}
+                                                                <TableHead className="pr-4 sm:pr-2"></TableHead>
+                                                            </TableRow>
+                                                        </TableHeader>
+                                                        <TableBody>
+                                                            {dataRows.map((row, idx) => (
+                                                                <TableRow key={idx}>
+                                                                    <TableCell className="font-medium whitespace-nowrap pl-4 sm:pl-2">{row.category}</TableCell>
+                                                                    {auditorNames.map((name, aIdx) => (
+                                                                        <TableCell key={aIdx} className="text-right whitespace-nowrap">
+                                                                            {(Number.isNaN(row[name]) || row[name] === undefined) ? "-" : row[name]}
+                                                                        </TableCell>
+                                                                    ))}
+                                                                    <TableCell className="pr-4 sm:pr-2"></TableCell>
+                                                                </TableRow>
                                                             ))}
-                                                        </TableRow>
-                                                    ))}
-                                                </TableBody>
-                                            </Table>
+                                                        </TableBody>
+                                                    </Table>
+                                                </div>
+                                            </div>
                                         </TabsContent>
                                     ))}
                                 </Tabs>
@@ -1210,27 +1221,31 @@ export function AuditorPerformanceContent() {
                             <CardTitle>Mağaza Süre İstatistikleri</CardTitle>
                             <CardDescription>Mağazalara göre ortalama denetim süreleri</CardDescription>
                         </CardHeader>
-                        <CardContent>
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Mağaza</TableHead>
-                                        <TableHead className="text-right">Top. Denetim</TableHead>
-                                        <TableHead className="text-right">Ort. Süre (dk)</TableHead>
-                                        <TableHead className="text-right">Ort. Puan</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {storeStats.map((stat) => (
-                                        <TableRow key={stat.id}>
-                                            <TableCell className="font-medium">{stat.name}</TableCell>
-                                            <TableCell className="text-right">{stat.totalAudits}</TableCell>
-                                            <TableCell className="text-right">{(stat.avgDuration || 0).toFixed(1)}</TableCell>
-                                            <TableCell className="text-right">{(stat.avgScore || 0).toFixed(1)}</TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
+                        <CardContent className="p-0 sm:p-6 overflow-hidden">
+                            <div className='w-full overflow-x-auto'>
+                                <div className='min-w-[500px] border-y sm:border sm:rounded-md'>
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow className='hover:bg-transparent'>
+                                                <TableHead className="pl-4 sm:pl-2">Mağaza</TableHead>
+                                                <TableHead className="text-right whitespace-nowrap">Top. Denetim</TableHead>
+                                                <TableHead className="text-right whitespace-nowrap">Ort. Süre (dk)</TableHead>
+                                                <TableHead className="text-right whitespace-nowrap pr-4 sm:pr-2">Ort. Puan</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {storeStats.map((stat) => (
+                                                <TableRow key={stat.id}>
+                                                    <TableCell className="font-medium whitespace-nowrap">{stat.name}</TableCell>
+                                                    <TableCell className="text-right">{stat.totalAudits}</TableCell>
+                                                    <TableCell className="text-right">{(stat.avgDuration || 0).toFixed(1)}</TableCell>
+                                                    <TableCell className="text-right">{(stat.avgScore || 0).toFixed(1)}</TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </div>
+                            </div>
                         </CardContent>
                     </Card>
                 </TabsContent>
@@ -1274,7 +1289,7 @@ export function AuditorPerformanceContent() {
                             {monthlyData.map((data, idx) => (
                                 <div key={idx} className="flex flex-col items-center gap-1">
                                     <span className="text-xs font-bold">{data.avgScore > 0 ? data.avgScore.toFixed(0) : ''}</span>
-                                    <div 
+                                    <div
                                         className="w-full bg-blue-500 rounded-t transition-all"
                                         style={{ height: `${data.avgScore * 2.5}px` }}
                                     />

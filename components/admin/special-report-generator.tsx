@@ -770,6 +770,9 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
                                                                              src={getProxiedUrl(p)} 
                                                                              data-original-url={p}
                                                                              onClick={() => setSelectedImage(getProxiedUrl(p))}
+                                                                             onError={(e) => {
+                                                                                 (e.target as HTMLImageElement).style.display = 'none';
+                                                                             }}
                                                                              style={{ 
                                                                                  width: '80px', 
                                                                                  height: '80px', 
@@ -779,6 +782,7 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
                                                                                  cursor: 'pointer' 
                                                                              }} 
                                                                              crossOrigin="anonymous" 
+                                                                             alt={`Soru fotoğrafı ${pi + 1}`}
                                                                          />
                                                                      ))}
                                                                 </div>
@@ -869,8 +873,12 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
                                                                         src={getProxiedUrl(img)} 
                                                                         data-original-url={img}
                                                                         onClick={() => setSelectedImage(getProxiedUrl(img))}
+                                                                        onError={(e) => {
+                                                                            (e.target as HTMLImageElement).parentElement!.style.display = 'none';
+                                                                        }}
                                                                         style={{ maxWidth: '100%', height: 'auto', objectFit: 'contain', cursor: 'pointer' }} 
                                                                         crossOrigin="anonymous" 
+                                                                        alt={`Bölüm geri bildirim fotoğrafı ${i + 1}`}
                                                                     />
                                                                  </div>
                                                              ))}
@@ -912,8 +920,12 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
                                                        src={getProxiedUrl(img)} 
                                                        data-original-url={img}
                                                        onClick={() => setSelectedImage(getProxiedUrl(img))}
+                                                       onError={(e) => {
+                                                           (e.target as HTMLImageElement).parentElement!.style.display = 'none';
+                                                       }}
                                                        style={{ maxWidth: '100%', height: 'auto', objectFit: 'contain', cursor: 'pointer' }} 
                                                        crossOrigin="anonymous" 
+                                                       alt={`Genel geri bildirim fotoğrafı ${i + 1}`}
                                                    />
                                                 </div>
                                             ))}
@@ -949,7 +961,11 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
                         <img 
                             src={selectedImage || undefined} 
                             alt="Önizleme" 
-                            className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl"
+                            onError={(e) => {
+                                // Fallback for modal
+                                (e.target as HTMLImageElement).src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 24 24" fill="none" stroke="%23ccc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="1" y1="1" x2="23" y2="23"></line><path d="M21 21H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h3m3-3h6l2 3h4a2 2 0 0 1 2 2v9.34m-7.72-2.06a4 4 0 1 1-5.56-5.56"></path></svg>';
+                            }}
+                            className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl bg-white"
                         />
                         <button 
                             onClick={() => setSelectedImage(null)}

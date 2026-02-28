@@ -2,13 +2,19 @@
 
 ```json
 {
-  "version": "2.2.45",
-  "build": "107",
+  "version": "2.2.46",
+  "build": "108",
   "status": "stable"
 }
 ```
 
 ## Changelog
+
+### v2.2.46
+- **Rol Yönetimi (Rapor Yöneticisi):** "Rapor Yöneticisi" adlı yeni kullanıcı rolü sisteme dahil edildi. Bu roldeki kişiler yalnızca veri okuma/görüntüleme yetkisine sahiptir, CRUD işlemleri (silme, düzenleme vb.) yapamazlar. "Özel Raporda Puanlar Görünsün" yetkileri vs. devreden çıkarılmıştır.
+- **Rapor Paneli (SPA & UI):** Yönetici paneli, sayfa yenilenmeyen SPA (Single Page Application) formatında 0 milisaniye gecikmeli çalışacak şekilde tasarlandı. Üst menü (header) ve kenar çubuğundaki rozetlerde "Rapor Yöneticisi" yazısı daha sade bir görünüm için "Yönetici" olarak kısaltıldı.
+- **UI (Mobil Rapor Tabloları):** Tüm rapor ekranlarındaki (Soru Raporları, Denetçi Aksiyon & Performans Raporları) filtre barı (toolbar) taşmaları `flex-wrap` ile çözüldü. Tarih seçiciler mobil genişliğe %100 uyumlu hale getirildi. 
+- **UI (Mobil Overflow Kayması):** "Denetmen Özet Tablosu", "Bölüm Bazlı Puan Ortalamaları" ve "Mağaza Süre Analizi" gibi büyük grid/tablo bileşenlerinin mobil ekran genişliğini bozup patlatması kesin "overflow-x-auto" sarmalayıcıları (wrappers) ile önlendi; tablolar artık mobil ekranda kendi etrafında sağa-sola kaydırılabiliyor.
 
 ### v2.2.45
 - **Denetmen Programı (PDF İndirme):** Taslak anında (yayınlamadan önce) haftalık denetim programı PDF indirildiğinde hafta sonlarının hatalı/boş görünmesi engellendi. Hafta sonu günleri için artık sistem veritabanı yansımasını beklemeye gerek kalmadan otomatik olarak "Hafta Tatili" ibaresini PDF üzerine işliyor, "hiçbir atama yapılmamış" kural ihlali uyarısı hafta sonları için by-pass ediliyor.

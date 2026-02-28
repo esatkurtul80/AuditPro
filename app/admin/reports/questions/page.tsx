@@ -436,12 +436,12 @@ export default function QuestionAnalysisPage() {
                         alignToolbar="end"
                         pageSizeOptions={[10, 20, 50, 100, 200]}
                         toolbar={(table) => (
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
                                 <Select value={selectedManagerId} onValueChange={(val) => {
                                     setSelectedManagerId(val);
                                     setSelectedStoreId("all"); // Reset store when region changes
                                 }}>
-                                    <SelectTrigger className="w-[180px]">
+                                    <SelectTrigger className="w-full sm:w-[180px]">
                                         <SelectValue placeholder="Bölge Müdürü" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -455,7 +455,7 @@ export default function QuestionAnalysisPage() {
                                 </Select>
 
                                 <Select value={selectedStoreId} onValueChange={setSelectedStoreId}>
-                                    <SelectTrigger className="w-[180px]">
+                                    <SelectTrigger className="w-full sm:w-[180px]">
                                         <SelectValue placeholder="Mağaza Seçin" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -470,63 +470,64 @@ export default function QuestionAnalysisPage() {
                                     </SelectContent>
                                 </Select>
 
-                                <span className="text-muted-foreground mx-1">|</span>
+                                <div className="flex items-center gap-2 w-full sm:w-auto">
+                                    <Popover>
+                                        <PopoverTrigger asChild>
+                                            <Button
+                                                variant={"outline"}
+                                                className={cn(
+                                                    "flex-1 sm:w-[140px] justify-start text-left font-normal text-xs",
+                                                    !startDate && "text-muted-foreground"
+                                                )}
+                                            >
+                                                <CalendarIcon className="mr-1.5 h-3.5 w-3.5 shrink-0" />
+                                                {startDate ? format(startDate, "d MMM y", { locale: tr }) : <span>Başlangıç</span>}
+                                            </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-auto p-0" align="end">
+                                            <Calendar
+                                                mode="single"
+                                                selected={startDate}
+                                                onSelect={setStartDate}
+                                                initialFocus
+                                                locale={tr}
+                                            />
+                                        </PopoverContent>
+                                    </Popover>
 
-                                <Popover>
-                                    <PopoverTrigger asChild>
-                                        <Button
-                                            variant={"outline"}
-                                            className={cn(
-                                                "w-[180px] justify-start text-left font-normal",
-                                                !startDate && "text-muted-foreground"
-                                            )}
-                                        >
-                                            <CalendarIcon className="mr-2 h-4 w-4" />
-                                            {startDate ? format(startDate, "d MMM y", { locale: tr }) : <span>Başlangıç Tarihi</span>}
-                                        </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0" align="end">
-                                        <Calendar
-                                            mode="single"
-                                            selected={startDate}
-                                            onSelect={setStartDate}
-                                            initialFocus
-                                            locale={tr}
-                                        />
-                                    </PopoverContent>
-                                </Popover>
+                                    <span className="text-muted-foreground">-</span>
 
-                                <span className="text-muted-foreground">-</span>
-
-                                <Popover>
-                                    <PopoverTrigger asChild>
-                                        <Button
-                                            variant={"outline"}
-                                            className={cn(
-                                                "w-[180px] justify-start text-left font-normal",
-                                                !endDate && "text-muted-foreground"
-                                            )}
-                                        >
-                                            <CalendarIcon className="mr-2 h-4 w-4" />
-                                            {endDate ? format(endDate, "d MMM y", { locale: tr }) : <span>Bitiş Tarihi</span>}
-                                        </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0" align="end">
-                                        <Calendar
-                                            mode="single"
-                                            selected={endDate}
-                                            onSelect={setEndDate}
-                                            initialFocus
-                                            locale={tr}
-                                        />
-                                    </PopoverContent>
-                                </Popover>
+                                    <Popover>
+                                        <PopoverTrigger asChild>
+                                            <Button
+                                                variant={"outline"}
+                                                className={cn(
+                                                    "flex-1 sm:w-[140px] justify-start text-left font-normal text-xs",
+                                                    !endDate && "text-muted-foreground"
+                                                )}
+                                            >
+                                                <CalendarIcon className="mr-1.5 h-3.5 w-3.5 shrink-0" />
+                                                {endDate ? format(endDate, "d MMM y", { locale: tr }) : <span>Bitiş</span>}
+                                            </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-auto p-0" align="end">
+                                            <Calendar
+                                                mode="single"
+                                                selected={endDate}
+                                                onSelect={setEndDate}
+                                                initialFocus
+                                                locale={tr}
+                                            />
+                                        </PopoverContent>
+                                    </Popover>
+                                </div>
 
                                 <Button
                                     variant="outline"
+                                    size="sm"
                                     onClick={() => exportToExcel(table.getSortedRowModel().rows.map((row: any) => row.original))}
                                     disabled={table.getFilteredRowModel().rows.length === 0}
-                                    className="ml-2"
+                                    className="w-full sm:w-auto"
                                 >
                                     <Download className="mr-2 h-4 w-4" />
                                     Excel İndir

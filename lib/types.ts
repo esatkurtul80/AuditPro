@@ -1,7 +1,7 @@
 import { Timestamp } from "firebase/firestore";
 
 // User types
-export type UserRole = "admin" | "denetmen" | "magaza" | "bolge-muduru" | "pending";
+export type UserRole = "admin" | "denetmen" | "magaza" | "bolge-muduru" | "rapor-yoneticisi" | "pending";
 
 export interface UserProfile {
     uid: string;
@@ -193,7 +193,7 @@ export interface Audit {
     // Action Management
     actionDeadline?: Timestamp;
     allActionsResolved?: boolean;
-    
+
     // Store Panel specific
     hasActions?: boolean;
     actionStats?: ActionStats;
@@ -206,6 +206,9 @@ export interface Audit {
         images?: string[];
         type?: "important" | "note" | "suggestion" | null;
     };
+
+    // Personnel evaluations linked to this audit
+    personnelEvaluations?: PersonnelEvaluation[];
 }
 
 export interface ActionStats {
@@ -318,14 +321,14 @@ export interface Announcement {
     createdAt: Timestamp;
     stats?: { total: number; sent: number };
     read?: boolean; // Client-side prop
-    
+
     // Server-side read tracking
     readBy?: Array<{
         userId: string;
         userName: string;
         readAt: Timestamp;
     }>;
-    
+
     labels?: string[];
     isArchived?: boolean;
     isDeleted?: boolean;

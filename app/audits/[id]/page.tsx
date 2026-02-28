@@ -36,7 +36,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Upload, X, CheckCircle2, ArrowLeft, Circle, Plus, Save, WifiOff, Clock, Star, ChevronRight, AlertCircle, MoreHorizontal, ClipboardList, MessageSquare, UserCircle } from "lucide-react";
+import { Loader2, Upload, X, CheckCircle2, ArrowLeft, Circle, Plus, Save, WifiOff, Clock, Star, ChevronRight, AlertCircle, MoreHorizontal, ClipboardList, MessageSquare, UserCircle, Eye } from "lucide-react";
 import { toast } from "sonner";
 import * as LucideIcons from "lucide-react";
 import Link from "next/link";
@@ -95,6 +95,7 @@ export default function AuditPage() {
     const [isDirty, setIsDirty] = useState(false);
     const [validationErrors, setValidationErrors] = useState<{ photos: string[], notes: string[] }>({ photos: [], notes: [] });
     const [showValidationModal, setShowValidationModal] = useState(false);
+    const [showPreviewModal, setShowPreviewModal] = useState(false);
     const [historyCache, setHistoryCache] = useState<Record<string, QuestionHistory>>({});
     const [personnelStatus, setPersonnelStatus] = useState<{ total: number, evaluated: number, initialized: boolean }>({ total: 0, evaluated: 0, initialized: false });
 
@@ -106,6 +107,27 @@ export default function AuditPage() {
     const generalFeedbackRef = useRef<HTMLTextAreaElement>(null);
 
     const isRegionalManager = userProfile?.role === 'bolge-muduru';
+
+    const handleOpenPreview = async (e: React.MouseEvent) => {
+        e.preventDefault();
+        
+        if (audit) {
+            try {
+                // Önizleme için en güncel personel değerlendirmelerini çek
+                const pQuery = query(collection(db, "personnel_evaluations"), where("auditId", "==", audit.id));
+                const pSnap = await getDocs(pQuery);
+                const pEvals = pSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+                
+                setAudit(prev => {
+                    if (!prev) return prev;
+                    return { ...prev, personnelEvaluations: pEvals };
+                });
+            } catch (error) {
+                console.error("Önizleme verileri yüklenirken hata:", error);
+            }
+        }
+        setShowPreviewModal(true);
+    };
 
     const canEdit = mode === "edit";
 
@@ -733,16 +755,10 @@ export default function AuditPage() {
         setCompleting(true);
 
         try {
-            // Calculate deadline (3 working days, excluding Sunday)
+            // Calculate deadline (exact 3 days)
             const calculateActionDeadline = () => {
                 let date = new Date();
-                let daysAdded = 0;
-                while (daysAdded < 3) {
-                    date.setDate(date.getDate() + 1);
-                    if (date.getDay() !== 0) { // 0 is Sunday
-                        daysAdded++;
-                    }
-                }
+                date.setDate(date.getDate() + 3);
                 return Timestamp.fromDate(date);
             };
 
@@ -1267,19 +1283,69 @@ export default function AuditPage() {
 
     return (
         <AuditPageLayout isRegionalManager={isRegionalManager}>
-            <div className="container mx-auto py-3 px-4 md:px-6">
-                <div className="mb-6 flex items-center justify-between">
-                    {currentSectionIndex !== null ? (
+            <div className="container mx-auto pb-3 px-4 md:px-6">
+                <div className="sticky top-0 z-30 mb-4 -mx-4 md:-mx-6 px-4 md:px-6 py-2 bg-background/95 backdrop-blur border-b border-border/50 shadow-sm">
+                <div className="flex flex-row items-center gap-1.5 sm:gap-3 w-full">
+                    {currentSectionIndex !== null ? (() => {
+                        let sectionName = "";
+                        let sectionScoreText: string | number = "";
+                        
+                        if (currentSectionIndex === 'personnel') {
+                            sectionName = "Personel Değerlendirme";
+                            sectionScoreText = "-";
+                        } else if (currentSectionIndex === 'general') {
+                            sectionName = "Genel Değerlendirme";
+                            sectionScoreText = "-";
+                        } else if (typeof currentSectionIndex === 'number') {
+                            const section = audit.sections?.[currentSectionIndex];
+                            sectionName = section?.sectionName || "";
+                            
+                            let sectionEarned = 0;
+                            let sectionMax = 0;
+                            
+                            if (section?.answers) {
+                                section.answers.forEach((answer: any) => {
+                                    if (answer.answer && answer.answer.trim() !== "" && answer.answer !== "muaf") {
+                                        sectionEarned += answer.earnedPoints || 0;
+                                        sectionMax += answer.maxPoints || 0;
+                                    }
+                                });
+                            }
+                            
+                            sectionScoreText = sectionMax > 0 ? Math.round((sectionEarned / sectionMax) * 100) : 0;
+                        }
+
+                        return (
+                            <div className="flex flex-row items-center w-full relative h-[48px]">
+                                {/* Geri Dön butonu - Sabit Sol */}
+                                <div className="absolute left-0">
+                                    <Button
+                                        className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-md shadow-purple-500/20"
+                                        onClick={handleBack}
+                                    >
+                                        <ArrowLeft className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 shrink-0" />
+                                        <span className="truncate">Geri Dön</span>
+                                    </Button>
+                                </div>
+
+                                {/* Bölüm Başlığı - Tam Orta */}
+                                <div className="flex-1 flex justify-center px-[120px]">
+                                    <h2 className="text-xl md:text-2xl font-bold text-slate-800 dark:text-slate-100 hidden sm:block truncate text-center">
+                                        {sectionName}
+                                    </h2>
+                                </div>
+
+                                {/* Puan Dairesi - Sabit Sağ */}
+                                <div className="absolute right-0 flex items-center justify-center w-12 h-12 bg-white dark:bg-slate-800 rounded-full shadow-md border border-blue-100 dark:border-blue-800 shrink-0">
+                                    <div className="text-lg font-bold text-blue-600 dark:text-blue-400 leading-none">
+                                        {sectionScoreText}
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })() : (
                         <Button
-                            className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-md shadow-purple-500/20"
-                            onClick={handleBack}
-                        >
-                            <ArrowLeft className="mr-2 h-4 w-4" />
-                            Geri Dön
-                        </Button>
-                    ) : (
-                        <Button
-                            className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-md shadow-purple-500/20"
+                            className="flex-1 px-1 sm:px-4 text-[11px] sm:text-sm h-9 sm:h-10 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-md shadow-purple-500/20"
                             onClick={() => {
                                 const backDestination = userProfile?.role === 'admin' ? '/admin/dashboard'
                                     : userProfile?.role === 'magaza' ? '/magaza/panel'
@@ -1296,37 +1362,47 @@ export default function AuditPage() {
                                 }
                             }}
                         >
-                            <ArrowLeft className="mr-2 h-4 w-4" />
-                            Geri Dön
+                            <ArrowLeft className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 shrink-0" />
+                            <span className="truncate">Geri Dön</span>
                         </Button>
                     )}
-                    <div className="flex gap-2">
-                        {isEditMode && (
+
+                    {isEditMode && (
+                        <Button
+                            onClick={saveAndNotify}
+                            disabled={saving}
+                            className="flex-1 px-1 sm:px-4 text-[11px] sm:text-sm h-9 sm:h-10 bg-blue-600 hover:bg-blue-700 shadow-md"
+                        >
+                            {saving ? (
+                                <>
+                                    <Loader2 className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 animate-spin shrink-0" />
+                                    <span className="truncate">Kaydediliyor...</span>
+                                </>
+                            ) : (
+                                <>
+                                    <Save className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 shrink-0" />
+                                    <span className="truncate">Kaydet</span>
+                                </>
+                            )}
+                        </Button>
+                    )}
+                    
+                    {!isCompleted && currentSectionIndex === null && (
+                        <>
                             <Button
-                                onClick={saveAndNotify}
-                                disabled={saving}
-                                size="lg"
-                                className="bg-blue-600 hover:bg-blue-700"
+                                onClick={handleOpenPreview}
+                                disabled={!audit}
+                                variant="outline"
+                                className="flex-1 px-1 sm:px-4 text-[11px] sm:text-sm h-9 sm:h-10 border-blue-200 text-blue-700 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-300 dark:hover:bg-blue-900/50 shadow-sm"
+                                title="Eksikleri ve mevcut durumu önizleyin"
                             >
-                                {saving ? (
-                                    <>
-                                        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                                        Kaydediliyor...
-                                    </>
-                                ) : (
-                                    <>
-                                        <Save className="mr-2 h-5 w-5" />
-                                        Kaydet
-                                    </>
-                                )}
+                                <Eye className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 shrink-0" />
+                                <span className="truncate">Önizleme</span>
                             </Button>
-                        )}
-                        {!isCompleted && currentSectionIndex === null && (
                             <Button
                                 onClick={completeAudit}
                                 disabled={completing || hasPending || !isOnline}
-                                size="lg"
-                                className="bg-blue-600 hover:bg-blue-700 text-white shadow-md"
+                                className="flex-1 px-1 sm:px-4 text-[11px] sm:text-sm h-9 sm:h-10 bg-blue-600 hover:bg-blue-700 text-white shadow-md"
                                 title={
                                     !isOnline
                                         ? "Denetimi tamamlamak için internet bağlantısı gerekli"
@@ -1337,28 +1413,29 @@ export default function AuditPage() {
                             >
                                 {completing ? (
                                     <>
-                                        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                                        Tamamlanıyor...
+                                        <Loader2 className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 animate-spin shrink-0" />
+                                        <span className="truncate">Tamamlanıyor...</span>
                                     </>
                                 ) : !isOnline ? (
                                     <>
-                                        <WifiOff className="mr-2 h-5 w-5" />
-                                        Offline - Tamamlanamaz
+                                        <WifiOff className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 shrink-0" />
+                                        <span className="truncate">Offline</span>
                                     </>
                                 ) : hasPending ? (
                                     <>
-                                        <Clock className="mr-2 h-5 w-5" />
-                                        Senkronizasyon Bekleniyor...
+                                        <Clock className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 shrink-0" />
+                                        <span className="truncate">Bekleniyor...</span>
                                     </>
                                 ) : (
                                     <>
-                                        <CheckCircle2 className="mr-2 h-5 w-5" />
-                                        Denetimi Tamamla
+                                        <CheckCircle2 className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 shrink-0" />
+                                        <span className="truncate">Tamamla</span>
                                     </>
                                 )}
                             </Button>
-                        )}
-                    </div>
+                        </>
+                    )}
+                </div>
                 </div>
 
                 {currentSectionIndex === null && (
@@ -1579,6 +1656,7 @@ export default function AuditPage() {
                                                     variant="outline"
                                                     size="sm"
                                                     className="hover:bg-red-50 hover:text-red-600 border-slate-200 dark:border-slate-800"
+                                                    onMouseDown={(e) => e.preventDefault()}
                                                     onClick={() => {
                                                         const el = generalFeedbackRef.current;
                                                         const currentNote = audit?.generalFeedback?.note || "";
@@ -1606,6 +1684,7 @@ export default function AuditPage() {
                                                     variant="outline"
                                                     size="sm"
                                                     className="hover:bg-green-50 hover:text-green-600 border-slate-200 dark:border-slate-800"
+                                                    onMouseDown={(e) => e.preventDefault()}
                                                     onClick={() => {
                                                         const el = generalFeedbackRef.current;
                                                         const currentNote = audit?.generalFeedback?.note || "";
@@ -1633,6 +1712,7 @@ export default function AuditPage() {
                                                     variant="outline"
                                                     size="sm"
                                                     className="hover:bg-blue-50 hover:text-blue-600 border-slate-200 dark:border-slate-800"
+                                                    onMouseDown={(e) => e.preventDefault()}
                                                     onClick={() => {
                                                         const el = generalFeedbackRef.current;
                                                         const currentNote = audit?.generalFeedback?.note || "";
@@ -1683,6 +1763,9 @@ export default function AuditPage() {
                                                     onUploadEnd={() => setUploading(false)}
                                                     syncingImages={syncingImageUrls}
                                                     uploadedImages={uploadedImageUrls}
+                                                    auditorName={audit?.auditorName}
+                                                    storeName={audit?.storeName}
+                                                    sectionName="Genel Değerlendirme"
                                                 />
                                             </div>
                                         </div>
@@ -1693,42 +1776,6 @@ export default function AuditPage() {
                     ) : (
                         // SECTION DETAIL VIEW
                         <div className="space-y-6 transition-all duration-500 ease-out animate-in fade-in slide-in-from-bottom-8">
-                            {/* Section Header with Score */}
-                            {audit.sections[currentSectionIndex] && (() => {
-                                const section = audit.sections[currentSectionIndex];
-                                let sectionEarned = 0;
-                                let sectionMax = 0;
-                                section.answers.forEach(answer => {
-                                    if (answer.answer && answer.answer.trim() !== "" && answer.answer !== "muaf") {
-                                        sectionEarned += answer.earnedPoints;
-                                        sectionMax += answer.maxPoints;
-                                    }
-                                });
-                                const sectionScore = sectionMax > 0 ? Math.round((sectionEarned / sectionMax) * 100) : 0;
-
-                                return (
-                                    <div 
-                                        className="flex items-center justify-between mb-6 p-4 bg-blue-50/50 dark:bg-blue-900/10 rounded-lg border border-blue-100 dark:border-blue-800 select-none"
-                                        onTouchStart={() => handleTouchStart(currentSectionIndex)}
-                                        onTouchEnd={handleTouchEnd}
-                                        onContextMenu={(e) => onContextMenu(e, currentSectionIndex)}
-                                    >
-                                        <div>
-                                            <h2 className="text-2xl font-bold text-blue-950 dark:text-blue-50">{section.sectionName}</h2>
-                                            {section.description && (
-                                                <p className="text-base text-blue-800/70 dark:text-blue-200/70 mt-1">
-                                                    {section.description}
-                                                </p>
-                                            )}
-                                        </div>
-                                        <div className="flex items-center justify-center w-14 h-14 bg-white dark:bg-slate-800 rounded-full shadow-md border border-blue-100 dark:border-blue-800">
-                                            <div className="text-xl font-bold text-blue-600 dark:text-blue-400">
-                                                {sectionScore}
-                                            </div>
-                                        </div>
-                                    </div>
-                                );
-                            })()}
                             {audit.sections[currentSectionIndex].answers.map((answer, answerIndex) => (
                                 <Card key={answerIndex} className="p-4 border shadow-sm hover:shadow-md transition-shadow bg-blue-50/30 dark:bg-blue-900/5 border-blue-200 dark:border-blue-800">
                                     <div className="space-y-4">
@@ -1745,13 +1792,14 @@ export default function AuditPage() {
                                             </div>
                                             <div className="flex flex-col gap-2 items-end shrink-0">
                                                 {answer.answer === "muaf" ? (
-                                                    <Badge className="bg-orange-500 hover:bg-orange-600">
-                                                        Muaf
-                                                    </Badge>
+                                                    <div className="flex items-center justify-center w-12 h-12 rounded-full border-2 border-orange-500 bg-orange-50 dark:bg-orange-950/30 text-orange-600 dark:text-orange-400 font-bold text-xs shadow-sm">
+                                                        MUAF
+                                                    </div>
                                                 ) : (
-                                                    <Badge variant="outline">
-                                                        {answer.maxPoints} Puan
-                                                    </Badge>
+                                                    <div className="flex flex-col items-center justify-center w-12 h-12 rounded-full border-2 border-blue-200 dark:border-blue-800 bg-white dark:bg-slate-900 shadow-sm">
+                                                        <span className="font-bold text-base text-blue-700 dark:text-blue-400 leading-none">{answer.maxPoints}</span>
+                                                        <span className="text-[9px] text-blue-600/70 dark:text-blue-400/70 uppercase leading-none mt-0.5 font-medium">Puan</span>
+                                                    </div>
                                                 )}
                                                 <QuestionHistoryButton
                                                     storeId={audit.storeId}
@@ -2136,6 +2184,9 @@ export default function AuditPage() {
                                                         onUploadEnd={() => setUploading(false)}
                                                         syncingImages={syncingImageUrls}
                                                         uploadedImages={uploadedImageUrls}
+                                                        auditorName={audit?.auditorName}
+                                                        storeName={audit?.storeName}
+                                                        sectionName={audit.sections[currentSectionIndex]?.sectionName}
                                                     />
                                                 </div>
                                             </div>
@@ -2270,6 +2321,9 @@ export default function AuditPage() {
                                                     onUploadEnd={() => setUploading(false)}
                                                     syncingImages={syncingImageUrls}
                                                     uploadedImages={uploadedImageUrls}
+                                                    auditorName={audit?.auditorName}
+                                                    storeName={audit?.storeName}
+                                                    sectionName={audit.sections[currentSectionIndex]?.sectionName}
                                                 />
                                             </div>
                                         </div>
@@ -2419,6 +2473,44 @@ export default function AuditPage() {
                                     className="bg-blue-600 hover:bg-blue-700"
                                 >
                                     Anladım
+                                </AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
+
+                    {/* Preview Modal */}
+                    <AlertDialog open={showPreviewModal} onOpenChange={setShowPreviewModal}>
+                        <AlertDialogContent className="w-[95vw] max-w-5xl h-[90vh] max-h-[90vh] flex flex-col p-0 gap-0 overflow-hidden">
+                            <AlertDialogHeader className="px-6 py-4 border-b bg-slate-50 dark:bg-slate-900/50 flex-shrink-0 flex flex-row items-center justify-between">
+                                <div>
+                                    <AlertDialogTitle className="text-xl flex items-center gap-2">
+                                        <Eye className="h-5 w-5 text-blue-600" />
+                                        Denetim Önizleme
+                                    </AlertDialogTitle>
+                                    <AlertDialogDescription className="mt-1">
+                                        Tamamlamadan önce mevcut durumun özetini inceleyin. Değişiklik yapmak için kapatın.
+                                    </AlertDialogDescription>
+                                </div>
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => setShowPreviewModal(false)}
+                                    className="h-8 w-8 rounded-full"
+                                >
+                                    <X className="h-4 w-4" />
+                                </Button>
+                            </AlertDialogHeader>
+
+                            <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-50/50 dark:bg-slate-950/50">
+                                {audit && <AuditSummary audit={audit} isPreview={true} showRestrictedFeedback={true} />}
+                            </div>
+
+                            <AlertDialogFooter className="px-6 py-4 border-t bg-slate-50 dark:bg-slate-900/50 flex-shrink-0 sm:justify-end">
+                                <AlertDialogAction
+                                    onClick={() => setShowPreviewModal(false)}
+                                    className="bg-slate-800 hover:bg-slate-900 text-white w-full sm:w-auto"
+                                >
+                                    Kapat ve Forma Dön
                                 </AlertDialogAction>
                             </AlertDialogFooter>
                         </AlertDialogContent>

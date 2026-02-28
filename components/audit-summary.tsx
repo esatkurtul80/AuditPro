@@ -8,12 +8,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Star, FileText, Image as ImageIcon, ChevronDown, ChevronUp, CheckCircle2, XCircle, AlertCircle, Download } from "lucide-react";
+import { Star, FileText, Image as ImageIcon, ChevronDown, ChevronUp, CheckCircle2, XCircle, AlertCircle, Download, ChevronRight, Camera, AlertTriangle, Info, Lightbulb, Clock, UserCircle, MessageSquare } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useMediaQuery } from "@/hooks/use-media-query";
 
-interface AuditSummaryProps { audit: Audit; }
+interface AuditSummaryProps { audit: Audit; isPreview?: boolean; }
 
 function isIncompleteAnswer(answer: AuditAnswer): boolean {
   if (!answer.answer || answer.answer.trim() === "" || answer.answer === "muaf") return false;
@@ -48,8 +48,15 @@ function formatDate(timestamp: any): string {
   const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
   return date.toLocaleDateString('tr-TR');
 }
+interface AuditSummaryProps {
+  audit: Audit;
+  onQuestionClick?: (sectionIndex: number, questionIndex: number) => void;
+  showIncompleteOnly?: boolean;
+  isPreview?: boolean;
+  showRestrictedFeedback?: boolean;
+}
 
-export function AuditSummary({ audit }: AuditSummaryProps) {
+export function AuditSummary({ audit, onQuestionClick, showIncompleteOnly = false, isPreview = false, showRestrictedFeedback = false }: AuditSummaryProps) {
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
   const [activeTab, setActiveTab] = useState<'all' | 'incomplete' | 'incomplete-notes'>('all');
   const [isDownloading, setIsDownloading] = useState(false);
@@ -356,6 +363,47 @@ export function AuditSummary({ audit }: AuditSummaryProps) {
                               </React.Fragment>
                             );
                           })}
+                          
+                          {/* Desktop Section Feedback */}
+                          {showRestrictedFeedback && (section.feedback?.note?.trim() || (section.feedback?.images && section.feedback.images.length > 0)) && (
+                            <tr className="bg-indigo-50/30 dark:bg-indigo-950/20 border-b dark:border-slate-700">
+                              <td colSpan={4} className="py-4 px-6">
+                                <div className="bg-gradient-to-r from-indigo-50 to-white dark:from-indigo-950/30 dark:to-slate-900/50 p-4 rounded-xl border border-indigo-200 dark:border-indigo-800">
+                                  <div className="flex items-center gap-2 mb-3">
+                                    <MessageSquare className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                                    <span className="font-bold text-base text-indigo-900 dark:text-indigo-100">Bölüm Görüş ve Önerileri</span>
+                                    {section.feedback.type && (
+                                      <Badge variant="outline" className={`ml-3
+                                        ${section.feedback.type === 'important' ? 'border-red-200 text-red-700 bg-red-50' : ''}
+                                        ${section.feedback.type === 'note' ? 'border-green-200 text-green-700 bg-green-50' : ''}
+                                        ${section.feedback.type === 'suggestion' ? 'border-blue-200 text-blue-700 bg-blue-50' : ''}
+                                        bg-white
+                                      `}>
+                                        {section.feedback.type === 'important' && 'Önemli'}
+                                        {section.feedback.type === 'note' && 'Not'}
+                                        {section.feedback.type === 'suggestion' && 'Öneri'}
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  {section.feedback.note && (
+                                    <div className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap mb-3">
+                                      {section.feedback.note}
+                                    </div>
+                                  )}
+                                  {section.feedback.images && section.feedback.images.length > 0 && (
+                                    <div className="flex flex-wrap gap-2 mt-2">
+                                      {section.feedback.images.map((img, i) => (
+                                        <div key={`sf-desk-img-${i}`} className="relative group rounded-md overflow-hidden border border-slate-200 dark:border-slate-800 w-16 h-16 cursor-pointer" onClick={() => setLightboxImage(img)}>
+                                          <img src={img} alt="Fotoğraf" className="w-full h-full object-cover transition-transform group-hover:scale-110" />
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+
                         </React.Fragment>
                       );
                     })}
@@ -413,6 +461,42 @@ export function AuditSummary({ audit }: AuditSummaryProps) {
                       <CollapsibleContent>
                         <CardContent className="pt-4 pb-2 px-3">
                           {filteredQuestions.map((answer, qIdx) => renderMobileCard(answer, section.sectionName, idx, qIdx))}
+                          
+                          {/* Mobile Section Feedback */}
+                          {showRestrictedFeedback && (section.feedback?.note?.trim() || (section.feedback?.images && section.feedback.images.length > 0)) && (
+                            <div className="mt-4 mb-2 p-4 rounded-xl border-2 border-indigo-100 dark:border-indigo-900 bg-gradient-to-br from-indigo-50/50 to-white dark:from-indigo-950/20 dark:to-slate-900">
+                              <div className="flex items-center gap-2 mb-3">
+                                <MessageSquare className="w-4 h-4 text-indigo-500" />
+                                <span className="font-bold text-sm text-indigo-900 dark:text-indigo-100">Bölüm Görüş ve Önerileri</span>
+                                {section.feedback.type && (
+                                  <Badge variant="outline" className={`ml-auto text-xs
+                                    ${section.feedback.type === 'important' ? 'border-red-200 text-red-700 bg-red-50' : ''}
+                                    ${section.feedback.type === 'note' ? 'border-green-200 text-green-700 bg-green-50' : ''}
+                                    ${section.feedback.type === 'suggestion' ? 'border-blue-200 text-blue-700 bg-blue-50' : ''}
+                                    bg-white
+                                  `}>
+                                    {section.feedback.type === 'important' && 'Önemli'}
+                                    {section.feedback.type === 'note' && 'Not'}
+                                    {section.feedback.type === 'suggestion' && 'Öneri'}
+                                  </Badge>
+                                )}
+                              </div>
+                              {section.feedback.note && (
+                                <div className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap mb-3">
+                                  {section.feedback.note}
+                                </div>
+                              )}
+                              {section.feedback.images && section.feedback.images.length > 0 && (
+                                <div className="flex flex-wrap gap-2 mt-2">
+                                  {section.feedback.images.map((img, i) => (
+                                    <div key={`sf-img-${i}`} className="relative group rounded-md overflow-hidden border border-slate-200 dark:border-slate-800 w-16 h-16 cursor-pointer" onClick={() => setLightboxImage(img)}>
+                                      <img src={img} alt="Fotoğraf" className="w-full h-full object-cover transition-transform group-hover:scale-110" />
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </CardContent>
                       </CollapsibleContent>
                     </Card>
@@ -747,6 +831,7 @@ export function AuditSummary({ audit }: AuditSummaryProps) {
             // Rating hücresi kontrolü
             if (data.section === 'body' && data.column.index === 1) {
               const raw = data.cell.raw as any;
+              // raw.raw.type kontrolü (çünkü raw, bizim {content, styles, raw} objemiz)
               if (raw && raw.raw && raw.raw.type === 'rating') {
                 data.cell.text = [''];
               }
@@ -1060,7 +1145,66 @@ export function AuditSummary({ audit }: AuditSummaryProps) {
           </Button>
         </div>
 
-        <TabsContent value="all" className="mt-0">{renderSectionGroup('all')}</TabsContent>
+        <TabsContent value="all" className="mt-0">
+          {renderSectionGroup('all')}
+          
+          {/* Ekstra Bölümler: Sadece 'all' sekmesinde gösteriliyor */}
+          {showRestrictedFeedback && audit.personnelEvaluations && audit.personnelEvaluations.length > 0 && (
+            <div className="mt-6 border-t pt-6">
+              <h3 className="text-xl font-bold mb-4 text-slate-800 dark:text-slate-200">Personel Değerlendirmesi</h3>
+              <div className="space-y-4">
+                {audit.personnelEvaluations.map((person, index) => (
+                  <Card key={index} className="overflow-hidden border-blue-100 dark:border-blue-900 shadow-sm">
+                    <div className="bg-blue-50/50 dark:bg-blue-950/20 px-4 py-3 border-b border-blue-100 dark:border-blue-900 flex justify-between items-center">
+                      <div className="font-semibold text-blue-900 dark:text-blue-100">{person.personnelName}</div>
+                      <Badge variant="outline" className="bg-white dark:bg-slate-900 border-blue-200 text-blue-700">
+                         Personel
+                      </Badge>
+                    </div>
+                    <CardContent className="p-4 grid gap-3 text-sm">
+                        <div className="flex gap-2">
+                            <span className="font-medium min-w-32">Performans Puanı:</span>
+                            <span>{person.score}/100</span>
+                        </div>
+                        <div className="flex flex-col gap-1.5 mt-1">
+                            <span className="font-medium">Durum Değerlendirmesi:</span>
+                            <span className="text-slate-600 dark:text-slate-300 whitespace-pre-wrap">{person.comment || "-"}</span>
+                        </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {showRestrictedFeedback && audit.generalFeedback && (audit.generalFeedback.note || (audit.generalFeedback.images && audit.generalFeedback.images.length > 0)) && (
+            <div className="mt-6 border-t pt-6">
+              <h3 className="text-xl font-bold mb-4 text-slate-800 dark:text-slate-200">Genel Değerlendirme</h3>
+              <Card className="border-slate-200 dark:border-slate-800 shadow-sm bg-slate-50/50 dark:bg-slate-900/30">
+                <CardContent className="p-4">
+                  {audit.generalFeedback.note && (
+                    <div className="mb-4 text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">
+                      {audit.generalFeedback.note}
+                    </div>
+                  )}
+                  {audit.generalFeedback.images && audit.generalFeedback.images.length > 0 && (
+                     <div className="flex flex-wrap gap-2 mt-4">
+                        {audit.generalFeedback.images.map((imgUrl, imgIndex) => (
+                          <div 
+                            key={imgIndex} 
+                            className="w-16 h-16 rounded border bg-slate-100 dark:bg-slate-800 overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
+                            onClick={() => setLightboxImage(imgUrl)}
+                          >
+                            <img src={imgUrl} alt="Genel Değerlendirme" className="w-full h-full object-cover" loading="lazy" />
+                          </div>
+                        ))}
+                     </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          )}
+        </TabsContent>
         <TabsContent value="incomplete" className="mt-0">{renderSectionGroup('incomplete')}</TabsContent>
         <TabsContent value="incomplete-notes" className="mt-0">{renderSectionGroup('incomplete-notes')}</TabsContent>
       </Tabs>

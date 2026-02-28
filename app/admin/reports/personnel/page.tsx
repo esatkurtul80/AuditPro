@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useAuth } from "@/components/auth-provider";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -37,6 +38,7 @@ const turkishSort = (rowA: any, rowB: any, columnId: string) => {
 };
 
 export default function PersonnelReportPage() {
+    const { userProfile } = useAuth();
     const [loading, setLoading] = useState(true);
     const [evaluations, setEvaluations] = useState<EvaluationRow[]>([]);
     const [stores, setStores] = useState<Store[]>([]);
@@ -95,7 +97,7 @@ export default function PersonnelReportPage() {
             const total = p.evaluations.reduce((sum, e) => sum + (e.score || 0), 0);
             p.averageScore = Math.round(total / p.evaluations.length);
             // Sort inner evaluations by date desc
-            p.evaluations.sort((a,b) => b.parsedDate.getTime() - a.parsedDate.getTime());
+            p.evaluations.sort((a, b) => b.parsedDate.getTime() - a.parsedDate.getTime());
             return p;
         });
     }, [filteredData]);
@@ -106,7 +108,7 @@ export default function PersonnelReportPage() {
                 // Fetch stores
                 const storesSnap = await getDocs(collection(db, "stores"));
                 const storesList = storesSnap.docs.map(d => ({ id: d.id, ...d.data() } as Store));
-                storesList.sort((a,b) => (a.name || "").localeCompare(b.name || ""));
+                storesList.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
                 setStores(storesList);
 
                 const usersSnap = await getDocs(collection(db, "users"));
@@ -202,7 +204,7 @@ export default function PersonnelReportPage() {
         setIsStatusModalOpen(true);
         try {
             const docSnap = await getDoc(doc(db, "store_personnel", row.personnelId));
-            if (docSnap.exists()){
+            if (docSnap.exists()) {
                 const data = docSnap.data() as StorePersonnel;
                 setNewStatus(data.status);
                 setTargetStoreId(data.targetStoreId || "none");
@@ -269,7 +271,7 @@ export default function PersonnelReportPage() {
         {
             accessorKey: "regionalManagerName",
             header: ({ column }) => <DataTableColumnHeader column={column} title="Bölge Müdürü" />,
-            meta: { 
+            meta: {
                 title: "Bölge Müdürü",
                 filterOptions: regionalManagers.map(rm => ({ label: rm.displayName || rm.firstName + ' ' + rm.lastName, value: rm.displayName || rm.firstName + ' ' + rm.lastName }))
             },
@@ -280,7 +282,7 @@ export default function PersonnelReportPage() {
         {
             accessorKey: "storeName",
             header: ({ column }) => <DataTableColumnHeader column={column} title="Mağaza" />,
-            meta: { 
+            meta: {
                 title: "Mağaza",
                 filterOptions: stores.map(s => ({ label: s.name || s.id, value: s.name || s.id }))
             },
@@ -303,7 +305,7 @@ export default function PersonnelReportPage() {
             cell: ({ row }) => {
                 const score = row.original.score;
                 if (score === undefined || score === null) return <div className="text-center">-</div>;
-                
+
                 let color = "bg-green-500";
                 if (score < 50) color = "bg-red-500";
                 else if (score < 80) color = "bg-amber-500";
@@ -331,7 +333,7 @@ export default function PersonnelReportPage() {
         {
             accessorKey: "auditorName",
             header: ({ column }) => <DataTableColumnHeader column={column} title="Denetmen" />,
-            meta: { 
+            meta: {
                 title: "Denetmen",
                 filterOptions: auditors.map(a => ({ label: a.displayName || a.firstName + ' ' + a.lastName, value: a.displayName || a.firstName + ' ' + a.lastName }))
             },
@@ -367,7 +369,7 @@ export default function PersonnelReportPage() {
             cell: ({ row }) => {
                 const score = row.original.averageScore;
                 if (score === undefined || score === null) return <div className="text-center">-</div>;
-                
+
                 let color = "bg-green-500";
                 if (score < 50) color = "bg-red-500";
                 else if (score < 80) color = "bg-amber-500";
@@ -387,14 +389,14 @@ export default function PersonnelReportPage() {
             header: () => <div className="text-center">Geçmiş</div>,
             cell: ({ row }) => (
                 <div className="flex justify-center">
-                    <Button 
-                        variant="ghost" 
-                        size="sm" 
+                    <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={() => {
                             setHistoryPersonnelName(row.original.personnelName);
                             setSelectedPersonnelHistory(row.original.evaluations);
                             setIsHistoryModalOpen(true);
-                        }} 
+                        }}
                         className="gap-2 text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50"
                     >
                         <Eye className="w-4 h-4" />
@@ -438,24 +440,26 @@ export default function PersonnelReportPage() {
                             <CardTitle>Değerlendirmeler</CardTitle>
                             <CardDescription>Tarih, mağaza veya denetmene göre filtreleyin.</CardDescription>
                         </div>
-                        <div className="flex items-center gap-2 border p-2 rounded-md bg-slate-50 dark:bg-slate-900 mb-2 md:mb-0">
-                            <Label htmlFor="show-scores-switch" className="flex flex-col gap-1 cursor-pointer">
-                                <span className="font-semibold text-sm">Özel Raporda Puanlar Görünsün</span>
-                                <span className="font-normal text-xs text-muted-foreground">Aktif ise personellerin aldığı puanlar özel rapora dahil edilir.</span>
-                            </Label>
-                            <Switch 
-                                id="show-scores-switch"
-                                checked={showScoresInReport} 
-                                onCheckedChange={handleToggleScoresInReport} 
-                                className="ml-2"
-                            />
-                        </div>
+                        {userProfile?.role !== "rapor-yoneticisi" && (
+                            <div className="flex items-center gap-2 border p-2 rounded-md bg-slate-50 dark:bg-slate-900 mb-2 md:mb-0">
+                                <Label htmlFor="show-scores-switch" className="flex flex-col gap-1 cursor-pointer">
+                                    <span className="font-semibold text-sm">Özel Raporda Puanlar Görünsün</span>
+                                    <span className="font-normal text-xs text-muted-foreground">Aktif ise personellerin aldığı puanlar özel rapora dahil edilir.</span>
+                                </Label>
+                                <Switch
+                                    id="show-scores-switch"
+                                    checked={showScoresInReport}
+                                    onCheckedChange={handleToggleScoresInReport}
+                                    className="ml-2"
+                                />
+                            </div>
+                        )}
                         <div className="flex flex-col md:flex-row items-center gap-2">
                             <DateRangePicker value={dateRange} onChange={setDateRange} />
                             {(dateRange.from || dateRange.to) && (
-                                <Button 
-                                    variant="outline" 
-                                    size="icon" 
+                                <Button
+                                    variant="outline"
+                                    size="icon"
                                     onClick={() => setDateRange({ from: undefined, to: undefined })}
                                     title="Tarihi Temizle"
                                 >
@@ -550,8 +554,8 @@ export default function PersonnelReportPage() {
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setIsStatusModalOpen(false)}>İptal</Button>
-                        <Button 
-                            onClick={handleUpdateStatus} 
+                        <Button
+                            onClick={handleUpdateStatus}
                             disabled={updatingStatus || (newStatus === "transferred" && targetStoreId === "none")}
                             className="bg-primary text-primary-foreground"
                         >

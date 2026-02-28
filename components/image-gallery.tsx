@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { X, Edit, Loader2, Upload, Save, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
@@ -22,6 +23,9 @@ interface ImageGalleryProps {
     onUploadEnd?: () => void;
     syncingImages?: string[]; // URLs being synced
     uploadedImages?: string[]; // Recently uploaded URLs
+    auditorName?: string; // e.g. "Ahmet Yilmaz"
+    storeName?: string;   // e.g. "Gordion AVM"
+    sectionName?: string; // e.g. "Kahve Bölümü"
 }
 
 export default function ImageGallery({
@@ -36,6 +40,9 @@ export default function ImageGallery({
     onUploadEnd,
     syncingImages = [],
     uploadedImages = [],
+    auditorName = "",
+    storeName = "",
+    sectionName = "",
 }: ImageGalleryProps) {
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
     const [uploading, setUploading] = useState(false);
@@ -109,9 +116,9 @@ export default function ImageGallery({
                     const fileSizeMB = file.size / 1024 / 1024;
                     let fileToStore = file;
 
-                    if (fileSizeMB > 0.5) {
+                    if (fileSizeMB > 0.45) {
                         const options = {
-                            maxSizeMB: 0.5,
+                            maxSizeMB: 0.45,
                             maxWidthOrHeight: 1920,
                             useWebWorker: true,
                             initialQuality: 0.85,
@@ -150,14 +157,14 @@ export default function ImageGallery({
                 const totalFiles = files.length;
                 let completedFiles = 0;
 
-                const uploadPromises = Array.from(files).map(async (file) => {
+                const uploadPromises = Array.from(files).map(async (file, batchIndex) => {
                     // Compress if needed
                     const fileSizeMB = file.size / 1024 / 1024;
                     let fileToUpload = file;
 
-                    if (fileSizeMB > 0.5) {
+                    if (fileSizeMB > 0.45) {
                         const options = {
-                            maxSizeMB: 0.5,
+                            maxSizeMB: 0.45,
                             maxWidthOrHeight: 1920,
                             useWebWorker: true,
                             initialQuality: 0.85,
@@ -165,7 +172,20 @@ export default function ImageGallery({
                         fileToUpload = await imageCompression(file, options);
                     }
 
-                    const filename = `audits/${auditId}/${Date.now()}_${file.name}`;
+                    // Build human-readable folder: AhmetYilmaz_GordionAVM_2026-02-26
+                    const sanitize = (str: string) => str.replace(/[^a-zA-Z0-9\u00c0-\u024f]/g, ' ').trim().replace(/\s+/g, '_').toUpperCase();
+                    const dateStr = new Date().toISOString().split('T')[0];
+                    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+
+                    let folder = `audits/${auditId}`; // Fallback to ID
+                    if (auditorName && storeName) {
+                        folder = `audits/${sanitize(auditorName)}_${sanitize(storeName)}_${dateStr}`;
+                    }
+
+                    // Photo number: existing photos + current batch index + 1
+                    const photoNumber = images.length + batchIndex + 1;
+                    const safeSectionName = sectionName ? sanitize(sectionName) : 'FOTO';
+                    const filename = `${folder}/${safeSectionName}-${photoNumber}.FOTOGRAF.${ext}`;
                     const storageRef = ref(storage, filename);
 
                     return new Promise<string>((resolve, reject) => {
@@ -252,7 +272,7 @@ export default function ImageGallery({
 
     return (
         <>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2 pt-2 pl-1">
                 {images.map((imageUrl, index) => {
                     const displayUrl = getDisplayUrl(imageUrl);
                     // Skip rendering if no valid URL (avoid empty src error)
@@ -362,9 +382,9 @@ export default function ImageGallery({
             )}
 
             {/* Fullscreen Image Lightbox */}
-            {selectedImage && getDisplayUrl(selectedImage) && (
+            {selectedImage && getDisplayUrl(selectedImage) && typeof document !== 'undefined' && createPortal(
                 <div
-                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+                    className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
                     onClick={() => setSelectedImage(null)}
                 >
                     <button
@@ -379,7 +399,8 @@ export default function ImageGallery({
                         className="max-w-[95vw] max-h-[95vh] object-contain"
                         onClick={(e) => e.stopPropagation()}
                     />
-                </div>
+                </div>,
+                document.body
             )}
         </>
     );

@@ -35,6 +35,9 @@ function HomePageContent() {
           case "bolge-muduru":
             router.push(`/bolge-muduru${queryString}`);
             break;
+          case "rapor-yoneticisi":
+            router.push(`/rapor-yoneticisi${queryString}`);
+            break;
           case "pending":
             // Pending kullanıcılar bu sayfada kalır
             break;
@@ -46,7 +49,7 @@ function HomePageContent() {
   }, [user, userProfile, loading, router, searchParams]);
 
   return (
-    <ProtectedRoute allowedRoles={["admin", "denetmen", "magaza", "bolge-muduru", "pending"]}>
+    <ProtectedRoute allowedRoles={["admin", "denetmen", "magaza", "bolge-muduru", "rapor-yoneticisi", "pending"]}>
       <div className="flex min-h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>

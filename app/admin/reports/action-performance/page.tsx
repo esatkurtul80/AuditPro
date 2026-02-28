@@ -80,7 +80,7 @@ export default function ActionPerformanceReport() {
                     const name = fullName || userData.displayName || userData.email;
                     userMap.set(doc.id, name);
                 });
-                
+
                 const processedData: ActionPerformanceRow[] = [];
 
                 auditsSnapshot.docs.forEach(doc => {
@@ -90,11 +90,11 @@ export default function ActionPerformanceReport() {
                     // Fix timestamp issue
                     let auditDate: Date;
                     if (audit.completedAt instanceof Timestamp) {
-                         auditDate = audit.completedAt.toDate();
+                        auditDate = audit.completedAt.toDate();
                     } else if (typeof (audit.completedAt as any).toDate === 'function') {
-                         auditDate = (audit.completedAt as any).toDate();
+                        auditDate = (audit.completedAt as any).toDate();
                     } else {
-                         auditDate = new Date(audit.completedAt as any);
+                        auditDate = new Date(audit.completedAt as any);
                     }
 
                     // Find Regional Manager
@@ -110,15 +110,15 @@ export default function ActionPerformanceReport() {
                     let actionsPending = false;
                     let firstSubmissionDate: Date | null = null;
                     let hasActionItems = false;
-        
+
                     audit.sections.forEach(section => {
                         section.answers.forEach(answer => {
                             const isActionNeeded = answer.answer && answer.answer.trim() !== "" && answer.answer !== "muaf" && (answer.earnedPoints || 0) < (answer.maxPoints || 0);
-                            
+
                             if (isActionNeeded) {
                                 hasActionItems = true;
                                 totalActions++;
-                                
+
                                 // Check submission status
                                 const status = answer.actionData?.status;
                                 if (!status || status === "pending_store") {
@@ -130,13 +130,13 @@ export default function ActionPerformanceReport() {
                                     // Handle Timestamp or Date safely
                                     let subDate: Date;
                                     const rawDate = answer.actionData.submittedAt;
-                                    
+
                                     if (rawDate && typeof (rawDate as any).toDate === 'function') {
                                         subDate = (rawDate as any).toDate();
                                     } else if (rawDate instanceof Date) {
                                         subDate = rawDate;
                                     } else if (typeof rawDate === 'object' && rawDate !== null && 'seconds' in rawDate) {
-                                         subDate = new Date((rawDate as any).seconds * 1000);
+                                        subDate = new Date((rawDate as any).seconds * 1000);
                                     } else {
                                         subDate = new Date(rawDate as any);
                                     }
@@ -166,7 +166,7 @@ export default function ActionPerformanceReport() {
                         status = daysTaken <= 3 ? 'on_time' : 'late';
                     } else {
                         // Fallback
-                        status = 'pending'; 
+                        status = 'pending';
                         if (daysSinceAudit > 3) isOverdue = true;
                     }
 
@@ -212,7 +212,7 @@ export default function ActionPerformanceReport() {
 
         // Status Filter
         if (statusFilter.length > 0) {
-            
+
             if (!statusFilter.includes(item.status)) {
                 return false;
             }
@@ -322,28 +322,28 @@ export default function ActionPerformanceReport() {
                 if (status === 'on_time') {
                     return (
                         <div className="flex items-center gap-1.5 text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md text-sm font-semibold border border-emerald-200 w-fit">
-                             <CheckCircle2 className="w-4 h-4" /> Zamanında
+                            <CheckCircle2 className="w-4 h-4" /> Zamanında
                         </div>
                     );
                 }
                 if (status === 'late') {
                     return (
-                         <div className="flex items-center gap-1.5 text-amber-600 bg-amber-50 px-2 py-1 rounded-md text-sm font-semibold border border-amber-200 w-fit">
-                             <Clock className="w-4 h-4" /> Geç Döndü
+                        <div className="flex items-center gap-1.5 text-amber-600 bg-amber-50 px-2 py-1 rounded-md text-sm font-semibold border border-amber-200 w-fit">
+                            <Clock className="w-4 h-4" /> Geç Döndü
                         </div>
                     );
                 }
                 if (status === 'pending') {
                     if (overdue) {
                         return (
-                             <div className="flex items-center gap-1.5 text-rose-600 bg-rose-50 px-2 py-1 rounded-md text-sm font-semibold border border-rose-200 w-fit animate-pulse">
-                                 <AlertTriangle className="w-4 h-4" /> Gecikti
+                            <div className="flex items-center gap-1.5 text-rose-600 bg-rose-50 px-2 py-1 rounded-md text-sm font-semibold border border-rose-200 w-fit animate-pulse">
+                                <AlertTriangle className="w-4 h-4" /> Gecikti
                             </div>
                         );
                     }
-                     return (
-                         <div className="flex items-center gap-1.5 text-blue-600 bg-blue-50 px-2 py-1 rounded-md text-sm font-semibold border border-blue-200 w-fit">
-                             <Clock className="w-4 h-4" /> Bekleniyor
+                    return (
+                        <div className="flex items-center gap-1.5 text-blue-600 bg-blue-50 px-2 py-1 rounded-md text-sm font-semibold border border-blue-200 w-fit">
+                            <Clock className="w-4 h-4" /> Bekleniyor
                         </div>
                     );
                 }
@@ -384,10 +384,10 @@ export default function ActionPerformanceReport() {
             <Card className="border-none shadow-md bg-white/50 backdrop-blur-sm">
                 <CardHeader>
                     <CardTitle className="text-2xl font-bold flex items-center gap-2 text-primary">
-                         <div className="bg-primary/10 p-2 rounded-lg">
-                             <Clock className="h-6 w-6 text-primary" />
-                         </div>
-                         Aksiyon Performans Raporu
+                        <div className="bg-primary/10 p-2 rounded-lg">
+                            <Clock className="h-6 w-6 text-primary" />
+                        </div>
+                        Aksiyon Performans Raporu
                     </CardTitle>
                     <CardDescription className="text-base text-muted-foreground mt-2">
                         Mağazaların denetim sonrasında aksiyonlara ne kadar sürede dönüş yaptığını analiz edin.
@@ -406,18 +406,18 @@ export default function ActionPerformanceReport() {
                             searchKey="storeName"
                             searchPlaceholder="Mağaza adına göre ara..."
                             toolbar={
-                                <div className="flex items-center gap-3 bg-white p-1 rounded-lg border shadow-sm">
+                                <div className="flex flex-wrap items-center gap-2 bg-white dark:bg-background p-1 rounded-lg border shadow-sm">
                                     <DateRangePicker
                                         value={dateRange}
                                         onChange={setDateRange}
-                                        className="w-[260px] border-none shadow-none text-sm"
+                                        className="w-full sm:w-[220px] border-none shadow-none text-sm"
                                     />
-                                    
-                                    <div className="h-6 w-px bg-gray-200" />
+
+                                    <div className="hidden sm:block h-6 w-px bg-gray-200" />
 
                                     <Popover>
                                         <PopoverTrigger asChild>
-                                            <Button variant="ghost" size="sm" className="h-8 border-dashed">
+                                            <Button variant="ghost" size="sm" className="h-8 border-dashed flex-shrink-0">
                                                 <Filter className="mr-2 h-4 w-4" />
                                                 Durum
                                                 {statusFilter.length > 0 && (
@@ -510,13 +510,12 @@ export default function ActionPerformanceReport() {
                                         </PopoverContent>
                                     </Popover>
 
-
                                     {(dateRange?.from || dateRange?.to) && (
                                         <Button
                                             variant="ghost"
                                             size="icon"
                                             onClick={() => setDateRange({ from: undefined, to: undefined })}
-                                            className="h-8 w-8 text-rose-500 hover:text-rose-600 hover:bg-rose-50 rounded-full"
+                                            className="h-8 w-8 text-rose-500 hover:text-rose-600 hover:bg-rose-50 rounded-full flex-shrink-0"
                                             title="Tarihi Temizle"
                                         >
                                             <XCircle className="h-4 w-4" />
@@ -538,6 +537,6 @@ export default function ActionPerformanceReport() {
                     )}
                 </CardContent>
             </Card>
-        </div>
+        </div >
     );
 }
