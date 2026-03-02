@@ -36,10 +36,18 @@ import {
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Upload, X, CheckCircle2, ArrowLeft, Circle, Plus, Save, WifiOff, Clock, Star, ChevronRight, AlertCircle, MoreHorizontal, ClipboardList, MessageSquare, UserCircle, Eye } from "lucide-react";
+import { Loader2, Upload, X, CheckCircle2, ArrowLeft, Circle, Plus, Save, WifiOff, Clock, Star, ChevronRight, AlertCircle, MoreHorizontal, ClipboardList, MessageSquare, UserCircle, Eye, FileText, Zap, Image as ImageIcon } from "lucide-react";
 import { toast } from "sonner";
 import * as LucideIcons from "lucide-react";
 import Link from "next/link";
+import {
+    Sheet,
+    SheetContent,
+    SheetDescription,
+    SheetHeader,
+    SheetTitle,
+    SheetTrigger,
+} from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import {
     AlertDialog,
@@ -2118,73 +2126,117 @@ export default function AuditPage() {
                                             </div>
                                         )}
 
-                                        {/* Notes and Photos - Always visible */}
-                                        <div className="space-y-3 border-t pt-4">
-                                            <div>
-                                                <Label>Notlar</Label>
-                                                <div className="space-y-2 mt-2">
-                                                    {(answer.notes && answer.notes.length > 0 ? answer.notes : [""]).map((note, noteIndex) => (
-                                                        <div key={noteIndex} className="flex gap-2">
-                                                            <Textarea
-                                                                value={note}
-                                                                onChange={(e) => {
-                                                                    if (!canEdit) return;
-                                                                    const currentNotes = answer.notes || [""];
-                                                                    const newNotes = [...currentNotes];
-                                                                    newNotes[noteIndex] = e.target.value;
-                                                                    updateAnswer(currentSectionIndex, answerIndex, {
-                                                                        notes: newNotes,
-                                                                    });
-                                                                }}
-                                                                onInput={(e) => {
-                                                                    const target = e.target as HTMLTextAreaElement;
-                                                                    target.style.height = 'auto';
-                                                                    target.style.height = target.scrollHeight + 'px';
-                                                                }}
-                                                                placeholder="Not girin..."
-                                                                disabled={!canEdit}
-                                                                className="flex-1 min-h-[60px] resize-none overflow-hidden"
-                                                                rows={2}
-                                                            />
-                                                            {canEdit && noteIndex > 0 && (
-                                                                <Button
-                                                                    type="button"
-                                                                    variant="ghost"
-                                                                    size="icon"
+                                        {/* Notes and Photos - Action Bar */}
+                                        <div className="pt-4 border-t border-slate-100 dark:border-slate-800 mt-4">
+                                            {/* Display existing notes summary (Moved Above) */}
+                                            {(answer.notes && answer.notes.length > 0 && answer.notes.some(n => n.trim() !== "")) && (
+                                                <div className="space-y-2 mb-4">
+                                                    {answer.notes.map((note, idx) => note.trim() && (
+                                                        <div key={idx} className="bg-muted p-3 rounded-lg text-sm text-foreground/80 relative pr-8">
+                                                            {note}
+                                                            {canEdit && (
+                                                                <button
+                                                                    className="absolute top-2 right-2 text-muted-foreground hover:text-red-500 transition-colors"
                                                                     onClick={() => {
-                                                                        const newNotes = (answer.notes || []).filter((_, i) => i !== noteIndex);
-                                                                        updateAnswer(currentSectionIndex, answerIndex, {
-                                                                            notes: newNotes.length > 0 ? newNotes : [""],
-                                                                        });
+                                                                        const newNotes = [...(answer.notes || [])];
+                                                                        newNotes[idx] = "";
+                                                                        updateAnswer(currentSectionIndex, answerIndex, { notes: newNotes.filter(n => n.trim() !== "") });
                                                                     }}
                                                                 >
                                                                     <X className="h-4 w-4" />
-                                                                </Button>
+                                                                </button>
                                                             )}
                                                         </div>
                                                     ))}
-                                                    {canEdit && (
-                                                        <Button
-                                                            type="button"
-                                                            variant="outline"
-                                                            size="sm"
-                                                            onClick={() => {
-                                                                const newNotes = [...(answer.notes || [""]), ""];
-                                                                updateAnswer(currentSectionIndex, answerIndex, {
-                                                                    notes: newNotes,
-                                                                });
-                                                            }}
-                                                            className="w-full"
-                                                        >
-                                                            <Plus className="h-4 w-4 mr-2" />
-                                                            Not Ekle
-                                                        </Button>
-                                                    )}
+                                                </div>
+                                            )}
+
+                                            {/* Action Bar */}
+                                            <div className="flex flex-nowrap items-center justify-between text-slate-500 dark:text-slate-400 gap-1 w-full mb-3">
+                                                <div className="flex-1">
+                                                    <Sheet>
+                                                        <SheetTrigger asChild>
+                                                            <Button variant="ghost" size="sm" className="w-full gap-1.5 sm:gap-2 h-9 px-1 sm:px-3 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" disabled={!canEdit}>
+                                                                <FileText className="h-4 w-4 shrink-0" />
+                                                                <span className="text-[11px] sm:text-sm font-medium whitespace-nowrap">Not Ekle</span>
+                                                            </Button>
+                                                        </SheetTrigger>
+                                                        <SheetContent side="bottom" className="h-[75vh] sm:h-[400px] rounded-t-2xl px-4 py-6">
+                                                            <SheetHeader className="mb-4">
+                                                                <SheetTitle>Not Ekleyin</SheetTitle>
+                                                                <SheetDescription>Bu soruyla ilgili detaylı notlarınızı aşağıya yazabilirsiniz.</SheetDescription>
+                                                            </SheetHeader>
+                                                            <div className="flex flex-col h-[calc(100%-4rem)] pb-12 sm:pb-8">
+                                                                <Textarea
+                                                                    value={answer.notes ? answer.notes.join("\n\n") : ""}
+                                                                    onChange={(e) => {
+                                                                        if (!canEdit) return;
+                                                                        updateAnswer(currentSectionIndex, answerIndex, {
+                                                                            notes: [e.target.value],
+                                                                        });
+                                                                    }}
+                                                                    placeholder="Notunuzu buraya yazın..."
+                                                                    className="flex-1 resize-none border focus-visible:ring-1 p-4 text-base rounded-xl"
+                                                                />
+                                                            </div>
+                                                        </SheetContent>
+                                                    </Sheet>
+                                                </div>
+
+                                                <div className="flex-1">
+                                                    <Button variant="ghost" size="sm" className="w-full gap-1.5 sm:gap-2 h-9 px-1 sm:px-3 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" disabled>
+                                                        <Zap className="h-4 w-4 shrink-0" />
+                                                        <span className="text-[11px] sm:text-sm font-medium whitespace-nowrap">Bildirim</span>
+                                                    </Button>
+                                                </div>
+
+                                                <div className="flex-1">
+                                                    <ImageGallery
+                                                        images={answer.photos || []}
+                                                        onImagesChange={(newImages) => {
+                                                            updateAnswer(currentSectionIndex, answerIndex, {
+                                                                photos: newImages,
+                                                            });
+                                                        }}
+                                                        auditId={auditId}
+                                                        sectionIndex={currentSectionIndex}
+                                                        answerIndex={answerIndex}
+                                                        questionText={answer.questionText || ""}
+                                                        disabled={!canEdit}
+                                                        onUploadStart={() => setUploading(true)}
+                                                        onUploadEnd={() => setUploading(false)}
+                                                        syncingImages={syncingImageUrls}
+                                                        uploadedImages={uploadedImageUrls}
+                                                        auditorName={audit?.auditorName}
+                                                        storeName={audit?.storeName}
+                                                        sectionName={audit.sections[currentSectionIndex]?.sectionName}
+                                                        hideThumbnails={true}
+                                                        renderTrigger={(onClick, uploading, uploadProgress) => (
+                                                            <button
+                                                                type="button"
+                                                                onClick={onClick}
+                                                                className={`flex w-full items-center justify-center gap-1.5 sm:gap-2 h-9 px-1 sm:px-3 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-[11px] sm:text-sm font-medium whitespace-nowrap ${!canEdit || uploading ? "opacity-50 cursor-not-allowed" : ""}`}
+                                                                disabled={!canEdit || uploading}
+                                                            >
+                                                                {uploading ? (
+                                                                    <>
+                                                                        <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+                                                                        <span>{uploadProgress}%</span>
+                                                                    </>
+                                                                ) : (
+                                                                    <>
+                                                                        <ImageIcon className="h-4 w-4 shrink-0" />
+                                                                        <span>Medya</span>
+                                                                    </>
+                                                                )}
+                                                            </button>
+                                                        )}
+                                                    />
                                                 </div>
                                             </div>
 
-                                            <div>
-                                                <Label>Fotoğraflar</Label>
+                                            {/* Display existing thumbnails */}
+                                            {(answer.photos && answer.photos.length > 0) && (
                                                 <div className="mt-2">
                                                     <ImageGallery
                                                         images={answer.photos || []}
@@ -2196,7 +2248,7 @@ export default function AuditPage() {
                                                         auditId={auditId}
                                                         sectionIndex={currentSectionIndex}
                                                         answerIndex={answerIndex}
-                                                        questionText={answer.questionText}
+                                                        questionText={answer.questionText || ""}
                                                         disabled={!canEdit}
                                                         onUploadStart={() => setUploading(true)}
                                                         onUploadEnd={() => setUploading(false)}
@@ -2205,9 +2257,10 @@ export default function AuditPage() {
                                                         auditorName={audit?.auditorName}
                                                         storeName={audit?.storeName}
                                                         sectionName={audit.sections[currentSectionIndex]?.sectionName}
+                                                        hideAddButton={true}
                                                     />
                                                 </div>
-                                            </div>
+                                            )}
                                         </div>
                                     </div>
                                 </Card>

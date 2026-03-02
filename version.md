@@ -2,16 +2,29 @@
 
 ```json
 {
-  "version": "2.2.47",
-  "build": "109",
+  "version": "2.2.50",
+  "build": 112,
   "status": "stable"
 }
 ```
 
-## Changelog
+## [2.2.50] - 2026-03-02
 
-### v2.2.47
-- **UI (Denetmen Paneli - Evet/Hayır/Muaf Butonları):** Denetim formundaki Evet/Hayır/Muaf seçenekleri tek sütun halinde alt alta dizildi ve tam genişlikte (pill) görünüme kavuşturuldu. Seçili butona özgün renkler atandı: Evet → `#5faf24` (yeşil), Hayır → `#d83f30` (kırmızı), Muaf → `#daa127` (turuncu). Tıklamada buton içinden yayılan ripple (dalga) efekti eklendi.
+### v2.2.50
+- **UI (Aksiyon Tabloları):** Admin tarafındaki Aksiyon (Onay/Bekleyen) tablolarına "Reddedildi" satır bildirimleri eklendi.
+- **Rapor (Aksiyon Performansı):** Aksiyon Performans Raporuna reddedilen/iade edilen aksiyon sayısı yüklendi ve excele entegre edildi.
+
+## [2.2.49] - 2026-03-02
+
+### v2.2.49
+- **UI (Notlar ve Medya):** Tamirat/İstek butonu "Bildirim" olarak değiştirildi.
+- Bottom Sheet içerisindeki hızlı kategori butonları kaldırıldı.
+- Eklenen fotoğraflar ve notlar, Not Ekle/Medya buton setinin (Action Bar) altına alındı.
+
+### v2.2.48
+- Changed button design completely: Now using native `<button>` with a custom ripple effect that spreads outward on click.
+- Notes and Photos section redesigned into a bottom Action Bar (Not Ekle, Tamirat/İstek, Medya).
+- Notes now open in a Bottom Sheet on mobile/desktop with quick-add category buttons.
 
 ### v2.2.46
 - **Rol Yönetimi (Rapor Yöneticisi):** "Rapor Yöneticisi" adlı yeni kullanıcı rolü sisteme dahil edildi. Bu roldeki kişiler yalnızca veri okuma/görüntüleme yetkisine sahiptir, CRUD işlemleri (silme, düzenleme vb.) yapamazlar. "Özel Raporda Puanlar Görünsün" yetkileri vs. devreden çıkarılmıştır.

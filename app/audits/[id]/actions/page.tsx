@@ -766,10 +766,10 @@ export default function AuditActionsPage() {
         const pendingItems = audit.sections.flatMap((section, sIndex) =>
             section.answers
                 .map((answer, aIndex) => ({ answer, section, sIndex, aIndex }))
-                .filter(item => 
-                    item.answer.answer && 
-                    item.answer.answer.trim() !== "" && 
-                    item.answer.answer !== "muaf" && 
+                .filter(item =>
+                    item.answer.answer &&
+                    item.answer.answer.trim() !== "" &&
+                    item.answer.answer !== "muaf" &&
                     (item.answer.earnedPoints || 0) < (item.answer.maxPoints || 0)
                 )
         ).filter(item => {
@@ -857,9 +857,9 @@ export default function AuditActionsPage() {
                 };
             }
 
-            const submitTimer = Logger.startTimer("action", "Store submitted action response", { 
-                auditId: auditId, 
-                actionCount: pendingItems.length 
+            const submitTimer = Logger.startTimer("action", "Store submitted action response", {
+                auditId: auditId,
+                actionCount: pendingItems.length
             }, { uid: userProfile?.uid || "unknown", role: userProfile?.role });
 
             await updateDoc(doc(db, "audits", auditId), {
@@ -896,10 +896,10 @@ export default function AuditActionsPage() {
             }
 
             toast.success("Tüm dönüşler başarıyla iletildi");
-            
+
             // Invalidate store data cache so the store panel shows updated status
             invalidateStoreDataCache();
-            
+
             window.scrollTo(0, 0);
 
         } catch (error) {
@@ -1012,11 +1012,11 @@ export default function AuditActionsPage() {
             }
 
             // Log rejection
-            Logger.warn("admin", "Admin rejected action", { 
-                auditId: auditId, 
-                section: selectedAction.sectionIndex, 
+            Logger.warn("admin", "Admin rejected action", {
+                auditId: auditId,
+                section: selectedAction.sectionIndex,
                 answer: selectedAction.answerIndex,
-                reason: rejectionReason 
+                reason: rejectionReason
             }, { uid: userProfile?.uid || "unknown", role: userProfile?.role });
 
             toast.success("Aksiyon reddedildi ve mağazaya bildirim gönderildi");
@@ -1057,10 +1057,10 @@ export default function AuditActionsPage() {
                 })
             );
 
-            const revertTimer = Logger.startTimer("admin", "Admin reverted action rejection", { 
-                auditId: auditId, 
-                section: selectedAction.sectionIndex, 
-                answer: selectedAction.answerIndex 
+            const revertTimer = Logger.startTimer("admin", "Admin reverted action rejection", {
+                auditId: auditId,
+                section: selectedAction.sectionIndex,
+                answer: selectedAction.answerIndex
             }, { uid: userProfile?.uid || "unknown", role: userProfile?.role });
 
             await updateDoc(doc(db, "audits", auditId), {
@@ -1074,7 +1074,7 @@ export default function AuditActionsPage() {
                 sections: updatedSections,
                 allActionsResolved: allResolved
             });
-            
+
             // Log revert rejection with duration
             revertTimer.stop();
 
@@ -1117,10 +1117,10 @@ export default function AuditActionsPage() {
                 })
             );
 
-            const revertApprovalTimer = Logger.startTimer("admin", "Admin reverted action approval", { 
-                auditId: auditId, 
-                section: selectedAction.sectionIndex, 
-                answer: selectedAction.answerIndex 
+            const revertApprovalTimer = Logger.startTimer("admin", "Admin reverted action approval", {
+                auditId: auditId,
+                section: selectedAction.sectionIndex,
+                answer: selectedAction.answerIndex
             }, { uid: userProfile?.uid || "unknown", role: userProfile?.role });
 
             await updateDoc(doc(db, "audits", auditId), {
@@ -1176,10 +1176,10 @@ export default function AuditActionsPage() {
                 })
             );
 
-            const approveTimer = Logger.startTimer("admin", "Admin approved action", { 
-                auditId: auditId, 
-                section: targetSectionIndex, 
-                answer: targetAnswerIndex 
+            const approveTimer = Logger.startTimer("admin", "Admin approved action", {
+                auditId: auditId,
+                section: targetSectionIndex,
+                answer: targetAnswerIndex
             }, { uid: userProfile?.uid || "unknown", role: userProfile?.role });
 
             await updateDoc(doc(db, "audits", auditId), {
@@ -1559,11 +1559,11 @@ export default function AuditActionsPage() {
     const actions = audit.sections.flatMap((section, sIndex) =>
         section.answers
             .map((answer, aIndex) => ({ answer, section, sIndex, aIndex }))
-            .filter(item => 
+            .filter(item =>
                 // Any point loss is an action (unless exempt)
-                item.answer.answer && 
-                item.answer.answer.trim() !== "" && 
-                item.answer.answer !== "muaf" && 
+                item.answer.answer &&
+                item.answer.answer.trim() !== "" &&
+                item.answer.answer !== "muaf" &&
                 (item.answer.earnedPoints || 0) < (item.answer.maxPoints || 0)
             )
     );
@@ -1636,7 +1636,11 @@ export default function AuditActionsPage() {
                             <div className="ml-2">
                                 <AlertTitle className="text-red-800 font-bold">Dikkat</AlertTitle>
                                 <AlertDescription className="text-red-700">
-                                    {actions.find(a => a.answer.actionData?.status === "rejected")?.answer.actionData?.submittedAt?.toDate().toLocaleDateString("tr-TR") || "Son"} tarihli dönüşte <span className="font-bold">{actions.filter(a => a.answer.actionData?.status === "rejected").length} adet</span> soru dönüşü iptal edildi tekrar dönüş gerekiyor
+                                    {(() => {
+                                        const rejectedAction = actions.find(a => a.answer.actionData?.status === "rejected");
+                                        const date = rejectedAction ? parseDate(rejectedAction.answer.actionData?.submittedAt) : null;
+                                        return date ? date.toLocaleDateString("tr-TR") : "Son";
+                                    })()} tarihli dönüşte <span className="font-bold">{actions.filter(a => a.answer.actionData?.status === "rejected").length} adet</span> soru dönüşü iptal edildi tekrar dönüş gerekiyor
                                 </AlertDescription>
                             </div>
                         </Alert>

@@ -26,6 +26,9 @@ interface ImageGalleryProps {
     auditorName?: string; // e.g. "Ahmet Yilmaz"
     storeName?: string;   // e.g. "Gordion AVM"
     sectionName?: string; // e.g. "Kahve Bölümü"
+    renderTrigger?: (onClick: () => void, uploading: boolean, uploadProgress: number) => React.ReactNode;
+    hideAddButton?: boolean;
+    hideThumbnails?: boolean;
 }
 
 export default function ImageGallery({
@@ -43,7 +46,11 @@ export default function ImageGallery({
     auditorName = "",
     storeName = "",
     sectionName = "",
+    renderTrigger,
+    hideAddButton = false,
+    hideThumbnails = false,
 }: ImageGalleryProps) {
+    const fileInputRef = React.useRef<HTMLInputElement>(null);
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
     const [uploading, setUploading] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(0);
@@ -272,136 +279,153 @@ export default function ImageGallery({
 
     return (
         <>
-            <div className="flex flex-wrap gap-2 pt-2 pl-1">
-                {images.map((imageUrl, index) => {
-                    const displayUrl = getDisplayUrl(imageUrl);
-                    // Skip rendering if no valid URL (avoid empty src error)
-                    if (!displayUrl) return null;
+            {!hideThumbnails && images.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-3 pt-2 pl-1">
+                    {images.map((imageUrl, index) => {
+                        const displayUrl = getDisplayUrl(imageUrl);
+                        // Skip rendering if no valid URL (avoid empty src error)
+                        if (!displayUrl) return null;
 
-                    const isPending = imageUrl.startsWith('local://');
-                    const isSyncing = syncingImages?.includes(imageUrl);
-                    const isUploaded = recentlyUploaded.has(imageUrl);
+                        const isPending = imageUrl.startsWith('local://');
+                        const isSyncing = syncingImages?.includes(imageUrl);
+                        const isUploaded = recentlyUploaded.has(imageUrl);
 
-                    return (
-                        <div key={index} className="relative group">
-                            <div className="relative">
-                                <img
-                                    src={displayUrl}
-                                    alt={`Fotoğraf ${index + 1}`}
-                                    className={`h-24 w-24 object-cover rounded-lg border cursor-pointer transition-all hover:scale-105 ${isPending ? 'opacity-50' : 'opacity-100'}`}
-                                    onClick={() => setSelectedImage(imageUrl)}
-                                    onError={() => {
-                                        // Auto-remove broken image URLs (e.g. orphaned firebase storage objects)
-                                        const newImages = images.filter((_, i) => i !== index);
-                                        onImagesChange(newImages);
-                                    }}
-                                />
+                        return (
+                            <div key={index} className="relative group">
+                                <div className="relative">
+                                    <img
+                                        src={displayUrl}
+                                        alt={`Fotoğraf ${index + 1}`}
+                                        className={`h-24 w-24 object-cover rounded-lg border cursor-pointer transition-all hover:scale-105 ${isPending ? 'opacity-50' : 'opacity-100'}`}
+                                        onClick={() => setSelectedImage(imageUrl)}
+                                        onError={() => {
+                                            // Auto-remove broken image URLs
+                                            const newImages = images.filter((_, i) => i !== index);
+                                            onImagesChange(newImages);
+                                        }}
+                                    />
 
-                                {/* Syncing Spinner Overlay */}
-                                {isSyncing && (
-                                    <div className="absolute inset-0 bg-black/40 rounded-lg flex items-center justify-center">
-                                        <Loader2 className="h-6 w-6 animate-spin text-white" />
-                                    </div>
-                                )}
-
-                                {/* Uploaded Badge */}
-                                {isUploaded && (
-                                    <div className="absolute inset-0 bg-black/40 rounded-lg flex items-center justify-center">
-                                        <div className="bg-green-500 text-white px-2 py-1 rounded-md text-xs font-medium flex items-center gap-1">
-                                            <CheckCircle className="h-3 w-3" />
-                                            Yüklendi
+                                    {/* Syncing Spinner Overlay */}
+                                    {isSyncing && (
+                                        <div className="absolute inset-0 bg-black/40 rounded-lg flex items-center justify-center">
+                                            <Loader2 className="h-6 w-6 animate-spin text-white" />
                                         </div>
-                                    </div>
+                                    )}
+
+                                    {/* Uploaded Badge */}
+                                    {isUploaded && (
+                                        <div className="absolute inset-0 bg-black/40 rounded-lg flex items-center justify-center">
+                                            <div className="bg-green-500 text-white px-2 py-1 rounded-md text-xs font-medium flex items-center gap-1">
+                                                <CheckCircle className="h-3 w-3" />
+                                                Yüklendi
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {!disabled && (
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setDeleteConfirmIndex(index);
+                                        }}
+                                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600 transition-colors z-10"
+                                    >
+                                        <X className="h-3.5 w-3.5" />
+                                    </button>
                                 )}
                             </div>
+                        );
+                    })}
+                </div>
+            )}
 
-                            {!disabled && (
-                                <button
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        setDeleteConfirmIndex(index);
-                                    }}
-                                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600 transition-colors z-10"
-                                >
-                                    <X className="h-3 w-3" />
-                                </button>
-                            )}
-                        </div>
-                    );
-                })}
+            {!hideAddButton && (
+                <div className="w-auto">
+                    <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        className="hidden"
+                        onChange={handleFileSelect}
+                        disabled={uploading || disabled}
+                    />
 
-                {!disabled && (
-                    <label className="h-24 w-24 border-2 border-dashed rounded-lg flex items-center justify-center cursor-pointer hover:bg-accent transition-colors">
-                        <input
-                            type="file"
-                            accept="image/*"
-                            multiple
-                            className="hidden"
-                            onChange={handleFileSelect}
-                            disabled={uploading || disabled}
-                        />
-                        {uploading ? (
-                            <div className="flex flex-col items-center gap-1">
-                                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                                <span className="text-xs font-medium text-muted-foreground">{uploadProgress}%</span>
-                            </div>
-                        ) : (
-                            <Upload className="h-6 w-6 text-muted-foreground" />
-                        )}
-                    </label>
-                )}
-            </div>
+                    {!disabled && (
+                        renderTrigger ? renderTrigger(() => fileInputRef.current?.click(), uploading, uploadProgress) : (
+                            <label
+                                className="h-24 w-24 border-2 border-dashed rounded-lg flex items-center justify-center cursor-pointer hover:bg-accent transition-colors"
+                                onClick={() => fileInputRef.current?.click()}
+                            >
+                                {uploading ? (
+                                    <div className="flex flex-col items-center gap-1">
+                                        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                                        <span className="text-xs font-medium text-muted-foreground">{uploadProgress}%</span>
+                                    </div>
+                                ) : (
+                                    <Upload className="h-6 w-6 text-muted-foreground" />
+                                )}
+                            </label>
+                        )
+                    )}
+                </div>
+            )}
 
             {/* Silme Onay Dialog'u */}
-            {deleteConfirmIndex !== null && (
-                <>
-                    {/* Backdrop */}
-                    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-                        <div className="bg-background rounded-lg shadow-xl p-6 max-w-sm w-full animate-in fade-in zoom-in duration-200">
-                            <h3 className="text-lg font-semibold mb-2">Silmek istediğinizden emin misiniz?</h3>
-                            <p className="text-sm text-muted-foreground mb-6">
-                                Bu fotoğraf kalıcı olarak silinecektir.
-                            </p>
-                            <div className="flex gap-3 justify-end">
-                                <Button
-                                    variant="outline"
-                                    onClick={() => setDeleteConfirmIndex(null)}
-                                >
-                                    İptal
-                                </Button>
-                                <Button
-                                    variant="destructive"
-                                    onClick={confirmDelete}
-                                >
-                                    Evet, Sil
-                                </Button>
+            {
+                deleteConfirmIndex !== null && (
+                    <>
+                        {/* Backdrop */}
+                        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+                            <div className="bg-background rounded-lg shadow-xl p-6 max-w-sm w-full animate-in fade-in zoom-in duration-200">
+                                <h3 className="text-lg font-semibold mb-2">Silmek istediğinizden emin misiniz?</h3>
+                                <p className="text-sm text-muted-foreground mb-6">
+                                    Bu fotoğraf kalıcı olarak silinecektir.
+                                </p>
+                                <div className="flex gap-3 justify-end">
+                                    <Button
+                                        variant="outline"
+                                        onClick={() => setDeleteConfirmIndex(null)}
+                                    >
+                                        İptal
+                                    </Button>
+                                    <Button
+                                        variant="destructive"
+                                        onClick={confirmDelete}
+                                    >
+                                        Evet, Sil
+                                    </Button>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                </>
-            )}
+                    </>
+                )
+            }
 
             {/* Fullscreen Image Lightbox */}
-            {selectedImage && getDisplayUrl(selectedImage) && typeof document !== 'undefined' && createPortal(
-                <div
-                    className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
-                    onClick={() => setSelectedImage(null)}
-                >
-                    <button
+            {
+                selectedImage && getDisplayUrl(selectedImage) && typeof document !== 'undefined' && createPortal(
+                    <div
+                        className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
                         onClick={() => setSelectedImage(null)}
-                        className="absolute top-4 right-4 z-10 bg-white/10 hover:bg-white/20 text-white rounded-full p-2 transition-colors"
                     >
-                        <X className="h-6 w-6" />
-                    </button>
-                    <img
-                        src={getDisplayUrl(selectedImage)}
-                        alt="Önizleme"
-                        className="max-w-[95vw] max-h-[95vh] object-contain"
-                        onClick={(e) => e.stopPropagation()}
-                    />
-                </div>,
-                document.body
-            )}
+                        <button
+                            onClick={() => setSelectedImage(null)}
+                            className="absolute top-4 right-4 z-10 bg-white/10 hover:bg-white/20 text-white rounded-full p-2 transition-colors"
+                        >
+                            <X className="h-6 w-6" />
+                        </button>
+                        <img
+                            src={getDisplayUrl(selectedImage)}
+                            alt="Önizleme"
+                            className="max-w-[95vw] max-h-[95vh] object-contain"
+                            onClick={(e) => e.stopPropagation()}
+                        />
+                    </div>,
+                    document.body
+                )
+            }
         </>
     );
 }
