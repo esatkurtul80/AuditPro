@@ -2,13 +2,16 @@
 
 ```json
 {
-  "version": "2.2.46",
-  "build": "108",
+  "version": "2.2.47",
+  "build": "109",
   "status": "stable"
 }
 ```
 
 ## Changelog
+
+### v2.2.47
+- **UI (Denetmen Paneli - Evet/Hayır/Muaf Butonları):** Denetim formundaki Evet/Hayır/Muaf seçenekleri tek sütun halinde alt alta dizildi ve tam genişlikte (pill) görünüme kavuşturuldu. Seçili butona özgün renkler atandı: Evet → `#5faf24` (yeşil), Hayır → `#d83f30` (kırmızı), Muaf → `#daa127` (turuncu). Tıklamada buton içinden yayılan ripple (dalga) efekti eklendi.
 
 ### v2.2.46
 - **Rol Yönetimi (Rapor Yöneticisi):** "Rapor Yöneticisi" adlı yeni kullanıcı rolü sisteme dahil edildi. Bu roldeki kişiler yalnızca veri okuma/görüntüleme yetkisine sahiptir, CRUD işlemleri (silme, düzenleme vb.) yapamazlar. "Özel Raporda Puanlar Görünsün" yetkileri vs. devreden çıkarılmıştır.

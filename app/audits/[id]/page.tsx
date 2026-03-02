@@ -110,14 +110,14 @@ export default function AuditPage() {
 
     const handleOpenPreview = async (e: React.MouseEvent) => {
         e.preventDefault();
-        
+
         if (audit) {
             try {
                 // Önizleme için en güncel personel değerlendirmelerini çek
                 const pQuery = query(collection(db, "personnel_evaluations"), where("auditId", "==", audit.id));
                 const pSnap = await getDocs(pQuery);
                 const pEvals = pSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
-                
+
                 setAudit(prev => {
                     if (!prev) return prev;
                     return { ...prev, personnelEvaluations: pEvals };
@@ -203,8 +203,8 @@ export default function AuditPage() {
 
         // Update Firestore if in valid mode
         try {
-             // Filter out local:// URLs before saving to Firestore
-             const sectionsToSave = updatedAudit.sections.map(sec => ({
+            // Filter out local:// URLs before saving to Firestore
+            const sectionsToSave = updatedAudit.sections.map(sec => ({
                 ...sec,
                 answers: sec.answers.map(answer => ({
                     ...answer,
@@ -263,7 +263,7 @@ export default function AuditPage() {
             }, 5000);
         }
     }, [syncing, hasPending, uploadedImageUrls.length]);
-    
+
     useEffect(() => {
         if (auditId) {
             loadAudit();
@@ -319,7 +319,7 @@ export default function AuditPage() {
                 // To do true parallel, we'd need storeId from URL or params, but we only have auditId.
                 // However, fetching history immediately after audit (in same loading block) 
                 // is fast enough to appear "instant" when loading finishes.
-                Promise.resolve(null) 
+                Promise.resolve(null)
             ]);
 
             if (!auditDoc.exists()) {
@@ -332,11 +332,11 @@ export default function AuditPage() {
             // NOW fetch history concurrently with other operations (like user details)
             // We do this BEFORE setting loading to false
             const historyPromise = getStoreAuditHistory(auditData.storeId, 12);
-            
+
             // Denetmen ismini güncel veritabanından çek
             let auditorNamePromise = Promise.resolve();
             if (auditData.auditorId) {
-                 auditorNamePromise = getDoc(doc(db, "users", auditData.auditorId)).then(userDoc => {
+                auditorNamePromise = getDoc(doc(db, "users", auditData.auditorId)).then(userDoc => {
                     if (userDoc.exists()) {
                         const userData = userDoc.data() as any;
                         if (userData.firstName && userData.lastName &&
@@ -347,7 +347,7 @@ export default function AuditPage() {
                             auditData.auditorName = userData.displayName;
                         }
                     }
-                 }).catch(e => console.error("Error fetching auditor name:", e));
+                }).catch(e => console.error("Error fetching auditor name:", e));
             }
 
             // Wait for history and auditor name
@@ -371,51 +371,51 @@ export default function AuditPage() {
             auditData.sections.forEach(section => {
                 section.answers.forEach(answer => {
                     const qId = answer.questionId;
-                    
+
                     // Simple "is incomplete" check logic replicated from library
                     const entries: QuestionHistoryEntry[] = [];
                     let consecutiveFailCount = 0;
 
                     for (const pastAudit of relevantAudits) {
-                         // Find the same question in past audit
-                         let foundPastAnswer: AuditAnswer | null = null;
-                         for (const pastSection of pastAudit.sections) {
-                             const found = pastSection.answers.find(a => a.questionId === qId);
-                             if (found) {
-                                 foundPastAnswer = found;
-                                 break;
-                             }
-                         }
+                        // Find the same question in past audit
+                        let foundPastAnswer: AuditAnswer | null = null;
+                        for (const pastSection of pastAudit.sections) {
+                            const found = pastSection.answers.find(a => a.questionId === qId);
+                            if (found) {
+                                foundPastAnswer = found;
+                                break;
+                            }
+                        }
 
-                         if (!foundPastAnswer) continue;
+                        if (!foundPastAnswer) continue;
 
-                         // Check failure
-                         let isFail = false;
-                         if (foundPastAnswer.questionType === 'yes_no' || !foundPastAnswer.questionType) {
-                             isFail = foundPastAnswer.answer === 'hayir';
-                         } else if (['rating', 'multiple_choice', 'checkbox'].includes(foundPastAnswer.questionType || '')) {
-                             isFail = foundPastAnswer.earnedPoints < foundPastAnswer.maxPoints;
-                         }
+                        // Check failure
+                        let isFail = false;
+                        if (foundPastAnswer.questionType === 'yes_no' || !foundPastAnswer.questionType) {
+                            isFail = foundPastAnswer.answer === 'hayir';
+                        } else if (['rating', 'multiple_choice', 'checkbox'].includes(foundPastAnswer.questionType || '')) {
+                            isFail = foundPastAnswer.earnedPoints < foundPastAnswer.maxPoints;
+                        }
 
-                         if (isFail) {
-                             consecutiveFailCount++;
-                             entries.push({
-                                 auditId: pastAudit.id,
-                                 auditorName: pastAudit.auditorName,
-                                 completedAt: pastAudit.completedAt!,
-                                 answer: foundPastAnswer.answer,
-                                 earnedPoints: foundPastAnswer.earnedPoints,
-                                 maxPoints: foundPastAnswer.maxPoints,
-                                 questionType: foundPastAnswer.questionType,
-                                 selectedOptions: foundPastAnswer.selectedOptions,
-                                 options: foundPastAnswer.options,
-                                 ratingMax: foundPastAnswer.ratingMax,
-                                 notes: foundPastAnswer.notes || [],
-                                 photos: foundPastAnswer.photos || [],
-                             });
-                         } else {
-                             break; // Streak broken
-                         }
+                        if (isFail) {
+                            consecutiveFailCount++;
+                            entries.push({
+                                auditId: pastAudit.id,
+                                auditorName: pastAudit.auditorName,
+                                completedAt: pastAudit.completedAt!,
+                                answer: foundPastAnswer.answer,
+                                earnedPoints: foundPastAnswer.earnedPoints,
+                                maxPoints: foundPastAnswer.maxPoints,
+                                questionType: foundPastAnswer.questionType,
+                                selectedOptions: foundPastAnswer.selectedOptions,
+                                options: foundPastAnswer.options,
+                                ratingMax: foundPastAnswer.ratingMax,
+                                notes: foundPastAnswer.notes || [],
+                                photos: foundPastAnswer.photos || [],
+                            });
+                        } else {
+                            break; // Streak broken
+                        }
                     }
 
                     if (consecutiveFailCount > 0) {
@@ -434,11 +434,11 @@ export default function AuditPage() {
                 // Write back to Firestore silently so this doesn't repeat on next load
                 updateDoc(doc(db, "audits", auditId), {
                     "generalFeedback.images": cleanedImages,
-                }).catch(() => {}); // best-effort
+                }).catch(() => { }); // best-effort
             }
 
             setAudit(auditData);
-            
+
             // Store original score and full audit when entering edit mode
             if (mode === "edit") {
                 setOriginalScore(auditData.totalScore || 0);
@@ -460,8 +460,8 @@ export default function AuditPage() {
             // Determine back destination based on user role
             const backDestination = userProfile?.role === 'admin' ? '/admin/dashboard'
                 : userProfile?.role === 'magaza' ? '/magaza/panel'
-                : userProfile?.role === 'bolge-muduru' ? '/bolge-muduru'
-                : '/denetmen/tamamlanan';
+                    : userProfile?.role === 'bolge-muduru' ? '/bolge-muduru'
+                        : '/denetmen/tamamlanan';
 
             // If in view mode (just viewing completed audit), go directly back without dialog
             if (isViewMode) {
@@ -610,7 +610,7 @@ export default function AuditPage() {
                 ? {
                     ...updatedAudit.generalFeedback,
                     images: (updatedAudit.generalFeedback.images || []).filter((url: string) => !url.startsWith('local://')),
-                  }
+                }
                 : undefined;
 
             const firestorePayload: Record<string, unknown> = {
@@ -732,10 +732,10 @@ export default function AuditPage() {
         try {
             const pQuery = query(collection(db, "store_personnel"), where("storeId", "==", audit.storeId), where("status", "==", "active"));
             const pSnap = await getDocs(pQuery);
-            
+
             const eQuery = query(collection(db, "personnel_evaluations"), where("auditId", "==", auditId));
             const eSnap = await getDocs(eQuery);
-            
+
             const evaluatedPersonnelIds = new Set(eSnap.docs.map(doc => doc.data().personnelId));
             const missingEvaluations = pSnap.docs.filter(doc => !evaluatedPersonnelIds.has(doc.id));
 
@@ -930,7 +930,7 @@ export default function AuditPage() {
         if (!audit || !auditId || !userProfile) return;
 
         // Same validation as completeAudit — edit mode must enforce same rules
-        
+
         // 1. Section consistency check
         const incompleteSections: string[] = [];
         audit.sections.forEach(section => {
@@ -1214,39 +1214,39 @@ export default function AuditPage() {
 
         // Update state
         setAudit(updatedAudit);
-        
+
         // If in edit mode, DON'T save to Firebase (only save when clicking "Kaydet")
-         const currentMode = new URLSearchParams(window.location.search).get('mode');
-         const isInEditMode = currentMode === 'edit' && audit.status === 'tamamlandi';
+        const currentMode = new URLSearchParams(window.location.search).get('mode');
+        const isInEditMode = currentMode === 'edit' && audit.status === 'tamamlandi';
 
-         if (isInEditMode) {
-             return;
-         }
+        if (isInEditMode) {
+            return;
+        }
 
-         try {
-             // Filter out local:// URLs before saving to Firestore
-             const sectionsToSave = updatedAudit.sections.map(sec => ({
-                 ...sec,
-                 answers: sec.answers.map(ans => ({
-                     ...ans,
-                     photos: (ans.photos || []).filter(u => !u.startsWith('local://'))
-                 })),
-                 feedback: sec.feedback ? {
+        try {
+            // Filter out local:// URLs before saving to Firestore
+            const sectionsToSave = updatedAudit.sections.map(sec => ({
+                ...sec,
+                answers: sec.answers.map(ans => ({
+                    ...ans,
+                    photos: (ans.photos || []).filter(u => !u.startsWith('local://'))
+                })),
+                feedback: sec.feedback ? {
                     ...sec.feedback,
                     note: sec.feedback.note || "", // Ensure note is not undefined
                     images: (sec.feedback.images || []).filter(u => !u.startsWith('local://')),
                     type: sec.feedback.type || null
-                 } : null // Firestore doesn't support undefined in arrays, use null
-             }));
-             
-             await updateDoc(doc(db, "audits", auditId), {
-                 sections: sectionsToSave,
-                 updatedAt: Timestamp.now()
-             });
-         } catch (error) {
-             console.error("Feedback update error", error);
-             toast.error("Görüş kaydedilirken hata oluştu");
-         }
+                } : null // Firestore doesn't support undefined in arrays, use null
+            }));
+
+            await updateDoc(doc(db, "audits", auditId), {
+                sections: sectionsToSave,
+                updatedAt: Timestamp.now()
+            });
+        } catch (error) {
+            console.error("Feedback update error", error);
+            toast.error("Görüş kaydedilirken hata oluştu");
+        }
     };
 
     const getAnswerButtonClass = (selected: boolean) => {
@@ -1285,157 +1285,157 @@ export default function AuditPage() {
         <AuditPageLayout isRegionalManager={isRegionalManager}>
             <div className="container mx-auto pb-3 px-4 md:px-6">
                 <div className="sticky top-0 z-30 mb-4 -mx-4 md:-mx-6 px-4 md:px-6 py-2 bg-background/95 backdrop-blur border-b border-border/50 shadow-sm">
-                <div className="flex flex-row items-center gap-1.5 sm:gap-3 w-full">
-                    {currentSectionIndex !== null ? (() => {
-                        let sectionName = "";
-                        let sectionScoreText: string | number = "";
-                        
-                        if (currentSectionIndex === 'personnel') {
-                            sectionName = "Personel Değerlendirme";
-                            sectionScoreText = "-";
-                        } else if (currentSectionIndex === 'general') {
-                            sectionName = "Genel Değerlendirme";
-                            sectionScoreText = "-";
-                        } else if (typeof currentSectionIndex === 'number') {
-                            const section = audit.sections?.[currentSectionIndex];
-                            sectionName = section?.sectionName || "";
-                            
-                            let sectionEarned = 0;
-                            let sectionMax = 0;
-                            
-                            if (section?.answers) {
-                                section.answers.forEach((answer: any) => {
-                                    if (answer.answer && answer.answer.trim() !== "" && answer.answer !== "muaf") {
-                                        sectionEarned += answer.earnedPoints || 0;
-                                        sectionMax += answer.maxPoints || 0;
-                                    }
-                                });
+                    <div className="flex flex-row items-center gap-1.5 sm:gap-3 w-full">
+                        {currentSectionIndex !== null ? (() => {
+                            let sectionName = "";
+                            let sectionScoreText: string | number = "";
+
+                            if (currentSectionIndex === 'personnel') {
+                                sectionName = "Personel Değerlendirme";
+                                sectionScoreText = "-";
+                            } else if (currentSectionIndex === 'general') {
+                                sectionName = "Genel Değerlendirme";
+                                sectionScoreText = "-";
+                            } else if (typeof currentSectionIndex === 'number') {
+                                const section = audit.sections?.[currentSectionIndex];
+                                sectionName = section?.sectionName || "";
+
+                                let sectionEarned = 0;
+                                let sectionMax = 0;
+
+                                if (section?.answers) {
+                                    section.answers.forEach((answer: any) => {
+                                        if (answer.answer && answer.answer.trim() !== "" && answer.answer !== "muaf") {
+                                            sectionEarned += answer.earnedPoints || 0;
+                                            sectionMax += answer.maxPoints || 0;
+                                        }
+                                    });
+                                }
+
+                                sectionScoreText = sectionMax > 0 ? Math.round((sectionEarned / sectionMax) * 100) : 0;
                             }
-                            
-                            sectionScoreText = sectionMax > 0 ? Math.round((sectionEarned / sectionMax) * 100) : 0;
-                        }
 
-                        return (
-                            <div className="flex flex-row items-center w-full relative h-[48px]">
-                                {/* Geri Dön butonu - Sabit Sol */}
-                                <div className="absolute left-0">
-                                    <Button
-                                        className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-md shadow-purple-500/20"
-                                        onClick={handleBack}
-                                    >
-                                        <ArrowLeft className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 shrink-0" />
-                                        <span className="truncate">Geri Dön</span>
-                                    </Button>
-                                </div>
+                            return (
+                                <div className="flex flex-row items-center w-full relative h-[48px]">
+                                    {/* Geri Dön butonu - Sabit Sol */}
+                                    <div className="absolute left-0">
+                                        <Button
+                                            className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-md shadow-purple-500/20"
+                                            onClick={handleBack}
+                                        >
+                                            <ArrowLeft className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 shrink-0" />
+                                            <span className="truncate">Geri Dön</span>
+                                        </Button>
+                                    </div>
 
-                                {/* Bölüm Başlığı - Tam Orta */}
-                                <div className="flex-1 flex justify-center px-[120px]">
-                                    <h2 className="text-xl md:text-2xl font-bold text-slate-800 dark:text-slate-100 hidden sm:block truncate text-center">
-                                        {sectionName}
-                                    </h2>
-                                </div>
+                                    {/* Bölüm Başlığı - Tam Orta */}
+                                    <div className="flex-1 flex justify-center px-[120px]">
+                                        <h2 className="text-xl md:text-2xl font-bold text-slate-800 dark:text-slate-100 hidden sm:block truncate text-center">
+                                            {sectionName}
+                                        </h2>
+                                    </div>
 
-                                {/* Puan Dairesi - Sabit Sağ */}
-                                <div className="absolute right-0 flex items-center justify-center w-12 h-12 bg-white dark:bg-slate-800 rounded-full shadow-md border border-blue-100 dark:border-blue-800 shrink-0">
-                                    <div className="text-lg font-bold text-blue-600 dark:text-blue-400 leading-none">
-                                        {sectionScoreText}
+                                    {/* Puan Dairesi - Sabit Sağ */}
+                                    <div className="absolute right-0 flex items-center justify-center w-12 h-12 bg-white dark:bg-slate-800 rounded-full shadow-md border border-blue-100 dark:border-blue-800 shrink-0">
+                                        <div className="text-lg font-bold text-blue-600 dark:text-blue-400 leading-none">
+                                            {sectionScoreText}
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        );
-                    })() : (
-                        <Button
-                            className="flex-1 px-1 sm:px-4 text-[11px] sm:text-sm h-9 sm:h-10 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-md shadow-purple-500/20"
-                            onClick={() => {
-                                const backDestination = userProfile?.role === 'admin' ? '/admin/dashboard'
-                                    : userProfile?.role === 'magaza' ? '/magaza/panel'
-                                        : '/denetmen/tamamlanan';
-                                if (isViewMode) {
-                                    // View mode: navigate directly without dialog
-                                    window.location.href = backDestination;
-                                } else if (isEditMode) {
-                                    // Edit mode: show confirmation dialog
-                                    setShowBackDialog(true);
-                                } else {
-                                    // Pending audit: show confirmation dialog
-                                    setShowBackDialog(true);
-                                }
-                            }}
-                        >
-                            <ArrowLeft className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 shrink-0" />
-                            <span className="truncate">Geri Dön</span>
-                        </Button>
-                    )}
-
-                    {isEditMode && (
-                        <Button
-                            onClick={saveAndNotify}
-                            disabled={saving}
-                            className="flex-1 px-1 sm:px-4 text-[11px] sm:text-sm h-9 sm:h-10 bg-blue-600 hover:bg-blue-700 shadow-md"
-                        >
-                            {saving ? (
-                                <>
-                                    <Loader2 className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 animate-spin shrink-0" />
-                                    <span className="truncate">Kaydediliyor...</span>
-                                </>
-                            ) : (
-                                <>
-                                    <Save className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 shrink-0" />
-                                    <span className="truncate">Kaydet</span>
-                                </>
-                            )}
-                        </Button>
-                    )}
-                    
-                    {!isCompleted && currentSectionIndex === null && (
-                        <>
+                            );
+                        })() : (
                             <Button
-                                onClick={handleOpenPreview}
-                                disabled={!audit}
-                                variant="outline"
-                                className="flex-1 px-1 sm:px-4 text-[11px] sm:text-sm h-9 sm:h-10 border-blue-200 text-blue-700 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-300 dark:hover:bg-blue-900/50 shadow-sm"
-                                title="Eksikleri ve mevcut durumu önizleyin"
+                                className="flex-1 px-1 sm:px-4 text-[11px] sm:text-sm h-9 sm:h-10 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-md shadow-purple-500/20"
+                                onClick={() => {
+                                    const backDestination = userProfile?.role === 'admin' ? '/admin/dashboard'
+                                        : userProfile?.role === 'magaza' ? '/magaza/panel'
+                                            : '/denetmen/tamamlanan';
+                                    if (isViewMode) {
+                                        // View mode: navigate directly without dialog
+                                        window.location.href = backDestination;
+                                    } else if (isEditMode) {
+                                        // Edit mode: show confirmation dialog
+                                        setShowBackDialog(true);
+                                    } else {
+                                        // Pending audit: show confirmation dialog
+                                        setShowBackDialog(true);
+                                    }
+                                }}
                             >
-                                <Eye className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 shrink-0" />
-                                <span className="truncate">Önizleme</span>
+                                <ArrowLeft className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 shrink-0" />
+                                <span className="truncate">Geri Dön</span>
                             </Button>
+                        )}
+
+                        {isEditMode && (
                             <Button
-                                onClick={completeAudit}
-                                disabled={completing || hasPending || !isOnline}
-                                className="flex-1 px-1 sm:px-4 text-[11px] sm:text-sm h-9 sm:h-10 bg-blue-600 hover:bg-blue-700 text-white shadow-md"
-                                title={
-                                    !isOnline
-                                        ? "Denetimi tamamlamak için internet bağlantısı gerekli"
-                                        : hasPending
-                                            ? "Lütfen tüm verilerin senkronize olmasını bekleyin"
-                                            : ""
-                                }
+                                onClick={saveAndNotify}
+                                disabled={saving}
+                                className="flex-1 px-1 sm:px-4 text-[11px] sm:text-sm h-9 sm:h-10 bg-blue-600 hover:bg-blue-700 shadow-md"
                             >
-                                {completing ? (
+                                {saving ? (
                                     <>
                                         <Loader2 className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 animate-spin shrink-0" />
-                                        <span className="truncate">Tamamlanıyor...</span>
-                                    </>
-                                ) : !isOnline ? (
-                                    <>
-                                        <WifiOff className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 shrink-0" />
-                                        <span className="truncate">Offline</span>
-                                    </>
-                                ) : hasPending ? (
-                                    <>
-                                        <Clock className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 shrink-0" />
-                                        <span className="truncate">Bekleniyor...</span>
+                                        <span className="truncate">Kaydediliyor...</span>
                                     </>
                                 ) : (
                                     <>
-                                        <CheckCircle2 className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 shrink-0" />
-                                        <span className="truncate">Tamamla</span>
+                                        <Save className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 shrink-0" />
+                                        <span className="truncate">Kaydet</span>
                                     </>
                                 )}
                             </Button>
-                        </>
-                    )}
-                </div>
+                        )}
+
+                        {!isCompleted && currentSectionIndex === null && (
+                            <>
+                                <Button
+                                    onClick={handleOpenPreview}
+                                    disabled={!audit}
+                                    variant="outline"
+                                    className="flex-1 px-1 sm:px-4 text-[11px] sm:text-sm h-9 sm:h-10 border-blue-200 text-blue-700 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-300 dark:hover:bg-blue-900/50 shadow-sm"
+                                    title="Eksikleri ve mevcut durumu önizleyin"
+                                >
+                                    <Eye className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 shrink-0" />
+                                    <span className="truncate">Önizleme</span>
+                                </Button>
+                                <Button
+                                    onClick={completeAudit}
+                                    disabled={completing || hasPending || !isOnline}
+                                    className="flex-1 px-1 sm:px-4 text-[11px] sm:text-sm h-9 sm:h-10 bg-blue-600 hover:bg-blue-700 text-white shadow-md"
+                                    title={
+                                        !isOnline
+                                            ? "Denetimi tamamlamak için internet bağlantısı gerekli"
+                                            : hasPending
+                                                ? "Lütfen tüm verilerin senkronize olmasını bekleyin"
+                                                : ""
+                                    }
+                                >
+                                    {completing ? (
+                                        <>
+                                            <Loader2 className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 animate-spin shrink-0" />
+                                            <span className="truncate">Tamamlanıyor...</span>
+                                        </>
+                                    ) : !isOnline ? (
+                                        <>
+                                            <WifiOff className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 shrink-0" />
+                                            <span className="truncate">Offline</span>
+                                        </>
+                                    ) : hasPending ? (
+                                        <>
+                                            <Clock className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 shrink-0" />
+                                            <span className="truncate">Bekleniyor...</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <CheckCircle2 className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 shrink-0" />
+                                            <span className="truncate">Tamamla</span>
+                                        </>
+                                    )}
+                                </Button>
+                            </>
+                        )}
+                    </div>
                 </div>
 
                 {currentSectionIndex === null && (
@@ -1526,8 +1526,8 @@ export default function AuditPage() {
                                                         <div className="flex items-center justify-center w-10 h-10 md:w-12 md:h-12 rounded-lg bg-blue-100/50 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400">
                                                             {(() => {
                                                                 // Dynamic Icon Rendering
-                                                                const IconComponent = (section.icon && (LucideIcons as any)[section.icon]) 
-                                                                    ? (LucideIcons as any)[section.icon] 
+                                                                const IconComponent = (section.icon && (LucideIcons as any)[section.icon])
+                                                                    ? (LucideIcons as any)[section.icon]
                                                                     : ClipboardList;
                                                                 return <IconComponent className="w-5 h-5 md:w-6 md:h-6" />;
                                                             })()}
@@ -1572,16 +1572,15 @@ export default function AuditPage() {
                                                     <UserCircle className="w-5 h-5 md:w-6 md:h-6" />
                                                 </div>
                                                 <div className="flex items-center gap-2 flex-1 min-w-0">
-                                                    <Circle className={`h-4 w-4 md:h-5 md:w-5 flex-shrink-0 fill-current ${
-                                                        !personnelStatus.initialized ? "text-gray-300 dark:text-gray-700" :
+                                                    <Circle className={`h-4 w-4 md:h-5 md:w-5 flex-shrink-0 fill-current ${!personnelStatus.initialized ? "text-gray-300 dark:text-gray-700" :
                                                         personnelStatus.total === 0 ? "text-gray-300 dark:text-gray-700" :
-                                                        personnelStatus.evaluated >= personnelStatus.total ? "text-green-500" :
-                                                        "text-red-500"
-                                                    }`} />
+                                                            personnelStatus.evaluated >= personnelStatus.total ? "text-green-500" :
+                                                                "text-red-500"
+                                                        }`} />
                                                     <div className="flex-1 min-w-0">
                                                         <h3 className="font-bold text-base md:text-2xl mb-1 md:mb-2 truncate text-amber-950 dark:text-amber-50 group-hover:text-amber-700 dark:group-hover:text-amber-300 transition-colors">Personel Değerlendirme</h3>
                                                         <p className="text-sm text-amber-800/70 dark:text-amber-200/70 mt-1 truncate">
-                                                            {personnelStatus.initialized 
+                                                            {personnelStatus.initialized
                                                                 ? (personnelStatus.total === 0 ? "Kayıtlı aktif personel yok" : `${personnelStatus.evaluated} / ${personnelStatus.total} personel değerlendirildi`)
                                                                 : "Zorunlu Puanlamadan bağımsız karar raporu"}
                                                         </p>
@@ -1593,7 +1592,7 @@ export default function AuditPage() {
                                             </div>
                                         </CardHeader>
                                     </Card>
-                                    
+
                                     {/* General Feedback Card */}
                                     <Card
                                         className="cursor-pointer hover:shadow-lg transition-all border shadow-sm bg-gradient-to-br from-slate-50 to-slate-200 dark:from-slate-900/60 dark:to-slate-800/60 hover:from-slate-100 hover:to-slate-300 dark:hover:from-slate-800/80 dark:hover:to-slate-700/80 border-slate-300 dark:border-slate-700 group rounded-xl min-h-[5rem] md:min-h-[7rem] py-3 md:py-6 gap-3 md:gap-6 flex items-center justify-center select-none"
@@ -1605,11 +1604,10 @@ export default function AuditPage() {
                                                     <MessageSquare className="w-5 h-5 md:w-6 md:h-6" />
                                                 </div>
                                                 <div className="flex items-center gap-2 flex-1 min-w-0">
-                                                    <Circle className={`h-4 w-4 md:h-5 md:w-5 flex-shrink-0 fill-current ${
-                                                        audit?.generalFeedback?.note || (audit?.generalFeedback?.images && audit.generalFeedback.images.length > 0)
-                                                            ? "text-green-500" 
-                                                            : "text-gray-300 dark:text-gray-700"
-                                                    }`} />
+                                                    <Circle className={`h-4 w-4 md:h-5 md:w-5 flex-shrink-0 fill-current ${audit?.generalFeedback?.note || (audit?.generalFeedback?.images && audit.generalFeedback.images.length > 0)
+                                                        ? "text-green-500"
+                                                        : "text-gray-300 dark:text-gray-700"
+                                                        }`} />
                                                     <div className="flex-1 min-w-0">
                                                         <h3 className="font-bold text-base md:text-2xl mb-1 md:mb-2 truncate text-slate-900 dark:text-slate-100 group-hover:text-slate-700 dark:group-hover:text-slate-300 transition-colors">Genel Değerlendirme</h3>
                                                         <p className="text-sm text-slate-600 dark:text-slate-400 mt-1 truncate">
@@ -1662,12 +1660,12 @@ export default function AuditPage() {
                                                         const currentNote = audit?.generalFeedback?.note || "";
                                                         const cursorStart = el?.selectionStart ?? currentNote.length;
                                                         const cursorEnd = el?.selectionEnd ?? currentNote.length;
-                                                        
+
                                                         const textToInsert = currentNote.length === 0 || cursorStart === 0 ? "ÖNEMLİ: " : "\nÖNEMLİ: ";
                                                         const newNote = currentNote.slice(0, cursorStart) + textToInsert + currentNote.slice(cursorEnd);
-                                                        
+
                                                         updateGeneralFeedback({ note: newNote });
-                                                        
+
                                                         setTimeout(() => {
                                                             if (el) {
                                                                 el.focus();
@@ -1690,12 +1688,12 @@ export default function AuditPage() {
                                                         const currentNote = audit?.generalFeedback?.note || "";
                                                         const cursorStart = el?.selectionStart ?? currentNote.length;
                                                         const cursorEnd = el?.selectionEnd ?? currentNote.length;
-                                                        
+
                                                         const textToInsert = currentNote.length === 0 || cursorStart === 0 ? "NOT: " : "\nNOT: ";
                                                         const newNote = currentNote.slice(0, cursorStart) + textToInsert + currentNote.slice(cursorEnd);
-                                                        
+
                                                         updateGeneralFeedback({ note: newNote });
-                                                        
+
                                                         setTimeout(() => {
                                                             if (el) {
                                                                 el.focus();
@@ -1718,12 +1716,12 @@ export default function AuditPage() {
                                                         const currentNote = audit?.generalFeedback?.note || "";
                                                         const cursorStart = el?.selectionStart ?? currentNote.length;
                                                         const cursorEnd = el?.selectionEnd ?? currentNote.length;
-                                                        
+
                                                         const textToInsert = currentNote.length === 0 || cursorStart === 0 ? "ÖNERİ: " : "\nÖNERİ: ";
                                                         const newNote = currentNote.slice(0, cursorStart) + textToInsert + currentNote.slice(cursorEnd);
-                                                        
+
                                                         updateGeneralFeedback({ note: newNote });
-                                                        
+
                                                         setTimeout(() => {
                                                             if (el) {
                                                                 el.focus();
@@ -1755,7 +1753,7 @@ export default function AuditPage() {
                                                     images={audit?.generalFeedback?.images || []}
                                                     onImagesChange={(newImages) => updateGeneralFeedback({ images: newImages })}
                                                     auditId={auditId}
-                                                    sectionIndex={-1} 
+                                                    sectionIndex={-1}
                                                     answerIndex={-2}
                                                     questionText="Genel Değerlendirme"
                                                     disabled={!canEdit}
@@ -2040,63 +2038,83 @@ export default function AuditPage() {
                                             </div>
                                         ) : (
                                             // YES_NO (varsayılan): Evet/Hayır/Muaf
-                                            <div className="flex gap-2">
-                                                <Button
-                                                    size="sm"
-                                                    variant="outline"
-                                                    className={getAnswerButtonClass(
-                                                        answer.answer === "evet"
-                                                    )}
-                                                    onClick={() => {
-                                                        const originalMax = answer.originalMaxPoints || answer.maxPoints;
-                                                        canEdit &&
-                                                            updateAnswer(currentSectionIndex, answerIndex, {
-                                                                answer: "evet",
-                                                                earnedPoints: originalMax, // Orijinal max puan
-                                                                maxPoints: originalMax, // Muaf'tan geri yükle
-                                                            });
-                                                    }}
+                                            <div className="flex flex-col gap-2 sm:gap-3 w-full">
+                                                {/* Evet */}
+                                                <button
                                                     disabled={!canEdit}
+                                                    onClick={(e) => {
+                                                        // Ripple
+                                                        const btn = e.currentTarget;
+                                                        const circle = document.createElement("span");
+                                                        const diameter = Math.max(btn.clientWidth, btn.clientHeight);
+                                                        const rect = btn.getBoundingClientRect();
+                                                        circle.style.cssText = `width:${diameter}px;height:${diameter}px;left:${e.clientX - rect.left - diameter / 2}px;top:${e.clientY - rect.top - diameter / 2}px;position:absolute;border-radius:50%;background:rgba(255,255,255,0.20);transform:scale(0);animation:ripple 320ms linear;pointer-events:none;`;
+                                                        btn.appendChild(circle);
+                                                        setTimeout(() => circle.remove(), 350);
+                                                        // Logic
+                                                        const originalMax = answer.originalMaxPoints || answer.maxPoints;
+                                                        canEdit && updateAnswer(currentSectionIndex, answerIndex, {
+                                                            answer: "evet",
+                                                            earnedPoints: originalMax,
+                                                            maxPoints: originalMax,
+                                                        });
+                                                    }}
+                                                    className={`relative overflow-hidden h-11 sm:h-12 rounded-full w-full flex items-center justify-center text-sm sm:text-base font-semibold border transition-colors duration-150 ${answer.answer === "evet"
+                                                        ? "bg-[#5faf24] text-white border-[#5faf24] hover:bg-[#4d8f1d]"
+                                                        : "bg-transparent text-foreground border-input hover:bg-[#5faf24]/10 hover:text-[#5faf24] hover:border-[#5faf24]/30"
+                                                        } ${!canEdit ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
                                                 >
                                                     Evet
-                                                </Button>
-                                                <Button
-                                                    size="sm"
-                                                    variant="outline"
-                                                    className={getAnswerButtonClass(
-                                                        answer.answer === "hayir"
-                                                    )}
-                                                    onClick={() => {
-                                                        const originalMax = answer.originalMaxPoints || answer.maxPoints;
-                                                        canEdit &&
-                                                            updateAnswer(currentSectionIndex, answerIndex, {
-                                                                answer: "hayir",
-                                                                earnedPoints: 0, // Hayır = 0 puan
-                                                                maxPoints: originalMax, // Muaf'tan geri yükle
-                                                            });
-                                                    }}
+                                                </button>
+                                                {/* Hayır */}
+                                                <button
                                                     disabled={!canEdit}
+                                                    onClick={(e) => {
+                                                        const btn = e.currentTarget;
+                                                        const circle = document.createElement("span");
+                                                        const diameter = Math.max(btn.clientWidth, btn.clientHeight);
+                                                        const rect = btn.getBoundingClientRect();
+                                                        circle.style.cssText = `width:${diameter}px;height:${diameter}px;left:${e.clientX - rect.left - diameter / 2}px;top:${e.clientY - rect.top - diameter / 2}px;position:absolute;border-radius:50%;background:rgba(255,255,255,0.20);transform:scale(0);animation:ripple 320ms linear;pointer-events:none;`;
+                                                        btn.appendChild(circle);
+                                                        setTimeout(() => circle.remove(), 350);
+                                                        const originalMax = answer.originalMaxPoints || answer.maxPoints;
+                                                        canEdit && updateAnswer(currentSectionIndex, answerIndex, {
+                                                            answer: "hayir",
+                                                            earnedPoints: 0,
+                                                            maxPoints: originalMax,
+                                                        });
+                                                    }}
+                                                    className={`relative overflow-hidden h-11 sm:h-12 rounded-full w-full flex items-center justify-center text-sm sm:text-base font-semibold border transition-colors duration-150 ${answer.answer === "hayir"
+                                                        ? "bg-[#d83f30] text-white border-[#d83f30] hover:bg-[#b03225]"
+                                                        : "bg-transparent text-foreground border-input hover:bg-[#d83f30]/10 hover:text-[#d83f30] hover:border-[#d83f30]/30"
+                                                        } ${!canEdit ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
                                                 >
                                                     Hayır
-                                                </Button>
-                                                <Button
-                                                    size="sm"
-                                                    variant="outline"
-                                                    className={getAnswerButtonClass(
-                                                        answer.answer === "muaf"
-                                                    )}
-                                                    onClick={() =>
-                                                        canEdit &&
-                                                        updateAnswer(currentSectionIndex, answerIndex, {
-                                                            answer: "muaf",
-                                                            earnedPoints: 0, // Muaf = hesaba katılmaz
-                                                            maxPoints: 0, // Muaf = hesaba katılmaz
-                                                        })
-                                                    }
+                                                </button>
+                                                {/* Muaf */}
+                                                <button
                                                     disabled={!canEdit}
+                                                    onClick={(e) => {
+                                                        const btn = e.currentTarget;
+                                                        const circle = document.createElement("span");
+                                                        const diameter = Math.max(btn.clientWidth, btn.clientHeight);
+                                                        const rect = btn.getBoundingClientRect();
+                                                        circle.style.cssText = `width:${diameter}px;height:${diameter}px;left:${e.clientX - rect.left - diameter / 2}px;top:${e.clientY - rect.top - diameter / 2}px;position:absolute;border-radius:50%;background:rgba(255,255,255,0.20);transform:scale(0);animation:ripple 320ms linear;pointer-events:none;`;
+                                                        btn.appendChild(circle);
+                                                        setTimeout(() => circle.remove(), 350);
+                                                        canEdit && updateAnswer(currentSectionIndex, answerIndex, {
+                                                            answer: "muaf",
+                                                            earnedPoints: 0,
+                                                            maxPoints: 0,
+                                                        });
+                                                    }}
+                                                    className={`relative overflow-hidden h-11 sm:h-12 rounded-full w-full flex items-center justify-center text-sm sm:text-base font-semibold border transition-colors duration-150 ${answer.answer === "muaf"
+                                                        ? "bg-[#daa127] text-white border-[#daa127] hover:bg-[#b58620]"
+                                                        : "bg-transparent text-foreground border-input hover:bg-[#daa127]/10 hover:text-[#daa127] hover:border-[#daa127]/30"
+                                                        } ${!canEdit ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
                                                 >
                                                     Muaf
-                                                </Button>
+                                                </button>
                                             </div>
                                         )}
 
@@ -2194,7 +2212,7 @@ export default function AuditPage() {
                                     </div>
                                 </Card>
                             ))}
-                        
+
                             {/* Section Feedback Area */}
                             <Card className="mt-6 p-4 border shadow-sm bg-blue-50/50 dark:bg-blue-900/10 border-blue-200 dark:border-blue-800">
                                 <div className="space-y-4">
@@ -2222,12 +2240,12 @@ export default function AuditPage() {
                                                         const currentNote = audit.sections[currentSectionIndex].feedback?.note || "";
                                                         const cursorStart = el?.selectionStart ?? currentNote.length;
                                                         const cursorEnd = el?.selectionEnd ?? currentNote.length;
-                                                        
+
                                                         const textToInsert = currentNote.length === 0 || cursorStart === 0 ? "ÖNEMLİ: " : "\nÖNEMLİ: ";
                                                         const newNote = currentNote.slice(0, cursorStart) + textToInsert + currentNote.slice(cursorEnd);
-                                                        
+
                                                         updateSectionFeedback(currentSectionIndex, { note: newNote });
-                                                        
+
                                                         setTimeout(() => {
                                                             if (el) {
                                                                 el.focus();
@@ -2249,12 +2267,12 @@ export default function AuditPage() {
                                                         const currentNote = audit.sections[currentSectionIndex].feedback?.note || "";
                                                         const cursorStart = el?.selectionStart ?? currentNote.length;
                                                         const cursorEnd = el?.selectionEnd ?? currentNote.length;
-                                                        
+
                                                         const textToInsert = currentNote.length === 0 || cursorStart === 0 ? "NOT: " : "\nNOT: ";
                                                         const newNote = currentNote.slice(0, cursorStart) + textToInsert + currentNote.slice(cursorEnd);
-                                                        
+
                                                         updateSectionFeedback(currentSectionIndex, { note: newNote });
-                                                        
+
                                                         setTimeout(() => {
                                                             if (el) {
                                                                 el.focus();
@@ -2276,12 +2294,12 @@ export default function AuditPage() {
                                                         const currentNote = audit.sections[currentSectionIndex].feedback?.note || "";
                                                         const cursorStart = el?.selectionStart ?? currentNote.length;
                                                         const cursorEnd = el?.selectionEnd ?? currentNote.length;
-                                                        
+
                                                         const textToInsert = currentNote.length === 0 || cursorStart === 0 ? "ÖNERİ: " : "\nÖNERİ: ";
                                                         const newNote = currentNote.slice(0, cursorStart) + textToInsert + currentNote.slice(cursorEnd);
-                                                        
+
                                                         updateSectionFeedback(currentSectionIndex, { note: newNote });
-                                                        
+
                                                         setTimeout(() => {
                                                             if (el) {
                                                                 el.focus();

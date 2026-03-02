@@ -186,3 +186,10 @@ body {
 .anim-slide-down-out[data-state='closed'] {
   animation: slideDownOut 0.3s ease-in forwards;
 }
+
+@keyframes ripple {
+  to {
+    transform: scale(4);
+    opacity: 0;
+  }
+}
