@@ -38,6 +38,7 @@ interface ActionPerformanceRow {
     regionalManagerName?: string;
     auditDate: Date;
     totalActions: number;
+    rejectedActions: number;
     returnDate: Date | null;
     daysTaken: number | null;
     status: 'on_time' | 'late' | 'pending' | 'no_action';
@@ -107,6 +108,7 @@ export default function ActionPerformanceReport() {
 
                     // Analyze Actions
                     let totalActions = 0;
+                    let rejectedActions = 0;
                     let actionsPending = false;
                     let firstSubmissionDate: Date | null = null;
                     let hasActionItems = false;
@@ -123,6 +125,8 @@ export default function ActionPerformanceReport() {
                                 const status = answer.actionData?.status;
                                 if (!status || status === "pending_store") {
                                     actionsPending = true;
+                                } else if (status === "rejected") {
+                                    rejectedActions++;
                                 }
 
                                 // Check submission date
@@ -177,6 +181,7 @@ export default function ActionPerformanceReport() {
                         regionalManagerName: regionalManagerName,
                         auditDate: auditDate,
                         totalActions: totalActions,
+                        rejectedActions: rejectedActions,
                         returnDate: firstSubmissionDate,
                         daysTaken: daysTaken,
                         status: status,
@@ -262,10 +267,15 @@ export default function ActionPerformanceReport() {
             accessorKey: "totalActions",
             header: ({ column }) => <DataTableColumnHeader column={column} title="Aksiyon" />,
             cell: ({ row }) => (
-                <div className="flex justify-center">
+                <div className="flex flex-col items-center gap-1">
                     <Badge variant="secondary" className="font-mono text-xs">
                         {row.original.totalActions} adet
                     </Badge>
+                    {row.original.rejectedActions > 0 && (
+                        <Badge variant="outline" className="bg-rose-50 text-rose-600 border-rose-200 px-1.5 py-0 text-[9px] font-bold">
+                            {row.original.rejectedActions} Reddedildi
+                        </Badge>
+                    )}
                 </div>
             ),
             enableColumnFilter: false,
@@ -367,8 +377,9 @@ export default function ActionPerformanceReport() {
             "Mağaza Adı": row.storeName,
             "Bölge Müdürü": row.regionalManagerName || "-",
             "Denetmen": row.auditorName,
-            "Denetim Tarihi": row.auditDate.toLocaleDateString("tr-TR"),
+            "Oluşturulma Tarihi": row.auditDate.toLocaleDateString("tr-TR"),
             "Aksiyon Sayısı": row.totalActions,
+            "Reddedilen Aksiyon": row.rejectedActions,
             "Dönüş Tarihi": row.returnDate ? row.returnDate.toLocaleDateString("tr-TR") : "-",
             "Süre (İş Günü)": row.daysTaken !== null ? row.daysTaken : `Geçen: ${getWorkingDaysPassed(row.auditDate, new Date())}`,
             "Durum": row.status === 'on_time' ? "Zamanında" : row.status === 'late' ? "Geç Döndü" : "Bekleniyor",

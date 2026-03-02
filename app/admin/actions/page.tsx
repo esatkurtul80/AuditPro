@@ -423,8 +423,14 @@ function AdminActionsContent() {
             cell: ({ row }: { row: Row<Audit> }) => {
                 const audit = row.original;
                 let totalActions = 0;
+                let rejectedActions = 0;
                 audit.sections.forEach((s: any) => s.answers.forEach((a: any) => {
-                    if (a.answer && a.answer.trim() !== "" && a.answer !== "muaf" && (a.earnedPoints || 0) < (a.maxPoints || 0)) totalActions++;
+                    if (a.answer && a.answer.trim() !== "" && a.answer !== "muaf" && (a.earnedPoints || 0) < (a.maxPoints || 0)) {
+                        totalActions++;
+                        if (a.actionData?.status === "rejected") {
+                            rejectedActions++;
+                        }
+                    }
                 }));
 
                 const badgeClass = totalActions > 10
@@ -432,9 +438,16 @@ function AdminActionsContent() {
                     : "bg-orange-100 text-orange-800 border-orange-200 hover:bg-orange-100";
 
                 return (
-                    <Badge variant="outline" className={cn("w-fit px-3 py-1 text-sm font-medium", badgeClass)}>
-                        {totalActions} Madde
-                    </Badge>
+                    <div className="flex flex-col gap-1 items-start">
+                        <Badge variant="outline" className={cn("w-fit px-3 py-1 text-sm font-medium", badgeClass)}>
+                            {totalActions} Madde
+                        </Badge>
+                        {rejectedActions > 0 && (
+                            <Badge variant="outline" className="bg-rose-50 text-rose-600 border-rose-200 px-2 py-0.5 text-[10px] font-bold">
+                                {rejectedActions} Reddedildi
+                            </Badge>
+                        )}
+                    </div>
                 );
             }
         },
@@ -511,15 +524,15 @@ function AdminActionsContent() {
                         return <Badge variant="outline" className="bg-gray-100 text-gray-500">-</Badge>;
                     }
                     const deadlineDate = calculateDeadlineDate(completedDate);
-                    
+
                     const today = new Date();
-                    today.setHours(0,0,0,0);
+                    today.setHours(0, 0, 0, 0);
                     const target = new Date(deadlineDate);
-                    target.setHours(0,0,0,0);
-                    
+                    target.setHours(0, 0, 0, 0);
+
                     const diffTime = target.getTime() - today.getTime();
                     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                    
+
                     if (diffDays > 0) {
                         return (
                             <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-100 w-fit px-3 py-1 text-sm font-medium">
@@ -676,9 +689,9 @@ function AdminActionsContent() {
                                                     if (!completedDate) return "-";
                                                     const deadlineDate = calculateDeadlineDate(completedDate);
                                                     const today = new Date();
-                                                    today.setHours(0,0,0,0);
+                                                    today.setHours(0, 0, 0, 0);
                                                     const target = new Date(deadlineDate);
-                                                    target.setHours(0,0,0,0);
+                                                    target.setHours(0, 0, 0, 0);
                                                     const diffTime = target.getTime() - today.getTime();
                                                     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
                                                     if (diffDays > 0) return `Dönüşe ${diffDays} gün var`;
@@ -688,7 +701,7 @@ function AdminActionsContent() {
                                                 // Compute standard text for other tabs
                                                 let total = 0, apprv = 0, pStore = 0, pAdmin = 0, rej = 0;
                                                 audit.sections.forEach(s => s.answers.forEach(a => {
-                                                    const needed = a.answer && a.answer.trim() !== "muaf" && a.answer.trim() !== "" && (a.earnedPoints||0) < (a.maxPoints||0);
+                                                    const needed = a.answer && a.answer.trim() !== "muaf" && a.answer.trim() !== "" && (a.earnedPoints || 0) < (a.maxPoints || 0);
                                                     if (needed) {
                                                         total++;
                                                         const stat = a.actionData?.status || "pending_store";
@@ -711,10 +724,10 @@ function AdminActionsContent() {
                                                 const returnDate = getLastSubmissionDate(audit);
                                                 const responseTime = getStoreResponseTime(audit);
                                                 const deadline = completedDate ? calculateDeadlineDate(completedDate) : null;
-                                                
+
                                                 let totalActions = 0;
                                                 audit.sections.forEach(s => s.answers.forEach(a => {
-                                                    if (a.answer && a.answer.trim() !== "muaf" && a.answer.trim() !== "" && (a.earnedPoints||0) < (a.maxPoints||0)) totalActions++;
+                                                    if (a.answer && a.answer.trim() !== "muaf" && a.answer.trim() !== "" && (a.earnedPoints || 0) < (a.maxPoints || 0)) totalActions++;
                                                 }));
 
                                                 return {
