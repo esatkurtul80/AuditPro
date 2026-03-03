@@ -272,9 +272,9 @@ export default function ActionPerformanceReport() {
                         {row.original.totalActions} adet
                     </Badge>
                     {row.original.rejectedActions > 0 && (
-                        <Badge variant="outline" className="bg-rose-50 text-rose-600 border-rose-200 px-1.5 py-0 text-[9px] font-bold">
+                        <span className="text-[10px] text-rose-600 font-bold">
                             {row.original.rejectedActions} Reddedildi
-                        </Badge>
+                        </span>
                     )}
                 </div>
             ),

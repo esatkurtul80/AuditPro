@@ -32,10 +32,10 @@ declare global {
 
 const renderFeedbackText = (text: string) => {
     if (!text) return null;
-    
+
     // Split the text by the keywords
     const parts = text.split(/(ÖNEMLİ:|NOT:|ÖNERİ:)/g);
-    
+
     return parts.map((part, index) => {
         if (part === 'ÖNEMLİ:') {
             return <span key={index} style={{ backgroundColor: '#ef4444', color: 'white', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold', marginRight: '4px' }}>ÖNEMLİ:</span>;
@@ -44,7 +44,7 @@ const renderFeedbackText = (text: string) => {
         } else if (part === 'ÖNERİ:') {
             return <span key={index} style={{ backgroundColor: '#3b82f6', color: 'white', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold', marginRight: '4px' }}>ÖNERİ:</span>;
         }
-        
+
         // Handle normal text and newlines
         return (
             <span key={index}>
@@ -70,7 +70,7 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
         tdSize: 13, tdBold: false, tdItalic: false,
     });
     const [logo, setLogo] = useState<string>("");
-    
+
     // Config state to track if loaded
     const [configLoaded, setConfigLoaded] = useState(false);
     const [generating, setGenerating] = useState(false);
@@ -87,34 +87,34 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
     // Dynamic Mobile Scaling
     const [mobileScale, setMobileScale] = useState(1);
     const [mobileMarginLeft, setMobileMarginLeft] = useState(0);
-    
+
     useEffect(() => {
         const handleResize = () => {
-             if (mode !== 'preview') return;
-             if (typeof window === 'undefined') return;
+            if (mode !== 'preview') return;
+            if (typeof window === 'undefined') return;
 
-             const w = window.innerWidth;
-             const contentWidth = 794; // A4 width in pixels
-             
-             // 820px threshold matches the previous CSS breakpoint
-             if (w < 820) {
-                 const padding = 20; // 10px each side
-                 const availableWidth = w - padding;
-                 const targetScale = availableWidth / contentWidth;
-                 
-                 setMobileScale(targetScale);
-                 
-                 // Calculate centering margin
-                 // scaledWidth = 794 * targetScale
-                 // remainingSpace = w - scaledWidth
-                 // marginLeft = remainingSpace / 2
-                 const scaledWidth = contentWidth * targetScale;
-                 const margin = (w - scaledWidth) / 2;
-                 setMobileMarginLeft(margin);
-             } else {
-                 setMobileScale(1);
-                 setMobileMarginLeft(0);
-             }
+            const w = window.innerWidth;
+            const contentWidth = 794; // A4 width in pixels
+
+            // 820px threshold matches the previous CSS breakpoint
+            if (w < 820) {
+                const padding = 20; // 10px each side
+                const availableWidth = w - padding;
+                const targetScale = availableWidth / contentWidth;
+
+                setMobileScale(targetScale);
+
+                // Calculate centering margin
+                // scaledWidth = 794 * targetScale
+                // remainingSpace = w - scaledWidth
+                // marginLeft = remainingSpace / 2
+                const scaledWidth = contentWidth * targetScale;
+                const margin = (w - scaledWidth) / 2;
+                setMobileMarginLeft(margin);
+            } else {
+                setMobileScale(1);
+                setMobileMarginLeft(0);
+            }
         };
 
         handleResize();
@@ -236,11 +236,11 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
             toast.error("PDF kütüphanesi henüz yüklenmedi, lütfen birkaç saniye bekleyip tekrar deneyin.");
             return;
         }
-        
+
         setGenerating(true);
 
         const element = reportRef.current;
-        
+
         // Snapshot current style
         const originalStyle = {
             width: element.style.width,
@@ -251,22 +251,22 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
         };
 
         // Modify for print to ensure single page look
-        element.style.width = '794px'; 
-        element.style.margin = '0 auto'; 
+        element.style.width = '794px';
+        element.style.margin = '0 auto';
         element.style.boxShadow = 'none';
-        element.style.height = 'auto'; 
+        element.style.height = 'auto';
         element.style.minHeight = 'auto';
 
-        const contentHeight = element.scrollHeight; 
-        
+        const contentHeight = element.scrollHeight;
+
         const fileName = `Ozel_Rapor_${audit.storeName}_${format(new Date(), "yyyy-MM-dd")}.pdf`;
 
         const opt = {
-            margin: 0, 
+            margin: 0,
             filename: fileName,
-            image: { type: 'jpeg', quality: 0.98 }, 
+            image: { type: 'jpeg', quality: 0.98 },
             html2canvas: { scale: 2, useCORS: true, scrollY: 0, x: 0, y: 0, windowWidth: 794, height: contentHeight },
-            jsPDF: { unit: 'px', format: [794, contentHeight], orientation: 'portrait' } 
+            jsPDF: { unit: 'px', format: [794, contentHeight], orientation: 'portrait' }
         };
 
         window.scrollTo(0, 0);
@@ -274,17 +274,17 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
         try {
             // 1. Generate PDF object but don't save yet
             const worker = window.html2pdf().set(opt).from(element).toPdf();
-            
+
             // 2. Wait for PDF container to be created
             const pdf = await worker.get('pdf');
 
             // 3. Calculate and add links
             const images = element.querySelectorAll('img[data-original-url]');
-            
+
             images.forEach((img: any) => {
                 const rect = img.getBoundingClientRect();
                 const reportRect = element.getBoundingClientRect();
-                
+
                 const x = rect.left - reportRect.left;
                 const y = rect.top - reportRect.top;
                 const w = rect.width;
@@ -292,7 +292,7 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
                 const url = img.getAttribute('data-original-url');
 
                 if (url) {
-                   pdf.link(x, y, w, h, { url: url });
+                    pdf.link(x, y, w, h, { url: url });
                 }
             });
 
@@ -357,11 +357,11 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
     // Fetch Personnel Evaluations
     useEffect(() => {
         const fetchPersonnelEvals = async () => {
-             if (!audit?.id) {
-                 setPersonnelLoaded(true);
-                 return;
-             }
-             try {
+            if (!audit?.id) {
+                setPersonnelLoaded(true);
+                return;
+            }
+            try {
                 // Fetch settings
                 const settingsSnap = await getDoc(doc(db, "settings", "personnel_settings"));
                 if (settingsSnap.exists()) {
@@ -376,11 +376,11 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
                 const pSnap = await getDocs(pQuery);
                 const evalsList = pSnap.docs.map(d => d.data());
                 setPersonnelEvals(evalsList);
-             } catch (e) {
-                 console.error("Error fetching personnel evaluations", e);
-             } finally {
-                 setPersonnelLoaded(true);
-             }
+            } catch (e) {
+                console.error("Error fetching personnel evaluations", e);
+            } finally {
+                setPersonnelLoaded(true);
+            }
         };
         fetchPersonnelEvals();
     }, [audit.id]);
@@ -389,15 +389,15 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
 
     // Format helpers
     const getFormattedDate = (dateVal: any) => {
-         if (!dateVal) return "-";
-         const d = dateVal.seconds ? new Date(dateVal.seconds * 1000) : new Date(dateVal);
-         return format(d, "dd.MM.yyyy");
+        if (!dateVal) return "-";
+        const d = dateVal.seconds ? new Date(dateVal.seconds * 1000) : new Date(dateVal);
+        return format(d, "dd.MM.yyyy");
     };
-    
+
     const getFormattedTime = (dateVal: any) => {
-         if (!dateVal) return "-";
-         const d = dateVal.seconds ? new Date(dateVal.seconds * 1000) : new Date(dateVal);
-         return format(d, "HH:mm");
+        if (!dateVal) return "-";
+        const d = dateVal.seconds ? new Date(dateVal.seconds * 1000) : new Date(dateVal);
+        return format(d, "HH:mm");
     };
 
     const getWeekString = (dateVal: any) => {
@@ -410,12 +410,12 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
 
     return (
         <>
-            <Script 
+            <Script
                 src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"
                 onReady={() => setScriptLoaded(true)}
                 strategy="afterInteractive"
             />
-            
+
             <style jsx global>{`
                 /* ... (Font Imports remain same) ... */
                 @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&family=Open+Sans:wght@300;400;700&family=Lato:wght@300;400;700&family=Montserrat:wght@300;400;700&family=Playfair+Display:wght@400;700&family=Merriweather:wght@300;400;700&family=Nunito:wght@300;400;700&family=Raleway:wght@300;400;700&family=Oswald:wght@300;400;700&family=PT+Serif:wght@400;700&family=Poppins:wght@300;400;700&family=Ubuntu:wght@300;400;700&family=Roboto+Slab:wght@300;400;700&family=Quicksand:wght@300;400;700&family=Inconsolata:wght@300;400;700&family=Crimson+Text:wght@400;700&family=Work+Sans:wght@300;400;700&display=swap');
@@ -579,19 +579,19 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
                     }
                 }
             `}</style>
-            
+
             {/* Sticky Download Bar for Preview Mode - Moved to TOP */}
             {mode === 'preview' && (
-                <div style={{ 
-                    position: "sticky", 
-                    top: headerOffset, 
+                <div style={{
+                    position: "sticky",
+                    top: headerOffset,
                     zIndex: 49,
-                    display: "flex", 
-                    justifyContent: "space-between", 
+                    display: "flex",
+                    justifyContent: "space-between",
                     alignItems: "center",
                     gap: "8px",
-                    padding: "8px 16px", 
-                    background: "rgba(255,255,255,0.95)", 
+                    padding: "8px 16px",
+                    background: "rgba(255,255,255,0.95)",
                     backdropFilter: "blur(12px)",
                     borderBottom: "1px solid rgba(0,0,0,0.08)",
                     marginBottom: "12px"
@@ -602,7 +602,7 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
                             Geri
                         </Button>
                     )}
-                    
+
                     <Button
                         onClick={() => generatePDF()}
                         disabled={generating || !scriptLoaded}
@@ -619,8 +619,8 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
 
             {/* Report Container - hidden in download mode, visible in preview mode */}
             <div className={mode === 'preview' ? "flex justify-center px-8 pb-12 bg-transparent min-h-full print-preview-container" : ""} style={mode === 'preview' ? {} : { position: "absolute", left: "-9999px", top: "-9999px" }}>
-                <div 
-                    ref={reportRef} 
+                <div
+                    ref={reportRef}
                     className={`generator-wrapper ${templateId} print-preview-content`}
                     style={{
                         ...cssVars,
@@ -635,7 +635,7 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
                     }}
                 >
                     <div className="report-page">
-                        
+
                         <header className="report-header">
                             <div className="logo-box">
                                 {logo && <img src={logo.startsWith('http') ? getProxiedUrl(logo) : logo} alt="Logo" crossOrigin="anonymous" />}
@@ -647,7 +647,7 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
                         </header>
 
                         <div className="content">
-                            
+
                             <div className="info-panel">
                                 <div className="info-title">
                                     {audit.storeName.toUpperCase()} - MAĞAZA BİLGİLERİ
@@ -671,9 +671,8 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
                             {/* PERSONNEL FEEDBACK SECTION */}
                             {personnelEvals && personnelEvals.length > 0 && (
                                 <div className="section-card">
-                                    <div className="section-banner">
-                                        <span>PERSONEL TUTUM VE DAVRANIŞLARI</span>
-                                        <span>DEĞERLENDİRME</span>
+                                    <div className="section-banner" style={{ justifyContent: 'center', textAlign: 'center' }}>
+                                        <span>PERSONEL TUTUM VE DAVRANIŞLARI DEĞERLENDİRMESİ</span>
                                     </div>
                                     <table>
                                         <thead>
@@ -690,9 +689,9 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
                                                     <td style={{ verticalAlign: 'top', fontSize: '13px', color: '#555', fontStyle: 'italic', whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'break-word' }}>{pv.comment ? renderFeedbackText(pv.comment) : '-'}</td>
                                                     {showScoresInReport && (
                                                         <td style={{ verticalAlign: 'top', textAlign: 'center', fontWeight: 'bold' }}>
-                                                            <span className="score-badge" style={{ 
-                                                                background: (pv.score || 0) < 50 ? '#ffcccc' : (pv.score || 0) < 80 ? '#fff3cd' : '#d4edda', 
-                                                                color: '#333' 
+                                                            <span className="score-badge" style={{
+                                                                background: (pv.score || 0) < 50 ? '#ffcccc' : (pv.score || 0) < 80 ? '#fff3cd' : '#d4edda',
+                                                                color: '#333'
                                                             }}>
                                                                 {pv.score ?? '-'}
                                                             </span>
@@ -744,115 +743,115 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
                                             <span>{section.sectionName}</span>
                                             <span>DEĞERLENDİRME</span>
                                         </div>
-                                        
+
                                         {/* Questions Table */}
                                         {reportAnswers.length > 0 && (
-                                        <table>
-                                            <tbody>
-                                                {reportAnswers.map((answer, aIndex) => (
-                                                    <tr key={aIndex}>
-                                                        <td style={{ width: '75%', verticalAlign: 'top' }}>
-                                                            <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>
-                                                                {answer.questionText}
-                                                            </div>
-                                                            {/* Notes under the question */}
-                                                            {answer.notes && answer.notes.length > 0 && (
-                                                                <div style={{ fontSize: '11px', color: '#555', marginTop: '4px', fontStyle: 'italic', background: '#f9f9f9', padding: '4px', borderRadius: '4px' }}>
-                                                                    <strong>Not:</strong> {answer.notes.join(", ")}
+                                            <table>
+                                                <tbody>
+                                                    {reportAnswers.map((answer, aIndex) => (
+                                                        <tr key={aIndex}>
+                                                            <td style={{ width: '75%', verticalAlign: 'top' }}>
+                                                                <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>
+                                                                    {answer.questionText}
                                                                 </div>
-                                                            )}
-                                                             {/* Photos under the question/notes */}
-                                                             {answer.photos && answer.photos.length > 0 && (
-                                                                <div style={{ display: 'flex', gap: '5px', marginTop: '6px', flexWrap: 'wrap' }}>
-                                                                     {answer.photos.map((p, pi) => (
-                                                                         <img 
-                                                                             key={pi} 
-                                                                             src={getProxiedUrl(p)} 
-                                                                             data-original-url={p}
-                                                                             onClick={() => setSelectedImage(getProxiedUrl(p))}
-                                                                             onError={(e) => {
-                                                                                 (e.target as HTMLImageElement).style.display = 'none';
-                                                                             }}
-                                                                             style={{ 
-                                                                                 width: '80px', 
-                                                                                 height: '80px', 
-                                                                                 objectFit: 'cover', 
-                                                                                 borderRadius: '4px', 
-                                                                                 border: '1px solid #eee',
-                                                                                 cursor: 'pointer' 
-                                                                             }} 
-                                                                             crossOrigin="anonymous" 
-                                                                             alt={`Soru fotoğrafı ${pi + 1}`}
-                                                                         />
-                                                                     ))}
-                                                                </div>
-                                                            )}
-                                                        </td>
-                                                        <td style={{ width: '25%', verticalAlign: 'top', textAlign: 'center', fontWeight: 'bold' }}>
-                                                            {answer.answer === "hayir" ? (
-                                                                <span style={{ color: 'red' }}>HAYIR</span>
-                                                            ) : answer.answer === "evet" ? (
-                                                                <span style={{ color: 'green' }}>EVET</span>
-                                                            ) : answer.answer === "muaf" ? (
-                                                                <span style={{ color: '#999' }}>MUAF</span>
-                                                            ) : (answer.questionType === "checkbox" || (answer.questionType as string) === "radio" || answer.questionType === "multiple_choice") && answer.earnedPoints < answer.maxPoints ? (
-                                                                <span style={{ color: 'red', fontSize: '12px', fontWeight: 'bold' }}>
-                                                                    {answer.questionType === "checkbox" 
-                                                                        ? (
-                                                                            <>
-                                                                                <span style={{ textDecoration: 'underline' }}>EKSİKLER:</span>{" "}
-                                                                                {answer.options?.filter(opt => {
-                                                                                    // Show UNSELECTED options
-                                                                                    const selectedIds = Array.isArray(answer.answer) ? (answer.answer as string[]) : [];
-                                                                                    return !selectedIds.includes(opt.id);
-                                                                                }).map(o => o.text).join(", ")}
-                                                                            </>
-                                                                        )
-                                                                        : (
-                                                                            answer.options?.find(opt => opt.id === answer.answer)?.text || answer.answer
-                                                                        )
-                                                                    }
-                                                                </span>
-                                                            ) : answer.questionType === "rating" ? (
-                                                                <div style={{ display: 'flex', justifyContent: 'center', gap: '2px' }}>
-                                                                    {[...Array(answer.ratingMax || 5)].map((_, i) => (
-                                                                        <svg key={i} width="16" height="16" viewBox="0 0 24 24" fill={i < parseInt(answer.answer || "0") ? "#ffd700" : "#e0e0e0"} stroke="none">
-                                                                            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-                                                                        </svg>
-                                                                    ))}
-                                                                </div>
-                                                            ) : answer.questionType === "multiple_choice" ? (
-                                                                <span>
-                                                                    {answer.options?.find(opt => opt.id === answer.answer)?.text || answer.answer || "-"}
-                                                                </span>
-                                                            ) : (
-                                                                // For other types like number/text
-                                                                <span>{answer.answer || "NOT VAR"}</span>
-                                                            )}
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
+                                                                {/* Notes under the question */}
+                                                                {answer.notes && answer.notes.length > 0 && (
+                                                                    <div style={{ fontSize: '11px', color: '#555', marginTop: '4px', fontStyle: 'italic', background: '#f9f9f9', padding: '4px', borderRadius: '4px' }}>
+                                                                        <strong>Not:</strong> {answer.notes.join(", ")}
+                                                                    </div>
+                                                                )}
+                                                                {/* Photos under the question/notes */}
+                                                                {answer.photos && answer.photos.length > 0 && (
+                                                                    <div style={{ display: 'flex', gap: '5px', marginTop: '6px', flexWrap: 'wrap' }}>
+                                                                        {answer.photos.map((p, pi) => (
+                                                                            <img
+                                                                                key={pi}
+                                                                                src={getProxiedUrl(p)}
+                                                                                data-original-url={p}
+                                                                                onClick={() => setSelectedImage(getProxiedUrl(p))}
+                                                                                onError={(e) => {
+                                                                                    (e.target as HTMLImageElement).style.display = 'none';
+                                                                                }}
+                                                                                style={{
+                                                                                    width: '80px',
+                                                                                    height: '80px',
+                                                                                    objectFit: 'cover',
+                                                                                    borderRadius: '4px',
+                                                                                    border: '1px solid #eee',
+                                                                                    cursor: 'pointer'
+                                                                                }}
+                                                                                crossOrigin="anonymous"
+                                                                                alt={`Soru fotoğrafı ${pi + 1}`}
+                                                                            />
+                                                                        ))}
+                                                                    </div>
+                                                                )}
+                                                            </td>
+                                                            <td style={{ width: '25%', verticalAlign: 'top', textAlign: 'center', fontWeight: 'bold' }}>
+                                                                {answer.answer === "hayir" ? (
+                                                                    <span style={{ color: 'red' }}>HAYIR</span>
+                                                                ) : answer.answer === "evet" ? (
+                                                                    <span style={{ color: 'green' }}>EVET</span>
+                                                                ) : answer.answer === "muaf" ? (
+                                                                    <span style={{ color: '#999' }}>MUAF</span>
+                                                                ) : (answer.questionType === "checkbox" || (answer.questionType as string) === "radio" || answer.questionType === "multiple_choice") && answer.earnedPoints < answer.maxPoints ? (
+                                                                    <span style={{ color: 'red', fontSize: '12px', fontWeight: 'bold' }}>
+                                                                        {answer.questionType === "checkbox"
+                                                                            ? (
+                                                                                <>
+                                                                                    <span style={{ textDecoration: 'underline' }}>EKSİKLER:</span>{" "}
+                                                                                    {answer.options?.filter(opt => {
+                                                                                        // Show UNSELECTED options
+                                                                                        const selectedIds = Array.isArray(answer.answer) ? (answer.answer as string[]) : [];
+                                                                                        return !selectedIds.includes(opt.id);
+                                                                                    }).map(o => o.text).join(", ")}
+                                                                                </>
+                                                                            )
+                                                                            : (
+                                                                                answer.options?.find(opt => opt.id === answer.answer)?.text || answer.answer
+                                                                            )
+                                                                        }
+                                                                    </span>
+                                                                ) : answer.questionType === "rating" ? (
+                                                                    <div style={{ display: 'flex', justifyContent: 'center', gap: '2px' }}>
+                                                                        {[...Array(answer.ratingMax || 5)].map((_, i) => (
+                                                                            <svg key={i} width="16" height="16" viewBox="0 0 24 24" fill={i < parseInt(answer.answer || "0") ? "#ffd700" : "#e0e0e0"} stroke="none">
+                                                                                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                                                                            </svg>
+                                                                        ))}
+                                                                    </div>
+                                                                ) : answer.questionType === "multiple_choice" ? (
+                                                                    <span>
+                                                                        {answer.options?.find(opt => opt.id === answer.answer)?.text || answer.answer || "-"}
+                                                                    </span>
+                                                                ) : (
+                                                                    // For other types like number/text
+                                                                    <span>{answer.answer || "NOT VAR"}</span>
+                                                                )}
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
                                         )}
-                                        
+
                                         {/* Dedicated Section Feedback Table/Block */}
                                         {hasFeedback && (
-                                            <div style={{ marginTop: '0' }}> 
-                                                <div style={{ 
-                                                    background: '#333', 
-                                                    color: '#fff', 
-                                                    padding: '8px 15px', 
-                                                    fontSize: '12px', 
+                                            <div style={{ marginTop: '0' }}>
+                                                <div style={{
+                                                    background: '#333',
+                                                    color: '#fff',
+                                                    padding: '8px 15px',
+                                                    fontSize: '12px',
                                                     fontWeight: 'bold',
                                                     marginTop: reportAnswers.length > 0 ? '0' : '0', // attach to table if exists
                                                     textTransform: 'uppercase'
                                                 }}>
                                                     {section.sectionName} GÖRÜŞ VE ÖNERİLERİNİZ
                                                 </div>
-                                                <div style={{ 
-                                                    padding: '15px', 
-                                                    border: '1px solid #eee', 
+                                                <div style={{
+                                                    padding: '15px',
+                                                    border: '1px solid #eee',
                                                     borderTop: 'none',
                                                     background: '#fff',
                                                     display: 'flex',
@@ -860,28 +859,28 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
                                                     gap: '10px'
                                                 }}>
                                                     {section.feedback?.note && (
-                                                        <div style={{ fontSize: '13px', color: '#333', fontStyle: 'italic' }}>
+                                                        <div style={{ fontSize: '13px', color: '#333', fontStyle: 'italic', textAlign: 'left' }}>
                                                             {renderFeedbackText(section.feedback.note)}
                                                         </div>
                                                     )}
-                                                    
+
                                                     {section.feedback?.images && section.feedback.images.length > 0 && (
                                                         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '5px' }}>
-                                                             {section.feedback.images.map((img, i) => (
-                                                                 <div key={i} style={{ border: '1px dashed #ccc', padding: '2px', maxWidth: '100%' }}>
-                                                                    <img 
-                                                                        src={getProxiedUrl(img)} 
+                                                            {section.feedback.images.map((img, i) => (
+                                                                <div key={i} style={{ border: '1px dashed #ccc', padding: '2px', maxWidth: '100%' }}>
+                                                                    <img
+                                                                        src={getProxiedUrl(img)}
                                                                         data-original-url={img}
                                                                         onClick={() => setSelectedImage(getProxiedUrl(img))}
                                                                         onError={(e) => {
                                                                             (e.target as HTMLImageElement).parentElement!.style.display = 'none';
                                                                         }}
-                                                                        style={{ maxWidth: '100%', height: 'auto', objectFit: 'contain', cursor: 'pointer' }} 
-                                                                        crossOrigin="anonymous" 
+                                                                        style={{ maxWidth: '100%', height: 'auto', objectFit: 'contain', cursor: 'pointer' }}
+                                                                        crossOrigin="anonymous"
                                                                         alt={`Bölüm geri bildirim fotoğrafı ${i + 1}`}
                                                                     />
-                                                                 </div>
-                                                             ))}
+                                                                </div>
+                                                            ))}
                                                         </div>
                                                     )}
                                                 </div>
@@ -890,59 +889,66 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
                                     </div>
                                 );
                             })}
-                         
-                        {/* GENERAL FEEDBACK (Puanlamadan Bağımsız) */}
-                        {(audit.generalFeedback?.note || (audit.generalFeedback?.images && audit.generalFeedback.images.length > 0)) && (
-                            <div className="section-card">
-                                <div style={{ 
-                                    background: '#111', 
-                                    color: '#fff', 
-                                    padding: '12px 20px', 
-                                    fontSize: '16px', 
-                                    fontWeight: 'bold',
-                                    borderBottom: '2px solid #ed1b24',
-                                    textTransform: 'uppercase'
-                                }}>
-                                    GENEL GÖRÜŞ VE ÖNERİLER
-                                </div>
-                                <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                                    {audit.generalFeedback.note && (
-                                        <div style={{ fontSize: '14px', color: '#333', fontStyle: 'italic', lineHeight: '1.5' }}>
-                                            {renderFeedbackText(audit.generalFeedback.note)}
-                                        </div>
-                                    )}
-                                    
-                                    {audit.generalFeedback.images && audit.generalFeedback.images.length > 0 && (
-                                        <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', marginTop: '10px' }}>
-                                            {audit.generalFeedback.images.map((img, i) => (
-                                                <div key={i} style={{ border: '1px dashed #ccc', padding: '3px', maxWidth: '100%' }}>
-                                                   <img 
-                                                       src={getProxiedUrl(img)} 
-                                                       data-original-url={img}
-                                                       onClick={() => setSelectedImage(getProxiedUrl(img))}
-                                                       onError={(e) => {
-                                                           (e.target as HTMLImageElement).parentElement!.style.display = 'none';
-                                                       }}
-                                                       style={{ maxWidth: '100%', height: 'auto', objectFit: 'contain', cursor: 'pointer' }} 
-                                                       crossOrigin="anonymous" 
-                                                       alt={`Genel geri bildirim fotoğrafı ${i + 1}`}
-                                                   />
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        )}
 
-                        <footer style={{ textAlign: 'center', fontSize: '11px', color: '#999', marginTop: '20px', paddingBottom: '20px' }}>
-                            AuditPro Denetim Sistemi | © {new Date().getFullYear()} Tüm Hakları Saklıdır.
-                        </footer>
+                            {/* GENERAL FEEDBACK (Puanlamadan Bağımsız) */}
+                            {((audit.generalFeedback?.note || (audit.generalFeedback?.images && audit.generalFeedback.images.length > 0)) ||
+                                ((audit as any).generalObservations)) && (
+                                    <div className="section-card">
+                                        <div style={{
+                                            background: '#111',
+                                            color: '#fff',
+                                            padding: '12px 20px',
+                                            fontSize: '16px',
+                                            fontWeight: 'bold',
+                                            borderBottom: '2px solid #ed1b24',
+                                            textTransform: 'uppercase'
+                                        }}>
+                                            GENEL GÖRÜŞ VE ÖNERİLER
+                                        </div>
+                                        <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '15px', textAlign: 'left' }}>
+                                            {audit.generalFeedback?.note && (
+                                                <div style={{ fontSize: '14px', color: '#333', fontStyle: 'italic', lineHeight: '1.5', textAlign: 'left' }}>
+                                                    {renderFeedbackText(audit.generalFeedback.note)}
+                                                </div>
+                                            )}
+                                            {/* Fallback: generalObservations field */}
+                                            {!(audit.generalFeedback?.note) && (audit as any).generalObservations && (
+                                                <div style={{ fontSize: '14px', color: '#333', fontStyle: 'italic', lineHeight: '1.5', textAlign: 'left' }}>
+                                                    {renderFeedbackText((audit as any).generalObservations)}
+                                                </div>
+                                            )}
+
+                                            {audit.generalFeedback?.images && audit.generalFeedback.images.length > 0 && (
+                                                <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', marginTop: '10px' }}>
+                                                    {audit.generalFeedback.images.map((img, i) => (
+                                                        <div key={i} style={{ border: '1px dashed #ccc', padding: '3px', maxWidth: '100%' }}>
+                                                            <img
+                                                                src={getProxiedUrl(img)}
+                                                                data-original-url={img}
+                                                                onClick={() => setSelectedImage(getProxiedUrl(img))}
+                                                                onError={(e) => {
+                                                                    (e.target as HTMLImageElement).parentElement!.style.display = 'none';
+                                                                }}
+                                                                style={{ maxWidth: '100%', height: 'auto', objectFit: 'contain', cursor: 'pointer' }}
+                                                                crossOrigin="anonymous"
+                                                                alt={`Genel geri bildirim fotoğrafı ${i + 1}`}
+                                                            />
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+
+                            <footer style={{ textAlign: 'center', fontSize: '11px', color: '#999', marginTop: '20px', paddingBottom: '20px' }}>
+                                AuditPro Denetim Sistemi | © {new Date().getFullYear()} Tüm Hakları Saklıdır.
+                            </footer>
                         </div>
                     </div>
                 </div>
             </div>
-            
+
 
 
             {generating && mode === 'download' && (
@@ -957,23 +963,23 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
             <Dialog open={!!selectedImage} onOpenChange={(open) => !open && setSelectedImage(null)}>
                 <DialogContent className="max-w-[90vw] max-h-[90vh] p-0 bg-transparent border-none shadow-none flex items-center justify-center pointer-events-auto" showCloseButton={false}>
                     <DialogTitle className="sr-only">Fotoğraf Önizleme</DialogTitle>
-                     <div className="relative inline-block">
-                        <img 
-                            src={selectedImage || undefined} 
-                            alt="Önizleme" 
+                    <div className="relative inline-block">
+                        <img
+                            src={selectedImage || undefined}
+                            alt="Önizleme"
                             onError={(e) => {
                                 // Fallback for modal
                                 (e.target as HTMLImageElement).src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 24 24" fill="none" stroke="%23ccc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="1" y1="1" x2="23" y2="23"></line><path d="M21 21H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h3m3-3h6l2 3h4a2 2 0 0 1 2 2v9.34m-7.72-2.06a4 4 0 1 1-5.56-5.56"></path></svg>';
                             }}
                             className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl bg-white"
                         />
-                        <button 
+                        <button
                             onClick={() => setSelectedImage(null)}
                             className="absolute -top-4 -right-4 bg-white rounded-full p-2 shadow-lg hover:bg-slate-100 transition-colors z-50 pointer-events-auto cursor-pointer"
                         >
                             <X className="h-6 w-6 text-slate-800" />
                         </button>
-                     </div>
+                    </div>
                 </DialogContent>
             </Dialog>
         </>

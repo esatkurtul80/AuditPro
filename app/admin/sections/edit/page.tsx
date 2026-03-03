@@ -24,6 +24,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DataTable } from "@/components/ui/data-table";
+import { DataTableFacetedFilter } from "@/components/ui/data-table-faceted-filter";
 import { ColumnDef } from "@tanstack/react-table";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -33,6 +34,7 @@ interface Question {
     text: string;
     maxPoints: number;
     photoRequired: boolean;
+    categories?: string[];
 }
 
 interface Section {
@@ -50,6 +52,7 @@ function SectionDetailContent() {
     const [section, setSection] = useState<Section | null>(null);
     const [allQuestions, setAllQuestions] = useState<Question[]>([]);
     const [selectedQuestions, setSelectedQuestions] = useState<string[]>([]);
+    const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
     const [loading, setLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const isInitialLoad = useRef(true);
@@ -104,7 +107,18 @@ function SectionDetailContent() {
             setSection(sectionData);
             setSelectedQuestions(sectionData.questionIds || []);
 
-            const questionsSnapshot = await getDocs(collection(db, "questions"));
+            const [questionsSnapshot, categoriesSnapshot] = await Promise.all([
+                getDocs(collection(db, "questions")),
+                getDocs(collection(db, "question_categories"))
+            ]);
+
+            const fetchedCategories = categoriesSnapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            })) as { id: string; name: string }[];
+            fetchedCategories.sort((a, b) => a.name.localeCompare(b.name, "tr"));
+            setCategories(fetchedCategories);
+
             const questions = questionsSnapshot.docs.map((doc) => ({
                 id: doc.id,
                 ...doc.data(),
@@ -120,7 +134,7 @@ function SectionDetailContent() {
                 updateDoc(doc(db, "sections", sectionId), {
                     questionIds: cleanedIds,
                     updatedAt: Timestamp.now(),
-                }).catch(() => {});
+                }).catch(() => { });
             }
         } catch (error) {
             console.error("Error loading data:", error);
@@ -151,6 +165,32 @@ function SectionDetailContent() {
             ),
             enableSorting: false,
             enableHiding: false,
+        },
+        {
+            accessorKey: "categories",
+            id: "categories",
+            meta: { title: "Kategori" },
+            header: ({ column }) => (
+                <div className="flex items-center gap-1">
+                    <span>Kategori</span>
+                    <DataTableFacetedFilter
+                        column={column}
+                        title="Kategori Filtrele"
+                        options={categories.map(cat => ({ label: cat.name, value: cat.id }))}
+                    />
+                </div>
+            ),
+            cell: ({ row }) => {
+                const catIds = row.original.categories || [];
+                const names = catIds.map(id => categories.find(c => c.id === id)?.name).filter(Boolean);
+                return names.length > 0
+                    ? <div className="flex flex-wrap gap-1">{names.map((n, i) => <Badge key={i} variant="outline" className="text-xs border-violet-300 text-violet-700 bg-violet-50">🏷️ {n}</Badge>)}</div>
+                    : <span className="text-xs text-muted-foreground">—</span>;
+            },
+            filterFn: (row, id, filterValues: string[]) => {
+                const rowCats = row.original.categories || [];
+                return filterValues.some(fv => rowCats.includes(fv));
+            },
         },
         {
             accessorKey: "text",

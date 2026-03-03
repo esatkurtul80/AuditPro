@@ -62,6 +62,13 @@ export default function AuditReportPage() {
 
     if (!audit) return null;
 
+    // Block magaza role from viewing the special report
+    const allowedRoles = ["admin", "denetmen", "bolge-muduru", "rapor-yoneticisi"];
+    if (userProfile && !allowedRoles.includes(userProfile.role)) {
+        router.replace("/magaza");
+        return null;
+    }
+
     const isRegionalManager = userProfile?.role === "bolge-muduru";
 
     return (
@@ -71,7 +78,7 @@ export default function AuditReportPage() {
 
             {/* Content */}
             <div className={`container mx-auto py-0 px-2 md:px-4 ${isRegionalManager ? 'animate-in fade-in duration-300' : ''}`}>
-               <SpecialReportGenerator 
+                <SpecialReportGenerator
                     audit={audit}
                     mode="preview"
                     onClose={() => {

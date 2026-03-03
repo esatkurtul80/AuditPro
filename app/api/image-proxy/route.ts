@@ -8,28 +8,45 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    // Firebase Storage URLs use download tokens — no auth header needed
     const response = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-      },
+      method: 'GET',
+      cache: 'no-store',
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch image: ${response.status}`);
+      // Return transparent 1x1 gif instead of 500, so the report doesn't crash
+      const emptyGif = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64');
+      return new NextResponse(emptyGif, {
+        status: 200,
+        headers: {
+          'Content-Type': 'image/gif',
+          'Cache-Control': 'no-store',
+        },
+      });
     }
 
-    const blob = await response.blob();
-    const arrayBuffer = await blob.arrayBuffer();
+    const arrayBuffer = await response.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
+    const contentType = response.headers.get('content-type') || 'image/jpeg';
 
     return new NextResponse(buffer, {
       headers: {
-        'Content-Type': blob.type || 'image/jpeg',
-        'Cache-Control': 'public, max-age=31536000',
+        'Content-Type': contentType,
+        'Cache-Control': 'public, max-age=3600',
+        'Access-Control-Allow-Origin': '*',
       },
     });
   } catch (error) {
     console.error('Image proxy error:', error);
-    return NextResponse.json({ error: 'Failed to fetch image' }, { status: 500 });
+    // Return transparent gif on error instead of 500
+    const emptyGif = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64');
+    return new NextResponse(emptyGif, {
+      status: 200,
+      headers: {
+        'Content-Type': 'image/gif',
+        'Cache-Control': 'no-store',
+      },
+    });
   }
 }

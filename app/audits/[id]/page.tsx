@@ -1130,13 +1130,21 @@ export default function AuditPage() {
                 scoreChanged: scoreChanged
             }, { uid: userProfile?.uid || "unknown", role: userProfile?.role });
 
-            // Update audit in Firestore
-            await updateDoc(doc(db, "audits", auditId), {
+            // Update audit in Firestore — include generalFeedback so Genel Değerlendirme changes persist
+            const editSavePayload: Record<string, unknown> = {
                 sections: finalSections,
                 totalScore: audit.totalScore,
                 updatedAt: Timestamp.now(),
-                allActionsResolved: allActionsResolved
-            });
+                allActionsResolved: allActionsResolved,
+            };
+            // Always include generalFeedback in edit-mode save (even if empty, to clear old values)
+            if (audit.generalFeedback !== undefined) {
+                editSavePayload.generalFeedback = {
+                    ...audit.generalFeedback,
+                    images: (audit.generalFeedback.images || []).filter((url: string) => !url.startsWith('local://')),
+                };
+            }
+            await updateDoc(doc(db, "audits", auditId), editSavePayload);
 
             setAudit(prev => prev ? {
                 ...prev,

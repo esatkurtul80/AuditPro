@@ -143,6 +143,9 @@ export default function UserSettingsPage() {
           id: doc.id,
           ...doc.data(),
         })) as Store[];
+
+        storesData.sort((a, b) => a.name.localeCompare(b.name, 'tr'));
+
         setStores(storesData);
       } catch (error) {
         console.error("Error loading stores:", error);

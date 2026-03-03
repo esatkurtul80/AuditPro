@@ -2,11 +2,18 @@
 
 ```json
 {
-  "version": "2.2.50",
-  "build": 112,
+  "version": "2.2.51",
+  "build": 113,
   "status": "stable"
 }
 ```
+
+## [2.2.51] - 2026-03-03
+
+### v2.2.51
+- **UI (Veri Yönetimi):** Veri yönetimi detay gör listesine silme (detaydan tek tek JSON belgesi silme) özelliği getirildi.
+- Arama ve filtreleme mantığına uygun Shadcn dialog bileşeni eklendi.
+- **Sıralama (Mağaza Seçimleri):** Kullanıcı mağaza ayarlamalarındaki ve soru raporlarındaki "Tüm Mağazalar" filtresi alfabetik (A-Z) olarak sıralandı.
 
 ## [2.2.50] - 2026-03-02
 

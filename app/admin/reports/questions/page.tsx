@@ -146,6 +146,9 @@ export default function QuestionAnalysisPage() {
                 // Fetch Stores
                 const storesSnap = await getDocs(collection(db, "stores"));
                 const storesData = storesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Store));
+
+                storesData.sort((a, b) => a.name.localeCompare(b.name, 'tr'));
+
                 setStores(storesData);
 
                 // Fetch Regional Managers

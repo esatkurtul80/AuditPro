@@ -443,9 +443,9 @@ function AdminActionsContent() {
                             {totalActions} Madde
                         </Badge>
                         {rejectedActions > 0 && (
-                            <Badge variant="outline" className="bg-rose-50 text-rose-600 border-rose-200 px-2 py-0.5 text-[10px] font-bold">
+                            <span className="text-[10px] text-rose-600 font-bold px-1">
                                 {rejectedActions} Reddedildi
-                            </Badge>
+                            </span>
                         )}
                     </div>
                 );
