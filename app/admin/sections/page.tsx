@@ -101,6 +101,7 @@ export default function SectionsPage() {
 
             const questionIds = new Set(questionsSnapshot.docs.map(doc => doc.id));
 
+            sectionsData.sort((a, b) => a.name.localeCompare(b.name, "tr"));
             setSections(sectionsData);
             setAllQuestionIds(questionIds);
         } catch (error) {
@@ -185,7 +186,7 @@ export default function SectionsPage() {
             cell: ({ row }) => {
                 const iconName = row.original.icon;
                 const Icon = iconName && (LucideIcons as any)[iconName] ? (LucideIcons as any)[iconName] : null;
-                
+
                 return (
                     <div className="flex items-center gap-2">
                         {Icon && <Icon className="h-4 w-4 text-muted-foreground" />}

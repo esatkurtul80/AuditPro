@@ -2,13 +2,21 @@
 
 ```json
 {
-  "version": "2.2.51",
-  "build": 113,
+  "version": "2.2.52",
+  "build": 114,
   "status": "stable"
 }
 ```
 
-## [2.2.51] - 2026-03-03
+## [2.2.52] - 2026-03-04
+
+### v2.2.52
+- **Sticky Butonlar (Denetim Formu):** Denetmen panelinde denetim formundaki üst aksiyon barı (Geri, Önizleme, Tamamla) sticky konumlandırma sorunu giderildi; header yüksekliği hesaba katılarak her iki ekran boyutunda da sabit kalıyor.
+- **Denetim Formları Sıralama:** Admin panelinde denetim formları tablosuna sürükle-bırak satır sıralama özelliği eklendi (dnd-kit). Sıra numaraları Firestore'a otomatik kaydediliyor; denetmen + butonundaki form listesi bu sıraya göre görüntüleniyor.
+- **Denetim Bölümleri A-Z:** Admin paneli denetim bölümleri tablosu A-Z Türkçe alfabetik sırayla yükleniyor.
+- **Denetçi Performans Raporu (Sekmeler):** Bölüm bazlı puan ortalamaları sekmeleri A-Z Türkçe alfabetik sırayla soldan sağa sıralandı.
+- **Soru Tablosu (Admin):** Denetim soruları sayfasına soru puanı sütunu eklendi; "pt" ibaresi kaldırıldı. Kategori düzenleme (inline yeniden adlandırma) özelliği eklendi.
+
 
 ### v2.2.51
 - **UI (Veri Yönetimi):** Veri yönetimi detay gör listesine silme (detaydan tek tek JSON belgesi silme) özelliği getirildi.

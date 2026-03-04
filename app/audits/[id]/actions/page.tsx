@@ -1789,6 +1789,7 @@ export default function AuditActionsPage() {
                                                                     id={`file-${submissionKey}`}
                                                                     type="file"
                                                                     accept="image/*"
+                                                                    capture="environment"
                                                                     multiple
                                                                     className="hidden"
                                                                     onChange={(e) => handleFileSelect(sIndex, aIndex, e)}

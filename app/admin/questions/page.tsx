@@ -48,7 +48,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Plus, Edit, Trash2, X, ArrowUpDown, MoreHorizontal, Check, ChevronsUpDown, Tag, FolderOpen, Download } from "lucide-react";
+import { Loader2, Plus, Edit, Trash2, X, ArrowUpDown, MoreHorizontal, Check, ChevronsUpDown, Tag, FolderOpen, Download, Pencil } from "lucide-react";
 import * as XLSX from 'xlsx';
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -121,6 +121,8 @@ export default function QuestionsPage() {
     const [newCategoryName, setNewCategoryName] = useState("");
     const [savingCategory, setSavingCategory] = useState(false);
     const [deletingCategoryId, setDeletingCategoryId] = useState<string | null>(null);
+    const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
+    const [editingCategoryName, setEditingCategoryName] = useState("");
 
     const [formData, setFormData] = useState({
         text: "",
@@ -291,6 +293,25 @@ export default function QuestionsPage() {
         }
     };
 
+    const handleRenameCategory = async (catId: string) => {
+        const trimmed = editingCategoryName.trim();
+        if (!trimmed) return;
+        if (categories.some(c => c.id !== catId && c.name.toLowerCase() === trimmed.toLowerCase())) {
+            toast.error("Bu isimde bir kategori zaten var");
+            return;
+        }
+        try {
+            await updateDoc(doc(db, "question_categories", catId), { name: trimmed });
+            setCategories(prev => prev.map(c => c.id === catId ? { ...c, name: trimmed } : c));
+            toast.success("Kategori güncellendi");
+        } catch {
+            toast.error("Kategori güncellenemedi");
+        } finally {
+            setEditingCategoryId(null);
+            setEditingCategoryName("");
+        }
+    };
+
     const toggleCategory = (catId: string) => {
         setFormData(prev => ({
             ...prev,
@@ -371,6 +392,26 @@ export default function QuestionsPage() {
             ),
             cell: ({ row }) => <Badge variant="outline">{QUESTION_TYPE_SHORT_LABELS[row.original.type]}</Badge>,
             filterFn: (row, id, filterValues: string[]) => filterValues.includes(row.original.type),
+        },
+        {
+            accessorKey: "maxPoints",
+            id: "maxPoints",
+            meta: { title: "Puan" },
+            header: ({ column }) => (
+                <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")} className="-ml-4">
+                    Puan <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            ),
+            cell: ({ row }) => {
+                const q = row.original;
+                const pts = q.type === "checkbox" && q.options && q.options.length > 0
+                    ? q.options.reduce((sum, opt) => sum + opt.points, 0)
+                    : q.maxPoints;
+                const isInfoOnly = ["number", "date", "short_text"].includes(q.type);
+                return isInfoOnly
+                    ? <span className="text-xs text-muted-foreground">—</span>
+                    : <Badge variant="secondary" className="font-mono font-semibold tabular-nums bg-blue-50 text-blue-700 border-blue-200">{pts}</Badge>;
+            },
         },
         {
             id: "features",
@@ -790,22 +831,55 @@ export default function QuestionsPage() {
                                     <div className="space-y-2">
                                         {categories.map(cat => (
                                             <div key={cat.id} className="flex items-center justify-between p-3 border rounded-lg bg-slate-50 dark:bg-slate-900/20">
-                                                <div className="flex items-center gap-2">
-                                                    <Tag className="h-4 w-4 text-violet-600" />
-                                                    <span className="font-medium">{cat.name}</span>
-                                                    <span className="text-xs text-muted-foreground">
-                                                        ({questions.filter(q => q.categories?.includes(cat.id)).length} soru)
-                                                    </span>
-                                                </div>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
-                                                    onClick={() => handleDeleteCategory(cat.id)}
-                                                    disabled={deletingCategoryId === cat.id}
-                                                >
-                                                    {deletingCategoryId === cat.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
-                                                </Button>
+                                                {editingCategoryId === cat.id ? (
+                                                    <div className="flex items-center gap-2 flex-1 mr-2">
+                                                        <Input
+                                                            autoFocus
+                                                            value={editingCategoryName}
+                                                            onChange={e => setEditingCategoryName(e.target.value)}
+                                                            onKeyDown={e => {
+                                                                if (e.key === "Enter") handleRenameCategory(cat.id);
+                                                                if (e.key === "Escape") { setEditingCategoryId(null); setEditingCategoryName(""); }
+                                                            }}
+                                                            className="h-8 text-sm"
+                                                        />
+                                                        <Button size="icon" variant="ghost" className="h-8 w-8 text-green-600 hover:bg-green-50" onClick={() => handleRenameCategory(cat.id)}>
+                                                            <Check className="h-4 w-4" />
+                                                        </Button>
+                                                        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => { setEditingCategoryId(null); setEditingCategoryName(""); }}>
+                                                            <X className="h-4 w-4" />
+                                                        </Button>
+                                                    </div>
+                                                ) : (
+                                                    <div className="flex items-center gap-2 flex-1">
+                                                        <Tag className="h-4 w-4 text-violet-600" />
+                                                        <span className="font-medium">{cat.name}</span>
+                                                        <span className="text-xs text-muted-foreground">
+                                                            ({questions.filter(q => q.categories?.includes(cat.id)).length} soru)
+                                                        </span>
+                                                    </div>
+                                                )}
+                                                {editingCategoryId !== cat.id && (
+                                                    <div className="flex items-center gap-1">
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-8 w-8 text-violet-600 hover:text-violet-700 hover:bg-violet-50"
+                                                            onClick={() => { setEditingCategoryId(cat.id); setEditingCategoryName(cat.name); }}
+                                                        >
+                                                            <Pencil className="h-4 w-4" />
+                                                        </Button>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                                            onClick={() => handleDeleteCategory(cat.id)}
+                                                            disabled={deletingCategoryId === cat.id}
+                                                        >
+                                                            {deletingCategoryId === cat.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
+                                                        </Button>
+                                                    </div>
+                                                )}
                                             </div>
                                         ))}
                                     </div>

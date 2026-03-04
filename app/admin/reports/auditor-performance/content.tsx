@@ -1167,14 +1167,14 @@ export function AuditorPerformanceContent() {
                                         className="grid w-full lg:w-fit"
                                         style={{ gridTemplateColumns: `repeat(${Object.keys(deviationDataByAuditType).length}, minmax(150px, 1fr))` }}
                                     >
-                                        {Object.keys(deviationDataByAuditType).map((typeName) => (
+                                        {Object.keys(deviationDataByAuditType).sort((a, b) => a.localeCompare(b, "tr")).map((typeName) => (
                                             <TabsTrigger key={typeName} value={typeName}>
                                                 {typeName}
                                             </TabsTrigger>
                                         ))}
                                     </TabsList>
 
-                                    {Object.entries(deviationDataByAuditType).map(([typeName, dataRows]) => (
+                                    {Object.entries(deviationDataByAuditType).sort(([a], [b]) => a.localeCompare(b, "tr")).map(([typeName, dataRows]) => (
                                         <TabsContent key={typeName} value={typeName} className="mt-0 outline-none">
                                             <div className='w-full overflow-x-auto'>
                                                 <div className='min-w-[500px] border-y sm:border sm:rounded-md mt-4 sm:mt-0'>

@@ -1299,160 +1299,162 @@ export default function AuditPage() {
 
     return (
         <AuditPageLayout isRegionalManager={isRegionalManager}>
-            <div className="container mx-auto pb-3 px-4 md:px-6">
-                <div className="sticky top-0 z-30 mb-4 -mx-4 md:-mx-6 px-4 md:px-6 py-2 bg-background/95 backdrop-blur border-b border-border/50 shadow-sm">
-                    <div className="flex flex-row items-center gap-1.5 sm:gap-3 w-full">
-                        {currentSectionIndex !== null ? (() => {
-                            let sectionName = "";
-                            let sectionScoreText: string | number = "";
+            {/* Sticky Action Bar - OUTSIDE container so it can stretch full width and stick properly */}
+            <div className="sticky top-[61px] z-40 mb-4 px-4 md:px-6 py-2 bg-background/95 backdrop-blur border-b border-border/50 shadow-sm">
+                <div className="flex flex-row items-center gap-1.5 sm:gap-3 w-full">
+                    {currentSectionIndex !== null ? (() => {
+                        let sectionName = "";
+                        let sectionScoreText: string | number = "";
 
-                            if (currentSectionIndex === 'personnel') {
-                                sectionName = "Personel Değerlendirme";
-                                sectionScoreText = "-";
-                            } else if (currentSectionIndex === 'general') {
-                                sectionName = "Genel Değerlendirme";
-                                sectionScoreText = "-";
-                            } else if (typeof currentSectionIndex === 'number') {
-                                const section = audit.sections?.[currentSectionIndex];
-                                sectionName = section?.sectionName || "";
+                        if (currentSectionIndex === 'personnel') {
+                            sectionName = "Personel Değerlendirme";
+                            sectionScoreText = "-";
+                        } else if (currentSectionIndex === 'general') {
+                            sectionName = "Genel Değerlendirme";
+                            sectionScoreText = "-";
+                        } else if (typeof currentSectionIndex === 'number') {
+                            const section = audit.sections?.[currentSectionIndex];
+                            sectionName = section?.sectionName || "";
 
-                                let sectionEarned = 0;
-                                let sectionMax = 0;
+                            let sectionEarned = 0;
+                            let sectionMax = 0;
 
-                                if (section?.answers) {
-                                    section.answers.forEach((answer: any) => {
-                                        if (answer.answer && answer.answer.trim() !== "" && answer.answer !== "muaf") {
-                                            sectionEarned += answer.earnedPoints || 0;
-                                            sectionMax += answer.maxPoints || 0;
-                                        }
-                                    });
-                                }
-
-                                sectionScoreText = sectionMax > 0 ? Math.round((sectionEarned / sectionMax) * 100) : 0;
+                            if (section?.answers) {
+                                section.answers.forEach((answer: any) => {
+                                    if (answer.answer && answer.answer.trim() !== "" && answer.answer !== "muaf") {
+                                        sectionEarned += answer.earnedPoints || 0;
+                                        sectionMax += answer.maxPoints || 0;
+                                    }
+                                });
                             }
 
-                            return (
-                                <div className="flex flex-row items-center w-full relative h-[48px]">
-                                    {/* Geri Dön butonu - Sabit Sol */}
-                                    <div className="absolute left-0">
-                                        <Button
-                                            className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-md shadow-purple-500/20"
-                                            onClick={handleBack}
-                                        >
-                                            <ArrowLeft className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 shrink-0" />
-                                            <span className="truncate">Geri Dön</span>
-                                        </Button>
-                                    </div>
+                            sectionScoreText = sectionMax > 0 ? Math.round((sectionEarned / sectionMax) * 100) : 0;
+                        }
 
-                                    {/* Bölüm Başlığı - Tam Orta */}
-                                    <div className="flex-1 flex justify-center px-[120px]">
-                                        <h2 className="text-xl md:text-2xl font-bold text-slate-800 dark:text-slate-100 hidden sm:block truncate text-center">
-                                            {sectionName}
-                                        </h2>
-                                    </div>
+                        return (
+                            <div className="flex flex-row items-center w-full relative h-[48px]">
+                                {/* Geri Dön butonu - Sabit Sol */}
+                                <div className="absolute left-0">
+                                    <Button
+                                        className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-md shadow-purple-500/20"
+                                        onClick={handleBack}
+                                    >
+                                        <ArrowLeft className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 shrink-0" />
+                                        <span className="truncate">Geri Dön</span>
+                                    </Button>
+                                </div>
 
-                                    {/* Puan Dairesi - Sabit Sağ */}
-                                    <div className="absolute right-0 flex items-center justify-center w-12 h-12 bg-white dark:bg-slate-800 rounded-full shadow-md border border-blue-100 dark:border-blue-800 shrink-0">
-                                        <div className="text-lg font-bold text-blue-600 dark:text-blue-400 leading-none">
-                                            {sectionScoreText}
-                                        </div>
+                                {/* Bölüm Başlığı - Tam Orta */}
+                                <div className="flex-1 flex justify-center px-[120px]">
+                                    <h2 className="text-xl md:text-2xl font-bold text-slate-800 dark:text-slate-100 hidden sm:block truncate text-center">
+                                        {sectionName}
+                                    </h2>
+                                </div>
+
+                                {/* Puan Dairesi - Sabit Sağ */}
+                                <div className="absolute right-0 flex items-center justify-center w-12 h-12 bg-white dark:bg-slate-800 rounded-full shadow-md border border-blue-100 dark:border-blue-800 shrink-0">
+                                    <div className="text-lg font-bold text-blue-600 dark:text-blue-400 leading-none">
+                                        {sectionScoreText}
                                     </div>
                                 </div>
-                            );
-                        })() : (
-                            <Button
-                                className="flex-1 px-1 sm:px-4 text-[11px] sm:text-sm h-9 sm:h-10 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-md shadow-purple-500/20"
-                                onClick={() => {
-                                    const backDestination = userProfile?.role === 'admin' ? '/admin/dashboard'
-                                        : userProfile?.role === 'magaza' ? '/magaza/panel'
-                                            : '/denetmen/tamamlanan';
-                                    if (isViewMode) {
-                                        // View mode: navigate directly without dialog
-                                        window.location.href = backDestination;
-                                    } else if (isEditMode) {
-                                        // Edit mode: show confirmation dialog
-                                        setShowBackDialog(true);
-                                    } else {
-                                        // Pending audit: show confirmation dialog
-                                        setShowBackDialog(true);
-                                    }
-                                }}
-                            >
-                                <ArrowLeft className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 shrink-0" />
-                                <span className="truncate">Geri Dön</span>
-                            </Button>
-                        )}
+                            </div>
+                        );
+                    })() : (
+                        <Button
+                            className="flex-1 px-1 sm:px-4 text-[11px] sm:text-sm h-9 sm:h-10 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-md shadow-purple-500/20"
+                            onClick={() => {
+                                const backDestination = userProfile?.role === 'admin' ? '/admin/dashboard'
+                                    : userProfile?.role === 'magaza' ? '/magaza/panel'
+                                        : '/denetmen/tamamlanan';
+                                if (isViewMode) {
+                                    // View mode: navigate directly without dialog
+                                    window.location.href = backDestination;
+                                } else if (isEditMode) {
+                                    // Edit mode: show confirmation dialog
+                                    setShowBackDialog(true);
+                                } else {
+                                    // Pending audit: show confirmation dialog
+                                    setShowBackDialog(true);
+                                }
+                            }}
+                        >
+                            <ArrowLeft className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 shrink-0" />
+                            <span className="truncate">Geri Dön</span>
+                        </Button>
+                    )}
 
-                        {isEditMode && (
+                    {isEditMode && (
+                        <Button
+                            onClick={saveAndNotify}
+                            disabled={saving}
+                            className="flex-1 px-1 sm:px-4 text-[11px] sm:text-sm h-9 sm:h-10 bg-blue-600 hover:bg-blue-700 shadow-md"
+                        >
+                            {saving ? (
+                                <>
+                                    <Loader2 className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 animate-spin shrink-0" />
+                                    <span className="truncate">Kaydediliyor...</span>
+                                </>
+                            ) : (
+                                <>
+                                    <Save className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 shrink-0" />
+                                    <span className="truncate">Kaydet</span>
+                                </>
+                            )}
+                        </Button>
+                    )}
+
+                    {!isCompleted && currentSectionIndex === null && (
+                        <>
                             <Button
-                                onClick={saveAndNotify}
-                                disabled={saving}
-                                className="flex-1 px-1 sm:px-4 text-[11px] sm:text-sm h-9 sm:h-10 bg-blue-600 hover:bg-blue-700 shadow-md"
+                                onClick={handleOpenPreview}
+                                disabled={!audit}
+                                variant="outline"
+                                className="flex-1 px-1 sm:px-4 text-[11px] sm:text-sm h-9 sm:h-10 border-blue-200 text-blue-700 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-300 dark:hover:bg-blue-900/50 shadow-sm"
+                                title="Eksikleri ve mevcut durumu önizleyin"
                             >
-                                {saving ? (
+                                <Eye className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 shrink-0" />
+                                <span className="truncate">Önizleme</span>
+                            </Button>
+                            <Button
+                                onClick={completeAudit}
+                                disabled={completing || hasPending || !isOnline}
+                                className="flex-1 px-1 sm:px-4 text-[11px] sm:text-sm h-9 sm:h-10 bg-blue-600 hover:bg-blue-700 text-white shadow-md"
+                                title={
+                                    !isOnline
+                                        ? "Denetimi tamamlamak için internet bağlantısı gerekli"
+                                        : hasPending
+                                            ? "Lütfen tüm verilerin senkronize olmasını bekleyin"
+                                            : ""
+                                }
+                            >
+                                {completing ? (
                                     <>
                                         <Loader2 className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 animate-spin shrink-0" />
-                                        <span className="truncate">Kaydediliyor...</span>
+                                        <span className="truncate">Tamamlanıyor...</span>
+                                    </>
+                                ) : !isOnline ? (
+                                    <>
+                                        <WifiOff className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 shrink-0" />
+                                        <span className="truncate">Offline</span>
+                                    </>
+                                ) : hasPending ? (
+                                    <>
+                                        <Clock className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 shrink-0" />
+                                        <span className="truncate">Bekleniyor...</span>
                                     </>
                                 ) : (
                                     <>
-                                        <Save className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 shrink-0" />
-                                        <span className="truncate">Kaydet</span>
+                                        <CheckCircle2 className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 shrink-0" />
+                                        <span className="truncate">Tamamla</span>
                                     </>
                                 )}
                             </Button>
-                        )}
-
-                        {!isCompleted && currentSectionIndex === null && (
-                            <>
-                                <Button
-                                    onClick={handleOpenPreview}
-                                    disabled={!audit}
-                                    variant="outline"
-                                    className="flex-1 px-1 sm:px-4 text-[11px] sm:text-sm h-9 sm:h-10 border-blue-200 text-blue-700 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-300 dark:hover:bg-blue-900/50 shadow-sm"
-                                    title="Eksikleri ve mevcut durumu önizleyin"
-                                >
-                                    <Eye className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 shrink-0" />
-                                    <span className="truncate">Önizleme</span>
-                                </Button>
-                                <Button
-                                    onClick={completeAudit}
-                                    disabled={completing || hasPending || !isOnline}
-                                    className="flex-1 px-1 sm:px-4 text-[11px] sm:text-sm h-9 sm:h-10 bg-blue-600 hover:bg-blue-700 text-white shadow-md"
-                                    title={
-                                        !isOnline
-                                            ? "Denetimi tamamlamak için internet bağlantısı gerekli"
-                                            : hasPending
-                                                ? "Lütfen tüm verilerin senkronize olmasını bekleyin"
-                                                : ""
-                                    }
-                                >
-                                    {completing ? (
-                                        <>
-                                            <Loader2 className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 animate-spin shrink-0" />
-                                            <span className="truncate">Tamamlanıyor...</span>
-                                        </>
-                                    ) : !isOnline ? (
-                                        <>
-                                            <WifiOff className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 shrink-0" />
-                                            <span className="truncate">Offline</span>
-                                        </>
-                                    ) : hasPending ? (
-                                        <>
-                                            <Clock className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 shrink-0" />
-                                            <span className="truncate">Bekleniyor...</span>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <CheckCircle2 className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 shrink-0" />
-                                            <span className="truncate">Tamamla</span>
-                                        </>
-                                    )}
-                                </Button>
-                            </>
-                        )}
-                    </div>
+                        </>
+                    )}
                 </div>
+            </div>
+
+            <div className="container mx-auto px-4 md:px-6 pb-3">
 
                 {currentSectionIndex === null && (
                     <div className="flex items-center justify-between mb-6 p-4 bg-blue-50/50 dark:bg-blue-900/10 rounded-lg border border-blue-100 dark:border-blue-800">
@@ -2594,10 +2596,13 @@ export default function AuditPage() {
                             </AlertDialogFooter>
                         </AlertDialogContent>
                     </AlertDialog>
-                </div>
 
-            </div>
-        </AuditPageLayout>
+                </div>{/* pb-8 */}
+            </div>{/* container */}
+
+        </AuditPageLayout >
+
     );
+
 }
 
