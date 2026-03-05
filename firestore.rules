@@ -33,78 +33,69 @@ service cloud.firestore {
 
     // ─── Users Collection ───
     match /users/{userId} {
-      // Users can read their own profile; admin can read all
-      allow read: if isOwner(userId) || isAdmin() || isAuditor() || isRegionalManager();
-      // Users can update their own profile (presence, settings)
+      allow read: if isOwner(userId) || isAdmin() || isAuditor() || isRegionalManager() || isStoreUser();
       allow update: if isOwner(userId) || isAdmin();
-      // Only admin can create or delete users
       allow create, delete: if isAdmin();
     }
 
     // ─── Stores Collection ───
     match /stores/{storeId} {
-      // All authenticated users can read stores (needed for dropdowns, schedules)
       allow read: if isAuthenticated();
-      // Only admin can modify stores
       allow write: if isAdmin();
     }
 
     // ─── Audit Types Collection ───
     match /auditTypes/{typeId} {
-      // All authenticated users can read audit types (needed for forms)
       allow read: if isAuthenticated();
-      // Only admin can modify audit types
+      allow write: if isAdmin();
+    }
+
+    // ─── Sections Collection (read by auditors when creating audits) ───
+    match /sections/{sectionId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // ─── Questions Collection (read by auditors when creating audits) ───
+    match /questions/{questionId} {
+      allow read: if isAuthenticated();
       allow write: if isAdmin();
     }
 
     // ─── Audits Collection ───
     match /audits/{auditId} {
-      // Admin and auditors can read all audits; store users read theirs
       allow read: if isAdmin() || isAuditor() || isRegionalManager()
         || (isStoreUser() && resource.data.storeId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.storeId);
-      // Auditors can create audits; admin can too
-      allow create: if isAdmin() || isAuditor();
-      // Auditors can update their own audits; admin can update any
-      allow update: if isAdmin() || (isAuditor() && resource.data.auditorId == request.auth.uid);
-      // Only admin can delete audits
+      allow create: if isAdmin() || isAuditor() || isRegionalManager();
+      allow update: if isAdmin() || (isAuditor() && resource.data.auditorId == request.auth.uid) || isRegionalManager()
+        || (isStoreUser() && resource.data.storeId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.storeId);
       allow delete: if isAdmin();
     }
 
     // ─── Actions (Aksiyonlar) Collection ───
     match /actions/{actionId} {
-      // Admin, auditors, and related store users can read
       allow read: if isAuthenticated();
-      // Admin and auditors can create/update actions
-      allow create, update: if isAdmin() || isAuditor() || isStoreUser();
-      // Only admin can delete
+      allow create, update: if isAdmin() || isAuditor() || isStoreUser() || isRegionalManager();
       allow delete: if isAdmin();
     }
 
     // ─── Notifications Collection ───
     match /notifications/{notifId} {
-      // Users can read their own notifications; admin reads all
       allow read: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
-      // System creates notifications (admin or server)
-      allow create: if isAdmin();
-      // Users can update their own notifications (mark as read)
+      allow create: if isAdmin() || isAuditor() || isRegionalManager() || isStoreUser();
       allow update: if isAuthenticated() && resource.data.userId == request.auth.uid;
-      // Admin can delete
       allow delete: if isAdmin();
     }
 
     // ─── Announcements Collection ───
     match /announcements/{announcementId} {
-      // All authenticated users can read
       allow read: if isAuthenticated();
-      // Only admin can write
       allow write: if isAdmin();
     }
 
     // ─── Audit Schedules Collection ───
     match /audit_schedules/{scheduleId} {
-      // Admin and auditors can read schedules
       allow read: if isAuthenticated();
-      // Only admin can write schedules
       allow write: if isAdmin();
     }
 
@@ -114,6 +105,13 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // ─── System Logs Collection ───
+    match /system_logs/{logId} {
+      allow read: if isAdmin();
+      allow create: if isAuthenticated();
+      allow update, delete: if isAdmin();
+    }
+
     // ─── Trash Collection ───
     match /trash/{trashId} {
       allow read, write: if isAdmin();
@@ -121,6 +119,26 @@ service cloud.firestore {
 
     // ─── Settings Collection ───
     match /settings/{settingId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // ─── Store Personnel Collection ───
+    match /store_personnel/{personId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAdmin() || isAuditor() || isRegionalManager();
+      allow delete: if isAdmin();
+    }
+
+    // ─── Personnel Evaluations Collection ───
+    match /personnel_evaluations/{evalId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAdmin() || isAuditor() || isRegionalManager();
+      allow delete: if isAdmin();
+    }
+
+    // ─── Leave Types Collection ───
+    match /leave_types/{typeId} {
       allow read: if isAuthenticated();
       allow write: if isAdmin();
     }

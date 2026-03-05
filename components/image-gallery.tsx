@@ -57,6 +57,8 @@ export default function ImageGallery({
     const [localBlobUrls, setLocalBlobUrls] = useState<Map<string, string>>(new Map());
     const [recentlyUploaded, setRecentlyUploaded] = useState<Set<string>>(new Set());
     const [deleteConfirmIndex, setDeleteConfirmIndex] = useState<number | null>(null);
+    const [refreshedUrls, setRefreshedUrls] = useState<Map<string, string>>(new Map());
+    const refreshingRef = React.useRef<Set<string>>(new Set());
     const isOnline = useOnlineStatus();
 
     // Show "uploaded" badge for 2 seconds
@@ -73,36 +75,65 @@ export default function ImageGallery({
         }
     }, [uploadedImages]);
 
-    // Load blob URLs for local images on mount only
+    // Load blob URLs for local images - re-runs when new local images are added
     useEffect(() => {
+        const localImageIds = images
+            .filter(url => url.startsWith('local://'))
+            .map(url => url.replace('local://', ''));
+
+        if (localImageIds.length === 0) return;
+
         const loadLocalImages = async () => {
             const pendingImages = await getPendingImages(auditId);
-            const blobUrlMap = new Map<string, string>();
-
-            pendingImages.forEach(img => {
-                const blobUrl = URL.createObjectURL(img.blob);
-                blobUrlMap.set(`local://${img.id}`, blobUrl);
+            setLocalBlobUrls(prev => {
+                const next = new Map(prev);
+                pendingImages.forEach(img => {
+                    const key = `local://${img.id}`;
+                    if (!next.has(key)) {
+                        next.set(key, URL.createObjectURL(img.blob));
+                    }
+                });
+                return next;
             });
-
-            setLocalBlobUrls(blobUrlMap);
         };
 
         if (auditId) {
             loadLocalImages();
         }
+    }, [auditId, images]);
 
-        // Cleanup blob URLs on unmount
-        return () => {
-            localBlobUrls.forEach(url => URL.revokeObjectURL(url));
-        };
-    }, [auditId]); // Removed images dependency
 
-    // Helper to get displayable URL (convert local:// to blob URL)
+    // Helper to get displayable URL (convert local:// to blob URL, or use refreshed URL)
     const getDisplayUrl = (url: string): string => {
         if (url.startsWith('local://')) {
             return localBlobUrls.get(url) || '';
         }
-        return url;
+        return refreshedUrls.get(url) ?? url;
+    };
+
+    // Attempt to refresh a Firebase Storage URL by re-fetching the download token
+    const handleImageError = async (originalUrl: string) => {
+        if (!originalUrl.includes('firebasestorage') && !originalUrl.includes('firebase')) return;
+        if (refreshingRef.current.has(originalUrl)) return; // already refreshing
+        if (refreshedUrls.has(originalUrl)) return; // already tried
+
+        refreshingRef.current.add(originalUrl);
+        try {
+            // Extract the storage path from the URL
+            const url = new URL(originalUrl);
+            const pathMatch = url.pathname.match(/\/o\/(.+)/);
+            if (!pathMatch) return;
+            const storagePath = decodeURIComponent(pathMatch[1]);
+            const storageRef = ref(storage, storagePath);
+            const freshUrl = await getDownloadURL(storageRef);
+            setRefreshedUrls(prev => new Map(prev).set(originalUrl, freshUrl));
+        } catch (err) {
+            console.warn('[ImageGallery] Could not refresh URL:', originalUrl, err);
+            // Mark as attempted so we don't loop
+            setRefreshedUrls(prev => new Map(prev).set(originalUrl, originalUrl));
+        } finally {
+            refreshingRef.current.delete(originalUrl);
+        }
     };
 
     const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -219,6 +250,9 @@ export default function ImageGallery({
                     // ── File path ─────────────────────────────────────────────
                     const photoNumber = images.length + batchIndex + 1;
                     const safeSectionName = sectionName ? sanitize(sectionName) : 'FOTO';
+                    // Unique ID — prevents filename collisions when multiple photos
+                    // are uploaded for the same question (avoids override & token conflicts)
+                    const uid = Math.random().toString(36).slice(2, 8).toUpperCase();
 
                     let finalPath: string;
                     if (sectionName) {
@@ -228,8 +262,8 @@ export default function ImageGallery({
                         finalPath = folder;
                     }
 
-                    // e.g. "audits/MAHMUT ESAT KURTUL - 04.03.2026/BAHARAT BOLUMU/BAHARAT - 1. SORU FOTOGRAFI.jpg"
-                    const filename = `${finalPath}/${safeSectionName} - ${photoNumber}. SORU FOTOGRAFI.${ext}`;
+                    // e.g. "audits/MAHMUT ESAT KURTUL - 04.03.2026/BAHARAT BOLUMU/BAHARAT - 1. SORU FOTOGRAFI-A3K9X2.jpg"
+                    const filename = `${finalPath}/${safeSectionName} - ${photoNumber}. SORU FOTOGRAFI-${uid}.${ext}`;
                     console.log('[ImageGallery] upload path →', filename);
                     const storageRef = ref(storage, filename);
 
@@ -338,12 +372,21 @@ export default function ImageGallery({
                 <div className="flex flex-wrap gap-2 mb-3 pt-2 pl-1">
                     {images.map((imageUrl, index) => {
                         const displayUrl = getDisplayUrl(imageUrl);
-                        // Skip rendering if no valid URL (avoid empty src error)
-                        if (!displayUrl) return null;
-
                         const isPending = imageUrl.startsWith('local://');
                         const isSyncing = syncingImages?.includes(imageUrl);
                         const isUploaded = recentlyUploaded.has(imageUrl);
+
+                        // Offline photo whose blob URL isn't ready yet → show a spinner placeholder
+                        if (isPending && !displayUrl) {
+                            return (
+                                <div key={index} className="h-24 w-24 rounded-lg border flex items-center justify-center bg-muted">
+                                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                                </div>
+                            );
+                        }
+
+                        // Online photo with broken URL → skip silently (don't auto-delete)
+                        if (!displayUrl) return null;
 
                         return (
                             <div key={index} className="relative group">
@@ -351,13 +394,9 @@ export default function ImageGallery({
                                     <img
                                         src={displayUrl}
                                         alt={`Fotoğraf ${index + 1}`}
-                                        className={`h-24 w-24 object-cover rounded-lg border cursor-pointer transition-all hover:scale-105 ${isPending ? 'opacity-50' : 'opacity-100'}`}
+                                        className={`h-24 w-24 object-cover rounded-lg border cursor-pointer transition-all hover:scale-105 ${isPending ? 'opacity-60' : 'opacity-100'}`}
                                         onClick={() => setSelectedImage(imageUrl)}
-                                        onError={() => {
-                                            // Auto-remove broken image URLs
-                                            const newImages = images.filter((_, i) => i !== index);
-                                            onImagesChange(newImages);
-                                        }}
+                                        onError={() => handleImageError(imageUrl)}
                                     />
 
                                     {/* Syncing Spinner Overlay */}
@@ -476,6 +515,7 @@ export default function ImageGallery({
                             alt="Önizleme"
                             className="max-w-[95vw] max-h-[95vh] object-contain"
                             onClick={(e) => e.stopPropagation()}
+                            onError={() => handleImageError(selectedImage)}
                         />
                     </div>,
                     document.body

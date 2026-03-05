@@ -392,39 +392,19 @@ export default function AuditActionsPage() {
                         const localImages = localItem.images || [];
                         const serverImages = draft.images; // These are strings (URLs)
 
-                        // 1. Find new server string-images not in local
-                        // Compare by URL string value.
+                        // Find new server string-images not in local
                         // NOTE: localImages can contain Files. We only compare strings.
                         const newServerImages = serverImages.filter(sImg =>
                             !localImages.includes(sImg)
                         );
 
-                        // 2. Find server images that are GONE (deleted on another device)
-                        // If a string URL is in local but NOT in server, it means another device deleted it.
-                        // We should remove it.
-                        // But wait, what if we just uploaded it and server hasn't updated yet?
-                        // Autosave is fast. 
-                        // If we have a URL in local, it MUST be from server originally or from a recent upload response.
-                        // If server list doesn't have it, it's deleted.
-
-                        const currentLocalUrls = localImages.filter(i => typeof i === 'string') as string[];
-                        const deletedUrls = currentLocalUrls.filter(lUrl =>
-                            !serverImages.includes(lUrl as string)
-                        );
-
-                        // If we have additions or deletions:
-                        if (newServerImages.length > 0 || deletedUrls.length > 0) {
-                            // Construct new image list:
-                            // Start with local Files (keep them, they are pending uploads or not synced yet)
-                            const localFiles = localImages.filter(i => typeof i !== 'string');
-
-                            // Add all CURRENT server images
-                            // This effectively applies "Server State" for URLs, while keeping "Local State" for Files.
-                            // This handles both additions (new server img) and deletions (server img gone).
-
+                        // Only ADD new server images — never remove local URLs via sync.
+                        // Explicit deletion is handled by handleRemoveFile which updates both
+                        // local state and Firestore atomically, avoiding race conditions.
+                        if (newServerImages.length > 0) {
                             next[key] = {
                                 ...localItem,
-                                images: [...localFiles, ...serverImages]
+                                images: [...localImages, ...newServerImages]
                             };
                             hasChanges = true;
                         }
@@ -515,77 +495,82 @@ export default function AuditActionsPage() {
 
             // 2. If Online: Upload and Autosave
             if (isOnline) {
-                const uploadedUrls: string[] = [];
-
                 setUploading(key);
 
-                try {
-                    for (const file of newFiles) {
-                        // Compression logic
-                        let fileToUpload = file;
-                        const fileSizeMB = file.size / 1024 / 1024;
-                        if (fileSizeMB > 0.5) {
-                            try {
-                                const options = {
-                                    maxSizeMB: 0.5,
-                                    maxWidthOrHeight: 1920,
-                                    useWebWorker: true,
-                                    initialQuality: 0.85,
-                                };
-                                const compressedFile = await imageCompression(file, options);
-                                // Ensure type is preserved or default to jpeg/png
-                                fileToUpload = new File([compressedFile], file.name, {
-                                    type: compressedFile.type || file.type,
-                                    lastModified: Date.now()
-                                });
-                            } catch (error) {
-                                console.error("Compression error, uploading original", error);
-                            }
+                // Upload each file individually so partial successes are saved
+                const uploadFile = async (file: File): Promise<string | null> => {
+                    let fileToUpload = file;
+                    const fileSizeMB = file.size / 1024 / 1024;
+                    if (fileSizeMB > 0.5) {
+                        try {
+                            const compressedFile = await imageCompression(file, {
+                                maxSizeMB: 0.5,
+                                maxWidthOrHeight: 1920,
+                                useWebWorker: true,
+                                initialQuality: 0.85,
+                            });
+                            fileToUpload = new File([compressedFile], file.name, {
+                                type: compressedFile.type || file.type,
+                                lastModified: Date.now()
+                            });
+                        } catch {
+                            // Compression failed, use original
                         }
-
-                        const uniqueName = `store_action_${auditId}_${Date.now()}_${Math.random().toString(36).substr(2, 5)}_${fileToUpload.name.replace(/[^a-zA-Z0-9.]/g, "")}`;
-                        const storageRef = ref(storage, `actions/${auditId}/${uniqueName}`);
-                        const uploadResult = await uploadBytes(storageRef, fileToUpload);
-                        const url = await getDownloadURL(uploadResult.ref);
-                        uploadedUrls.push(url);
                     }
 
-                    // Now update submissionData to replace the specific Files with URLs?
-                    // Easier: Get current submissionData, filter out the *specific* File objects we added, and add the URLs.
-                    // But File object reference comparison might fail if React re-rendered? No, closure captures 'newFiles'.
+                    const storeName = (audit?.storeName || "magaza").replace(/[^a-zA-Z0-9ğüşıöçĞÜŞİÖÇ ]/g, "").trim();
+                    const auditDate = (() => { const d = audit?.createdAt ? (typeof (audit.createdAt as any).toDate === 'function' ? (audit.createdAt as any).toDate() : new Date(audit.createdAt as any)) : new Date(); return `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()}`; })();
+                    const folderName = `${storeName} - ${auditDate}`;
+                    const uniqueName = `${Date.now()}_${Math.random().toString(36).substr(2, 5)}_${fileToUpload.name.replace(/[^a-zA-Z0-9.]/g, "")}`;
+                    const storageRef = ref(storage, `actions/${folderName}/${uniqueName}`);
 
-                    setSubmissionData(prev => {
-                        const currentData = prev[key] || { note: "", images: [] };
-                        const currentImages = currentData.images;
+                    // 30 second timeout to prevent stuck state
+                    const uploadPromise = uploadBytes(storageRef, fileToUpload).then(r => getDownloadURL(r.ref));
+                    const timeoutPromise = new Promise<never>((_, reject) =>
+                        setTimeout(() => reject(new Error("Upload timeout")), 30000)
+                    );
 
-                        // Filter out the files we just uploaded
-                        const remainingImages = currentImages.filter(img => !newFiles.includes(img as File));
+                    return Promise.race([uploadPromise, timeoutPromise]);
+                };
 
-                        return {
-                            ...prev,
-                            [key]: {
-                                ...currentData,
-                                images: [...remainingImages, ...uploadedUrls]
-                            }
-                        };
-                    });
+                try {
+                    // Başlangıç URL listesini bir kez oku — döngü içinde stale olmasın
+                    let savedUrls: string[] = [
+                        ...(audit?.sections[sectionIndex].answers[answerIndex].actionData?.storeImages || [])
+                    ];
 
-                    // Update Firestore
-                    // We need the *complete* list of images (existing valid ones + new URLs)
-                    // We can't rely on arrayUnion inside updateActionData because it rewrites the whole sections array.
-                    // We must calculate the final array of strings.
+                    for (const file of newFiles) {
+                        try {
+                            const url = await uploadFile(file);
+                            if (!url) continue;
 
-                    const currentActionData = audit?.sections[sectionIndex].answers[answerIndex].actionData;
-                    const existingUrls = currentActionData?.storeImages || [];
+                            // Fotoğraf yüklenir yüklenmez anlık göster: File → URL
+                            setSubmissionData(prev => {
+                                const currentData = prev[key] || { note: "", images: [] };
+                                const remaining = currentData.images.filter(img => img !== file);
+                                return { ...prev, [key]: { ...currentData, images: [...remaining, url] } };
+                            });
 
-                    await updateActionData(sectionIndex, answerIndex, {
-                        storeImages: [...existingUrls, ...uploadedUrls],
-                        photoUploadedAt: Timestamp.now()
-                    });
+                            // Biriktirerek kaydet — önceki URL'lerin üstüne yazma
+                            savedUrls = [...savedUrls, url];
+                            await updateActionData(sectionIndex, answerIndex, {
+                                storeImages: savedUrls,
+                                photoUploadedAt: Timestamp.now()
+                            });
 
-                } catch (e) {
-                    console.error("Upload error", e);
-                    toast.error("Fotoğraf yüklenemedi");
+                        } catch (fileErr: any) {
+                            console.error("Single file upload error:", fileErr);
+                            const msg = fileErr?.message === "Upload timeout"
+                                ? "Yükleme zaman aşımı — lütfen internet bağlantınızı kontrol edin"
+                                : "Bir fotoğraf yüklenemedi";
+                            toast.error(msg);
+                            // Başarısız File'ı local state'ten kaldır
+                            setSubmissionData(prev => {
+                                const currentData = prev[key] || { note: "", images: [] };
+                                return { ...prev, [key]: { ...currentData, images: currentData.images.filter(img => img !== file) } };
+                            });
+                        }
+                    }
                 } finally {
                     setUploading(null);
                 }
@@ -664,9 +649,12 @@ export default function AuditActionsPage() {
                         await deleteObject(storageRef);
 
                     }
-                } catch (e) {
-                    console.error("Storage delete error", e);
-                    // Continue to remove from Firestore even if storage delete fails
+                } catch (e: any) {
+                    // "object-not-found" = zaten silinmiş, sessizce geç
+                    if (e?.code !== 'storage/object-not-found') {
+                        console.error("Storage delete error", e);
+                    }
+                    // Firestore güncellemesine devam et
                 }
 
 
@@ -830,16 +818,31 @@ export default function AuditActionsPage() {
                         if (typeof fileOrUrl === 'string') {
                             imageUrls.push(fileOrUrl);
                         } else {
-                            // If it's a File, upload it (though we plan to upload on select, legacy submit logic is here for safety or mixed mode)
-                            // Ideally we shouldn't have Files here if we uploaded them on select, but during migration or mixed usage we might.
-                            // However, we are moving to "Upload Immediately".
-                            // For now, let's keep upload logic for Files.
-
-                            const file = fileOrUrl;
-                            // Generate unique filename
-                            const uniqueName = `store_action_${auditId}_${Date.now()}_${Math.random().toString(36).substr(2, 5)}_${file.name.replace(/[^a-zA-Z0-9.]/g, "")}`;
-                            const storageRef = ref(storage, `actions/${auditId}/${uniqueName}`);
-                            const uploadResult = await uploadBytes(storageRef, file);
+                            // Offline sırasında kaydedilen File — sıkıştırarak yükle
+                            let fileToUpload = fileOrUrl as File;
+                            const fileSizeMB = fileToUpload.size / 1024 / 1024;
+                            if (fileSizeMB > 0.5) {
+                                try {
+                                    const compressed = await imageCompression(fileToUpload, {
+                                        maxSizeMB: 0.5,
+                                        maxWidthOrHeight: 1920,
+                                        useWebWorker: true,
+                                        initialQuality: 0.85,
+                                    });
+                                    fileToUpload = new File([compressed], fileToUpload.name, {
+                                        type: compressed.type || fileToUpload.type,
+                                        lastModified: Date.now()
+                                    });
+                                } catch {
+                                    // Sıkıştırma başarısız, orijinal dosyayı yükle
+                                }
+                            }
+                            const storeName2 = (audit?.storeName || "magaza").replace(/[^a-zA-Z0-9ğüşıöçĞÜŞİÖÇ ]/g, "").trim();
+                            const auditDate2 = (() => { const d = audit?.createdAt ? (typeof (audit.createdAt as any).toDate === 'function' ? (audit.createdAt as any).toDate() : new Date(audit.createdAt as any)) : new Date(); return `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()}`; })();
+                            const folderName2 = `${storeName2} - ${auditDate2}`;
+                            const uniqueName = `${Date.now()}_${Math.random().toString(36).substr(2, 5)}_${fileToUpload.name.replace(/[^a-zA-Z0-9.]/g, "")}`;
+                            const storageRef = ref(storage, `actions/${folderName2}/${uniqueName}`);
+                            const uploadResult = await uploadBytes(storageRef, fileToUpload);
                             const url = await getDownloadURL(uploadResult.ref);
                             imageUrls.push(url);
                         }
@@ -2112,16 +2115,40 @@ export default function AuditActionsPage() {
 
 function Thumbnail({ file, onRemove, onClick, isUploading }: { file: File | string, onRemove: () => void, onClick: () => void, isUploading?: boolean }) {
     const [preview, setPreview] = useState<string>("");
+    const refreshingRef = useRef(false);
 
     useEffect(() => {
         if (typeof file === 'string') {
             setPreview(file);
+            refreshingRef.current = false;
         } else {
             const url = URL.createObjectURL(file);
             setPreview(url);
             return () => URL.revokeObjectURL(url);
         }
     }, [file]);
+
+    const handleImgError = async (e: React.SyntheticEvent<HTMLImageElement>) => {
+        const img = e.currentTarget;
+        const currentSrc = img.src;
+        if (refreshingRef.current || !currentSrc.includes('firebasestorage')) return;
+        refreshingRef.current = true;
+        try {
+            const url = new URL(currentSrc);
+            const pathMatch = url.pathname.match(/\/o\/(.+)/);
+            if (pathMatch?.[1]) {
+                const { ref: storageRef, getDownloadURL } = await import('firebase/storage');
+                const { storage: st } = await import('@/lib/firebase');
+                const fileRef = storageRef(st, decodeURIComponent(pathMatch[1]));
+                const freshUrl = await getDownloadURL(fileRef);
+                setPreview(freshUrl);
+            }
+        } catch (err) {
+            console.error('URL yenileme hatası:', err);
+        } finally {
+            refreshingRef.current = false;
+        }
+    };
 
     if (!preview) return <div className="h-24 w-24 flex items-center justify-center border rounded-lg bg-muted text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /></div>;
 
@@ -2135,6 +2162,7 @@ function Thumbnail({ file, onRemove, onClick, isUploading }: { file: File | stri
                 alt={typeof file === 'string' ? "Görüntü" : file.name}
                 className="h-full w-full object-cover border cursor-pointer hover:opacity-90 transition-opacity"
                 onClick={onClick}
+                onError={handleImgError}
             />
             <button
                 type="button"
@@ -2172,16 +2200,40 @@ function Thumbnail({ file, onRemove, onClick, isUploading }: { file: File | stri
 
 function Lightbox({ file, onClose }: { file: File | string, onClose: () => void }) {
     const [preview, setPreview] = useState<string>("");
+    const refreshingRef = useRef(false);
 
     useEffect(() => {
         if (typeof file === 'string') {
             setPreview(file);
+            refreshingRef.current = false;
         } else {
             const url = URL.createObjectURL(file);
             setPreview(url);
             return () => URL.revokeObjectURL(url);
         }
     }, [file]);
+
+    const handleImgError = async (e: React.SyntheticEvent<HTMLImageElement>) => {
+        const img = e.currentTarget;
+        const currentSrc = img.src;
+        if (refreshingRef.current || !currentSrc.includes('firebasestorage')) return;
+        refreshingRef.current = true;
+        try {
+            const url = new URL(currentSrc);
+            const pathMatch = url.pathname.match(/\/o\/(.+)/);
+            if (pathMatch?.[1]) {
+                const { ref: storageRef, getDownloadURL } = await import('firebase/storage');
+                const { storage: st } = await import('@/lib/firebase');
+                const fileRef = storageRef(st, decodeURIComponent(pathMatch[1]));
+                const freshUrl = await getDownloadURL(fileRef);
+                setPreview(freshUrl);
+            }
+        } catch (err) {
+            console.error('URL yenileme hatası:', err);
+        } finally {
+            refreshingRef.current = false;
+        }
+    };
 
     if (!preview) return null;
 
@@ -2202,6 +2254,7 @@ function Lightbox({ file, onClose }: { file: File | string, onClose: () => void 
                     alt="Lightbox Preview"
                     className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
                     onClick={(e) => e.stopPropagation()}
+                    onError={handleImgError}
                 />
             </div>
         </div>

@@ -659,7 +659,7 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
                                         <div className="info-row"><span className="info-label">Mağaza Adı:</span> <span className="info-val">{audit.storeName}</span></div>
                                         <div className="info-row"><span className="info-label">Denetimi Yapan:</span> <span className="info-val">{audit.auditorName}</span></div>
                                         <div className="info-row"><span className="info-label">İlgili Hafta:</span> <span className="info-val">{getWeekString(audit.createdAt)}</span></div>
-                                        <div className="info-row"><span className="info-label">Mağaza Puanı:</span> <span className="score-badge">{audit.totalScore} / 100</span></div>
+                                        <div className="info-row"><span className="info-label">Mağaza Puanı:</span> <span className="score-badge">{audit.totalScore}</span></div>
                                     </div>
                                     <div className="col-right">
                                         <div className="info-row"><span className="info-label">Denetim Tarihi:</span> <span className="info-val">{getFormattedDate(audit.createdAt)}</span></div>
@@ -721,15 +721,26 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
                                     // 1. "Hayır" — always include
                                     if (a.answer === "hayir") return true;
 
-                                    // 2. Checkbox/rating/radio/multiple_choice with partial points — only if section has answers
+                                    // 2. Checkbox:
+                                    //    - Eksik puan varsa (EKSİKLER) → her zaman ekle
+                                    //    - Tam puan aldıysa → "evet" ile aynı kural: sadece not varsa ekle
+                                    if (sectionHasAnswers && hasAnswer && a.answer !== "muaf" && a.questionType === "checkbox") {
+                                        const isFullScore = (a.earnedPoints || 0) >= (a.maxPoints || 0);
+                                        if (isFullScore) return hasNotes;
+                                        return true; // partial score → always show
+                                    }
+
+                                    // 3. Rating/radio/multiple_choice with partial points
                                     if (sectionHasAnswers && hasAnswer && a.answer !== "muaf" &&
-                                        (a.questionType === "checkbox" || a.questionType === "rating" || (a.questionType as string) === "radio" || a.questionType === "multiple_choice") &&
+                                        (a.questionType === "rating" || (a.questionType as string) === "radio" || a.questionType === "multiple_choice") &&
                                         (a.earnedPoints || 0) < (a.maxPoints || 0)) return true;
 
-                                    // 3. Any question with notes or photos — include (even evet, even muaf)
+                                    // 4. "Evet" cevaplı sorular: sadece not varsa ekle (sadece fotoğraf yeterli değil)
+                                    if (a.answer === "evet") return hasNotes;
+
+                                    // 5. Diğer cevaplar (muaf, sayı, metin vb.): not VEYA fotoğraf varsa ekle
                                     if (hasNotes || hasPhotos) return true;
 
-                                    // Everything else excluded (plain evet, unanswered, muaf without notes/photos)
                                     return false;
                                 });
 
@@ -803,23 +814,26 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
                                                                     <span style={{ color: 'green' }}>EVET</span>
                                                                 ) : answer.answer === "muaf" ? (
                                                                     <span style={{ color: '#999' }}>MUAF</span>
-                                                                ) : (answer.questionType === "checkbox" || (answer.questionType as string) === "radio" || answer.questionType === "multiple_choice") && answer.earnedPoints < answer.maxPoints ? (
+                                                                ) : answer.questionType === "checkbox" ? (() => {
+                                                                    // Checkbox: use selectedOptions array, fallback to comma-split answer string
+                                                                    const selectedIds: string[] = Array.isArray(answer.selectedOptions)
+                                                                        ? answer.selectedOptions
+                                                                        : typeof answer.answer === 'string' && answer.answer.includes(',')
+                                                                            ? answer.answer.split(',').map((s: string) => s.trim())
+                                                                            : answer.answer ? [answer.answer] : [];
+                                                                    const missingOptions = answer.options?.filter(opt => !selectedIds.includes(opt.id)) ?? [];
+                                                                    if (missingOptions.length === 0) {
+                                                                        return <span style={{ color: 'green' }}>Tam Puan</span>;
+                                                                    }
+                                                                    return (
+                                                                        <span style={{ color: 'red', fontSize: '12px' }}>
+                                                                            <span style={{ textDecoration: 'underline' }}>EKSİKLER:</span>{" "}
+                                                                            {missingOptions.map(o => o.text).join(", ")}
+                                                                        </span>
+                                                                    );
+                                                                })() : ((answer.questionType as string) === "radio" || answer.questionType === "multiple_choice") && answer.earnedPoints < answer.maxPoints ? (
                                                                     <span style={{ color: 'red', fontSize: '12px', fontWeight: 'bold' }}>
-                                                                        {answer.questionType === "checkbox"
-                                                                            ? (
-                                                                                <>
-                                                                                    <span style={{ textDecoration: 'underline' }}>EKSİKLER:</span>{" "}
-                                                                                    {answer.options?.filter(opt => {
-                                                                                        // Show UNSELECTED options
-                                                                                        const selectedIds = Array.isArray(answer.answer) ? (answer.answer as string[]) : [];
-                                                                                        return !selectedIds.includes(opt.id);
-                                                                                    }).map(o => o.text).join(", ")}
-                                                                                </>
-                                                                            )
-                                                                            : (
-                                                                                answer.options?.find(opt => opt.id === answer.answer)?.text || answer.answer
-                                                                            )
-                                                                        }
+                                                                        {answer.options?.find(opt => opt.id === answer.answer)?.text || answer.answer}
                                                                     </span>
                                                                 ) : answer.questionType === "rating" ? (
                                                                     <div style={{ display: 'flex', justifyContent: 'center', gap: '2px' }}>
@@ -834,7 +848,7 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
                                                                         {answer.options?.find(opt => opt.id === answer.answer)?.text || answer.answer || "-"}
                                                                     </span>
                                                                 ) : (
-                                                                    // For other types like number/text
+                                                                    // number / date / short_text
                                                                     <span>{answer.answer || "NOT VAR"}</span>
                                                                 )}
                                                             </td>

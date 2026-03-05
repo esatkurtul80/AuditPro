@@ -2,7 +2,7 @@
 
 // v.1 Rapor
 
-import React from "react";
+import React, { useRef } from "react";
 import { Audit, AuditAnswer } from "@/lib/types";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,6 +12,8 @@ import { Star, FileText, Image as ImageIcon, ChevronDown, ChevronUp, CheckCircle
 import { useState, useEffect } from "react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useMediaQuery } from "@/hooks/use-media-query";
+import { ref as storageRef, getDownloadURL } from "firebase/storage";
+import { storage } from "@/lib/firebase";
 
 interface AuditSummaryProps { audit: Audit; isPreview?: boolean; }
 
@@ -62,7 +64,31 @@ export function AuditSummary({ audit, onQuestionClick, showIncompleteOnly = fals
   const [isDownloading, setIsDownloading] = useState(false);
   const [robotoFont, setRobotoFont] = useState<string | null>(null);
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
+  const [refreshedUrls, setRefreshedUrls] = useState<Map<string, string>>(new Map());
+  const refreshingRef = useRef<Set<string>>(new Set());
   const isDesktop = useMediaQuery("(min-width: 1024px)");
+
+  // Refresh a Firebase Storage URL by fetching a new download token
+  const handleImgError = async (originalUrl: string) => {
+    if (!originalUrl || !originalUrl.includes('firebasestorage')) return;
+    if (refreshingRef.current.has(originalUrl) || refreshedUrls.has(originalUrl)) return;
+    refreshingRef.current.add(originalUrl);
+    try {
+      const url = new URL(originalUrl);
+      const pathMatch = url.pathname.match(/\/o\/(.+)/);
+      if (!pathMatch) return;
+      const path = decodeURIComponent(pathMatch[1]);
+      const freshUrl = await getDownloadURL(storageRef(storage, path));
+      setRefreshedUrls(prev => new Map(prev).set(originalUrl, freshUrl));
+    } catch {
+      setRefreshedUrls(prev => new Map(prev).set(originalUrl, originalUrl));
+    } finally {
+      refreshingRef.current.delete(originalUrl);
+    }
+  };
+
+  // Helper to get the best available URL for an image
+  const getImgSrc = (url: string) => refreshedUrls.get(url) ?? url;
 
   // Font yükleme işlemi sadece PDF indirirken yapılacak
   // useEffect removed for performance optimization
@@ -205,7 +231,7 @@ export function AuditSummary({ audit, onQuestionClick, showIncompleteOnly = fals
                       className="relative aspect-square rounded-lg overflow-hidden border-2 border-purple-200 dark:border-purple-800 shadow-sm cursor-pointer hover:opacity-80 transition-opacity"
                       onClick={() => setLightboxImage(photo)}
                     >
-                      <img src={photo} alt={`Fotoğraf ${i + 1}`} className="object-cover w-full h-full" />
+                      <img src={getImgSrc(photo)} alt={`Fotoğraf ${i + 1}`} className="object-cover w-full h-full" onError={() => handleImgError(photo)} />
                     </div>
                   ))}
                 </div>
@@ -246,264 +272,264 @@ export function AuditSummary({ audit, onQuestionClick, showIncompleteOnly = fals
     return (
       <>
         {isDesktop ? (
-            <Card className="overflow-hidden border-2 shadow-sm">
-              <CardContent className="p-0">
-                <table className="w-full">
-                  <thead>
-                    <tr className="bg-gradient-to-r from-slate-100 to-slate-50 dark:from-slate-800 dark:to-slate-900 border-b-2 dark:border-slate-700">
-                      <th className="w-[35%] font-bold text-foreground text-left py-4 px-6">Soru</th>
-                      <th className="w-[20%] font-bold text-foreground text-left py-4 px-6">Cevap</th>
-                      <th className="w-[15%] text-center font-bold text-foreground py-4 px-6">Puan</th>
-                      <th className="w-[30%] font-bold text-foreground text-left py-4 px-6">Notlar</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {audit.sections.map((section, idx) => {
-                      let sectionEarned = 0;
-                      let sectionMax = 0;
-                      section.answers.forEach(answer => {
-                        if (answer.answer && answer.answer.trim() !== "" && answer.answer !== "muaf") {
-                          sectionEarned += answer.earnedPoints;
-                          sectionMax += answer.maxPoints;
-                        }
-                      });
-                      const sectionScore = sectionMax > 0 ? Math.round((sectionEarned / sectionMax) * 100) : 0;
+          <Card className="overflow-hidden border-2 shadow-sm">
+            <CardContent className="p-0">
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-gradient-to-r from-slate-100 to-slate-50 dark:from-slate-800 dark:to-slate-900 border-b-2 dark:border-slate-700">
+                    <th className="w-[35%] font-bold text-foreground text-left py-4 px-6">Soru</th>
+                    <th className="w-[20%] font-bold text-foreground text-left py-4 px-6">Cevap</th>
+                    <th className="w-[15%] text-center font-bold text-foreground py-4 px-6">Puan</th>
+                    <th className="w-[30%] font-bold text-foreground text-left py-4 px-6">Notlar</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {audit.sections.map((section, idx) => {
+                    let sectionEarned = 0;
+                    let sectionMax = 0;
+                    section.answers.forEach(answer => {
+                      if (answer.answer && answer.answer.trim() !== "" && answer.answer !== "muaf") {
+                        sectionEarned += answer.earnedPoints;
+                        sectionMax += answer.maxPoints;
+                      }
+                    });
+                    const sectionScore = sectionMax > 0 ? Math.round((sectionEarned / sectionMax) * 100) : 0;
 
-                      const filteredQuestions = section.answers.filter(a => {
-                        if (filterType === 'all') return a.answer && a.answer.trim() !== "" && a.answer !== "muaf";
-                        if (filterType === 'incomplete') return isIncompleteAnswer(a);
-                        if (filterType === 'incomplete-notes') return isIncompleteAnswer(a) || hasNotes(a);
-                        return false;
-                      });
+                    const filteredQuestions = section.answers.filter(a => {
+                      if (filterType === 'all') return a.answer && a.answer.trim() !== "" && a.answer !== "muaf";
+                      if (filterType === 'incomplete') return isIncompleteAnswer(a);
+                      if (filterType === 'incomplete-notes') return isIncompleteAnswer(a) || hasNotes(a);
+                      return false;
+                    });
 
-                      if (filteredQuestions.length === 0) return null;
+                    if (filteredQuestions.length === 0) return null;
 
-                      return (
-                        <React.Fragment key={`section-${idx}`}>
-                          <tr className="bg-gradient-to-r from-slate-50 to-white dark:from-slate-800/50 dark:to-slate-900/50 border-t-4 border-slate-200 dark:border-slate-700">
-                            <td colSpan={4} className="py-4 px-6">
-                              <div className="flex items-center justify-between">
-                                <span className="font-bold text-lg text-foreground">{section.sectionName}</span>
-                                <Badge className={`px-4 py-2 text-base font-bold ${sectionScore >= 80 ? 'bg-green-500' : sectionScore >= 50 ? 'bg-yellow-500' : 'bg-red-500'}`}>
-                                  {sectionScore}
-                                </Badge>
-                              </div>
-                            </td>
-                          </tr>
-                          {filteredQuestions.map((answer, qIdx) => {
-                            const isIncomplete = isIncompleteAnswer(answer);
-                            const hasPhotos = answer.photos && answer.photos.length > 0;
+                    return (
+                      <React.Fragment key={`section-${idx}`}>
+                        <tr className="bg-gradient-to-r from-slate-50 to-white dark:from-slate-800/50 dark:to-slate-900/50 border-t-4 border-slate-200 dark:border-slate-700">
+                          <td colSpan={4} className="py-4 px-6">
+                            <div className="flex items-center justify-between">
+                              <span className="font-bold text-lg text-foreground">{section.sectionName}</span>
+                              <Badge className={`px-4 py-2 text-base font-bold ${sectionScore >= 80 ? 'bg-green-500' : sectionScore >= 50 ? 'bg-yellow-500' : 'bg-red-500'}`}>
+                                {sectionScore}
+                              </Badge>
+                            </div>
+                          </td>
+                        </tr>
+                        {filteredQuestions.map((answer, qIdx) => {
+                          const isIncomplete = isIncompleteAnswer(answer);
+                          const hasPhotos = answer.photos && answer.photos.length > 0;
 
-                            return (
-                              <React.Fragment key={`q-${idx}-${qIdx}`}>
-                                <tr className={`hover:bg-slate-50/50 dark:hover:bg-slate-800/50 border-b dark:border-slate-700 transition-colors ${isIncomplete ? 'bg-red-50/30 dark:bg-red-950/20' : ''}`}>
-                                  <td className="align-top py-4 px-6">
-                                    <div className="flex items-start gap-2">
-                                      {isIncomplete ? (
-                                        <XCircle className="h-4 w-4 text-red-500 dark:text-red-400 mt-0.5 flex-shrink-0" />
-                                      ) : (
-                                        <CheckCircle2 className="h-4 w-4 text-green-500 dark:text-green-400 mt-0.5 flex-shrink-0" />
-                                      )}
-                                      <span className="font-medium text-sm text-foreground/90 leading-relaxed">{answer.questionText}</span>
-                                    </div>
-                                  </td>
-                                  <td className="align-top py-4 px-6">{renderAnswer(answer)}</td>
-                                  <td className="text-center align-top py-4 px-6">
-                                    <div className={`inline-flex items-center justify-center rounded-lg px-3 py-2 ${isIncomplete ? 'bg-red-100 dark:bg-red-900/50' : 'bg-green-100 dark:bg-green-900/50'} whitespace-nowrap`}>
-                                      <span className={`text-xl font-bold ${isIncomplete ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
-                                        {answer.earnedPoints}
-                                      </span>
-                                      <span className="text-sm text-muted-foreground font-medium ml-1">/ {answer.maxPoints}</span>
-                                    </div>
-                                  </td>
-                                  <td className="align-top py-4 px-6">
-                                    {hasNotes(answer) && (
-                                      <div className="bg-gradient-to-r from-blue-50 to-blue-100/50 dark:from-blue-950/30 dark:to-blue-900/30 p-3 rounded-lg border border-blue-200 dark:border-blue-800 mb-2">
-                                        <div className="space-y-1.5">
-                                          {answer.notes?.filter(n => n.trim()).map((note, i) => (
-                                            <p key={i} className="text-xs text-blue-900 dark:text-blue-100 leading-relaxed pl-2 border-l-2 border-blue-300 dark:border-blue-700">
-                                              {note}
-                                            </p>
-                                          ))}
-                                        </div>
+                          return (
+                            <React.Fragment key={`q-${idx}-${qIdx}`}>
+                              <tr className={`hover:bg-slate-50/50 dark:hover:bg-slate-800/50 border-b dark:border-slate-700 transition-colors ${isIncomplete ? 'bg-red-50/30 dark:bg-red-950/20' : ''}`}>
+                                <td className="align-top py-4 px-6">
+                                  <div className="flex items-start gap-2">
+                                    {isIncomplete ? (
+                                      <XCircle className="h-4 w-4 text-red-500 dark:text-red-400 mt-0.5 flex-shrink-0" />
+                                    ) : (
+                                      <CheckCircle2 className="h-4 w-4 text-green-500 dark:text-green-400 mt-0.5 flex-shrink-0" />
+                                    )}
+                                    <span className="font-medium text-sm text-foreground/90 leading-relaxed">{answer.questionText}</span>
+                                  </div>
+                                </td>
+                                <td className="align-top py-4 px-6">{renderAnswer(answer)}</td>
+                                <td className="text-center align-top py-4 px-6">
+                                  <div className={`inline-flex items-center justify-center rounded-lg px-3 py-2 ${isIncomplete ? 'bg-red-100 dark:bg-red-900/50' : 'bg-green-100 dark:bg-green-900/50'} whitespace-nowrap`}>
+                                    <span className={`text-xl font-bold ${isIncomplete ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
+                                      {answer.earnedPoints}
+                                    </span>
+                                    <span className="text-sm text-muted-foreground font-medium ml-1">/ {answer.maxPoints}</span>
+                                  </div>
+                                </td>
+                                <td className="align-top py-4 px-6">
+                                  {hasNotes(answer) && (
+                                    <div className="bg-gradient-to-r from-blue-50 to-blue-100/50 dark:from-blue-950/30 dark:to-blue-900/30 p-3 rounded-lg border border-blue-200 dark:border-blue-800 mb-2">
+                                      <div className="space-y-1.5">
+                                        {answer.notes?.filter(n => n.trim()).map((note, i) => (
+                                          <p key={i} className="text-xs text-blue-900 dark:text-blue-100 leading-relaxed pl-2 border-l-2 border-blue-300 dark:border-blue-700">
+                                            {note}
+                                          </p>
+                                        ))}
                                       </div>
-                                    )}
+                                    </div>
+                                  )}
 
-                                    {!hasNotes(answer) && !hasPhotos && (
-                                      <span className="text-xs text-muted-foreground italic">-</span>
-                                    )}
+                                  {!hasNotes(answer) && !hasPhotos && (
+                                    <span className="text-xs text-muted-foreground italic">-</span>
+                                  )}
+                                </td>
+                              </tr>
+                              {hasPhotos && (
+                                <tr className={`${isIncomplete ? 'bg-red-50/20 dark:bg-red-950/10' : ''} border-b dark:border-slate-700`}>
+                                  <td colSpan={4} className="py-3 px-6">
+                                    <div className="bg-gradient-to-r from-purple-50 to-purple-100/50 dark:from-purple-950/30 dark:to-purple-900/30 p-3 rounded-lg border border-purple-200 dark:border-purple-800">
+                                      <div className="flex items-center gap-2 mb-2">
+                                        <ImageIcon className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                                        <span className="text-xs font-bold text-purple-700 dark:text-purple-400 uppercase tracking-wide">Fotoğraflar</span>
+                                        <Badge variant="outline" className="bg-purple-100 dark:bg-purple-900/50 border-purple-300 dark:border-purple-700 text-purple-700 dark:text-purple-300 ml-2">
+                                          {answer.photos!.length} adet
+                                        </Badge>
+                                      </div>
+                                      <div className="grid grid-cols-6 gap-2">
+                                        {answer.photos!.map((photo, i) => (
+                                          <div
+                                            key={i}
+                                            className="relative aspect-square rounded-md overflow-hidden border-2 border-purple-200 dark:border-purple-800 shadow-sm cursor-pointer hover:opacity-80 transition-opacity"
+                                            onClick={() => setLightboxImage(photo)}
+                                          >
+                                            <img src={getImgSrc(photo)} alt={`Fotoğraf ${i + 1}`} className="object-cover w-full h-full" onError={() => handleImgError(photo)} />
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
                                   </td>
                                 </tr>
-                                {hasPhotos && (
-                                  <tr className={`${isIncomplete ? 'bg-red-50/20 dark:bg-red-950/10' : ''} border-b dark:border-slate-700`}>
-                                    <td colSpan={4} className="py-3 px-6">
-                                      <div className="bg-gradient-to-r from-purple-50 to-purple-100/50 dark:from-purple-950/30 dark:to-purple-900/30 p-3 rounded-lg border border-purple-200 dark:border-purple-800">
-                                        <div className="flex items-center gap-2 mb-2">
-                                          <ImageIcon className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-                                          <span className="text-xs font-bold text-purple-700 dark:text-purple-400 uppercase tracking-wide">Fotoğraflar</span>
-                                          <Badge variant="outline" className="bg-purple-100 dark:bg-purple-900/50 border-purple-300 dark:border-purple-700 text-purple-700 dark:text-purple-300 ml-2">
-                                            {answer.photos!.length} adet
-                                          </Badge>
-                                        </div>
-                                        <div className="grid grid-cols-6 gap-2">
-                                          {answer.photos!.map((photo, i) => (
-                                            <div
-                                              key={i}
-                                              className="relative aspect-square rounded-md overflow-hidden border-2 border-purple-200 dark:border-purple-800 shadow-sm cursor-pointer hover:opacity-80 transition-opacity"
-                                              onClick={() => setLightboxImage(photo)}
-                                            >
-                                              <img src={photo} alt={`Fotoğraf ${i + 1}`} className="object-cover w-full h-full" />
-                                            </div>
-                                          ))}
-                                        </div>
-                                      </div>
-                                    </td>
-                                  </tr>
-                                )}
-                              </React.Fragment>
-                            );
-                          })}
-                          
-                          {/* Desktop Section Feedback */}
-                          {showRestrictedFeedback && (section.feedback?.note?.trim() || (section.feedback?.images && section.feedback.images.length > 0)) && (
-                            <tr className="bg-indigo-50/30 dark:bg-indigo-950/20 border-b dark:border-slate-700">
-                              <td colSpan={4} className="py-4 px-6">
-                                <div className="bg-gradient-to-r from-indigo-50 to-white dark:from-indigo-950/30 dark:to-slate-900/50 p-4 rounded-xl border border-indigo-200 dark:border-indigo-800">
-                                  <div className="flex items-center gap-2 mb-3">
-                                    <MessageSquare className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-                                    <span className="font-bold text-base text-indigo-900 dark:text-indigo-100">Bölüm Görüş ve Önerileri</span>
-                                    {section.feedback.type && (
-                                      <Badge variant="outline" className={`ml-3
+                              )}
+                            </React.Fragment>
+                          );
+                        })}
+
+                        {/* Desktop Section Feedback */}
+                        {showRestrictedFeedback && (section.feedback?.note?.trim() || (section.feedback?.images && section.feedback.images.length > 0)) && (
+                          <tr className="bg-indigo-50/30 dark:bg-indigo-950/20 border-b dark:border-slate-700">
+                            <td colSpan={4} className="py-4 px-6">
+                              <div className="bg-gradient-to-r from-indigo-50 to-white dark:from-indigo-950/30 dark:to-slate-900/50 p-4 rounded-xl border border-indigo-200 dark:border-indigo-800">
+                                <div className="flex items-center gap-2 mb-3">
+                                  <MessageSquare className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                                  <span className="font-bold text-base text-indigo-900 dark:text-indigo-100">Bölüm Görüş ve Önerileri</span>
+                                  {section.feedback.type && (
+                                    <Badge variant="outline" className={`ml-3
                                         ${section.feedback.type === 'important' ? 'border-red-200 text-red-700 bg-red-50' : ''}
                                         ${section.feedback.type === 'note' ? 'border-green-200 text-green-700 bg-green-50' : ''}
                                         ${section.feedback.type === 'suggestion' ? 'border-blue-200 text-blue-700 bg-blue-50' : ''}
                                         bg-white
                                       `}>
-                                        {section.feedback.type === 'important' && 'Önemli'}
-                                        {section.feedback.type === 'note' && 'Not'}
-                                        {section.feedback.type === 'suggestion' && 'Öneri'}
-                                      </Badge>
-                                    )}
-                                  </div>
-                                  {section.feedback.note && (
-                                    <div className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap mb-3">
-                                      {section.feedback.note}
-                                    </div>
-                                  )}
-                                  {section.feedback.images && section.feedback.images.length > 0 && (
-                                    <div className="flex flex-wrap gap-2 mt-2">
-                                      {section.feedback.images.map((img, i) => (
-                                        <div key={`sf-desk-img-${i}`} className="relative group rounded-md overflow-hidden border border-slate-200 dark:border-slate-800 w-16 h-16 cursor-pointer" onClick={() => setLightboxImage(img)}>
-                                          <img src={img} alt="Fotoğraf" className="w-full h-full object-cover transition-transform group-hover:scale-110" />
-                                        </div>
-                                      ))}
-                                    </div>
+                                      {section.feedback.type === 'important' && 'Önemli'}
+                                      {section.feedback.type === 'note' && 'Not'}
+                                      {section.feedback.type === 'suggestion' && 'Öneri'}
+                                    </Badge>
                                   )}
                                 </div>
-                              </td>
-                            </tr>
-                          )}
-
-                        </React.Fragment>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </CardContent>
-            </Card>
-        ) : (
-            <div className="space-y-5">
-              {audit.sections.map((section, idx) => {
-                let sectionEarned = 0;
-                let sectionMax = 0;
-                section.answers.forEach(answer => {
-                  if (answer.answer && answer.answer.trim() !== "" && answer.answer !== "muaf") {
-                    sectionEarned += answer.earnedPoints;
-                    sectionMax += answer.maxPoints;
-                  }
-                });
-                const sectionScore = sectionMax > 0 ? Math.round((sectionEarned / sectionMax) * 100) : 0;
-
-                const filteredQuestions = section.answers.filter(a => {
-                  if (filterType === 'all') return a.answer && a.answer.trim() !== "" && a.answer !== "muaf";
-                  if (filterType === 'incomplete') return isIncompleteAnswer(a);
-                  if (filterType === 'incomplete-notes') return isIncompleteAnswer(a) || hasNotes(a);
-                  return false;
-                });
-
-                if (filteredQuestions.length === 0) return null;
-
-                return (
-                  <Collapsible key={`mobile-section-${idx}`} open={expandedSections[`section-${idx}`]} onOpenChange={() => toggleSection(`section-${idx}`)}>
-                    <Card className={`mb-4 overflow-hidden border-2 cursor-pointer hover:shadow-xl transition-all ${sectionScore >= 80 ? 'border-green-300' : sectionScore >= 50 ? 'border-yellow-300' : 'border-red-300'}`}>
-                      <CollapsibleTrigger className="w-full">
-                        <CardHeader className="pb-4">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3 flex-1">
-                              {expandedSections[`section-${idx}`] ? (
-                                <ChevronUp className="h-6 w-6 text-primary flex-shrink-0" />
-                              ) : (
-                                <ChevronDown className="h-6 w-6 text-primary flex-shrink-0" />
-                              )}
-                              <div className="text-left flex-1 min-w-0">
-                                <CardTitle className="text-base font-bold text-foreground leading-tight">{section.sectionName}</CardTitle>
-                                <p className="text-xs text-muted-foreground mt-1 font-medium">
-                                  {filteredQuestions.length} soru • {sectionEarned}/{sectionMax} puan
-                                </p>
+                                {section.feedback.note && (
+                                  <div className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap mb-3">
+                                    {section.feedback.note}
+                                  </div>
+                                )}
+                                {section.feedback.images && section.feedback.images.length > 0 && (
+                                  <div className="flex flex-wrap gap-2 mt-2">
+                                    {section.feedback.images.map((img, i) => (
+                                      <div key={`sf-desk-img-${i}`} className="relative group rounded-md overflow-hidden border border-slate-200 dark:border-slate-800 w-16 h-16 cursor-pointer" onClick={() => setLightboxImage(img)}>
+                                        <img src={getImgSrc(img)} alt="Fotoğraf" className="w-full h-full object-cover transition-transform group-hover:scale-110" onError={() => handleImgError(img)} />
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
                               </div>
+                            </td>
+                          </tr>
+                        )}
+
+                      </React.Fragment>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-5">
+            {audit.sections.map((section, idx) => {
+              let sectionEarned = 0;
+              let sectionMax = 0;
+              section.answers.forEach(answer => {
+                if (answer.answer && answer.answer.trim() !== "" && answer.answer !== "muaf") {
+                  sectionEarned += answer.earnedPoints;
+                  sectionMax += answer.maxPoints;
+                }
+              });
+              const sectionScore = sectionMax > 0 ? Math.round((sectionEarned / sectionMax) * 100) : 0;
+
+              const filteredQuestions = section.answers.filter(a => {
+                if (filterType === 'all') return a.answer && a.answer.trim() !== "" && a.answer !== "muaf";
+                if (filterType === 'incomplete') return isIncompleteAnswer(a);
+                if (filterType === 'incomplete-notes') return isIncompleteAnswer(a) || hasNotes(a);
+                return false;
+              });
+
+              if (filteredQuestions.length === 0) return null;
+
+              return (
+                <Collapsible key={`mobile-section-${idx}`} open={expandedSections[`section-${idx}`]} onOpenChange={() => toggleSection(`section-${idx}`)}>
+                  <Card className={`mb-4 overflow-hidden border-2 cursor-pointer hover:shadow-xl transition-all ${sectionScore >= 80 ? 'border-green-300' : sectionScore >= 50 ? 'border-yellow-300' : 'border-red-300'}`}>
+                    <CollapsibleTrigger className="w-full">
+                      <CardHeader className="pb-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3 flex-1">
+                            {expandedSections[`section-${idx}`] ? (
+                              <ChevronUp className="h-6 w-6 text-primary flex-shrink-0" />
+                            ) : (
+                              <ChevronDown className="h-6 w-6 text-primary flex-shrink-0" />
+                            )}
+                            <div className="text-left flex-1 min-w-0">
+                              <CardTitle className="text-base font-bold text-foreground leading-tight">{section.sectionName}</CardTitle>
+                              <p className="text-xs text-muted-foreground mt-1 font-medium">
+                                {filteredQuestions.length} soru • {sectionEarned}/{sectionMax} puan
+                              </p>
                             </div>
-                            <Badge variant="secondary" className="px-4 py-2 text-lg font-bold ml-3">
-                              {sectionScore}
-                            </Badge>
                           </div>
-                        </CardHeader>
-                      </CollapsibleTrigger>
-                      <CollapsibleContent>
-                        <CardContent className="pt-4 pb-2 px-3">
-                          {filteredQuestions.map((answer, qIdx) => renderMobileCard(answer, section.sectionName, idx, qIdx))}
-                          
-                          {/* Mobile Section Feedback */}
-                          {showRestrictedFeedback && (section.feedback?.note?.trim() || (section.feedback?.images && section.feedback.images.length > 0)) && (
-                            <div className="mt-4 mb-2 p-4 rounded-xl border-2 border-indigo-100 dark:border-indigo-900 bg-gradient-to-br from-indigo-50/50 to-white dark:from-indigo-950/20 dark:to-slate-900">
-                              <div className="flex items-center gap-2 mb-3">
-                                <MessageSquare className="w-4 h-4 text-indigo-500" />
-                                <span className="font-bold text-sm text-indigo-900 dark:text-indigo-100">Bölüm Görüş ve Önerileri</span>
-                                {section.feedback.type && (
-                                  <Badge variant="outline" className={`ml-auto text-xs
+                          <Badge variant="secondary" className="px-4 py-2 text-lg font-bold ml-3">
+                            {sectionScore}
+                          </Badge>
+                        </div>
+                      </CardHeader>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <CardContent className="pt-4 pb-2 px-3">
+                        {filteredQuestions.map((answer, qIdx) => renderMobileCard(answer, section.sectionName, idx, qIdx))}
+
+                        {/* Mobile Section Feedback */}
+                        {showRestrictedFeedback && (section.feedback?.note?.trim() || (section.feedback?.images && section.feedback.images.length > 0)) && (
+                          <div className="mt-4 mb-2 p-4 rounded-xl border-2 border-indigo-100 dark:border-indigo-900 bg-gradient-to-br from-indigo-50/50 to-white dark:from-indigo-950/20 dark:to-slate-900">
+                            <div className="flex items-center gap-2 mb-3">
+                              <MessageSquare className="w-4 h-4 text-indigo-500" />
+                              <span className="font-bold text-sm text-indigo-900 dark:text-indigo-100">Bölüm Görüş ve Önerileri</span>
+                              {section.feedback.type && (
+                                <Badge variant="outline" className={`ml-auto text-xs
                                     ${section.feedback.type === 'important' ? 'border-red-200 text-red-700 bg-red-50' : ''}
                                     ${section.feedback.type === 'note' ? 'border-green-200 text-green-700 bg-green-50' : ''}
                                     ${section.feedback.type === 'suggestion' ? 'border-blue-200 text-blue-700 bg-blue-50' : ''}
                                     bg-white
                                   `}>
-                                    {section.feedback.type === 'important' && 'Önemli'}
-                                    {section.feedback.type === 'note' && 'Not'}
-                                    {section.feedback.type === 'suggestion' && 'Öneri'}
-                                  </Badge>
-                                )}
-                              </div>
-                              {section.feedback.note && (
-                                <div className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap mb-3">
-                                  {section.feedback.note}
-                                </div>
-                              )}
-                              {section.feedback.images && section.feedback.images.length > 0 && (
-                                <div className="flex flex-wrap gap-2 mt-2">
-                                  {section.feedback.images.map((img, i) => (
-                                    <div key={`sf-img-${i}`} className="relative group rounded-md overflow-hidden border border-slate-200 dark:border-slate-800 w-16 h-16 cursor-pointer" onClick={() => setLightboxImage(img)}>
-                                      <img src={img} alt="Fotoğraf" className="w-full h-full object-cover transition-transform group-hover:scale-110" />
-                                    </div>
-                                  ))}
-                                </div>
+                                  {section.feedback.type === 'important' && 'Önemli'}
+                                  {section.feedback.type === 'note' && 'Not'}
+                                  {section.feedback.type === 'suggestion' && 'Öneri'}
+                                </Badge>
                               )}
                             </div>
-                          )}
-                        </CardContent>
-                      </CollapsibleContent>
-                    </Card>
-                  </Collapsible>
-                );
-              })}
-            </div>
+                            {section.feedback.note && (
+                              <div className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap mb-3">
+                                {section.feedback.note}
+                              </div>
+                            )}
+                            {section.feedback.images && section.feedback.images.length > 0 && (
+                              <div className="flex flex-wrap gap-2 mt-2">
+                                {section.feedback.images.map((img, i) => (
+                                  <div key={`sf-img-${i}`} className="relative group rounded-md overflow-hidden border border-slate-200 dark:border-slate-800 w-16 h-16 cursor-pointer" onClick={() => setLightboxImage(img)}>
+                                    <img src={img} alt="Fotoğraf" className="w-full h-full object-cover transition-transform group-hover:scale-110" />
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </CardContent>
+                    </CollapsibleContent>
+                  </Card>
+                </Collapsible>
+              );
+            })}
+          </div>
         )}
       </>
     );
@@ -512,22 +538,22 @@ export function AuditSummary({ audit, onQuestionClick, showIncompleteOnly = fals
   const ensureRoboto = async () => {
     if (robotoFont) return robotoFont;
     try {
-        const res = await fetch('/fonts/Roboto-Regular.ttf');
-        const blob = await res.blob();
-        const reader = new FileReader();
-        const b64 = await new Promise<string>((resolve, reject) => {
+      const res = await fetch('/fonts/Roboto-Regular.ttf');
+      const blob = await res.blob();
+      const reader = new FileReader();
+      const b64 = await new Promise<string>((resolve, reject) => {
         reader.onload = e => {
-            const b64 = (e.target?.result as string)?.split(',')[1];
-            b64 ? resolve(b64) : reject('font load fail');
+          const b64 = (e.target?.result as string)?.split(',')[1];
+          b64 ? resolve(b64) : reject('font load fail');
         };
         reader.onerror = reject;
         reader.readAsDataURL(blob);
-        });
-        setRobotoFont(b64); // Cache for next time
-        return b64;
+      });
+      setRobotoFont(b64); // Cache for next time
+      return b64;
     } catch (e) {
-        console.error("Font load error", e);
-        return null;
+      console.error("Font load error", e);
+      return null;
     }
   };
 
@@ -1107,7 +1133,7 @@ export function AuditSummary({ audit, onQuestionClick, showIncompleteOnly = fals
       <Tabs defaultValue="all" value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="w-full">
         <div className="flex flex-col sm:flex-row items-center justify-between mb-6 gap-4">
           <TabsList className="grid w-full grid-cols-3 !h-auto p-1 bg-muted rounded-xl">
-             <TabsTrigger
+            <TabsTrigger
               value="all"
               className="flex items-center justify-center gap-2 py-3 px-2 rounded-lg data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm transition-all"
             >
@@ -1147,7 +1173,7 @@ export function AuditSummary({ audit, onQuestionClick, showIncompleteOnly = fals
 
         <TabsContent value="all" className="mt-0">
           {renderSectionGroup('all')}
-          
+
           {/* Ekstra Bölümler: Sadece 'all' sekmesinde gösteriliyor */}
           {showRestrictedFeedback && audit.personnelEvaluations && audit.personnelEvaluations.length > 0 && (
             <div className="mt-6 border-t pt-6">
@@ -1158,18 +1184,18 @@ export function AuditSummary({ audit, onQuestionClick, showIncompleteOnly = fals
                     <div className="bg-blue-50/50 dark:bg-blue-950/20 px-4 py-3 border-b border-blue-100 dark:border-blue-900 flex justify-between items-center">
                       <div className="font-semibold text-blue-900 dark:text-blue-100">{person.personnelName}</div>
                       <Badge variant="outline" className="bg-white dark:bg-slate-900 border-blue-200 text-blue-700">
-                         Personel
+                        Personel
                       </Badge>
                     </div>
                     <CardContent className="p-4 grid gap-3 text-sm">
-                        <div className="flex gap-2">
-                            <span className="font-medium min-w-32">Performans Puanı:</span>
-                            <span>{person.score}/100</span>
-                        </div>
-                        <div className="flex flex-col gap-1.5 mt-1">
-                            <span className="font-medium">Durum Değerlendirmesi:</span>
-                            <span className="text-slate-600 dark:text-slate-300 whitespace-pre-wrap">{person.comment || "-"}</span>
-                        </div>
+                      <div className="flex gap-2">
+                        <span className="font-medium min-w-32">Performans Puanı:</span>
+                        <span>{person.score}/100</span>
+                      </div>
+                      <div className="flex flex-col gap-1.5 mt-1">
+                        <span className="font-medium">Durum Değerlendirmesi:</span>
+                        <span className="text-slate-600 dark:text-slate-300 whitespace-pre-wrap">{person.comment || "-"}</span>
+                      </div>
                     </CardContent>
                   </Card>
                 ))}
@@ -1188,17 +1214,17 @@ export function AuditSummary({ audit, onQuestionClick, showIncompleteOnly = fals
                     </div>
                   )}
                   {audit.generalFeedback.images && audit.generalFeedback.images.length > 0 && (
-                     <div className="flex flex-wrap gap-2 mt-4">
-                        {audit.generalFeedback.images.map((imgUrl, imgIndex) => (
-                          <div 
-                            key={imgIndex} 
-                            className="w-16 h-16 rounded border bg-slate-100 dark:bg-slate-800 overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
-                            onClick={() => setLightboxImage(imgUrl)}
-                          >
-                            <img src={imgUrl} alt="Genel Değerlendirme" className="w-full h-full object-cover" loading="lazy" />
-                          </div>
-                        ))}
-                     </div>
+                    <div className="flex flex-wrap gap-2 mt-4">
+                      {audit.generalFeedback.images.map((imgUrl, imgIndex) => (
+                        <div
+                          key={imgIndex}
+                          className="w-16 h-16 rounded border bg-slate-100 dark:bg-slate-800 overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
+                          onClick={() => setLightboxImage(imgUrl)}
+                        >
+                          <img src={getImgSrc(imgUrl)} alt="Genel Değerlendirme" className="w-full h-full object-cover" loading="lazy" onError={() => handleImgError(imgUrl)} />
+                        </div>
+                      ))}
+                    </div>
                   )}
                 </CardContent>
               </Card>
@@ -1223,10 +1249,11 @@ export function AuditSummary({ audit, onQuestionClick, showIncompleteOnly = fals
             <XCircle className="h-8 w-8" />
           </button>
           <img
-            src={lightboxImage}
+            src={getImgSrc(lightboxImage)}
             alt="Tam boyut fotoğraf"
             className="max-w-full max-h-full object-contain"
             onClick={(e) => e.stopPropagation()}
+            onError={() => handleImgError(lightboxImage)}
           />
         </div>
       )}

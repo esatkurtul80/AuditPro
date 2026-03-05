@@ -2,13 +2,26 @@
 
 ```json
 {
-  "version": "2.2.53",
-  "build": 115,
+  "version": "3.0.0",
+  "build": 116,
   "status": "stable"
 }
 ```
 
-## [2.2.53] - 2026-03-05
+## [3.0.0] - 2026-03-05
+
+### v3.0.0
+- **Özel Rapor (Filtre Mantığı):** Onay kutulu sorularda tam puan + not varsa rapora ekleniyor; sadece fotoğraf varsa eklenmiyor. "Evet" cevapları yalnızca not varsa rapora dahil ediliyor.
+- **Özel Rapor (Puan Gösterimi):** Mağaza puanı alanındaki sabit `/ 100` ifadesi kaldırıldı; yalnızca gerçek puan gösteriliyor.
+- **Mağaza Aksiyon Fotoğrafları (Kırık Görsel):** `Thumbnail` ve `Lightbox` bileşenlerine Firebase Storage süresi dolmuş URL'leri otomatik yenileyen `onError` + `getDownloadURL` mantığı eklendi.
+- **Mağaza Aksiyon Fotoğrafları (Kaybolma Hatası):** Fotoğraf yüklendikten sonra `onSnapshot` race condition nedeniyle yerel URL'lerin silinmesi sorunu düzeltildi; sync effect artık yalnızca sunucudan gelen yeni URL'leri ekliyor, yereldekileri silmiyor.
+- **Mağaza Aksiyon Fotoğrafları (Timeout & Kısmi Yükleme):** Her fotoğraf bağımsız olarak yükleniyor; 30 saniyelik timeout eklendi. Biri başarısız olsa diğerleri etkilenmiyor.
+- **Mağaza Aksiyon Fotoğrafları (Üst Yazma Hatası):** Birden fazla fotoğraf seçildiğinde sonraki yüklemelerin önceki URL'lerin üstüne yazması sorunu düzeltildi; `savedUrls` listesi birikimli olarak güncelleniyor.
+- **Mağaza Aksiyon Fotoğrafları (Çevrimdışı Sıkıştırma):** Çevrimdışıyken kaydedilen fotoğraflar çevrimiçi olunca max 0.5MB / 1920px sıkıştırmayla yükleniyor.
+- **Mağaza Aksiyon Fotoğrafları (Hızlı Silme):** `storage/object-not-found` hatası sessizce geçiliyor; hızlı silimlerde konsol gürültüsü ortadan kalktı.
+- **Storage Klasör Adı:** Mağaza aksiyon fotoğrafları artık `actions/[Mağaza Adı] - [GG.AA.YYYY]/` klasörüne kaydediliyor.
+- **Firestore Kuralları:** Mağaza kullanıcıları kendi denetimlerini güncelleyebiliyor (`audits` write izni eklendi). `users` koleksiyonu mağaza kullanıcılarına da okunabilir hale getirildi.
+
 
 ### v2.2.53
 - **Firebase Storage Klasör Yapısı:** Fotoğraflar artık `[Denetmen Adı] - [GG.AA.YYYY] / [Bölüm] BOLUMU / [Bölüm] - [N]. SORU FOTOGRAFI.jpg` hiyerarşisinde kaydediliyor. Mağaza aksiyonları için `actions/[Mağaza Adı] - [GG.AA.YYYY]` klasörü kullanılıyor.

@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { History, Loader2, X, Calendar, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ref as storageRef, getDownloadURL } from "firebase/storage";
+import { storage } from "@/lib/firebase";
 import {
     Dialog,
     DialogContent,
@@ -45,6 +47,28 @@ export function QuestionHistoryButton({
     const [shouldShow, setShouldShow] = useState(false);
     const [checking, setChecking] = useState(!historyData);
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
+    const [refreshedUrls, setRefreshedUrls] = useState<Map<string, string>>(new Map());
+    const refreshingRef = useRef<Set<string>>(new Set());
+
+    const getImgSrc = (url: string) => refreshedUrls.get(url) ?? url;
+
+    const handleImgError = async (originalUrl: string) => {
+        if (!originalUrl || !originalUrl.includes('firebasestorage')) return;
+        if (refreshingRef.current.has(originalUrl) || refreshedUrls.has(originalUrl)) return;
+        refreshingRef.current.add(originalUrl);
+        try {
+            const url = new URL(originalUrl);
+            const pathMatch = url.pathname.match(/\/o\/(.+)/);
+            if (!pathMatch) return;
+            const path = decodeURIComponent(pathMatch[1]);
+            const freshUrl = await getDownloadURL(storageRef(storage, path));
+            setRefreshedUrls(prev => new Map(prev).set(originalUrl, freshUrl));
+        } catch {
+            setRefreshedUrls(prev => new Map(prev).set(originalUrl, originalUrl));
+        } finally {
+            refreshingRef.current.delete(originalUrl);
+        }
+    };
 
     // Initial check
     useEffect(() => {
@@ -82,7 +106,7 @@ export function QuestionHistoryButton({
             setOpen(true);
             return;
         }
-        
+
         setLoading(true);
         try {
             const result = await getQuestionHistory(
@@ -339,9 +363,10 @@ export function QuestionHistoryButton({
                                                                             onClick={() => setSelectedImage(photo)}
                                                                         >
                                                                             <img
-                                                                                src={photo}
+                                                                                src={getImgSrc(photo)}
                                                                                 alt={`Fotoğraf ${photoIndex + 1}`}
                                                                                 className="h-full w-full object-cover transition-transform group-hover:scale-110"
+                                                                                onError={() => handleImgError(photo)}
                                                                             />
                                                                         </div>
                                                                     ))}
@@ -389,10 +414,11 @@ export function QuestionHistoryButton({
                         <X className="h-6 w-6" />
                     </button>
                     <img
-                        src={selectedImage}
+                        src={getImgSrc(selectedImage)}
                         alt="Fotoğraf Önizleme"
                         className="max-w-full max-h-full object-contain"
                         onClick={(e) => e.stopPropagation()}
+                        onError={() => handleImgError(selectedImage)}
                     />
                 </div>,
                 document.body
