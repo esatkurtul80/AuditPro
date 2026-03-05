@@ -2,11 +2,20 @@
 
 ```json
 {
-  "version": "2.2.52",
-  "build": 114,
+  "version": "2.2.53",
+  "build": 115,
   "status": "stable"
 }
 ```
+
+## [2.2.53] - 2026-03-05
+
+### v2.2.53
+- **Firebase Storage Klasör Yapısı:** Fotoğraflar artık `[Denetmen Adı] - [GG.AA.YYYY] / [Bölüm] BOLUMU / [Bölüm] - [N]. SORU FOTOGRAFI.jpg` hiyerarşisinde kaydediliyor. Mağaza aksiyonları için `actions/[Mağaza Adı] - [GG.AA.YYYY]` klasörü kullanılıyor.
+- **Türkçe Karakter Sanitizasyonu:** Dosya adlarındaki Türkçe karakterler (ğ→g, ü→u, ş→s, ı→i, ö→o, ç→c) birebir eşleme ile güvenli şekilde dönüştürülüyor; Firebase'de `storage/unknown` hatası artık oluşmuyor.
+- **Tarih Formatı Güvenilirliği:** `toLocaleDateString('tr-TR')` yerine manuel `DD.MM.YYYY` oluşturma kullanılarak farklı ortamlarda tutarlı tarih formatı sağlandı.
+- **Bölüm Gezintisi (Scroll):** Denetimde bölüme tıklandığında sayfa animasyon olmadan anında en üste atlar.
+- **Upload Akışı (Promise.allSettled):** Toplu fotoğraf yükleme işlemlerinde tek bir yükleme başarısız olsa bile diğerleri kayıt altına alınıyor; hatalı yüklemeler kullanıcıya toast ile bildiriliyor.
 
 ## [2.2.52] - 2026-03-04
 

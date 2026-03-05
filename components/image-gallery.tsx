@@ -179,20 +179,58 @@ export default function ImageGallery({
                         fileToUpload = await imageCompression(file, options);
                     }
 
-                    // Build human-readable folder: AhmetYilmaz_GordionAVM_2026-02-26
-                    const sanitize = (str: string) => str.replace(/[^a-zA-Z0-9\u00c0-\u024f]/g, ' ').trim().replace(/\s+/g, '_').toUpperCase();
-                    const dateStr = new Date().toISOString().split('T')[0];
+                    // Turkish character normalizer – keeps letters, digits, spaces and dashes
+                    const sanitize = (str: string) => {
+                        const map: Record<string, string> = {
+                            'ğ': 'g', 'Ğ': 'G', 'ü': 'u', 'Ü': 'U',
+                            'ş': 's', 'Ş': 'S', 'ı': 'i', 'İ': 'I',
+                            'ö': 'o', 'Ö': 'O', 'ç': 'c', 'Ç': 'C',
+                        };
+                        return (str || '')
+                            .replace(/[ğĞüÜşŞıİöÖçÇ]/g, ch => map[ch] || ch)
+                            .replace(/[^a-zA-Z0-9 \-]/g, '')
+                            .replace(/\s+/g, ' ')
+                            .trim()
+                            .toUpperCase();
+                    };
+
+                    // Manual DD.MM.YYYY formatter (avoids locale inconsistencies)
+                    const now = new Date();
+                    const dd = String(now.getDate()).padStart(2, '0');
+                    const mm = String(now.getMonth() + 1).padStart(2, '0');
+                    const yyyy = now.getFullYear();
+                    const dateStr = `${dd}.${mm}.${yyyy}`; // e.g. 04.03.2026
+
                     const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
 
-                    let folder = `audits/${auditId}`; // Fallback to ID
+                    // ── Folder logic ──────────────────────────────────────────
+                    let folder: string;
                     if (auditorName && storeName) {
-                        folder = `audits/${sanitize(auditorName)}_${sanitize(storeName)}_${dateStr}`;
+                        // Denetim → MAHMUT ESAT KURTUL - 04.03.2026
+                        folder = `audits/${sanitize(auditorName)} - ${dateStr}`;
+                    } else if (storeName) {
+                        // Mağaza aksiyonu → ALİAĞA MAGAZA - 04.03.2026
+                        folder = `actions/${sanitize(storeName)} - ${dateStr}`;
+                    } else {
+                        // Fallback: audit ID klasörü
+                        folder = `audits/${auditId}`;
                     }
 
-                    // Photo number: existing photos + current batch index + 1
+                    // ── File path ─────────────────────────────────────────────
                     const photoNumber = images.length + batchIndex + 1;
                     const safeSectionName = sectionName ? sanitize(sectionName) : 'FOTO';
-                    const filename = `${folder}/${safeSectionName}-${photoNumber}.FOTOGRAF.${ext}`;
+
+                    let finalPath: string;
+                    if (sectionName) {
+                        // Alt klasör: BAHARAT BOLUMU
+                        finalPath = `${folder}/${safeSectionName} BOLUMU`;
+                    } else {
+                        finalPath = folder;
+                    }
+
+                    // e.g. "audits/MAHMUT ESAT KURTUL - 04.03.2026/BAHARAT BOLUMU/BAHARAT - 1. SORU FOTOGRAFI.jpg"
+                    const filename = `${finalPath}/${safeSectionName} - ${photoNumber}. SORU FOTOGRAFI.${ext}`;
+                    console.log('[ImageGallery] upload path →', filename);
                     const storageRef = ref(storage, filename);
 
                     return new Promise<string>((resolve, reject) => {
@@ -210,17 +248,34 @@ export default function ImageGallery({
                                 reject(error);
                             },
                             async () => {
-                                const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-                                completedFiles++;
-                                resolve(downloadURL);
+                                try {
+                                    const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+                                    completedFiles++;
+                                    resolve(downloadURL);
+                                } catch (err) {
+                                    reject(err);
+                                }
                             }
                         );
                     });
                 });
 
-                const uploadedUrls = await Promise.all(uploadPromises);
-                onImagesChange([...images, ...uploadedUrls]);
-                toast.success(`${uploadedUrls.length} fotoğraf yüklendi`);
+                // Since Array.from.map(async) creates Promise<Promise<string>>, we need to wait for all inner promises
+                const allMapped = await Promise.all(uploadPromises);
+                const results = await Promise.allSettled(allMapped.map(p => Promise.resolve(p)));
+
+                const uploadedUrls = results
+                    .filter((r): r is PromiseFulfilledResult<string> => r.status === 'fulfilled')
+                    .map(r => r.value);
+                const failedCount = results.filter(r => r.status === 'rejected').length;
+
+                if (uploadedUrls.length > 0) {
+                    onImagesChange([...images, ...uploadedUrls]);
+                    toast.success(`${uploadedUrls.length} fotoğraf yüklendi`);
+                }
+                if (failedCount > 0) {
+                    toast.error(`${failedCount} fotoğraf yüklenemedi, lütfen tekrar deneyin`);
+                }
             }
         } catch (error) {
             console.error("Error handling photos:", error);

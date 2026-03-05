@@ -1160,19 +1160,20 @@ export function AuditorPerformanceContent() {
                             <CardTitle>Bölüm Bazlı Puan Ortalamaları</CardTitle>
                             <CardDescription>Denetmenlerin bölümlere verdiği ortalama puanlar ve genel sapmalar (%)</CardDescription>
                         </CardHeader>
-                        <CardContent className="p-0 sm:p-6 overflow-hidden">
+                        <CardContent className="p-0 sm:p-6">
                             {Object.keys(deviationDataByAuditType).length > 0 ? (
-                                <Tabs defaultValue={Object.keys(deviationDataByAuditType)[0]} className="w-full">
-                                    <TabsList
-                                        className="grid w-full lg:w-fit"
-                                        style={{ gridTemplateColumns: `repeat(${Object.keys(deviationDataByAuditType).length}, minmax(150px, 1fr))` }}
-                                    >
-                                        {Object.keys(deviationDataByAuditType).sort((a, b) => a.localeCompare(b, "tr")).map((typeName) => (
-                                            <TabsTrigger key={typeName} value={typeName}>
-                                                {typeName}
-                                            </TabsTrigger>
-                                        ))}
-                                    </TabsList>
+                                <Tabs defaultValue={Object.keys(deviationDataByAuditType).sort((a, b) => a.localeCompare(b, "tr"))[0]} className="w-full">
+                                    <div className="px-4 pt-3 pb-1 sm:px-0 sm:pt-0">
+                                        <TabsList
+                                            className="flex flex-col lg:flex-row !h-auto w-full lg:w-fit bg-muted p-1 rounded-lg"
+                                        >
+                                            {Object.keys(deviationDataByAuditType).sort((a, b) => a.localeCompare(b, "tr")).map((typeName) => (
+                                                <TabsTrigger key={typeName} value={typeName} className="w-full lg:w-auto whitespace-nowrap">
+                                                    {typeName}
+                                                </TabsTrigger>
+                                            ))}
+                                        </TabsList>
+                                    </div>
 
                                     {Object.entries(deviationDataByAuditType).sort(([a], [b]) => a.localeCompare(b, "tr")).map(([typeName, dataRows]) => (
                                         <TabsContent key={typeName} value={typeName} className="mt-0 outline-none">

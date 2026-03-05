@@ -227,6 +227,8 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
     const getProxiedUrl = (url: string) => {
         if (!url) return "";
         if (url.startsWith("data:")) return url; // Already base64
+        if (url.startsWith("local://")) return ""; // Offline/unsynced image – skip
+        if (!url.startsWith("http://") && !url.startsWith("https://")) return ""; // Not a real URL – skip
         return `/api/image-proxy?url=${encodeURIComponent(url)}`;
     };
 
@@ -763,14 +765,21 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
                                                                 {/* Photos under the question/notes */}
                                                                 {answer.photos && answer.photos.length > 0 && (
                                                                     <div style={{ display: 'flex', gap: '5px', marginTop: '6px', flexWrap: 'wrap' }}>
-                                                                        {answer.photos.map((p, pi) => (
+                                                                        {answer.photos.filter(p => p && (p.startsWith('http://') || p.startsWith('https://'))).map((p, pi) => (
                                                                             <img
                                                                                 key={pi}
-                                                                                src={getProxiedUrl(p)}
-                                                                                data-original-url={p}
-                                                                                onClick={() => setSelectedImage(getProxiedUrl(p))}
+                                                                                src={p}
+                                                                                data-proxied-url={getProxiedUrl(p)}
+                                                                                onClick={() => setSelectedImage(p)}
                                                                                 onError={(e) => {
-                                                                                    (e.target as HTMLImageElement).style.display = 'none';
+                                                                                    // On direct load fail, try proxy
+                                                                                    const el = e.target as HTMLImageElement;
+                                                                                    const proxied = el.getAttribute('data-proxied-url');
+                                                                                    if (proxied && el.src !== proxied) {
+                                                                                        el.src = proxied;
+                                                                                    } else {
+                                                                                        el.style.display = 'none';
+                                                                                    }
                                                                                 }}
                                                                                 style={{
                                                                                     width: '80px',
@@ -866,14 +875,20 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
 
                                                     {section.feedback?.images && section.feedback.images.length > 0 && (
                                                         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '5px' }}>
-                                                            {section.feedback.images.map((img, i) => (
+                                                            {section.feedback.images.filter(img => img && (img.startsWith('http://') || img.startsWith('https://'))).map((img, i) => (
                                                                 <div key={i} style={{ border: '1px dashed #ccc', padding: '2px', maxWidth: '100%' }}>
                                                                     <img
-                                                                        src={getProxiedUrl(img)}
-                                                                        data-original-url={img}
-                                                                        onClick={() => setSelectedImage(getProxiedUrl(img))}
+                                                                        src={img}
+                                                                        data-proxied-url={getProxiedUrl(img)}
+                                                                        onClick={() => setSelectedImage(img)}
                                                                         onError={(e) => {
-                                                                            (e.target as HTMLImageElement).parentElement!.style.display = 'none';
+                                                                            const el = e.target as HTMLImageElement;
+                                                                            const proxied = el.getAttribute('data-proxied-url');
+                                                                            if (proxied && el.src !== proxied) {
+                                                                                el.src = proxied;
+                                                                            } else {
+                                                                                el.parentElement!.style.display = 'none';
+                                                                            }
                                                                         }}
                                                                         style={{ maxWidth: '100%', height: 'auto', objectFit: 'contain', cursor: 'pointer' }}
                                                                         crossOrigin="anonymous"

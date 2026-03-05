@@ -919,6 +919,55 @@ export default function AuditPage() {
                     } catch (rmError) {
                         console.error("Failed to send RM notification:", rmError);
                     }
+
+                    // 4. Send Notification to Rapor Yöneticisi users
+                    try {
+                        const score = audit.totalScore || 0;
+                        const auditorName = userProfile?.firstName && userProfile?.lastName
+                            ? `${userProfile.firstName} ${userProfile.lastName}`
+                            : (userProfile?.displayName || "Bir Denetmen");
+
+                        const storeName = audit.storeName || "Mağaza";
+
+                        const rapYonQuery = query(
+                            collection(db, "users"),
+                            where("role", "==", "rapor-yoneticisi")
+                        );
+                        const rapYonSnapshot = await getDocs(rapYonQuery);
+                        const rapYonIds = rapYonSnapshot.docs.map(d => d.id);
+
+                        if (rapYonIds.length > 0) {
+                            // Firestore notifications
+                            const rapYonNotifData = {
+                                type: "audit_completed",
+                                title: "✅ Denetim Tamamlandı",
+                                message: `${auditorName}, ${storeName} mağazasının denetimini tamamladı. Puan: ${score}. Raporu incelemek için tıklayınız.`,
+                                read: false,
+                                relatedId: auditId,
+                                senderName: auditorName,
+                                createdAt: Timestamp.now(),
+                            };
+                            await Promise.all(
+                                rapYonIds.map(userId =>
+                                    addDoc(collection(db, "notifications"), { ...rapYonNotifData, userId })
+                                )
+                            );
+
+                            // Push notifications
+                            await fetch("/api/send-notification", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({
+                                    title: "✅ Denetim Tamamlandı",
+                                    message: `${auditorName}, ${storeName} mağazasının denetimini tamamladı. Puan: ${score}.`,
+                                    userIds: rapYonIds,
+                                    url: `/audits/${auditId}/report`
+                                })
+                            });
+                        }
+                    } catch (rapYonError) {
+                        console.error("Failed to send rapor-yoneticisi notification:", rapYonError);
+                    }
                 }
             } catch (notifyErr) {
                 console.error("Failed to send store notification:", notifyErr);
@@ -1534,7 +1583,10 @@ export default function AuditPage() {
                                             <Card
                                                 key={sectionIndex}
                                                 className={`cursor-pointer hover:shadow-md transition-all border shadow-sm bg-blue-50/20 dark:bg-blue-900/10 hover:bg-blue-50 dark:hover:bg-blue-900/30 ${borderColorClass} group rounded-xl min-h-[5rem] md:min-h-[7rem] py-3 md:py-6 gap-3 md:gap-6 flex items-center justify-center select-none`}
-                                                onClick={() => setCurrentSectionIndex(sectionIndex)}
+                                                onClick={() => {
+                                                    setCurrentSectionIndex(sectionIndex);
+                                                    window.scrollTo({ top: 0, behavior: 'instant' });
+                                                }}
                                                 onTouchStart={() => handleTouchStart(sectionIndex)}
                                                 onTouchEnd={handleTouchEnd}
                                                 onContextMenu={(e) => onContextMenu(e, sectionIndex)}
@@ -1582,7 +1634,10 @@ export default function AuditPage() {
                                     {/* Personnel Evaluation Card */}
                                     <Card
                                         className="cursor-pointer hover:shadow-lg transition-all border shadow-sm bg-gradient-to-br from-amber-50 to-orange-100 dark:from-amber-950/40 dark:to-orange-950/40 hover:from-amber-100 hover:to-orange-200 dark:hover:from-amber-900/60 dark:hover:to-orange-900/60 border-amber-300 dark:border-amber-700/50 group rounded-xl min-h-[5rem] md:min-h-[7rem] py-3 md:py-6 gap-3 md:gap-6 flex items-center justify-center select-none"
-                                        onClick={() => setCurrentSectionIndex('personnel')}
+                                        onClick={() => {
+                                            setCurrentSectionIndex('personnel');
+                                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                                        }}
                                     >
                                         <CardHeader className="p-0 px-3 md:p-6 w-full">
                                             <div className="grid grid-cols-[auto_1fr_auto] items-center gap-3 md:gap-4 w-full">
