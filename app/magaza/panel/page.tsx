@@ -16,7 +16,7 @@ export default function StoreDashboardView() {
     const router = useRouter();
     const pathname = usePathname();
     const { userProfile } = useAuth();
-    
+
     // Initialize from URL or default to 'panel'
     const initialTab = (searchParams.get('tab') as 'panel' | 'reports' | 'notifications' | 'settings') || 'panel';
     const [activeTab, setActiveTab] = useState<'panel' | 'reports' | 'notifications' | 'settings'>(initialTab);
@@ -44,7 +44,7 @@ export default function StoreDashboardView() {
             scrollContainer.scrollTop = 0;
         }
         window.scrollTo(0, 0);
-        document.body.scrollTop = 0; 
+        document.body.scrollTop = 0;
         document.documentElement.scrollTop = 0;
     }, [activeTab]);
 
@@ -60,6 +60,10 @@ export default function StoreDashboardView() {
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
             setUnreadCount(snapshot.size);
+        }, (error) => {
+            if (error.code !== 'permission-denied') {
+                console.error("StoreDashboardView: Notifications listener error:", error);
+            }
         });
 
         return () => unsubscribe();
@@ -85,8 +89,8 @@ export default function StoreDashboardView() {
             </main>
 
             {/* Custom Bottom Nav */}
-            <StoreBottomNav 
-                activeTab={activeTab} 
+            <StoreBottomNav
+                activeTab={activeTab}
                 onTabChange={handleTabChange}
                 notificationCount={unreadCount}
             />

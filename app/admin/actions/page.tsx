@@ -203,7 +203,9 @@ function AdminActionsContent() {
                 setLoading(false);
             },
             (error) => {
-                console.error("Error listening to audits:", error);
+                if (error.code !== 'permission-denied') {
+                    console.error("Error listening to audits:", error);
+                }
                 setLoading(false);
             }
         );

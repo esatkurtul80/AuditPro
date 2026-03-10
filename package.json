@@ -1,6 +1,6 @@
 {
   "name": "ai",
-  "version": "2.2.35",
+  "version": "3.0.1",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -42,6 +42,7 @@
     "@tiptap/extension-color": "^3.20.0",
     "@tiptap/extension-image": "^3.20.0",
     "@tiptap/extension-link": "^3.20.0",
+    "@tiptap/extension-text-align": "^3.20.1",
     "@tiptap/extension-text-style": "^3.20.0",
     "@tiptap/react": "^3.20.0",
     "@tiptap/starter-kit": "^3.20.0",

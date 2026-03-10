@@ -18,10 +18,11 @@ import AuditorPerformancePage from "@/app/admin/reports/auditor-performance/page
 
 // Panel: daily audits dashboard (store special reports)
 import ReportPanelDashboard from "@/components/report-manager/report-panel-dashboard";
+import { ReportScheduleView } from "@/components/report-manager/report-schedule-view";
 
-type ReportTab = "panel" | "personel" | "puan" | "soru" | "aksiyon" | "denetci";
+type ReportTab = "panel" | "personel" | "puan" | "soru" | "aksiyon" | "denetci" | "program";
 
-const VALID_TABS: ReportTab[] = ["panel", "personel", "puan", "soru", "aksiyon", "denetci"];
+const VALID_TABS: ReportTab[] = ["panel", "personel", "puan", "soru", "aksiyon", "denetci", "program"];
 
 function ReportManagerContent() {
     const { userProfile, loading: authLoading } = useAuth();
@@ -97,6 +98,9 @@ function ReportManagerContent() {
                     </div>
                     <div className={activeTab === "denetci" ? "block" : "hidden"}>
                         <AuditorPerformancePage />
+                    </div>
+                    <div className={activeTab === "program" ? "block h-full" : "hidden"} style={{ height: 'calc(100vh - 64px)' }}>
+                        <ReportScheduleView />
                     </div>
                 </main>
             </div>

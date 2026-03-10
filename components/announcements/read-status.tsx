@@ -44,7 +44,9 @@ export function ReadStatus({ announcementId, recipients }: ReadStatusProps) {
                 setLoading(false);
             },
             (error) => {
-                console.error("Error listening to announcement:", error);
+                if (error.code !== 'permission-denied') {
+                    console.error("Error listening to announcement:", error);
+                }
                 setLoading(false);
             }
         );
@@ -69,7 +71,7 @@ export function ReadStatus({ announcementId, recipients }: ReadStatusProps) {
                 <Users className="h-4 w-4 text-muted-foreground" />
                 <h4 className="text-sm font-medium">Okuma Durumu</h4>
                 <Badge variant="secondary" className="ml-auto">
-                    {status.hasRoleGroupRecipients 
+                    {status.hasRoleGroupRecipients
                         ? `${status.readCount} kişi okudu`
                         : `${status.readCount} / ${status.totalRecipients}`
                     }

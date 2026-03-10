@@ -297,6 +297,8 @@ export default function AuditPage() {
             (snap) => {
                 activePersonnelIds = snap.docs.map(doc => doc.id);
                 updateStatus();
+            }, (error) => {
+                if (error.code !== 'permission-denied') console.error("unsubPersonnel error:", error);
             }
         );
 
@@ -305,6 +307,8 @@ export default function AuditPage() {
             (snap) => {
                 evaluatedPersonnelIds = new Set(snap.docs.map(doc => doc.data().personnelId));
                 updateStatus();
+            }, (error) => {
+                if (error.code !== 'permission-denied') console.error("unsubEvaluations error:", error);
             }
         );
 

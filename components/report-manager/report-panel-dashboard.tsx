@@ -39,8 +39,11 @@ import {
     Store as StoreIcon,
     Clock,
     TrendingUp,
+    MoreHorizontal,
+    BarChart3
 } from "lucide-react";
 import Link from "next/link";
+import { toast } from "sonner";
 import { SpecialReportGenerator } from "@/components/admin/special-report-generator";
 import {
     Dialog,
@@ -74,6 +77,11 @@ export default function ReportPanelDashboard() {
                     id: d.id,
                 })).filter((a) => !a.isDeleted);
                 setAudits(all);
+                setLoading(false);
+            }, (error) => {
+                if (error.code !== 'permission-denied') {
+                    console.error("ReportPanelDashboard: Listener error:", error);
+                }
                 setLoading(false);
             });
         };
@@ -131,9 +139,16 @@ export default function ReportPanelDashboard() {
         return "bg-red-500";
     };
 
+    const completedAudits = audits.filter(a => a.status === "tamamlandi");
+
     const quickStats = {
         total: todayAudits.length,
-        completed: todayAudits.filter((a) => a.status === "tamamlandi").length,
+        completed: completedAudits.filter(a => {
+            const d = a.completedAt?.toDate() || a.createdAt?.toDate();
+            return d && d.getDate() === today.getDate() &&
+                d.getMonth() === today.getMonth() &&
+                d.getFullYear() === today.getFullYear();
+        }).length,
         live: liveAudits.length,
         uniqueStores: new Set(todayAudits.map((a) => a.storeId)).size,
     };
@@ -237,14 +252,14 @@ export default function ReportPanelDashboard() {
                 </Card>
             )}
 
-            {/* Today's Audits - Special Reports */}
+            {/* Completed Audits - Special Reports */}
             <Card>
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                         <FileText className="h-5 w-5 text-muted-foreground" />
                         Mağazaların Özel Raporları
                     </CardTitle>
-                    <CardDescription>Bugün tamamlanan denetimlerin özel raporu</CardDescription>
+                    <CardDescription>Tamamlanan tüm denetimlerin raporları</CardDescription>
                 </CardHeader>
                 <CardContent className="p-0">
                     {loading ? (
@@ -254,11 +269,11 @@ export default function ReportPanelDashboard() {
                                 <span className="text-sm">Yükleniyor...</span>
                             </div>
                         </div>
-                    ) : todayAudits.filter((a) => a.status === "tamamlandi").length === 0 ? (
+                    ) : completedAudits.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-16 text-center text-muted-foreground space-y-2">
                             <TrendingUp className="h-12 w-12 opacity-20" />
-                            <p className="text-sm font-medium">Bugün tamamlanan denetim yok</p>
-                            <p className="text-xs">Tamamlanan denetimler burada görünecek</p>
+                            <p className="text-sm font-medium">Tamamlanan denetim bulunmuyor</p>
+                            <p className="text-xs">Tamamlanan denetimler açıklandığında burada görünecek</p>
                         </div>
                     ) : (
                         <div className="overflow-x-auto">
@@ -266,39 +281,69 @@ export default function ReportPanelDashboard() {
                                 <TableHeader>
                                     <TableRow>
                                         <TableHead>Mağaza</TableHead>
-                                        <TableHead>Denetim Türü</TableHead>
                                         <TableHead>Denetmen</TableHead>
                                         <TableHead>Puan</TableHead>
                                         <TableHead>Tarih</TableHead>
+                                        <TableHead>Başlangıç</TableHead>
+                                        <TableHead>Bitiş</TableHead>
+                                        <TableHead>Toplam Süre</TableHead>
                                         <TableHead className="text-right">İşlemler</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {todayAudits
-                                        .filter((a) => a.status === "tamamlandi")
+                                    {completedAudits
                                         .map((audit) => {
                                             const pct = audit.maxScore
                                                 ? Math.round((audit.totalScore / audit.maxScore) * 100)
                                                 : 0;
+
+                                            // Calculate total duration
+                                            let durationStr = "—";
+                                            if (audit.startedAt && audit.completedAt) {
+                                                const diffMs = audit.completedAt.toMillis() - audit.startedAt.toMillis();
+                                                if (diffMs > 0) {
+                                                    const totalMinutes = Math.floor(diffMs / 60000);
+                                                    const hours = Math.floor(totalMinutes / 60);
+                                                    const mins = totalMinutes % 60;
+                                                    durationStr = hours > 0 ? `${hours}s ${mins}dk` : `${mins}dk`;
+                                                }
+                                            }
+
                                             return (
                                                 <TableRow key={audit.id} className="hover:bg-muted/30 transition-colors">
                                                     <TableCell className="font-medium">{audit.storeName}</TableCell>
-                                                    <TableCell>
-                                                        <Badge variant="outline" className="text-xs font-normal">
-                                                            {audit.auditTypeName}
-                                                        </Badge>
-                                                    </TableCell>
                                                     <TableCell className="text-sm text-muted-foreground">{audit.auditorName}</TableCell>
                                                     <TableCell>
                                                         <Badge className={`${scoreColor(pct)} text-white font-mono min-w-[3rem] justify-center`}>
-                                                            {pct}%
+                                                            {audit.totalScore}
                                                         </Badge>
                                                     </TableCell>
-                                                    <TableCell className="text-xs text-muted-foreground font-mono">
-                                                        {audit.completedAt?.toDate().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }) || "—"}
+                                                    <TableCell className="text-xs text-muted-foreground font-mono whitespace-nowrap">
+                                                        {audit.completedAt?.toDate().toLocaleString("tr-TR", {
+                                                            day: "2-digit", month: "2-digit", year: "numeric"
+                                                        }) || "—"}
+                                                    </TableCell>
+                                                    <TableCell className="text-xs text-muted-foreground font-mono whitespace-nowrap">
+                                                        {audit.startedAt?.toDate().toLocaleString("tr-TR", {
+                                                            hour: "2-digit", minute: "2-digit"
+                                                        }) || "—"}
+                                                    </TableCell>
+                                                    <TableCell className="text-xs text-muted-foreground font-mono whitespace-nowrap">
+                                                        {audit.completedAt?.toDate().toLocaleString("tr-TR", {
+                                                            hour: "2-digit", minute: "2-digit"
+                                                        }) || "—"}
+                                                    </TableCell>
+                                                    <TableCell className="text-xs text-muted-foreground font-mono whitespace-nowrap">
+                                                        {durationStr}
                                                     </TableCell>
                                                     <TableCell className="text-right">
-                                                        <div className="flex items-center justify-end gap-1">
+                                                        <div className="flex items-center justify-end gap-2">
+                                                            <Button variant="outline" size="sm" className="h-8 gap-1.5" asChild>
+                                                                <Link href={`/audits/${audit.id}/summary`}>
+                                                                    <BarChart3 className="h-3.5 w-3.5" />
+                                                                    Özet Rapor
+                                                                </Link>
+                                                            </Button>
                                                             <Button
                                                                 variant="outline"
                                                                 size="sm"
@@ -307,11 +352,6 @@ export default function ReportPanelDashboard() {
                                                             >
                                                                 <FileText className="h-3.5 w-3.5" />
                                                                 Özel Rapor
-                                                            </Button>
-                                                            <Button variant="ghost" size="sm" className="h-8" asChild>
-                                                                <Link href={`/audits/${audit.id}/summary`}>
-                                                                    Detay
-                                                                </Link>
                                                             </Button>
                                                         </div>
                                                     </TableCell>
@@ -327,12 +367,20 @@ export default function ReportPanelDashboard() {
 
             {/* Special Report Dialog */}
             {specialReportAudit && (
-                <Dialog open={!!specialReportAudit} onOpenChange={(o) => !o && setSpecialReportAudit(null)}>
-                    <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-0">
+                <Dialog open={!!specialReportAudit} onOpenChange={(o) => { if (!o) setSpecialReportAudit(null); }}>
+                    <DialogContent showCloseButton={false} className="!max-w-[1000px] w-full max-h-[90vh] overflow-y-auto overflow-x-hidden p-0 bg-zinc-100/50 backdrop-blur-sm border-none shadow-2xl rounded-xl">
                         <DialogTitle className="sr-only">Özel Rapor Önizleme</DialogTitle>
                         <SpecialReportGenerator
                             audit={specialReportAudit}
+                            mode="preview"
+                            headerOffset="0px"
                             onClose={() => setSpecialReportAudit(null)}
+                            onComplete={() => {
+                                toast.success("Rapor başarıyla oluşturuldu");
+                            }}
+                            onError={() => {
+                                toast.error("Rapor oluşturulurken hata oluştu");
+                            }}
                         />
                     </DialogContent>
                 </Dialog>

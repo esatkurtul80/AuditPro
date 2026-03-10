@@ -2,11 +2,19 @@
 
 ```json
 {
-  "version": "3.0.0",
-  "build": 116,
+  "version": "3.0.1",
+  "build": 117,
   "status": "stable"
 }
 ```
+
+## [3.0.1] - 2026-03-10
+
+### v3.0.1
+- **Duyuru/Bildirim Editörü (Tiptap):** Önceki versiyonlarda kaybolan zengin metin editörü (Rich Text Editor) "Bilgilendirme Gönder" sayfasına tekrar entegre edildi. Kalın, italik, liste, hizalama ve renk paleti fonksiyonları eksiksiz çalışıyor.
+- **Editör SSR Hatası:** Next.js (React 19) sunucu render'ı (SSR) sırasında oluşan `hydration mismatch` hatası giderildi.
+- **Editör Link Ekleme (Shadcn Popover):** Link ekleme butonundaki yerleşik `window.prompt` penceresi kaldırılarak, yerine şık ve entegre bir Shadcn Popover menüsü eklendi.
+- **Editör Resim Ekleme (Firebase Storage):** Araç çubuğuna resim yükleme butonu dahil edildi. Kullanıcı bilgisayarından dosya seçip Firebase Storage'a (`announcements/` klasörüne) anlık yükleyebiliyor. Dosya isimleri çakışmaları ve hataları önlemek için Türkçe karakterlerden arındırılıp (Konu + Tarih + Benzersiz ID) şeklinde kaydediliyor. Dosya eklendiği an Tiptap penceresine işleniyor.
 
 ## [3.0.0] - 2026-03-05
 

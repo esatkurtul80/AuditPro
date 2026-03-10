@@ -23,6 +23,10 @@ service cloud.firestore {
       return isAuthenticated() && getUserRole() == 'bolge-muduru';
     }
 
+    function isReportManager() {
+      return isAuthenticated() && getUserRole() == 'rapor-yoneticisi';
+    }
+
     function isStoreUser() {
       return isAuthenticated() && getUserRole() == 'magaza';
     }
@@ -33,7 +37,7 @@ service cloud.firestore {
 
     // ─── Users Collection ───
     match /users/{userId} {
-      allow read: if isOwner(userId) || isAdmin() || isAuditor() || isRegionalManager() || isStoreUser();
+      allow read: if isOwner(userId) || isAdmin() || isAuditor() || isRegionalManager() || isStoreUser() || isReportManager();
       allow update: if isOwner(userId) || isAdmin();
       allow create, delete: if isAdmin();
     }
@@ -64,7 +68,7 @@ service cloud.firestore {
 
     // ─── Audits Collection ───
     match /audits/{auditId} {
-      allow read: if isAdmin() || isAuditor() || isRegionalManager()
+      allow read: if isAdmin() || isAuditor() || isRegionalManager() || isReportManager()
         || (isStoreUser() && resource.data.storeId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.storeId);
       allow create: if isAdmin() || isAuditor() || isRegionalManager();
       allow update: if isAdmin() || (isAuditor() && resource.data.auditorId == request.auth.uid) || isRegionalManager()
@@ -114,6 +118,11 @@ service cloud.firestore {
 
     // ─── Trash Collection ───
     match /trash/{trashId} {
+      allow read, write: if isAdmin();
+    }
+
+    // ─── Broadcast History Collection ───
+    match /broadcast_history/{historyId} {
       allow read, write: if isAdmin();
     }
 

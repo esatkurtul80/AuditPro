@@ -45,9 +45,9 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
 
     const checkPermissionState = useCallback(() => {
         if (typeof window === "undefined" || !("Notification" in window)) return;
-        
+
         const perm = Notification.permission;
-        
+
         startTransition(() => {
             setNotificationPermission(perm);
         });
@@ -129,7 +129,7 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
                     }));
                     setPendingUsers(users);
                 }, (error) => {
-                     console.error("HeaderActions: Pending users listener error:", error);
+                    console.error("HeaderActions: Pending users listener error:", error);
                 });
             }
 
@@ -161,14 +161,18 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
                 .filter(user => {
                     // Check if lastActive is within timeout period
                     if (!user.lastActive) return false;
-                    const lastActiveTime = (user.lastActive as any)?.toDate 
-                        ? (user.lastActive as any).toDate().getTime() 
+                    const lastActiveTime = (user.lastActive as any)?.toDate
+                        ? (user.lastActive as any).toDate().getTime()
                         : new Date(user.lastActive as any).getTime();
                     return (now - lastActiveTime) < TIMEOUT_MS;
                 });
-            
+
             // Exclude current user from list
             setOnlineUsers(users.filter(u => u.id !== userProfile?.uid));
+        }, (error) => {
+            if (error.code !== 'permission-denied') {
+                console.error("HeaderActions: Online users listener error:", error);
+            }
         });
 
         return () => unsubscribe();
@@ -254,7 +258,7 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
                 <div className="flex items-center gap-1 md:mr-2">
                     <OnlineStatusBadge isOnline={isOnline} compact={compact} />
                     <LocationStatusBadge compact={compact} />
-                    
+
                     {/* Online Users Button - Admin Only */}
                     {mounted && userProfile?.role === "admin" && (
                         <DropdownMenu>
@@ -296,10 +300,10 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
                                                 <div className="flex flex-col flex-1 min-w-0">
                                                     <span className="text-sm font-medium truncate">{user.displayName || "İsimsiz"}</span>
                                                     <span className="text-xs text-muted-foreground truncate">
-                                                        {user.role === "admin" ? "Yönetici" : 
-                                                         user.role === "denetmen" ? "Denetmen" : 
-                                                         user.role === "bolge-muduru" ? "Bölge Md." : 
-                                                         user.role === "magaza" ? "Mağaza" : user.role}
+                                                        {user.role === "admin" ? "Yönetici" :
+                                                            user.role === "denetmen" ? "Denetmen" :
+                                                                user.role === "bolge-muduru" ? "Bölge Md." :
+                                                                    user.role === "magaza" ? "Mağaza" : user.role}
                                                     </span>
                                                 </div>
                                                 <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>
@@ -330,7 +334,7 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
                                 <Bell className={iconSize} />
                                 {unreadCount > 0 && (
                                     <span className="absolute right-0 top-0 flex h-2.5 w-2.5 items-center justify-center rounded-full bg-red-500 ring-1 ring-white dark:ring-black">
-                                       <span className="sr-only">{unreadCount}</span>
+                                        <span className="sr-only">{unreadCount}</span>
                                     </span>
                                 )}
                             </Button>
@@ -499,7 +503,7 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
             <div className="flex items-center gap-1">
                 <OnlineStatusBadge isOnline={isOnline} compact={compact} />
                 <LocationStatusBadge compact={compact} />
-                
+
                 {/* Online Users Button - Admin Only */}
                 {mounted && userProfile?.role === "admin" && (
                     <DropdownMenu>
@@ -541,10 +545,10 @@ export function HeaderActions({ compact = false }: { compact?: boolean }) {
                                             <div className="flex flex-col flex-1 min-w-0">
                                                 <span className="text-sm font-medium truncate">{user.displayName || "İsimsiz"}</span>
                                                 <span className="text-xs text-muted-foreground truncate">
-                                                    {user.role === "admin" ? "Yönetici" : 
-                                                     user.role === "denetmen" ? "Denetmen" : 
-                                                     user.role === "bolge-muduru" ? "Bölge Md." : 
-                                                     user.role === "magaza" ? "Mağaza" : user.role}
+                                                    {user.role === "admin" ? "Yönetici" :
+                                                        user.role === "denetmen" ? "Denetmen" :
+                                                            user.role === "bolge-muduru" ? "Bölge Md." :
+                                                                user.role === "magaza" ? "Mağaza" : user.role}
                                                 </span>
                                             </div>
                                             <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>

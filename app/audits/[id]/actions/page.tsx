@@ -264,8 +264,10 @@ export default function AuditActionsPage() {
                 }
             },
             (error) => {
-                console.error("Error listening to audit:", error);
-                toast.error("Veri güncellemeleri alınamıyor");
+                if (error.code !== 'permission-denied') {
+                    console.error("Error listening to audit:", error);
+                    toast.error("Veri güncellemeleri alınamıyor");
+                }
                 setLoading(false);
             }
         );

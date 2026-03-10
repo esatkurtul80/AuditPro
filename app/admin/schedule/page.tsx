@@ -84,6 +84,7 @@ import {
 } from "lucide-react";
 import { LeaveType, AccommodationType } from "@/lib/types";
 import { ACCOMMODATION_ICONS } from "@/lib/constants";
+import { useAuth } from "@/components/auth-provider";
 
 // Robust UUID Generator (Polyfill)
 function generateUUID() {
@@ -91,7 +92,7 @@ function generateUUID() {
         return crypto.randomUUID();
     }
     // Fallback for environments where crypto.randomUUID is not available
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
         const r = Math.random() * 16 | 0;
         const v = c === 'x' ? r : (r & 0x3 | 0x8);
         return v.toString(16);
@@ -244,7 +245,8 @@ function DroppableCell({
     accommodationTypes,
     handleUpdateScheduleItem,
     onStoreAction,
-    audits
+    audits,
+    isReadOnly
 }: {
     dropId: string;
     isToday: boolean;
@@ -262,11 +264,12 @@ function DroppableCell({
     isSelected: boolean;
     onCellClick: (id: string, isMulti: boolean) => void;
     selectedCells: Set<string>;
-    setNoteDialog: (state: { open: boolean, itemId: string | null, note: string }) => void;
+    setNoteDialog: (v: { open: boolean, itemId: string | null, note: string }) => void;
     accommodationTypes: AccommodationType[];
-    handleUpdateScheduleItem: (itemId: string, updates: Partial<ScheduleItem>) => Promise<void>;
+    handleUpdateScheduleItem: (itemId: string, updates: Partial<ScheduleItem>) => void;
     onStoreAction: (action: 'add' | 'change' | 'replace_leave', date: Date, auditorId: string, item?: ScheduleItem) => void;
-    audits: Audit[];
+    audits: any[]; // Or proper type
+    isReadOnly?: boolean;
 }) {
     // Filter out blocked items for display
     const filteredItems = rawItems.filter(i => i.type !== 'blocked');
@@ -379,11 +382,11 @@ function DroppableCell({
                     }
 
                     const violation = getViolation(item);
-                    
+
                     // Check if this specific item has been completed
-                    const isCompleted = audits.some(a => 
-                        a.storeId === item.storeId && 
-                        a.auditorId === item.auditorId && 
+                    const isCompleted = audits.some(a =>
+                        a.storeId === item.storeId &&
+                        a.auditorId === item.auditorId &&
                         a.status === 'tamamlandi' &&
                         isSameDay(a.createdAt instanceof Date ? a.createdAt : a.createdAt?.toDate?.() || new Date(a.createdAt as unknown as string), item.date)
                     );
@@ -450,6 +453,10 @@ function DroppableCell({
                             )}
                         </div>
                     );
+
+                    if (isReadOnly) {
+                        return <div key={item.id} className="relative group/item">{content}</div>;
+                    }
 
                     if (isWeekPublished) {
                         return (
@@ -595,7 +602,7 @@ function DroppableCell({
                     Draft: Show if < 2 items.
                     Published: HIDE ALWAYS (Clean UI). User must right-click to Add.
                 */}
-                {!hasLeave && !isWeekPublished && !filteredItems.some(i => i.status === 'published') && filteredItems.length < 2 && (
+                {!isReadOnly && !hasLeave && !isWeekPublished && !filteredItems.some(i => i.status === 'published') && filteredItems.length < 2 && (
                     <Popover
                         open={openPopoverId === dropId}
                         onOpenChange={(isOpen) => {
@@ -724,6 +731,10 @@ function DroppableCell({
         );
     }
 
+    if (isReadOnly) {
+        return <div className="h-full min-h-[100px] w-full">{cell}</div>;
+    }
+
     return (
         <ContextMenu>
             <ContextMenuTrigger asChild>
@@ -752,6 +763,9 @@ function DroppableCell({
 }
 
 export default function SchedulePage() {
+    const { userProfile } = useAuth();
+    const isReadOnly = userProfile?.role !== 'admin';
+
     const [currentDate, setCurrentDate] = useState(new Date());
     const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
     const [auditors, setAuditors] = useState<UserProfile[]>([]);
@@ -828,13 +842,13 @@ export default function SchedulePage() {
             const body = auditors.map(auditor => {
                 const row: string[] = [`${auditor.firstName} ${auditor.lastName}`];
                 const defaultLeave = leaveTypes.find(t => t.isDefault);
-                
+
                 days.forEach(day => {
                     const isWeekend = day.getDay() === 0 || day.getDay() === 6;
                     const cellItems = weekItems.filter(
                         item => item.auditorId === auditor.uid && isSameDay(item.date, day)
                     );
-                    
+
                     if (cellItems.length === 0) {
                         // Eğer hücre boşsa ve haftasonuysa (örn: henüz taslak aşamasındayken), varsayılan izni koy
                         if (isWeekend && defaultLeave && !schedule.some(i => i.auditorId === auditor.uid && isSameDay(i.date, day) && i.type === 'blocked')) {
@@ -1566,9 +1580,9 @@ export default function SchedulePage() {
             const isWeekend = dayOfWeek === 0 || dayOfWeek === 6; // 0=Sun, 6=Sat
 
             // Check if there is already a blocked item for this cell
-            const cellAlreadyHasBlocked = schedule.some(i => 
-                i.auditorId === itemToRemove.auditorId && 
-                isSameDay(i.date, itemToRemove.date) && 
+            const cellAlreadyHasBlocked = schedule.some(i =>
+                i.auditorId === itemToRemove.auditorId &&
+                isSameDay(i.date, itemToRemove.date) &&
                 i.type === 'blocked' &&
                 i.id !== itemId
             );
@@ -1651,9 +1665,9 @@ export default function SchedulePage() {
         let blockedId: string | undefined;
 
         // Check if there is already a blocked item for this cell
-        const cellAlreadyHasBlocked = schedule.some(i => 
-            i.auditorId === itemToRemove.auditorId && 
-            isSameDay(i.date, itemToRemove.date) && 
+        const cellAlreadyHasBlocked = schedule.some(i =>
+            i.auditorId === itemToRemove.auditorId &&
+            isSameDay(i.date, itemToRemove.date) &&
             i.type === 'blocked' &&
             i.id !== itemId
         );
@@ -1738,12 +1752,12 @@ export default function SchedulePage() {
         );
 
         if ((monthlyAuditsList.length + monthlyScheduleList.length + 1) > 2) {
-             let errorMsg = "Ayda en fazla 2 denetim limiti aşıldı!\n";
-             
-             // List Completed Audits
-             if (monthlyAuditsList.length > 0) {
-                 errorMsg += "\nTamamlananlar:\n";
-                 monthlyAuditsList.forEach(a => {
+            let errorMsg = "Ayda en fazla 2 denetim limiti aşıldı!\n";
+
+            // List Completed Audits
+            if (monthlyAuditsList.length > 0) {
+                errorMsg += "\nTamamlananlar:\n";
+                monthlyAuditsList.forEach(a => {
                     // Try to find auditor name if not in audit object (though audit usually has it, fallback to lookup)
                     let auditorName = a.auditorName || "Bilinmiyor";
                     if (!a.auditorName && a.auditorId) {
@@ -1751,24 +1765,24 @@ export default function SchedulePage() {
                         if (aud) auditorName = `${aud.firstName} ${aud.lastName}`;
                     }
                     errorMsg += `• ${format(a.createdAt, 'dd.MM.yyyy')} - ${auditorName}\n`;
-                 });
-             }
+                });
+            }
 
-             // List Scheduled Items
-             if (monthlyScheduleList.length > 0) {
-                 errorMsg += "\nPlanlananlar:\n";
-                 monthlyScheduleList.forEach(s => {
-                     const aud = auditors.find(u => u.uid === s.auditorId);
-                     const auditorName = aud ? `${aud.firstName || ''} ${aud.lastName || ''}`.trim() || aud.email || "Bilinmiyor" : "Bilinmiyor";
-                     errorMsg += `• ${format(s.date, 'dd.MM.yyyy')} - ${auditorName}\n`;
-                 });
-             }
-             
-             // Total Count
-             const total = monthlyAuditsList.length + monthlyScheduleList.length;
-             errorMsg += `\nToplam: ${total} (Mevcut) + 1 (Yeni) = ${total + 1}`;
-             
-             errors.push(errorMsg);
+            // List Scheduled Items
+            if (monthlyScheduleList.length > 0) {
+                errorMsg += "\nPlanlananlar:\n";
+                monthlyScheduleList.forEach(s => {
+                    const aud = auditors.find(u => u.uid === s.auditorId);
+                    const auditorName = aud ? `${aud.firstName || ''} ${aud.lastName || ''}`.trim() || aud.email || "Bilinmiyor" : "Bilinmiyor";
+                    errorMsg += `• ${format(s.date, 'dd.MM.yyyy')} - ${auditorName}\n`;
+                });
+            }
+
+            // Total Count
+            const total = monthlyAuditsList.length + monthlyScheduleList.length;
+            errorMsg += `\nToplam: ${total} (Mevcut) + 1 (Yeni) = ${total + 1}`;
+
+            errors.push(errorMsg);
         }
 
         // 3. 12-Day Rule Check
@@ -1896,7 +1910,7 @@ export default function SchedulePage() {
         if (isPublishingRef.current) return;
         isPublishingRef.current = true;
         setSaving(true);
-        
+
         const newStatus: 'published' | 'draft' = confirmDialog.type === 'publish' ? 'published' : 'draft';
 
         try {
@@ -1931,7 +1945,7 @@ export default function SchedulePage() {
                                 // Deterministic ID to prevent duplication (Double-Click or Race Condition Protection)
                                 const dateKey = format(date, 'yyyy-MM-dd');
                                 const id = `auto_leave_${auditor.uid}_${dateKey}`;
-                                
+
                                 const newItem: ScheduleItem = {
                                     id,
                                     auditorId: auditor.uid,
@@ -1964,10 +1978,10 @@ export default function SchedulePage() {
                         ? { ...item, status: newStatus }
                         : item
                 );
-                
+
                 // Filter out any duplicates from newGeneratedItems just in case they already exist in prev
                 // (Though deterministic ID + setDoc handles DB, we need to handle UI properly)
-                const uniqueNewItems = newGeneratedItems.filter(newItem => 
+                const uniqueNewItems = newGeneratedItems.filter(newItem =>
                     !updatedExisting.some(existing => existing.id === newItem.id)
                 );
 
@@ -2109,7 +2123,7 @@ export default function SchedulePage() {
     };
 
     return (
-        <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd} collisionDetection={pointerWithin}>
+        <DndContext onDragStart={isReadOnly ? undefined : handleDragStart} onDragEnd={isReadOnly ? undefined : handleDragEnd} collisionDetection={pointerWithin}>
             <div className="flex-1 p-4 md:p-8 pt-6 h-screen flex flex-col lg:flex-row gap-4 overflow-hidden relative">
                 <div className="flex flex-col flex-1 overflow-hidden gap-4 min-h-0">
                     <div className="flex-1 border rounded-lg overflow-hidden bg-white shadow-sm flex flex-col">
@@ -2287,30 +2301,32 @@ export default function SchedulePage() {
                                     </Button>
                                 )}
 
-                                <Button
-                                    onClick={handleTogglePublish}
-                                    disabled={saving || !hasItems}
-                                    size="sm"
-                                    variant={isWeekPublished ? "outline" : "default"}
-                                    className={cn(
-                                        "h-9 transition-all",
-                                        isWeekPublished
-                                            ? "border-red-200 text-red-600 hover:bg-red-50"
-                                            : "bg-slate-900 hover:bg-slate-800 text-white"
-                                    )}
-                                >
-                                    {isWeekPublished ? (
-                                        <>
-                                            <Ban className="mr-2 h-4 w-4" />
-                                            Yayından Kaldır
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Send className="mr-2 h-4 w-4" />
-                                            Yayınla
-                                        </>
-                                    )}
-                                </Button>
+                                {!isReadOnly && (
+                                    <Button
+                                        onClick={handleTogglePublish}
+                                        disabled={saving || !hasItems}
+                                        size="sm"
+                                        variant={isWeekPublished ? "outline" : "default"}
+                                        className={cn(
+                                            "h-9 transition-all",
+                                            isWeekPublished
+                                                ? "border-red-200 text-red-600 hover:bg-red-50"
+                                                : "bg-slate-900 hover:bg-slate-800 text-white"
+                                        )}
+                                    >
+                                        {isWeekPublished ? (
+                                            <>
+                                                <Ban className="mr-2 h-4 w-4" />
+                                                Yayından Kaldır
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Send className="mr-2 h-4 w-4" />
+                                                Yayınla
+                                            </>
+                                        )}
+                                    </Button>
+                                )}
                             </div>
                         </div>
 
@@ -2432,6 +2448,7 @@ export default function SchedulePage() {
                                                             handleUpdateScheduleItem={handleUpdateScheduleItem}
                                                             onStoreAction={handleStoreAction}
                                                             audits={audits}
+                                                            isReadOnly={isReadOnly}
                                                         />
                                                     );
                                                 })}
@@ -2631,7 +2648,7 @@ export default function SchedulePage() {
                                         // Combine Monthly Missing + New Ready
                                         const missing = [...suggestions.monthlyMissing, ...suggestions.newReady]
                                             .sort((a, b) => a.name.localeCompare(b.name, 'tr'));
-                                        
+
                                         if (missing.length === 0) {
                                             return (
                                                 <div className="flex flex-col items-center justify-center text-muted-foreground py-8 h-full">

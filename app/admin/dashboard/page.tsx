@@ -147,7 +147,7 @@ export default function AdminDashboard() {
                 // We fetch all to filter locally (soft delete logic etc)
                 // Ordering by createdAt desc at database level is better for initial load performance
                 const auditsQuery = query(collection(db, "audits"), orderBy("createdAt", "desc"));
-                
+
                 unsubscribe = onSnapshot(auditsQuery, (snapshot) => {
                     const auditsData = snapshot.docs.map((doc) => {
                         const data = doc.data() as Audit;
@@ -175,8 +175,10 @@ export default function AdminDashboard() {
                     setAudits(activeAudits);
                     setLoading(false);
                 }, (error) => {
-                    console.error("Error in audits listener:", error);
-                    toast.error("Veriler güncellenirken hata oluştu");
+                    if (error.code !== 'permission-denied') {
+                        console.error("Error in audits listener:", error);
+                        toast.error("Veriler güncellenirken hata oluştu");
+                    }
                     setLoading(false);
                 });
 
@@ -202,10 +204,10 @@ export default function AdminDashboard() {
             await permanentlyDeleteAudit(auditToDelete);
             toast.success("Denetim çöp kutusuna taşındı");
             setDeleteDialogOpen(false);
-            
+
             // Remove from local state immediately to avoid page reload/loading spinner
             setAudits(current => current.filter(a => a.id !== auditToDelete));
-            
+
             setAuditToDelete(null);
         } catch (error) {
             console.error("Error deleting audit:", error);
@@ -232,8 +234,8 @@ export default function AdminDashboard() {
             const deltaLambda = (lon2 - lon1) * Math.PI / 180;
 
             const a = Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
-                      Math.cos(phi1) * Math.cos(phi2) *
-                      Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
+                Math.cos(phi1) * Math.cos(phi2) *
+                Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
             const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
             return R * c; // Distance in meters
@@ -309,9 +311,9 @@ export default function AdminDashboard() {
                 }
 
                 const distance = calculateDistance(auditLoc, storeLoc);
-                
+
                 if (distance === null) return <span className="text-muted-foreground">-</span>;
-                
+
                 const isApproved = distance <= 100; // 100 meters threshold
 
                 // Check nearest store logic if not approved
@@ -322,13 +324,13 @@ export default function AdminDashboard() {
                     for (const otherStore of stores) {
                         // Skip current store
                         if (otherStore.id === row.original.storeId) continue;
-                        
+
                         // Check distance
                         const dist = calculateDistance(auditLoc, otherStore.location);
                         if (dist !== null && dist <= 100) {
-                             nearestStoreName = otherStore.name;
-                             nearestDistance = dist;
-                             break; // Found a match
+                            nearestStoreName = otherStore.name;
+                            nearestDistance = dist;
+                            break; // Found a match
                         }
                     }
                 }
@@ -351,15 +353,15 @@ export default function AdminDashboard() {
                                     )}
                                 </span>
                                 {!nearestStoreName && (
-                                     <a 
-                                        href={`https://www.google.com/maps/search/?api=1&query=${auditLoc}`} 
-                                        target="_blank" 
+                                    <a
+                                        href={`https://www.google.com/maps/search/?api=1&query=${auditLoc}`}
+                                        target="_blank"
                                         rel="noopener noreferrer"
                                         className="ml-1 p-0.5 hover:bg-slate-100 rounded cursor-pointer text-blue-500"
                                         title="Konumu Haritada Gör"
-                                     >
+                                    >
                                         <MapPin className="h-4 w-4" />
-                                     </a>
+                                    </a>
                                 )}
                             </>
                         )}
@@ -457,9 +459,9 @@ export default function AdminDashboard() {
             header: ({ column }: { column: Column<Audit> }) => <DataTableColumnHeader column={column} title="Özel Rapor" showFilter={false} />,
             cell: ({ row }) => {
                 return (
-                    <Button 
-                        variant="outline" 
-                        size="sm" 
+                    <Button
+                        variant="outline"
+                        size="sm"
                         className="h-8 gap-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 border-blue-200"
                         onClick={() => setSpecialReportAudit(row.original)}
                     >
@@ -515,7 +517,7 @@ export default function AdminDashboard() {
     // Filter audits based on date range before passing to table
     const dateFilteredAudits = audits.filter((audit) => {
         if (!dateRange.from && !dateRange.to) return true;
-        
+
         // Safety: if createdAt is missing, show the audit anyway
         if (!audit.createdAt || !audit.createdAt.toDate) return true;
 
@@ -641,134 +643,134 @@ export default function AdminDashboard() {
                         <CardTitle>Tüm Denetimler</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                        
+
                         {/* ONLINE AUDITS - SMALL TABLE */}
                         {audits.filter(a => {
                             if (a.status !== "devam_ediyor" || !a.startedAt) return false;
                             const startDate = a.startedAt.toDate();
                             const now = new Date();
                             return startDate.getDate() === now.getDate() &&
-                                   startDate.getMonth() === now.getMonth() &&
-                                   startDate.getFullYear() === now.getFullYear();
+                                startDate.getMonth() === now.getMonth() &&
+                                startDate.getFullYear() === now.getFullYear();
                         }).length > 0 && (
-                            <div className="border rounded-md overflow-hidden bg-green-50/50 dark:bg-green-900/10 mb-6 animate-in fade-in slide-in-from-top-2">
-                                <div className="px-4 py-3 border-b bg-green-100/50 dark:bg-green-900/20 flex items-center justify-between">
-                                    <div className="flex items-center gap-2">
-                                        <div className="relative flex h-3 w-3">
-                                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                                          <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                                <div className="border rounded-md overflow-hidden bg-green-50/50 dark:bg-green-900/10 mb-6 animate-in fade-in slide-in-from-top-2">
+                                    <div className="px-4 py-3 border-b bg-green-100/50 dark:bg-green-900/20 flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <div className="relative flex h-3 w-3">
+                                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                                                <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                                            </div>
+                                            <h3 className="font-semibold text-sm text-green-700 dark:text-green-400">Online Denetimler</h3>
                                         </div>
-                                        <h3 className="font-semibold text-sm text-green-700 dark:text-green-400">Online Denetimler</h3>
-                                    </div>
-                                    <Badge variant="outline" className="bg-white/50 dark:bg-black/20 text-green-700 dark:text-green-400 border-green-200 dark:border-green-800">
-                                        {audits.filter(a => {
-                                            if (a.status !== "devam_ediyor" || !a.startedAt) return false;
-                                            const startDate = a.startedAt.toDate();
-                                            const now = new Date();
-                                            return startDate.getDate() === now.getDate() &&
-                                                   startDate.getMonth() === now.getMonth() &&
-                                                   startDate.getFullYear() === now.getFullYear();
-                                        }).length} Aktif
-                                    </Badge>
-                                </div>
-                                <div className="max-h-[600px] overflow-auto">
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow className="hover:bg-transparent border-green-100 dark:border-green-800">
-                                                <TableHead className="w-[30%] text-green-800 dark:text-green-300">Mağaza</TableHead>
-                                                <TableHead className="w-[20%] text-green-800 dark:text-green-300">Konum</TableHead>
-                                                <TableHead className="w-[25%] text-green-800 dark:text-green-300">Denetmen</TableHead>
-                                                <TableHead className="w-[15%] text-green-800 dark:text-green-300">Başlangıç</TableHead>
-                                                <TableHead className="w-[10%] text-right text-green-800 dark:text-green-300">Durum</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
+                                        <Badge variant="outline" className="bg-white/50 dark:bg-black/20 text-green-700 dark:text-green-400 border-green-200 dark:border-green-800">
                                             {audits.filter(a => {
                                                 if (a.status !== "devam_ediyor" || !a.startedAt) return false;
                                                 const startDate = a.startedAt.toDate();
                                                 const now = new Date();
                                                 return startDate.getDate() === now.getDate() &&
-                                                       startDate.getMonth() === now.getMonth() &&
-                                                       startDate.getFullYear() === now.getFullYear();
-                                            }).sort((a, b) => (a.startedAt?.toMillis() || 0) - (b.startedAt?.toMillis() || 0)).map((audit) => {
-                                                const store = stores.find(s => s.id === audit.storeId);
-                                                const storeLoc = store?.location;
-                                                const auditLoc = audit.location;
-                                                const distance = calculateDistance(auditLoc || undefined, storeLoc || undefined);
-                                                const isApproved = distance !== null && distance <= 100;
+                                                    startDate.getMonth() === now.getMonth() &&
+                                                    startDate.getFullYear() === now.getFullYear();
+                                            }).length} Aktif
+                                        </Badge>
+                                    </div>
+                                    <div className="max-h-[600px] overflow-auto">
+                                        <Table>
+                                            <TableHeader>
+                                                <TableRow className="hover:bg-transparent border-green-100 dark:border-green-800">
+                                                    <TableHead className="w-[30%] text-green-800 dark:text-green-300">Mağaza</TableHead>
+                                                    <TableHead className="w-[20%] text-green-800 dark:text-green-300">Konum</TableHead>
+                                                    <TableHead className="w-[25%] text-green-800 dark:text-green-300">Denetmen</TableHead>
+                                                    <TableHead className="w-[15%] text-green-800 dark:text-green-300">Başlangıç</TableHead>
+                                                    <TableHead className="w-[10%] text-right text-green-800 dark:text-green-300">Durum</TableHead>
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {audits.filter(a => {
+                                                    if (a.status !== "devam_ediyor" || !a.startedAt) return false;
+                                                    const startDate = a.startedAt.toDate();
+                                                    const now = new Date();
+                                                    return startDate.getDate() === now.getDate() &&
+                                                        startDate.getMonth() === now.getMonth() &&
+                                                        startDate.getFullYear() === now.getFullYear();
+                                                }).sort((a, b) => (a.startedAt?.toMillis() || 0) - (b.startedAt?.toMillis() || 0)).map((audit) => {
+                                                    const store = stores.find(s => s.id === audit.storeId);
+                                                    const storeLoc = store?.location;
+                                                    const auditLoc = audit.location;
+                                                    const distance = calculateDistance(auditLoc || undefined, storeLoc || undefined);
+                                                    const isApproved = distance !== null && distance <= 100;
 
-                                                return (
-                                                    <TableRow key={audit.id} className="hover:bg-green-100/40 dark:hover:bg-green-900/20 border-green-100 dark:border-green-800 transition-colors">
-                                                        <TableCell className="font-medium text-slate-800 dark:text-slate-200">
-                                                            {audit.storeName}
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            {(() => {
-                                                                if (!storeLoc) return <span className="text-xs text-muted-foreground">Mağaza Konumsuz</span>;
-                                                                if (!auditLoc) return <span className="text-xs text-muted-foreground">Denetim Konumsuz</span>;
-                                                                if (distance === null) return <span className="text-xs text-muted-foreground">Hata</span>;
+                                                    return (
+                                                        <TableRow key={audit.id} className="hover:bg-green-100/40 dark:hover:bg-green-900/20 border-green-100 dark:border-green-800 transition-colors">
+                                                            <TableCell className="font-medium text-slate-800 dark:text-slate-200">
+                                                                {audit.storeName}
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                {(() => {
+                                                                    if (!storeLoc) return <span className="text-xs text-muted-foreground">Mağaza Konumsuz</span>;
+                                                                    if (!auditLoc) return <span className="text-xs text-muted-foreground">Denetim Konumsuz</span>;
+                                                                    if (distance === null) return <span className="text-xs text-muted-foreground">Hata</span>;
 
-                                                                // Check nearest store logic if not approved
-                                                                let nearestStoreName: string | null = null;
-                                                                if (!isApproved) {
-                                                                    for (const otherStore of stores) {
-                                                                        if (otherStore.id === audit.storeId) continue;
-                                                                        const dist = calculateDistance(auditLoc || undefined, otherStore.location);
-                                                                        if (dist !== null && dist <= 100) {
-                                                                             nearestStoreName = otherStore.name;
-                                                                             break; 
+                                                                    // Check nearest store logic if not approved
+                                                                    let nearestStoreName: string | null = null;
+                                                                    if (!isApproved) {
+                                                                        for (const otherStore of stores) {
+                                                                            if (otherStore.id === audit.storeId) continue;
+                                                                            const dist = calculateDistance(auditLoc || undefined, otherStore.location);
+                                                                            if (dist !== null && dist <= 100) {
+                                                                                nearestStoreName = otherStore.name;
+                                                                                break;
+                                                                            }
                                                                         }
                                                                     }
-                                                                }
 
-                                                                return isApproved ? (
-                                                                    <div className="flex items-center gap-1 text-green-600" title={`${Math.round(distance)}m`}>
-                                                                        <CheckCircle2 className="h-4 w-4" />
-                                                                        <span className="text-xs font-semibold hidden lg:inline">Onaylandı</span>
-                                                                    </div>
-                                                                ) : (
-                                                                    <div className="flex items-center gap-1 text-red-600">
-                                                                        <XCircle className="h-4 w-4 shrink-0" />
-                                                                        <span className="text-xs font-semibold hidden lg:inline truncate max-w-[150px]" title={`${Math.round(distance)}m`}>
-                                                                            {nearestStoreName ? `Onaylanmadı (${nearestStoreName})` : `Onaylanmadı`}
-                                                                        </span>
-                                                                        {!nearestStoreName && (
-                                                                             <a 
-                                                                                href={`https://www.google.com/maps/search/?api=1&query=${auditLoc}`} 
-                                                                                target="_blank" 
-                                                                                rel="noopener noreferrer"
-                                                                                className="ml-1 p-0.5 hover:bg-slate-100 rounded cursor-pointer text-blue-500"
-                                                                                title="Konumu Haritada Gör"
-                                                                             >
-                                                                                <MapPin className="h-4 w-4" />
-                                                                             </a>
-                                                                        )}
-                                                                    </div>
-                                                                );
-                                                            })()}
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <div className="flex items-center gap-2">
-                                                                <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
-                                                                <span className="font-medium text-slate-700 dark:text-slate-300">{audit.auditorName || "İsimsiz"}</span>
-                                                            </div>
-                                                        </TableCell>
-                                                        <TableCell className="text-slate-600 dark:text-slate-400 font-mono text-xs">
-                                                            {audit.startedAt?.toDate().toLocaleTimeString("tr-TR", { hour: '2-digit', minute: '2-digit' })}
-                                                        </TableCell>
-                                                        <TableCell className="text-right">
-                                                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border border-green-200 dark:border-green-800 animate-pulse">
-                                                                Çevrimiçi
-                                                            </span>
-                                                        </TableCell>
-                                                    </TableRow>
-                                                );
-                                            })}
-                                        </TableBody>
-                                    </Table>
+                                                                    return isApproved ? (
+                                                                        <div className="flex items-center gap-1 text-green-600" title={`${Math.round(distance)}m`}>
+                                                                            <CheckCircle2 className="h-4 w-4" />
+                                                                            <span className="text-xs font-semibold hidden lg:inline">Onaylandı</span>
+                                                                        </div>
+                                                                    ) : (
+                                                                        <div className="flex items-center gap-1 text-red-600">
+                                                                            <XCircle className="h-4 w-4 shrink-0" />
+                                                                            <span className="text-xs font-semibold hidden lg:inline truncate max-w-[150px]" title={`${Math.round(distance)}m`}>
+                                                                                {nearestStoreName ? `Onaylanmadı (${nearestStoreName})` : `Onaylanmadı`}
+                                                                            </span>
+                                                                            {!nearestStoreName && (
+                                                                                <a
+                                                                                    href={`https://www.google.com/maps/search/?api=1&query=${auditLoc}`}
+                                                                                    target="_blank"
+                                                                                    rel="noopener noreferrer"
+                                                                                    className="ml-1 p-0.5 hover:bg-slate-100 rounded cursor-pointer text-blue-500"
+                                                                                    title="Konumu Haritada Gör"
+                                                                                >
+                                                                                    <MapPin className="h-4 w-4" />
+                                                                                </a>
+                                                                            )}
+                                                                        </div>
+                                                                    );
+                                                                })()}
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                <div className="flex items-center gap-2">
+                                                                    <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
+                                                                    <span className="font-medium text-slate-700 dark:text-slate-300">{audit.auditorName || "İsimsiz"}</span>
+                                                                </div>
+                                                            </TableCell>
+                                                            <TableCell className="text-slate-600 dark:text-slate-400 font-mono text-xs">
+                                                                {audit.startedAt?.toDate().toLocaleTimeString("tr-TR", { hour: '2-digit', minute: '2-digit' })}
+                                                            </TableCell>
+                                                            <TableCell className="text-right">
+                                                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border border-green-200 dark:border-green-800 animate-pulse">
+                                                                    Çevrimiçi
+                                                                </span>
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    );
+                                                })}
+                                            </TableBody>
+                                        </Table>
+                                    </div>
                                 </div>
-                            </div>
-                        )}
+                            )}
                         <DataTable
                             columns={columns}
                             data={dateFilteredAudits}
@@ -829,7 +831,7 @@ export default function AdminDashboard() {
                 <Dialog open={!!specialReportAudit} onOpenChange={(open) => { if (!open) setSpecialReportAudit(null); }}>
                     <DialogContent showCloseButton={false} className="!max-w-[1000px] w-full max-h-[90vh] overflow-y-auto overflow-x-hidden p-0 bg-zinc-100/50 backdrop-blur-sm border-none shadow-2xl rounded-xl">
                         <DialogTitle className="sr-only">Özel Rapor Önizleme</DialogTitle>
-                        <SpecialReportGenerator 
+                        <SpecialReportGenerator
                             audit={specialReportAudit}
                             mode="preview"
                             onClose={() => setSpecialReportAudit(null)}

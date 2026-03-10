@@ -59,7 +59,7 @@ function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar }: 
         { href: "/admin/sections", label: "Denetim Bölümleri", icon: ClipboardList },
         { href: "/admin/questions", label: "Denetim Soruları", icon: FileQuestion },
     ];
-    
+
     // Removed settingsSubLinks as they are no longer used in sidebar dropdown
 
     const reportsSubLinks = [
@@ -166,6 +166,10 @@ function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar }: 
             );
             const unsubscribe = onSnapshot(notifQuery, (snapshot) => {
                 setUnreadCount(snapshot.docs.length);
+            }, (error) => {
+                if (error.code !== 'permission-denied') {
+                    console.error("Sidebar: Notification listener error:", error);
+                }
             });
             return () => unsubscribe();
         }
@@ -562,10 +566,10 @@ function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar }: 
                                     <div className={cn(
                                         "flex items-center justify-center shrink-0",
                                     )}>
-                                       <LayoutList className={cn(
-                                        "h-5 w-5 transition-transform duration-500 shrink-0",
-                                        pathname.startsWith("/admin/settings") && "scale-110"
-                                    )} />
+                                        <LayoutList className={cn(
+                                            "h-5 w-5 transition-transform duration-500 shrink-0",
+                                            pathname.startsWith("/admin/settings") && "scale-110"
+                                        )} />
                                     </div>
                                     <span className={cn(
                                         "text-sm whitespace-nowrap ease-in-out overflow-hidden origin-left",

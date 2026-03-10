@@ -87,6 +87,7 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
     // Dynamic Mobile Scaling
     const [mobileScale, setMobileScale] = useState(1);
     const [mobileMarginLeft, setMobileMarginLeft] = useState(0);
+    const [reportHeight, setReportHeight] = useState(1123);
 
     useEffect(() => {
         const handleResize = () => {
@@ -104,10 +105,6 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
 
                 setMobileScale(targetScale);
 
-                // Calculate centering margin
-                // scaledWidth = 794 * targetScale
-                // remainingSpace = w - scaledWidth
-                // marginLeft = remainingSpace / 2
                 const scaledWidth = contentWidth * targetScale;
                 const margin = (w - scaledWidth) / 2;
                 setMobileMarginLeft(margin);
@@ -121,6 +118,20 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
         window.addEventListener('resize', handleResize);
         return () => window.removeEventListener('resize', handleResize);
     }, [mode]);
+
+    useEffect(() => {
+        if (mode !== 'preview' || !reportRef.current) return;
+
+        const observer = new ResizeObserver((entries) => {
+            if (entries[0]) {
+                const height = entries[0].target.scrollHeight;
+                if (height > 0) setReportHeight(height);
+            }
+        });
+
+        observer.observe(reportRef.current);
+        return () => observer.disconnect();
+    }, [mode, reportRef.current]);
 
     const activeStore = store || fetchedStore;
 
@@ -620,7 +631,10 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
             )}
 
             {/* Report Container - hidden in download mode, visible in preview mode */}
-            <div className={mode === 'preview' ? "flex justify-center px-8 pb-12 bg-transparent min-h-full print-preview-container" : ""} style={mode === 'preview' ? {} : { position: "absolute", left: "-9999px", top: "-9999px" }}>
+            <div
+                className={mode === 'preview' ? "px-4 md:px-8 bg-transparent print-preview-container overflow-hidden" : ""}
+                style={mode === 'preview' ? { paddingBottom: mobileScale < 1 ? 0 : '3rem', height: mobileScale < 1 && reportHeight ? (reportHeight * mobileScale) + 40 : undefined } : { position: "absolute", left: "-9999px", top: "-9999px" }}
+            >
                 <div
                     ref={reportRef}
                     className={`generator-wrapper ${templateId} print-preview-content`}
@@ -633,7 +647,7 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
                         transform: mobileScale < 1 ? `scale(${mobileScale})` : 'none',
                         transformOrigin: mobileScale < 1 ? 'top left' : undefined,
                         marginLeft: mobileScale < 1 ? `${mobileMarginLeft}px` : (mode === 'preview' ? 'auto' : undefined),
-                        marginBottom: mobileScale < 1 ? `-${(1 - mobileScale) * 100}%` : undefined
+                        // marginBottom compensation removed because parent height is dynamically set now
                     }}
                 >
                     <div className="report-page">
@@ -777,32 +791,36 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
                                                                 {answer.photos && answer.photos.length > 0 && (
                                                                     <div style={{ display: 'flex', gap: '5px', marginTop: '6px', flexWrap: 'wrap' }}>
                                                                         {answer.photos.filter(p => p && (p.startsWith('http://') || p.startsWith('https://'))).map((p, pi) => (
-                                                                            <img
-                                                                                key={pi}
-                                                                                src={p}
-                                                                                data-proxied-url={getProxiedUrl(p)}
-                                                                                onClick={() => setSelectedImage(p)}
-                                                                                onError={(e) => {
-                                                                                    // On direct load fail, try proxy
-                                                                                    const el = e.target as HTMLImageElement;
-                                                                                    const proxied = el.getAttribute('data-proxied-url');
-                                                                                    if (proxied && el.src !== proxied) {
-                                                                                        el.src = proxied;
-                                                                                    } else {
-                                                                                        el.style.display = 'none';
-                                                                                    }
-                                                                                }}
-                                                                                style={{
-                                                                                    width: '80px',
-                                                                                    height: '80px',
-                                                                                    objectFit: 'cover',
-                                                                                    borderRadius: '4px',
-                                                                                    border: '1px solid #eee',
-                                                                                    cursor: 'pointer'
-                                                                                }}
-                                                                                crossOrigin="anonymous"
-                                                                                alt={`Soru fotoğrafı ${pi + 1}`}
-                                                                            />
+                                                                            <a key={pi} href={p} target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
+                                                                                <img
+                                                                                    src={p}
+                                                                                    data-proxied-url={getProxiedUrl(p)}
+                                                                                    onClick={(e) => {
+                                                                                        e.preventDefault();
+                                                                                        setSelectedImage(p);
+                                                                                    }}
+                                                                                    onError={(e) => {
+                                                                                        // On direct load fail, try proxy
+                                                                                        const el = e.target as HTMLImageElement;
+                                                                                        const proxied = el.getAttribute('data-proxied-url');
+                                                                                        if (proxied && el.src !== proxied) {
+                                                                                            el.src = proxied;
+                                                                                        } else {
+                                                                                            if (el.parentElement) el.parentElement.style.display = 'none';
+                                                                                        }
+                                                                                    }}
+                                                                                    style={{
+                                                                                        width: '80px',
+                                                                                        height: '80px',
+                                                                                        objectFit: 'cover',
+                                                                                        borderRadius: '4px',
+                                                                                        border: '1px solid #eee',
+                                                                                        cursor: 'pointer'
+                                                                                    }}
+                                                                                    crossOrigin="anonymous"
+                                                                                    alt={`Soru fotoğrafı ${pi + 1}`}
+                                                                                />
+                                                                            </a>
                                                                         ))}
                                                                     </div>
                                                                 )}
@@ -894,17 +912,16 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
                                                                     <img
                                                                         src={img}
                                                                         data-proxied-url={getProxiedUrl(img)}
-                                                                        onClick={() => setSelectedImage(img)}
                                                                         onError={(e) => {
                                                                             const el = e.target as HTMLImageElement;
                                                                             const proxied = el.getAttribute('data-proxied-url');
                                                                             if (proxied && el.src !== proxied) {
                                                                                 el.src = proxied;
                                                                             } else {
-                                                                                el.parentElement!.style.display = 'none';
+                                                                                if (el.parentElement) el.parentElement.style.display = 'none';
                                                                             }
                                                                         }}
-                                                                        style={{ maxWidth: '100%', height: 'auto', objectFit: 'contain', cursor: 'pointer' }}
+                                                                        style={{ maxWidth: '100%', height: 'auto', objectFit: 'contain' }}
                                                                         crossOrigin="anonymous"
                                                                         alt={`Bölüm geri bildirim fotoğrafı ${i + 1}`}
                                                                     />
@@ -954,11 +971,12 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
                                                             <img
                                                                 src={getProxiedUrl(img)}
                                                                 data-original-url={img}
-                                                                onClick={() => setSelectedImage(getProxiedUrl(img))}
                                                                 onError={(e) => {
-                                                                    (e.target as HTMLImageElement).parentElement!.style.display = 'none';
+                                                                    if ((e.target as HTMLImageElement).parentElement) {
+                                                                        (e.target as HTMLImageElement).parentElement!.style.display = 'none';
+                                                                    }
                                                                 }}
-                                                                style={{ maxWidth: '100%', height: 'auto', objectFit: 'contain', cursor: 'pointer' }}
+                                                                style={{ maxWidth: '100%', height: 'auto', objectFit: 'contain' }}
                                                                 crossOrigin="anonymous"
                                                                 alt={`Genel geri bildirim fotoğrafı ${i + 1}`}
                                                             />

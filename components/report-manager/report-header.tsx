@@ -19,7 +19,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ReportSidebar } from "./report-sidebar";
 
-type ReportTab = "panel" | "personel" | "puan" | "soru" | "aksiyon" | "denetci";
+type ReportTab = "panel" | "personel" | "puan" | "soru" | "aksiyon" | "denetci" | "program";
 
 interface ReportHeaderProps {
     activeTab: ReportTab;

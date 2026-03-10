@@ -1254,9 +1254,9 @@ export function AuditorPerformanceContent() {
 
             {/* Aylık Puan Ortalaması Dialog */}
             <Dialog open={monthlyDialogOpen} onOpenChange={setMonthlyDialogOpen}>
-                <DialogContent className="!w-[50vw] !max-w-none max-h-[65vh] overflow-y-auto p-3">
+                <DialogContent className="w-[95vw] sm:w-[50vw] !max-w-none max-h-[85vh] sm:max-h-[65vh] overflow-y-auto p-3 sm:p-6 rounded-xl">
                     <DialogHeader>
-                        <DialogTitle className="text-2xl">
+                        <DialogTitle className="text-xl sm:text-2xl text-center sm:text-left">
                             {selectedAuditorForMonthly} - Aylık Mağaza Puan Ortalaması
                         </DialogTitle>
                         <DialogDescription>
@@ -1265,13 +1265,13 @@ export function AuditorPerformanceContent() {
                     </DialogHeader>
 
                     {/* Yıl Seçici */}
-                    <div className="flex items-center gap-4 mb-4">
-                        <label className="font-medium">Yıl:</label>
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mb-4">
+                        <label className="font-medium text-sm sm:text-base">Yıl:</label>
                         <Select
                             value={selectedYear.toString()}
                             onValueChange={(value) => setSelectedYear(parseInt(value))}
                         >
-                            <SelectTrigger className="w-[180px]">
+                            <SelectTrigger className="w-full sm:w-[180px]">
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -1285,27 +1285,27 @@ export function AuditorPerformanceContent() {
                     </div>
 
                     {/* Aylık Grafik */}
-                    <div className="w-full">
-                        <div className="grid grid-cols-12 gap-2 min-h-[300px] items-end">
+                    <div className="w-full overflow-x-auto pb-4">
+                        <div className="min-w-[400px] grid grid-cols-12 gap-1 sm:gap-2 min-h-[250px] sm:min-h-[300px] items-end px-1 sm:px-0">
                             {monthlyData.map((data, idx) => (
-                                <div key={idx} className="flex flex-col items-center gap-1">
-                                    <span className="text-xs font-bold">{data.avgScore > 0 ? data.avgScore.toFixed(0) : ''}</span>
+                                <div key={idx} className="flex flex-col items-center gap-1 group">
+                                    <span className="text-[10px] sm:text-xs font-bold transition-opacity">{data.avgScore > 0 ? data.avgScore.toFixed(0) : ''}</span>
                                     <div
-                                        className="w-full bg-blue-500 rounded-t transition-all"
-                                        style={{ height: `${data.avgScore * 2.5}px` }}
+                                        className="w-full bg-blue-500 rounded-t transition-all group-hover:bg-blue-600"
+                                        style={{ height: `${data.avgScore * 2}px` }}
                                     />
-                                    <span className="text-xs text-muted-foreground">{data.monthName.substring(0, 3)}</span>
-                                    <span className="text-xs text-muted-foreground">({data.auditCount})</span>
+                                    <span className="text-[10px] sm:text-xs text-muted-foreground truncate w-full text-center" title={data.monthName}>{data.monthName.substring(0, 3)}</span>
+                                    <span className="text-[10px] sm:text-xs text-muted-foreground">({data.auditCount})</span>
                                 </div>
                             ))}
                         </div>
                     </div>
 
                     {/* Detaylı Tablo */}
-                    <div className="mt-6">
-                        <h3 className="text-lg font-semibold mb-3">Detaylı Aylık İstatistikler</h3>
-                        <div className="rounded-md border">
-                            <Table>
+                    <div className="mt-4 sm:mt-6">
+                        <h3 className="text-base sm:text-lg font-semibold mb-2 sm:mb-3">Detaylı Aylık İstatistikler</h3>
+                        <div className="rounded-md border overflow-x-auto">
+                            <Table className="min-w-[300px]">
                                 <TableHeader>
                                     <TableRow>
                                         <TableHead>Ay</TableHead>

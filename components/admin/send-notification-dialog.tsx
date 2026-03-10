@@ -70,13 +70,15 @@ export function SendNotificationDialog({ trigger, open: controlledOpen, onOpenCh
         const unsubscribe = onSnapshot(q, (snap) => {
             const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             setHistory(data);
+        }, (error) => {
+            if (error.code !== 'permission-denied') console.error("History onSnapshot error:", error);
         });
         return () => unsubscribe();
     }, [open]);
 
     const handleDeleteHistory = async () => {
         if (!deleteId) return;
-        
+
         try {
             await deleteDoc(doc(db, "broadcast_history", deleteId));
             toast.success("Geçmiş kaydı silindi");
@@ -168,7 +170,7 @@ export function SendNotificationDialog({ trigger, open: controlledOpen, onOpenCh
                     setLoading(false);
                 } else {
                     const result = await apiResponse.json();
-                    
+
                     setResultData({
                         success: result.success,
                         successCount: result.successCount,
@@ -176,10 +178,10 @@ export function SendNotificationDialog({ trigger, open: controlledOpen, onOpenCh
                         failedUserNames: result.failedUserNames,
                         totalTarget: targetUsers.length
                     });
-                    
+
                     setOpen(false); // Close input dialog
                     setShowResult(true); // Open result dialog
-                    
+
                     // Save broadcast history
                     await addDoc(collection(db, "broadcast_history"), {
                         title,
@@ -210,150 +212,150 @@ export function SendNotificationDialog({ trigger, open: controlledOpen, onOpenCh
 
     return (
         <>
-        <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-                {trigger ? trigger : (
-                    <Button variant="outline" size="sm" className="gap-2 border-blue-200 text-blue-700 hover:bg-blue-50">
-                        <BellRing className="h-4 w-4" />
-                        <span className="hidden sm:inline">Bildirim Gönder</span>
-                    </Button>
-                )}
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[800px] max-h-[90vh] flex flex-col">
-                <DialogHeader>
-                    <DialogTitle>Toplu Bildirim Gönder</DialogTitle>
-                    <DialogDescription>
-                        Seçilen kullanıcı grubuna sistem içi bildirim ve (yapılandırıldıysa) push bildirimi gönderir.
-                    </DialogDescription>
-                </DialogHeader>
+            <Dialog open={open} onOpenChange={setOpen}>
+                <DialogTrigger asChild>
+                    {trigger ? trigger : (
+                        <Button variant="outline" size="sm" className="gap-2 border-blue-200 text-blue-700 hover:bg-blue-50">
+                            <BellRing className="h-4 w-4" />
+                            <span className="hidden sm:inline">Bildirim Gönder</span>
+                        </Button>
+                    )}
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[800px] max-h-[90vh] flex flex-col">
+                    <DialogHeader>
+                        <DialogTitle>Toplu Bildirim Gönder</DialogTitle>
+                        <DialogDescription>
+                            Seçilen kullanıcı grubuna sistem içi bildirim ve (yapılandırıldıysa) push bildirimi gönderir.
+                        </DialogDescription>
+                    </DialogHeader>
 
-                <div className="grid md:grid-cols-2 gap-6 py-4 flex-1 overflow-hidden">
-                    {/* Left Side: Form */}
-                    <div className="flex flex-col gap-4 overflow-y-auto pr-1">
-                        <div className="grid gap-2">
-                            <Label>Gönderilecek Grup</Label>
-                            <Select value={targetType} onValueChange={(v: any) => setTargetType(v)}>
-                                <SelectTrigger>
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="denetmen">Tüm Denetmenler</SelectItem>
-                                    <SelectItem value="magaza">Tüm Mağazalar</SelectItem>
-                                    <SelectItem value="bolge-muduru">Tüm Bölge Müdürleri</SelectItem>
-                                    <SelectItem value="admin">Tüm Adminler</SelectItem>
-                                    <SelectItem value="all">Tüm Kullanıcılar</SelectItem>
-                                </SelectContent>
-                            </Select>
+                    <div className="grid md:grid-cols-2 gap-6 py-4 flex-1 overflow-hidden">
+                        {/* Left Side: Form */}
+                        <div className="flex flex-col gap-4 overflow-y-auto pr-1">
+                            <div className="grid gap-2">
+                                <Label>Gönderilecek Grup</Label>
+                                <Select value={targetType} onValueChange={(v: any) => setTargetType(v)}>
+                                    <SelectTrigger>
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="denetmen">Tüm Denetmenler</SelectItem>
+                                        <SelectItem value="magaza">Tüm Mağazalar</SelectItem>
+                                        <SelectItem value="bolge-muduru">Tüm Bölge Müdürleri</SelectItem>
+                                        <SelectItem value="admin">Tüm Adminler</SelectItem>
+                                        <SelectItem value="all">Tüm Kullanıcılar</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div className="grid gap-2">
+                                <Label>Bildirim Başlığı</Label>
+                                <Input
+                                    placeholder="Örn: Sistem Bakımı Hakkında"
+                                    value={title}
+                                    onChange={(e) => setTitle(e.target.value)}
+                                />
+                            </div>
+
+                            <div className="grid gap-2 flex-1">
+                                <Label>Mesaj İçeriği</Label>
+                                <Textarea
+                                    placeholder="Mesajınızı buraya yazın..."
+                                    value={message}
+                                    onChange={(e) => setMessage(e.target.value)}
+                                    className="min-h-[120px] resize-none h-full"
+                                />
+                            </div>
                         </div>
 
-                        <div className="grid gap-2">
-                            <Label>Bildirim Başlığı</Label>
-                            <Input
-                                placeholder="Örn: Sistem Bakımı Hakkında"
-                                value={title}
-                                onChange={(e) => setTitle(e.target.value)}
-                            />
-                        </div>
-
-                        <div className="grid gap-2 flex-1">
-                            <Label>Mesaj İçeriği</Label>
-                            <Textarea
-                                placeholder="Mesajınızı buraya yazın..."
-                                value={message}
-                                onChange={(e) => setMessage(e.target.value)}
-                                className="min-h-[120px] resize-none h-full"
-                            />
-                        </div>
-                    </div>
-
-                    {/* Right Side: History */}
-                    <div className="flex flex-col gap-2 overflow-hidden border-t md:border-t-0 md:border-l pt-4 md:pt-0 pl-0 md:pl-6">
-                        <Label className="text-muted-foreground mb-1">Gönderilmiş Bildirimler (Son 10)</Label>
-                        <div className="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar">
-                            {history.length === 0 ? (
-                                <p className="text-sm text-muted-foreground text-center py-8">Henüz bildirim gönderilmemiş.</p>
-                            ) : (
-                                history.map((item) => (
-                                    <div key={item.id} className="rounded-lg border p-3 flex flex-col gap-1.5 bg-accent/30 relative group">
-                                        <div className="flex items-start justify-between gap-2 pr-6">
-                                            <span className="font-semibold text-sm line-clamp-1 flex-1">{item.title}</span>
-                                            <span className="text-[10px] text-muted-foreground whitespace-nowrap bg-background px-1.5 py-0.5 rounded border">
-                                                {item.targetType === "all" ? "Tümü" :
-                                                 item.targetType === "denetmen" ? "Denetmenler" :
-                                                 item.targetType === "magaza" ? "Mağazalar" :
-                                                 item.targetType === "bolge-muduru" ? "Bölge Md." :
-                                                 item.targetType === "admin" ? "Adminler" : item.targetType}
-                                            </span>
-                                        </div>
-                                        
-                                        <Button 
-                                            variant="ghost" 
-                                            size="icon" 
-                                            className="absolute top-2 right-2 h-6 w-6 text-muted-foreground hover:text-red-600 hover:bg-red-50 bg-background/50 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity"
-                                            onClick={(e) => {
-                                                e.preventDefault();
-                                                e.stopPropagation();
-                                                setDeleteId(item.id);
-                                            }}
-                                            title="Geçmişi Sil"
-                                        >
-                                            <Trash2 className="h-3.5 w-3.5" />
-                                        </Button>
-
-                                        <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
-                                            {item.message}
-                                        </p>
-                                        <div className="flex items-center justify-between mt-1 pt-1.5 border-t border-border/50">
-                                            <div className="flex gap-2 items-center text-[10px] text-muted-foreground">
-                                                <span className="font-medium text-foreground">{item.senderName}</span>
-                                                <span className="text-blue-600/70">{item.successCount}/{item.totalTarget} ulaştı</span>
+                        {/* Right Side: History */}
+                        <div className="flex flex-col gap-2 overflow-hidden border-t md:border-t-0 md:border-l pt-4 md:pt-0 pl-0 md:pl-6">
+                            <Label className="text-muted-foreground mb-1">Gönderilmiş Bildirimler (Son 10)</Label>
+                            <div className="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar">
+                                {history.length === 0 ? (
+                                    <p className="text-sm text-muted-foreground text-center py-8">Henüz bildirim gönderilmemiş.</p>
+                                ) : (
+                                    history.map((item) => (
+                                        <div key={item.id} className="rounded-lg border p-3 flex flex-col gap-1.5 bg-accent/30 relative group">
+                                            <div className="flex items-start justify-between gap-2 pr-6">
+                                                <span className="font-semibold text-sm line-clamp-1 flex-1">{item.title}</span>
+                                                <span className="text-[10px] text-muted-foreground whitespace-nowrap bg-background px-1.5 py-0.5 rounded border">
+                                                    {item.targetType === "all" ? "Tümü" :
+                                                        item.targetType === "denetmen" ? "Denetmenler" :
+                                                            item.targetType === "magaza" ? "Mağazalar" :
+                                                                item.targetType === "bolge-muduru" ? "Bölge Md." :
+                                                                    item.targetType === "admin" ? "Adminler" : item.targetType}
+                                                </span>
                                             </div>
-                                            <span className="text-[10px] text-muted-foreground flex-shrink-0">
-                                                {item.createdAt ? format(item.createdAt.toDate(), "dd MMM HH:mm", { locale: tr }) : "Şimdi"}
-                                            </span>
+
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="absolute top-2 right-2 h-6 w-6 text-muted-foreground hover:text-red-600 hover:bg-red-50 bg-background/50 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity"
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                    setDeleteId(item.id);
+                                                }}
+                                                title="Geçmişi Sil"
+                                            >
+                                                <Trash2 className="h-3.5 w-3.5" />
+                                            </Button>
+
+                                            <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
+                                                {item.message}
+                                            </p>
+                                            <div className="flex items-center justify-between mt-1 pt-1.5 border-t border-border/50">
+                                                <div className="flex gap-2 items-center text-[10px] text-muted-foreground">
+                                                    <span className="font-medium text-foreground">{item.senderName}</span>
+                                                    <span className="text-blue-600/70">{item.successCount}/{item.totalTarget} ulaştı</span>
+                                                </div>
+                                                <span className="text-[10px] text-muted-foreground flex-shrink-0">
+                                                    {item.createdAt ? format(item.createdAt.toDate(), "dd MMM HH:mm", { locale: tr }) : "Şimdi"}
+                                                </span>
+                                            </div>
                                         </div>
-                                    </div>
-                                ))
-                            )}
+                                    ))
+                                )}
+                            </div>
                         </div>
                     </div>
-                </div>
 
-                <DialogFooter className="mt-auto pt-4">
-                    <Button variant="outline" onClick={() => setOpen(false)} disabled={loading}>İptal</Button>
-                    <Button onClick={handleSend} disabled={loading} className="gap-2">
-                        {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                        Gönder
-                    </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
-        
-        <NotificationResultDialog 
-            open={showResult} 
-            onOpenChange={setShowResult} 
-            results={resultData} 
-        />
+                    <DialogFooter className="mt-auto pt-4">
+                        <Button variant="outline" onClick={() => setOpen(false)} disabled={loading}>İptal</Button>
+                        <Button onClick={handleSend} disabled={loading} className="gap-2">
+                            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                            Gönder
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
-        <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
-            <AlertDialogContent>
-                <AlertDialogHeader>
-                    <AlertDialogTitle>Geçmiş Kaydını Sil</AlertDialogTitle>
-                    <AlertDialogDescription>
-                        Bu bildirim geçmişi kaydını silmek istediğinize emin misiniz? Bu işlem geri alınamaz.
-                    </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                    <AlertDialogCancel>İptal</AlertDialogCancel>
-                    <AlertDialogAction 
-                        onClick={handleDeleteHistory}
-                        className="bg-red-600 hover:bg-red-700 text-white"
-                    >
-                        Sil
-                    </AlertDialogAction>
-                </AlertDialogFooter>
-            </AlertDialogContent>
-        </AlertDialog>
+            <NotificationResultDialog
+                open={showResult}
+                onOpenChange={setShowResult}
+                results={resultData}
+            />
+
+            <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Geçmiş Kaydını Sil</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Bu bildirim geçmişi kaydını silmek istediğinize emin misiniz? Bu işlem geri alınamaz.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>İptal</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={handleDeleteHistory}
+                            className="bg-red-600 hover:bg-red-700 text-white"
+                        >
+                            Sil
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </>
     );
 }

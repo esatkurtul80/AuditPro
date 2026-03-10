@@ -9,9 +9,10 @@ import {
     CheckCircle,
     TrendingUp,
     FileBarChart,
+    CalendarDays,
 } from "lucide-react";
 
-type ReportTab = "panel" | "personel" | "puan" | "soru" | "aksiyon" | "denetci";
+type ReportTab = "panel" | "personel" | "puan" | "soru" | "aksiyon" | "denetci" | "program";
 
 interface ReportSidebarProps {
     activeTab: ReportTab;
@@ -67,6 +68,26 @@ export function ReportSidebar({ activeTab, onTabChange, className }: ReportSideb
                         </button>
                     );
                 })}
+
+                {/* Denetmen Programı Section */}
+                <div className="pt-4 mt-2 border-t border-slate-100 dark:border-slate-800 space-y-1">
+                    <p className="px-3 pb-2 text-[10px] uppercase tracking-widest text-slate-400 font-semibold">Programlar</p>
+                    <button
+                        onClick={() => onTabChange("program")}
+                        className={cn(
+                            "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-all duration-150 group",
+                            activeTab === "program"
+                                ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/20"
+                                : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900"
+                        )}
+                    >
+                        <CalendarDays className={cn("h-[18px] w-[18px] shrink-0", activeTab === "program" ? "text-white" : "text-slate-400 group-hover:text-slate-600")} />
+                        <div className="flex flex-col leading-tight">
+                            <span className="text-sm font-medium">Denetmen Programı</span>
+                            <span className={cn("text-[10px]", activeTab === "program" ? "text-indigo-100" : "text-slate-400")}>Haftalık &amp; Aylık</span>
+                        </div>
+                    </button>
+                </div>
             </nav>
         </div>
     );

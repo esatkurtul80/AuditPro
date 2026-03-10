@@ -131,6 +131,8 @@ function AdminNotificationsContent() {
                 createdAt: doc.data().createdAt || Timestamp.now()
             }));
             setPendingUsers(users);
+        }, (error) => {
+            if (error.code !== 'permission-denied') console.error("AdminNotifications: Pending listener error", error);
         });
     };
 
@@ -164,6 +166,8 @@ function AdminNotificationsContent() {
             setLastDoc(snapshot.docs[snapshot.docs.length - 1] || null);
             setHasMore(snapshot.docs.length === ITEMS_PER_PAGE);
             setLoading(false);
+        }, (error) => {
+            if (error.code !== 'permission-denied') console.error("AdminNotifications: Notifs listener error", error);
         });
 
         return unsubscribe;

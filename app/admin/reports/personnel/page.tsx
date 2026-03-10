@@ -404,17 +404,6 @@ export default function PersonnelReportPage() {
                     </Button>
                 </div>
             )
-        },
-        {
-            id: "actions",
-            cell: ({ row }) => (
-                <div className="flex justify-end">
-                    <Button variant="ghost" size="sm" onClick={() => openStatusModal(row.original)} className="gap-2 text-muted-foreground hover:text-foreground">
-                        <Settings2 className="w-4 h-4" />
-                        Aksiyon
-                    </Button>
-                </div>
-            )
         }
     ];
 

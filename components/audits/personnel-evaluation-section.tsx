@@ -54,7 +54,7 @@ export function PersonnelEvaluationSection({ auditId, storeId, storeName, canEdi
     const [personnelList, setPersonnelList] = useState<StorePersonnel[]>([]);
     const [evaluations, setEvaluations] = useState<Record<string, PersonnelEvaluation>>({});
     const [loading, setLoading] = useState(true);
-    
+
     // New personnel modal state
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [newPersonnelName, setNewPersonnelName] = useState("");
@@ -63,10 +63,10 @@ export function PersonnelEvaluationSection({ auditId, storeId, storeName, canEdi
 
     // Editing state per personnel
     const [drafts, setDrafts] = useState<Record<string, { score: string; comment: string; status: PersonnelStatus; targetStoreId?: string }>>({});
-    
+
     // Mirror ref so onSnapshot callbacks always see fresh evaluations without stale closure
     const evaluationsRef = useRef<Record<string, PersonnelEvaluation>>({});
-    
+
     const [savingId, setSavingId] = useState<string | null>(null);
 
     // List of all stores for transfer feature
@@ -83,8 +83,8 @@ export function PersonnelEvaluationSection({ auditId, storeId, storeName, canEdi
     useEffect(() => {
         if (!storeId) return;
 
-        let unsubPersonnel = () => {};
-        let unsubEvals = () => {};
+        let unsubPersonnel = () => { };
+        let unsubEvals = () => { };
 
         setLoading(true);
 
@@ -94,7 +94,7 @@ export function PersonnelEvaluationSection({ auditId, storeId, storeName, canEdi
                 const sQuery = query(collection(db, "stores"));
                 const sSnap = await getDocs(sQuery);
                 const sList = sSnap.docs.map(s => ({ id: s.id, ...s.data() } as Store));
-                sList.sort((a,b) => a.name.localeCompare(b.name));
+                sList.sort((a, b) => a.name.localeCompare(b.name));
                 setAllStores(sList);
             } catch (e) {
                 console.error("Error loading stores:", e);
@@ -133,6 +133,8 @@ export function PersonnelEvaluationSection({ auditId, storeId, storeName, canEdi
                     });
                     return changed ? newDrafts : prev;
                 });
+            }, (error) => {
+                if (error.code !== 'permission-denied') console.error("Evaluations onSnapshot error:", error);
             });
 
             // Realtime listener for personnel in this store
@@ -140,7 +142,7 @@ export function PersonnelEvaluationSection({ auditId, storeId, storeName, canEdi
             unsubPersonnel = onSnapshot(pQuery, (pSnap) => {
                 const pList = pSnap.docs.map(st => ({ id: st.id, ...st.data() } as StorePersonnel));
                 setPersonnelList(pList);
-                
+
                 setDrafts(prev => {
                     const newDrafts = { ...prev };
                     pList.forEach(p => {
@@ -161,8 +163,10 @@ export function PersonnelEvaluationSection({ auditId, storeId, storeName, canEdi
                 });
                 setLoading(false);
             }, (error) => {
-                console.error("Error listening to personnel:", error);
-                toast.error("Personel listesi güncellenemedi.");
+                if (error.code !== 'permission-denied') {
+                    console.error("Error listening to personnel:", error);
+                    toast.error("Personel listesi güncellenemedi.");
+                }
                 setLoading(false);
             });
         };
@@ -219,14 +223,14 @@ export function PersonnelEvaluationSection({ auditId, storeId, storeName, canEdi
             // Search all active personnel in OTHER stores that match the name approximately
             const q = query(collection(db, "store_personnel"), where("status", "==", "active"));
             const snap = await getDocs(q);
-            
+
             const searchTerm = newPersonnelName.trim().toLowerCase();
             const results = snap.docs
                 .map(d => ({ id: d.id, ...d.data() } as StorePersonnel))
                 .filter(p => p.storeId !== storeId && p.name.toLowerCase().includes(searchTerm));
 
             setGlobalSearchResults(results);
-            
+
             // If no match is found, just go ahead and create
             if (results.length === 0) {
                 await createNewPersonnel();
@@ -248,7 +252,7 @@ export function PersonnelEvaluationSection({ auditId, storeId, storeName, canEdi
                 status: "active",
                 updatedAt: now
             });
-            
+
             // We don't manually setPersonnelList anymore, onSnapshot handles it
             setDrafts(prev => ({
                 ...prev,
@@ -315,7 +319,7 @@ export function PersonnelEvaluationSection({ auditId, storeId, storeName, canEdi
         try {
             const now = Timestamp.now();
             let evalId = evaluations[personnelId]?.id;
-            
+
             // 1. Handle Status Change (Transfer / Resign)
             if (currentDraft.status !== "active" && currentDraft.status !== personnel.status) {
                 const updateData: any = {
@@ -338,7 +342,7 @@ export function PersonnelEvaluationSection({ auditId, storeId, storeName, canEdi
                 if (evalId) {
                     await deleteDoc(doc(db, "personnel_evaluations", evalId));
                     // Prevent deleting multiple times before snapshot triggers:
-                    const updatedEvals = {...evaluations};
+                    const updatedEvals = { ...evaluations };
                     delete updatedEvals[personnelId];
                     setEvaluations(updatedEvals);
                 }
@@ -366,7 +370,7 @@ export function PersonnelEvaluationSection({ auditId, storeId, storeName, canEdi
                         ...prev,
                         [personnelId]: { id: newDocRef.id, ...evalData } as PersonnelEvaluation
                     }));
-                    
+
                     await setDoc(newDocRef, evalData);
                 }
             }
@@ -389,7 +393,7 @@ export function PersonnelEvaluationSection({ auditId, storeId, storeName, canEdi
         <Card className="mt-8 border-2 border-indigo-100 dark:border-indigo-900 shadow-lg relative overflow-hidden">
             {/* Background decoration */}
             <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none" />
-            
+
             <CardHeader className="bg-indigo-50/50 dark:bg-indigo-950/20 border-b border-border/50 pb-6">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <div className="flex items-center gap-3">
@@ -405,7 +409,7 @@ export function PersonnelEvaluationSection({ auditId, storeId, storeName, canEdi
                     </div>
                     {canEdit && (
                         <Dialog open={isAddModalOpen} onOpenChange={(open) => {
-                            if(!open) handleCloseModal();
+                            if (!open) handleCloseModal();
                             else setIsAddModalOpen(true);
                         }}>
                             <DialogTrigger asChild>
@@ -432,11 +436,11 @@ export function PersonnelEvaluationSection({ auditId, storeId, storeName, canEdi
                                                 setGlobalSearchResults([]); // clear results if user types again
                                             }}
                                             onKeyDown={(e) => {
-                                                if(e.key === 'Enter') searchGlobalPersonnel();
+                                                if (e.key === 'Enter') searchGlobalPersonnel();
                                             }}
                                         />
                                     </div>
-                                    
+
                                     {globalSearchResults.length > 0 && (
                                         <div className="mt-4 p-4 border rounded-xl bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800/50 space-y-3">
                                             <div className="flex items-start gap-2 text-amber-800 dark:text-amber-200">
@@ -457,9 +461,9 @@ export function PersonnelEvaluationSection({ auditId, storeId, storeName, canEdi
                                                                 <p className="font-medium text-sm">{g.name}</p>
                                                                 <p className="text-xs text-muted-foreground">Kayıtlı olduğu yer: {s?.name || 'Bilinmiyor'}</p>
                                                             </div>
-                                                            <Button 
-                                                                size="sm" 
-                                                                variant="outline" 
+                                                            <Button
+                                                                size="sm"
+                                                                variant="outline"
                                                                 className="text-indigo-600 border-indigo-200 hover:bg-indigo-50"
                                                                 onClick={() => handlePullPersonnel(g)}
                                                                 disabled={pullingPersonnelId === g.id}
@@ -476,10 +480,10 @@ export function PersonnelEvaluationSection({ auditId, storeId, storeName, canEdi
                                 </div>
                                 <DialogFooter className="gap-2 sm:gap-0">
                                     <Button variant="outline" onClick={handleCloseModal}>İptal</Button>
-                                    
+
                                     {globalSearchResults.length > 0 ? (
-                                        <Button 
-                                            onClick={createNewPersonnel} 
+                                        <Button
+                                            onClick={createNewPersonnel}
                                             disabled={addingPersonnel || !newPersonnelName.trim()}
                                             className="bg-slate-900 hover:bg-slate-800 text-white dark:bg-white dark:text-black dark:hover:bg-slate-200"
                                         >
@@ -487,8 +491,8 @@ export function PersonnelEvaluationSection({ auditId, storeId, storeName, canEdi
                                             Yine de Yeni Oluştur
                                         </Button>
                                     ) : (
-                                        <Button 
-                                            onClick={searchGlobalPersonnel} 
+                                        <Button
+                                            onClick={searchGlobalPersonnel}
                                             disabled={isSearchingGlobal || addingPersonnel || !newPersonnelName.trim()}
                                             className="bg-indigo-600 hover:bg-indigo-700 text-white"
                                         >
@@ -517,7 +521,7 @@ export function PersonnelEvaluationSection({ auditId, storeId, storeName, canEdi
                             if (!draft) return null;
 
                             const isSaved = evalData !== undefined;
-                            
+
                             // If they are no longer active and already saved, lock it out unless they are transferring now
                             const isInactiveLocked = personnel.status !== "active";
 
@@ -627,7 +631,7 @@ export function PersonnelEvaluationSection({ auditId, storeId, storeName, canEdi
                                                         let finalVal = val;
                                                         if (num > 100) finalVal = "100";
                                                         if (num < 0) finalVal = "0";
-                                                        
+
                                                         const newDraft = { ...draft, score: finalVal };
                                                         setDrafts(p => ({ ...p, [personnel.id]: newDraft }));
                                                         instantSaveEvaluation(personnel.id, personnel, newDraft);
@@ -653,14 +657,14 @@ export function PersonnelEvaluationSection({ auditId, storeId, storeName, canEdi
                                                             const currentNote = draft.comment || "";
                                                             const cursorStart = el?.selectionStart ?? currentNote.length;
                                                             const cursorEnd = el?.selectionEnd ?? currentNote.length;
-                                                            
+
                                                             const textToInsert = currentNote.length === 0 || cursorStart === 0 ? "ÖNEMLİ: " : "\nÖNEMLİ: ";
                                                             const newNote = currentNote.slice(0, cursorStart) + textToInsert + currentNote.slice(cursorEnd);
-                                                            
+
                                                             const newDraft = { ...draft, comment: newNote };
                                                             setDrafts(p => ({ ...p, [personnel.id]: newDraft }));
                                                             instantSaveEvaluation(personnel.id, personnel, newDraft);
-                                                            
+
                                                             setTimeout(() => {
                                                                 if (el) {
                                                                     el.focus();
@@ -682,14 +686,14 @@ export function PersonnelEvaluationSection({ auditId, storeId, storeName, canEdi
                                                             const currentNote = draft.comment || "";
                                                             const cursorStart = el?.selectionStart ?? currentNote.length;
                                                             const cursorEnd = el?.selectionEnd ?? currentNote.length;
-                                                            
+
                                                             const textToInsert = currentNote.length === 0 || cursorStart === 0 ? "NOT: " : "\nNOT: ";
                                                             const newNote = currentNote.slice(0, cursorStart) + textToInsert + currentNote.slice(cursorEnd);
-                                                            
+
                                                             const newDraft = { ...draft, comment: newNote };
                                                             setDrafts(p => ({ ...p, [personnel.id]: newDraft }));
                                                             instantSaveEvaluation(personnel.id, personnel, newDraft);
-                                                            
+
                                                             setTimeout(() => {
                                                                 if (el) {
                                                                     el.focus();
@@ -711,14 +715,14 @@ export function PersonnelEvaluationSection({ auditId, storeId, storeName, canEdi
                                                             const currentNote = draft.comment || "";
                                                             const cursorStart = el?.selectionStart ?? currentNote.length;
                                                             const cursorEnd = el?.selectionEnd ?? currentNote.length;
-                                                            
+
                                                             const textToInsert = currentNote.length === 0 || cursorStart === 0 ? "ÖNERİ: " : "\nÖNERİ: ";
                                                             const newNote = currentNote.slice(0, cursorStart) + textToInsert + currentNote.slice(cursorEnd);
-                                                            
+
                                                             const newDraft = { ...draft, comment: newNote };
                                                             setDrafts(p => ({ ...p, [personnel.id]: newDraft }));
                                                             instantSaveEvaluation(personnel.id, personnel, newDraft);
-                                                            
+
                                                             setTimeout(() => {
                                                                 if (el) {
                                                                     el.focus();

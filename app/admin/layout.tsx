@@ -14,7 +14,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         <DashboardLayout>
             {/* Handles 2FA session cleanup on navigation — needs usePathname (client) */}
             <SettingsCleanup />
-            <ProtectedRoute allowedRoles={["admin"]}>
+            <ProtectedRoute allowedRoles={["admin", "rapor-yoneticisi"]}>
                 {children}
             </ProtectedRoute>
         </DashboardLayout>

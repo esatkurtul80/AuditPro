@@ -17,14 +17,14 @@ export default function AnnouncementsPage() {
     useEffect(() => {
         const q = query(collection(db, "announcements"), orderBy("createdAt", "desc"))
         const unsubscribe = onSnapshot(q, (snapshot) => {
-            const data = snapshot.docs.map(d => ({ 
-                id: d.id, 
-                ...d.data() 
+            const data = snapshot.docs.map(d => ({
+                id: d.id,
+                ...d.data()
             } as Announcement))
             setAnnouncements(data)
             setLoading(false)
         }, (error) => {
-            console.error(error)
+            if (error.code !== 'permission-denied') console.error(error)
             setLoading(false)
         })
 
@@ -34,7 +34,7 @@ export default function AnnouncementsPage() {
     // Fetch Recipient Options
     useEffect(() => {
         const fetchOptions = async () => {
-             try {
+            try {
                 // 1. Static Groups
                 const staticGroups: RecipientOption[] = [
                     { id: "group_all", label: "Tüm Kullanıcılar", type: "role_group", value: "all", count: 0 },
@@ -82,7 +82,7 @@ export default function AnnouncementsPage() {
                 // 4. Region Groups
                 // Find all unique regional managers from stores
                 const regionalManagerIds = Array.from(new Set(stores.map(s => s.regionalManagerId).filter(Boolean))) as string[]
-                
+
                 const regionOptions: RecipientOption[] = regionalManagerIds.map(rmId => {
                     const rmUser = users.find(u => u.uid === rmId)
                     const storeCount = stores.filter(s => s.regionalManagerId === rmId).length
@@ -94,19 +94,19 @@ export default function AnnouncementsPage() {
                         count: storeCount
                     }
                 })
-                
+
                 // Add Cities (New requirement)
-                 const cities = Array.from(new Set(stores.map(s => s.city).filter(Boolean))) as string[]
-                 const cityOptions: RecipientOption[] = cities.map(city => {
-                     const storeCount = stores.filter(s => s.city === city).length
-                     return {
-                         id: `city_${city}`,
-                         label: `İl: ${city}`,
-                         type: "region_group", // Reusing region_group type logic for store selection
-                         value: city,
-                         count: storeCount
-                     }
-                 })
+                const cities = Array.from(new Set(stores.map(s => s.city).filter(Boolean))) as string[]
+                const cityOptions: RecipientOption[] = cities.map(city => {
+                    const storeCount = stores.filter(s => s.city === city).length
+                    return {
+                        id: `city_${city}`,
+                        label: `İl: ${city}`,
+                        type: "region_group", // Reusing region_group type logic for store selection
+                        value: city,
+                        count: storeCount
+                    }
+                })
 
                 setRecipientOptions([...staticGroups, ...regionOptions, ...cityOptions, ...storeOptions, ...userOptions])
 
@@ -127,14 +127,14 @@ export default function AnnouncementsPage() {
 
     return (
         <div className="hidden h-full min-h-[calc(100vh-64px)] flex-col overflow-hidden md:flex">
-             {/* Mail Layout passing data */}
-             <Mail 
+            {/* Mail Layout passing data */}
+            <Mail
                 announcements={announcements}
                 defaultLayout={[20, 32, 48]}
                 defaultCollapsed={false}
                 navCollapsedSize={4}
                 recipientOptions={recipientOptions}
-             />
+            />
         </div>
     )
 }

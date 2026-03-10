@@ -130,8 +130,10 @@ export default function UserSettingsPage() {
       setUsers(userList);
       setLoading(false);
     }, (error) => {
-      console.error("Error fetching users:", error);
-      toast.error("Kullanıcılar yüklenirken hata oluştu.");
+      if (error.code !== 'permission-denied') {
+        console.error("Error fetching users:", error);
+        toast.error("Kullanıcılar yüklenirken hata oluştu.");
+      }
       setLoading(false);
     });
 
