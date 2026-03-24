@@ -39,7 +39,8 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if isOwner(userId) || isAdmin() || isAuditor() || isRegionalManager() || isStoreUser() || isReportManager();
       allow update: if isOwner(userId) || isAdmin();
-      allow create, delete: if isAdmin();
+      allow create: if isAdmin() || (isOwner(userId) && request.resource.data.role == 'pending');
+      allow delete: if isAdmin();
     }
 
     // ─── Stores Collection ───
@@ -62,6 +63,12 @@ service cloud.firestore {
 
     // ─── Questions Collection (read by auditors when creating audits) ───
     match /questions/{questionId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // ─── Question Categories Collection ───
+    match /question_categories/{categoryId} {
       allow read: if isAuthenticated();
       allow write: if isAdmin();
     }

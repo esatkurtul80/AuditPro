@@ -18,12 +18,7 @@ import {
   doc,
   getDoc,
   setDoc,
-  collection,
-  getDocs,
   Timestamp,
-  arrayUnion,
-  query,
-  limit,
   updateDoc,
   serverTimestamp,
 } from "firebase/firestore";
@@ -148,17 +143,13 @@ export function AuthProvider({ children, initialRole }: { children: ReactNode, i
                 appVersion: process.env.NEXT_PUBLIC_APP_VERSION || "unknown"
             });
           } else {
-            // Create New User
-            const usersQ = query(collection(db, "users"), limit(1));
-            const usersSnapshot = await getDocs(usersQ);
-            const isFirstUser = usersSnapshot.empty;
-
+            // Create New User (always as 'pending' — admin assigns roles)
             const newProfile: UserProfile = {
               uid: firebaseUser.uid,
               email: firebaseUser.email!,
               displayName: firebaseUser.displayName,
               photoURL: firebaseUser.photoURL,
-              role: isFirstUser ? "admin" : "pending",
+              role: "pending",
               createdAt: Timestamp.now(),
               updatedAt: Timestamp.now(),
               appVersion: process.env.NEXT_PUBLIC_APP_VERSION || "unknown", 

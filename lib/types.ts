@@ -20,6 +20,8 @@ export interface UserProfile {
     fcmTokens?: string[]; // Multiple device tokens support
     isOnline?: boolean; // Real-time presence
     lastActive?: Timestamp; // Last activity timestamp
+    homeLat?: number; // Auditor home latitude
+    homeLng?: number; // Auditor home longitude
 }
 
 // Store type

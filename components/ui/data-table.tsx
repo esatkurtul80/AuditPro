@@ -44,6 +44,7 @@ interface DataTableProps<TData, TValue> {
     onRowClick?: (row: TData) => void
     toolbar?: React.ReactNode | ((table: import("@tanstack/react-table").Table<TData>) => React.ReactNode)
     actionElement?: React.ReactNode | ((table: import("@tanstack/react-table").Table<TData>) => React.ReactNode)
+    mapElement?: React.ReactNode | ((table: import("@tanstack/react-table").Table<TData>) => React.ReactNode)
     mobileHiddenColumns?: string[]
     initialColumnVisibility?: VisibilityState
     initialSorting?: SortingState
@@ -62,6 +63,7 @@ export function DataTable<TData, TValue>({
     onRowClick,
     toolbar,
     actionElement,
+    mapElement,
     mobileHiddenColumns = [],
     initialColumnVisibility = {},
     initialSorting = [],
@@ -192,6 +194,7 @@ export function DataTable<TData, TValue>({
                             })}
                     </DropdownMenuContent>
                 </DropdownMenu>
+                {typeof mapElement === "function" ? mapElement(table) : mapElement}
                 {typeof actionElement === "function" ? actionElement(table) : actionElement}
             </div>
             <div className="rounded-md border">

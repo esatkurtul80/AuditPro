@@ -113,7 +113,7 @@ export default function UserSettingsPage() {
   // Edit user dialog state
   const [editUserDialogOpen, setEditUserDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
-  const [editFormData, setEditFormData] = useState({ firstName: "", lastName: "" });
+  const [editFormData, setEditFormData] = useState({ firstName: "", lastName: "", homeLat: "", homeLng: "" });
 
   // Delete user state
   const [userToDelete, setUserToDelete] = useState<UserProfile | null>(null);
@@ -222,7 +222,9 @@ export default function UserSettingsPage() {
     setEditingUser(user);
     setEditFormData({
       firstName: user.firstName || "",
-      lastName: user.lastName || ""
+      lastName: user.lastName || "",
+      homeLat: user.homeLat?.toString() || "",
+      homeLng: user.homeLng?.toString() || ""
     });
     setEditUserDialogOpen(true);
   };
@@ -231,10 +233,18 @@ export default function UserSettingsPage() {
   const handleUpdateUser = async () => {
     if (!editingUser) return;
 
+    const isAuditor = editingUser.role === 'denetmen';
+    const homeLat = editFormData.homeLat ? parseFloat(editFormData.homeLat) : null;
+    const homeLng = editFormData.homeLng ? parseFloat(editFormData.homeLng) : null;
+
     try {
       await updateDoc(doc(db, "users", editingUser.uid), {
         firstName: editFormData.firstName,
         lastName: editFormData.lastName,
+        ...(isAuditor && {
+          homeLat: homeLat ?? deleteField(),
+          homeLng: homeLng ?? deleteField(),
+        }),
         updatedAt: Timestamp.now()
       });
       toast.success("Kullanıcı bilgileri güncellendi");
@@ -305,6 +315,11 @@ export default function UserSettingsPage() {
     total: users.length,
     activeSessions: users.filter(u => u.role !== "pending").length,
     pendingUsers: users.filter(u => u.role === "pending").length,
+    denetmen: users.filter(u => u.role === "denetmen").length,
+    bolgeMuduru: users.filter(u => u.role === "bolge-muduru").length,
+    magaza: users.filter(u => u.role === "magaza").length,
+    admin: users.filter(u => u.role === "admin").length,
+    raporYoneticisi: users.filter(u => u.role === "rapor-yoneticisi").length,
   };
 
   // Get store info for a user
@@ -356,39 +371,94 @@ export default function UserSettingsPage() {
         <div className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar">
           <div className="flex flex-col gap-6 max-w-[1400px] mx-auto">
 
-            {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm flex items-center justify-between">
+            {/* Stats Cards — tek satır */}
+            <div className="grid grid-cols-4 md:grid-cols-8 gap-3">
+              {/* Toplam */}
+              <div className="bg-white rounded-xl p-3 border border-slate-200 shadow-sm flex flex-col gap-2">
+                <div className="bg-blue-50 p-2 rounded-lg text-blue-600 w-fit"><Users className="h-4 w-4" /></div>
                 <div>
-                  <p className="text-slate-500 text-sm font-medium mb-1">Toplam Kullanıcı</p>
-                  <h3 className="text-slate-900 text-2xl font-bold">{stats.total}</h3>
-                </div>
-                <div className="bg-blue-50 p-3 rounded-lg text-blue-600">
-                  <Users className="h-6 w-6" />
+                  <p className="text-slate-500 text-xs font-medium">Toplam</p>
+                  <h3 className="text-slate-900 text-xl font-bold">{stats.total}</h3>
                 </div>
               </div>
-              <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm flex items-center justify-between">
+              {/* Aktif */}
+              <div className="bg-white rounded-xl p-3 border border-slate-200 shadow-sm flex flex-col gap-2">
+                <div className="bg-green-50 p-2 rounded-lg text-green-600 w-fit"><Wifi className="h-4 w-4" /></div>
                 <div>
-                  <p className="text-slate-500 text-sm font-medium mb-1">Aktif Oturumlar</p>
-                  <h3 className="text-slate-900 text-2xl font-bold">{stats.activeSessions}</h3>
-                </div>
-                <div className="bg-green-50 p-3 rounded-lg text-green-600">
-                  <Wifi className="h-6 w-6" />
+                  <p className="text-slate-500 text-xs font-medium">Aktif</p>
+                  <h3 className="text-slate-900 text-xl font-bold">{stats.activeSessions}</h3>
                 </div>
               </div>
+              {/* Bekleyen */}
               <div
                 onClick={() => setRoleFilter("pending")}
-                className={cn(
-                  "bg-white rounded-xl p-5 border shadow-sm flex items-center justify-between cursor-pointer transition-all hover:border-amber-300",
-                  roleFilter === "pending" ? "border-amber-400 ring-1 ring-amber-200" : "border-slate-200"
-                )}
+                className={cn("bg-white rounded-xl p-3 border shadow-sm flex flex-col gap-2 cursor-pointer transition-all hover:border-amber-300",
+                  roleFilter === "pending" ? "border-amber-400 ring-1 ring-amber-200" : "border-slate-200")}
               >
+                <div className="bg-amber-50 p-2 rounded-lg text-amber-600 w-fit"><History className="h-4 w-4" /></div>
                 <div>
-                  <p className="text-slate-500 text-sm font-medium mb-1">Onay Bekleyenler</p>
-                  <h3 className="text-slate-900 text-2xl font-bold">{stats.pendingUsers}</h3>
+                  <p className="text-slate-500 text-xs font-medium">Bekleyen</p>
+                  <h3 className="text-slate-900 text-xl font-bold">{stats.pendingUsers}</h3>
                 </div>
-                <div className="bg-amber-50 p-3 rounded-lg text-amber-600">
-                  <History className="h-6 w-6" />
+              </div>
+              {/* Yönetici */}
+              <div
+                onClick={() => setRoleFilter("admin")}
+                className={cn("bg-white rounded-xl p-3 border shadow-sm flex flex-col gap-2 cursor-pointer transition-all hover:border-blue-300",
+                  roleFilter === "admin" ? "border-blue-400 ring-1 ring-blue-200" : "border-slate-200")}
+              >
+                <div className="bg-blue-50 p-2 rounded-lg text-blue-600 w-fit"><Shield className="h-4 w-4" /></div>
+                <div>
+                  <p className="text-slate-500 text-xs font-medium">Yönetici</p>
+                  <h3 className="text-slate-900 text-xl font-bold">{stats.admin}</h3>
+                </div>
+              </div>
+              {/* Denetmen */}
+              <div
+                onClick={() => setRoleFilter("denetmen")}
+                className={cn("bg-white rounded-xl p-3 border shadow-sm flex flex-col gap-2 cursor-pointer transition-all hover:border-emerald-300",
+                  roleFilter === "denetmen" ? "border-emerald-400 ring-1 ring-emerald-200" : "border-slate-200")}
+              >
+                <div className="bg-emerald-50 p-2 rounded-lg text-emerald-600 w-fit"><CheckCircle className="h-4 w-4" /></div>
+                <div>
+                  <p className="text-slate-500 text-xs font-medium">Denetmen</p>
+                  <h3 className="text-slate-900 text-xl font-bold">{stats.denetmen}</h3>
+                </div>
+              </div>
+              {/* Bölge Müdürü */}
+              <div
+                onClick={() => setRoleFilter("bolge-muduru")}
+                className={cn("bg-white rounded-xl p-3 border shadow-sm flex flex-col gap-2 cursor-pointer transition-all hover:border-purple-300",
+                  roleFilter === "bolge-muduru" ? "border-purple-400 ring-1 ring-purple-200" : "border-slate-200")}
+              >
+                <div className="bg-purple-50 p-2 rounded-lg text-purple-600 w-fit"><Users className="h-4 w-4" /></div>
+                <div>
+                  <p className="text-slate-500 text-xs font-medium">Bölge Md.</p>
+                  <h3 className="text-slate-900 text-xl font-bold">{stats.bolgeMuduru}</h3>
+                </div>
+              </div>
+              {/* Rapor Yöneticisi */}
+              <div
+                onClick={() => setRoleFilter("rapor-yoneticisi")}
+                className={cn("bg-white rounded-xl p-3 border shadow-sm flex flex-col gap-2 cursor-pointer transition-all hover:border-teal-300",
+                  roleFilter === "rapor-yoneticisi" ? "border-teal-400 ring-1 ring-teal-200" : "border-slate-200")}
+              >
+                <div className="bg-teal-50 p-2 rounded-lg text-teal-600 w-fit"><Activity className="h-4 w-4" /></div>
+                <div>
+                  <p className="text-slate-500 text-xs font-medium">Rapor Yon.</p>
+                  <h3 className="text-slate-900 text-xl font-bold">{stats.raporYoneticisi}</h3>
+                </div>
+              </div>
+              {/* Mağaza */}
+              <div
+                onClick={() => setRoleFilter("magaza")}
+                className={cn("bg-white rounded-xl p-3 border shadow-sm flex flex-col gap-2 cursor-pointer transition-all hover:border-orange-300",
+                  roleFilter === "magaza" ? "border-orange-400 ring-1 ring-orange-200" : "border-slate-200")}
+              >
+                <div className="bg-orange-50 p-2 rounded-lg text-orange-600 w-fit"><Database className="h-4 w-4" /></div>
+                <div>
+                  <p className="text-slate-500 text-xs font-medium">Mağaza</p>
+                  <h3 className="text-slate-900 text-xl font-bold">{stats.magaza}</h3>
                 </div>
               </div>
             </div>
@@ -604,9 +674,14 @@ export default function UserSettingsPage() {
                 </table>
               </div>
 
-              {/* Pagination (Static for now) */}
+              {/* Pagination */}
               <div className="bg-white border-t border-slate-200 p-4 flex items-center justify-between">
-                <span className="text-slate-500 text-sm">Toplam {stats.total} kayıttan 1-5 arası gösteriliyor</span>
+                <span className="text-slate-500 text-sm">
+                  {roleFilter === "all"
+                    ? `Toplam ${stats.total} kullanıcı`
+                    : `${filteredUsers.length} kayıt gösteriliyor (toplam ${stats.total} içinden)`
+                  }
+                </span>
                 <div className="flex items-center gap-2">
                   <button className="p-1 rounded bg-white border border-slate-300 text-slate-500 hover:text-slate-700 hover:bg-slate-50 disabled:opacity-50 shadow-sm" disabled>
                     <span className="text-lg">‹</span>
@@ -863,6 +938,39 @@ export default function UserSettingsPage() {
                 placeholder="Soyad"
               />
             </div>
+            {editingUser?.role === 'denetmen' && (
+              <>
+                <div className="pt-2 border-t">
+                  <p className="text-xs font-semibold text-slate-500 mb-3 flex items-center gap-1.5">
+                    <span>📍</span> Ev Konumu (Harita rotası için)
+                  </p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="grid gap-2">
+                      <Label htmlFor="homeLat">Enlem (Latitude)</Label>
+                      <Input
+                        id="homeLat"
+                        type="number"
+                        step="any"
+                        value={editFormData.homeLat}
+                        onChange={(e) => setEditFormData(prev => ({ ...prev, homeLat: e.target.value }))}
+                        placeholder="38.4192"
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="homeLng">Boylam (Longitude)</Label>
+                      <Input
+                        id="homeLng"
+                        type="number"
+                        step="any"
+                        value={editFormData.homeLng}
+                        onChange={(e) => setEditFormData(prev => ({ ...prev, homeLng: e.target.value }))}
+                        placeholder="27.1287"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditUserDialogOpen(false)}>

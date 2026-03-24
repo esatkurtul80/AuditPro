@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
-    CalendarDays, Save, Send, ChevronLeft, ChevronRight, Search, Sparkles, ChevronDown, Ban, Loader2, Download
+    CalendarDays, Save, Send, ChevronLeft, ChevronRight, Search, Sparkles, ChevronDown, Ban, Loader2, Download, Map as MapIcon
 } from "lucide-react";
 import Script from "next/script";
 import {
@@ -73,6 +73,7 @@ import {
 } from "@/components/ui/context-menu";
 import { StoreAuditHistoryDialog } from "@/components/admin/schedule/store-audit-history-dialog";
 import { StoreSelectorDialog } from "@/components/admin/schedule/add-store-dialog";
+import { ScheduleMapModal } from "@/components/admin/schedule/schedule-map-modal";
 import {
     Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
     DialogTrigger,
@@ -772,6 +773,7 @@ export default function SchedulePage() {
     const [stores, setStores] = useState<Store[]>([]);
     const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
     const [accommodationTypes, setAccommodationTypes] = useState<AccommodationType[]>([]);
+    const [mapOpen, setMapOpen] = useState(false);
 
     const handleDownloadPDF = async () => {
         try {
@@ -2123,6 +2125,7 @@ export default function SchedulePage() {
     };
 
     return (
+        <>
         <DndContext onDragStart={isReadOnly ? undefined : handleDragStart} onDragEnd={isReadOnly ? undefined : handleDragEnd} collisionDetection={pointerWithin}>
             <div className="flex-1 p-4 md:p-8 pt-6 h-screen flex flex-col lg:flex-row gap-4 overflow-hidden relative">
                 <div className="flex flex-col flex-1 overflow-hidden gap-4 min-h-0">
@@ -2256,7 +2259,7 @@ export default function SchedulePage() {
                                             <button
                                                 onClick={() => setViewMode('week')}
                                                 className={cn(
-                                                    "px-12 py-2 text-sm font-semibold rounded-md transition-all",
+                                                    "px-8 py-2 text-sm font-semibold rounded-md transition-all",
                                                     viewMode === 'week'
                                                         ? "bg-white text-slate-900 shadow-sm border border-slate-200"
                                                         : "text-slate-500 hover:bg-slate-200/50"
@@ -2267,7 +2270,7 @@ export default function SchedulePage() {
                                             <button
                                                 onClick={() => setViewMode('month')}
                                                 className={cn(
-                                                    "px-12 py-2 text-sm font-semibold rounded-md transition-all",
+                                                    "px-8 py-2 text-sm font-semibold rounded-md transition-all",
                                                     viewMode === 'month'
                                                         ? "bg-white text-slate-900 shadow-sm border border-slate-200"
                                                         : "text-slate-500 hover:bg-slate-200/50"
@@ -2276,6 +2279,17 @@ export default function SchedulePage() {
                                                 AYLIK
                                             </button>
                                         </div>
+                                    </NavigationMenuItem>
+
+                                    {/* Map Button */}
+                                    <NavigationMenuItem>
+                                        <button
+                                            onClick={() => setMapOpen(true)}
+                                            className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-md bg-slate-100/50 border border-slate-200 text-slate-600 hover:bg-slate-200/60 hover:text-slate-900 transition-all"
+                                        >
+                                            <MapIcon className="h-4 w-4" />
+                                            HARİTA
+                                        </button>
                                     </NavigationMenuItem>
 
 
@@ -2874,5 +2888,17 @@ export default function SchedulePage() {
                 strategy="lazyOnload"
             />
         </DndContext >
+
+        <ScheduleMapModal
+            open={mapOpen}
+            onClose={() => setMapOpen(false)}
+            stores={stores}
+            auditors={auditors}
+            schedule={schedule}
+            audits={audits}
+            currentDate={currentDate}
+            accommodationTypes={accommodationTypes}
+        />
+    </>
     );
 }

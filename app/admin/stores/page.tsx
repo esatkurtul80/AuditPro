@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
+import dynamic from "next/dynamic";
 import { ProtectedRoute } from "@/components/protected-route";
 import { DashboardLayout } from "@/components/dashboard-layout";
 import {
@@ -85,11 +86,17 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-import { Loader2, Plus, Trash2, Store as StoreIcon, MapPin, ArrowUpDown, Check, ChevronsUpDown, Upload, Download, FileSpreadsheet } from "lucide-react";
+import { Loader2, Plus, Trash2, Store as StoreIcon, MapPin, Map, ArrowUpDown, Check, ChevronsUpDown, Upload, Download, FileSpreadsheet, X } from "lucide-react";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+
+
+const StoreMap = dynamic(
+    () => import("@/components/store-map").then((m) => ({ default: m.StoreMap })),
+    { ssr: false, loading: () => <div className="flex h-full items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div> }
+);
 
 const TURKISH_CITIES = [
     "Adana", "Adıyaman", "Afyonkarahisar", "Ağrı", "Aksaray", "Amasya", "Ankara", "Antalya", "Ardahan", "Artvin",
@@ -115,6 +122,7 @@ const DAYS_OF_WEEK = [
 export default function AdminStoresPage() {
     const [stores, setStores] = useState<Store[]>([]);
     const [regionalManagers, setRegionalManagers] = useState<UserProfile[]>([]);
+    const [assignedStoreIds, setAssignedStoreIds] = useState<Set<string>>(new Set());
     const [loading, setLoading] = useState(true);
     const [dialogOpen, setDialogOpen] = useState(false); // For new store dialog
     const [sheetOpen, setSheetOpen] = useState(false); // For edit store sheet
@@ -145,15 +153,23 @@ export default function AdminStoresPage() {
     const [bulkFile, setBulkFile] = useState<File | null>(null);
     const [bulkUploading, setBulkUploading] = useState(false);
 
+    // Map State
+    const [mapOpen, setMapOpen] = useState(false);
+    const [mapCityFilter, setMapCityFilter] = useState<string>("all");
+    const [mapManagerFilter, setMapManagerFilter] = useState<string>("all");
+    const [mapCityOpen, setMapCityOpen] = useState(true);
+    const [mapManagerOpen, setMapManagerOpen] = useState(true);
+
     useEffect(() => {
         loadData();
     }, []);
 
     const loadData = async () => {
         try {
-            const [storesSnapshot, managersSnapshot] = await Promise.all([
+            const [storesSnapshot, managersSnapshot, magazaUsersSnapshot] = await Promise.all([
                 getDocs(collection(db, "stores")),
-                getDocs(query(collection(db, "users"), where("role", "==", "bolge-muduru")))
+                getDocs(query(collection(db, "users"), where("role", "==", "bolge-muduru"))),
+                getDocs(query(collection(db, "users"), where("role", "==", "magaza")))
             ]);
 
             const storesData = storesSnapshot.docs.map((doc) => ({
@@ -166,8 +182,15 @@ export default function AdminStoresPage() {
                 ...doc.data(),
             })) as UserProfile[];
 
+            const assignedIds = new Set<string>();
+            magazaUsersSnapshot.docs.forEach((doc) => {
+                const storeId = doc.data().storeId;
+                if (storeId) assignedIds.add(storeId);
+            });
+
             setStores(storesData);
             setRegionalManagers(managersData);
+            setAssignedStoreIds(assignedIds);
         } catch (error) {
             console.error("Error loading data:", error);
             toast.error("Veriler yüklenirken hata oluştu");
@@ -416,6 +439,38 @@ export default function AdminStoresPage() {
         return fullName || manager.email || id;
     };
 
+    // Map pins computation
+    const mapPins = useMemo(() => {
+        return stores
+            .filter(s => {
+                if (!s.location || !s.location.includes(',')) return false;
+                if (mapCityFilter !== "all" && s.city !== mapCityFilter) return false;
+                if (mapManagerFilter !== "all" && s.regionalManagerId !== mapManagerFilter) return false;
+                return true;
+            })
+            .map(s => {
+                const [latStr, lngStr] = s.location!.split(',').map(x => x.trim());
+                const lat = parseFloat(latStr);
+                const lng = parseFloat(lngStr);
+                if (isNaN(lat) || isNaN(lng)) return null;
+                return {
+                    id: s.id,
+                    name: s.name || s.id,
+                    city: s.city || "",
+                    lat,
+                    lng,
+                    managerName: getManagerName(s.regionalManagerId || ""),
+                    type: s.type,
+                    address: s.address,
+                };
+            })
+            .filter(Boolean) as { id: string; name: string; city: string; lat: number; lng: number; managerName: string; type?: string; address?: string; }[];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [stores, mapCityFilter, mapManagerFilter, regionalManagers]);
+
+    const mapCities = useMemo(() => Array.from(new Set(stores.map(s => s.city).filter(Boolean))).sort() as string[], [stores]);
+    const storesWithLocation = useMemo(() => stores.filter(s => s.location && s.location.includes(',')), [stores]);
+
     const dayWeights: { [key: string]: number } = {
         "Pazartesi": 1,
         "Salı": 2,
@@ -437,7 +492,20 @@ export default function AdminStoresPage() {
                     .map(s => ({ label: s.name || s.id, value: s.name || s.id }))
                     .sort((a, b) => a.label.localeCompare(b.label, 'tr-TR', { sensitivity: 'base' }))
             },
-            cell: ({ row }) => <span className="font-medium">{row.original.name}</span>,
+            cell: ({ row }) => {
+                const isUnassigned = !assignedStoreIds.has(row.original.id);
+                return (
+                    <span className="flex items-center gap-1.5 font-medium">
+                        {row.original.name}
+                        {isUnassigned && (
+                            <span
+                                className="inline-block h-2 w-2 rounded-full bg-red-500 shrink-0"
+                                title="Bu mağazaya kullanıcı atanmamış"
+                            />
+                        )}
+                    </span>
+                );
+            },
             filterFn: (row, id, value) => {
                 return Array.isArray(value) && value.includes(row.getValue(id));
             },
@@ -574,6 +642,17 @@ export default function AdminStoresPage() {
                         data={stores}
                         initialSorting={[{ id: "Mağaza Adı", desc: false }]}
                         onRowClick={handleRowClick}
+                        mapElement={
+                            <Button
+                                size="lg"
+                                variant="outline"
+                                onClick={() => setMapOpen(true)}
+                                className="bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100 hover:text-blue-800"
+                            >
+                                <Map className="mr-2 h-5 w-5" />
+                                Harita
+                            </Button>
+                        }
                         actionElement={(table) => (
                             <div className="flex gap-2">
                                 <Button
@@ -625,6 +704,132 @@ export default function AdminStoresPage() {
                             </div>
                         )}
                     />
+
+                    {/* Map Modal */}
+                    <Dialog open={mapOpen} onOpenChange={setMapOpen}>
+                        <DialogContent
+                            className="flex flex-col p-0 gap-0 overflow-hidden"
+                            style={{ width: "95vw", maxWidth: "95vw", height: "90vh", maxHeight: "90vh" }}
+                        >
+                            {/* Header */}
+                            <DialogHeader className="px-6 py-4 border-b flex-shrink-0">
+                                <DialogTitle className="flex items-center gap-2">
+                                    <Map className="h-5 w-5 text-blue-600" />
+                                    Mağaza Haritası
+                                    <Badge variant="secondary" className="ml-2 bg-blue-100 text-blue-700">
+                                        {mapPins.length} mağaza gösteriliyor
+                                    </Badge>
+                                </DialogTitle>
+                                <DialogDescription className="sr-only">Mağazaların harita üzerindeki konumları</DialogDescription>
+                            </DialogHeader>
+
+                            {/* Body: sidebar + map */}
+                            <div className="flex flex-1 min-h-0 overflow-hidden">
+
+                                {/* LEFT SIDEBAR */}
+                                <div className="w-64 flex-shrink-0 border-r bg-muted/20 flex flex-col h-full">
+
+                                    {/* Scrollable filter list */}
+                                    <div className="flex-1 overflow-y-auto">
+
+                                        {/* City accordion */}
+                                        <div className="border-b">
+                                            <button
+                                                onClick={() => setMapCityOpen(o => !o)}
+                                                className="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold hover:bg-muted/50 transition-colors"
+                                            >
+                                                <span className="flex items-center gap-2">
+                                                    İl
+                                                    {mapCityFilter !== "all" && (
+                                                        <span className="h-2 w-2 rounded-full bg-blue-500 inline-block" />
+                                                    )}
+                                                </span>
+                                                <ChevronsUpDown className={`h-4 w-4 text-muted-foreground transition-transform ${mapCityOpen ? "rotate-180" : ""}`} />
+                                            </button>
+                                            {mapCityOpen && (
+                                                <div className="pb-2 px-2 space-y-0.5">
+                                                    <button
+                                                        onClick={() => setMapCityFilter("all")}
+                                                        className={`w-full text-left px-3 py-1.5 rounded-md text-sm transition-colors ${mapCityFilter === "all" ? "bg-blue-600 text-white font-medium" : "hover:bg-muted text-foreground"}`}
+                                                    >
+                                                        Tüm İller
+                                                    </button>
+                                                    {mapCities.map(city => (
+                                                        <button
+                                                            key={city}
+                                                            onClick={() => setMapCityFilter(city === mapCityFilter ? "all" : city)}
+                                                            className={`w-full text-left px-3 py-1.5 rounded-md text-sm transition-colors ${mapCityFilter === city ? "bg-blue-600 text-white font-medium" : "hover:bg-muted text-foreground"}`}
+                                                        >
+                                                            {city}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Manager accordion */}
+                                        <div className="border-b">
+                                            <button
+                                                onClick={() => setMapManagerOpen(o => !o)}
+                                                className="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold hover:bg-muted/50 transition-colors"
+                                            >
+                                                <span className="flex items-center gap-2">
+                                                    Bölge Müdürü
+                                                    {mapManagerFilter !== "all" && (
+                                                        <span className="h-2 w-2 rounded-full bg-orange-500 inline-block" />
+                                                    )}
+                                                </span>
+                                                <ChevronsUpDown className={`h-4 w-4 text-muted-foreground transition-transform ${mapManagerOpen ? "rotate-180" : ""}`} />
+                                            </button>
+                                            {mapManagerOpen && (
+                                                <div className="pb-2 px-2 space-y-0.5">
+                                                    <button
+                                                        onClick={() => setMapManagerFilter("all")}
+                                                        className={`w-full text-left px-3 py-1.5 rounded-md text-sm transition-colors ${mapManagerFilter === "all" ? "bg-orange-500 text-white font-medium" : "hover:bg-muted text-foreground"}`}
+                                                    >
+                                                        Tüm Müdürler
+                                                    </button>
+                                                    {regionalManagers.map(m => (
+                                                        <button
+                                                            key={m.uid}
+                                                            onClick={() => setMapManagerFilter(m.uid === mapManagerFilter ? "all" : m.uid)}
+                                                            className={`w-full text-left px-3 py-1.5 rounded-md text-sm transition-colors ${mapManagerFilter === m.uid ? "bg-orange-500 text-white font-medium" : "hover:bg-muted text-foreground"}`}
+                                                            title={getManagerName(m.uid)}
+                                                        >
+                                                            <span className="block truncate">{getManagerName(m.uid)}</span>
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+
+                                    </div>
+
+                                    {/* Fixed footer */}
+                                    <div className="flex-shrink-0 p-3 border-t bg-muted/10 space-y-1.5">
+                                        {(mapCityFilter !== "all" || mapManagerFilter !== "all") && (
+                                            <button
+                                                onClick={() => { setMapCityFilter("all"); setMapManagerFilter("all"); }}
+                                                className="w-full flex items-center justify-center gap-1.5 text-xs text-destructive hover:bg-destructive/10 rounded-md py-1.5 transition-colors"
+                                            >
+                                                <X className="h-3 w-3" /> Filtreleri Temizle
+                                            </button>
+                                        )}
+                                        <p className="text-xs text-center text-muted-foreground">
+                                            {storesWithLocation.length} / {stores.length} konum mevcut
+                                        </p>
+                                    </div>
+                                </div>
+
+
+                                {/* MAP */}
+                                <div className="flex-1 min-w-0">
+                                    <StoreMap pins={mapPins} />
+                                </div>
+
+                            </div>
+                        </DialogContent>
+                    </Dialog>
 
                     {/* Bulk Upload Dialog */}
                     <Dialog open={bulkOpen} onOpenChange={setBulkOpen}>

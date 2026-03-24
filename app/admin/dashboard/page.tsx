@@ -270,7 +270,7 @@ export default function AdminDashboard() {
         },
         {
             accessorKey: "storeName",
-            meta: { title: "Mağaza", filterOptions: stores.map(store => ({ value: store.name, label: store.name })) },
+            meta: { title: "Mağaza", filterOptions: stores.map(store => ({ value: store.name, label: store.name })).sort((a, b) => a.label.localeCompare(b.label, 'tr-TR', { sensitivity: 'base' })) },
             header: ({ column }: { column: Column<Audit> }) => <DataTableColumnHeader column={column} title="Mağaza" />,
             cell: ({ row }: { row: Row<Audit> }) => <span>{row.original.storeName}</span>,
             filterFn: (row: Row<Audit>, id: string, value: string[]) => {
