@@ -2,13 +2,24 @@
 
 ```json
 {
-  "version": "3.0.1",
-  "build": 117,
+  "version": "3.0.2",
+  "build": 118,
   "status": "stable"
 }
 ```
 
+## [3.0.2] - 2026-04-01
+
+### v3.0.2
+- **Çok Cihazlı Denetim Senkronizasyonu (Gerçek Zamanlı):** Denetim sayfası `getDoc` (tek seferlik veri çekme) yerine `onSnapshot` (gerçek zamanlı Firestore dinleyicisi) kullanacak şekilde yeniden yazıldı. Tablet ve telefon aynı denetime eş zamanlı bağlandığında cevaplar, notlar ve fotoğraflar anlık olarak her iki cihazda görünüyor.
+- **Tamamlama Güvenliği (Çift Cihaz):** "Tamamla" butonuna basıldığında yerel state yerine Firestore'dan anlık olarak en güncel veri çekiliyor. Hangi cihazdan basılırsa basılsın hem tabletin hem telefonun kaydettiği tüm veriler kayıpsız denetime işleniyor.
+- **Çapraz Cihaz Tamamlama Yönlendirmesi:** Bir cihazdan denetim tamamlandığında diğer cihaz otomatik olarak salt-görüntü (view) moduna yönlendiriliyor; "Bu denetim başka bir cihazda tamamlandı" bildirimi gösteriliyor.
+- **Kendi Yazısını Ezme Sorunu (hasPendingWrites):** `onSnapshot`'ın bu cihazın kendi yazdığı veriyi geri getirip state'i ezmesi, Firestore'un `hasPendingWrites` metadata özelliğiyle kalıcı olarak çözüldü. Özellikle yavaş mobil ağda hızlı işaretleme yapılırken soruların işaretinin geri gitmesi ve görüş/öneri alanında yazarken yazının silinmesi sorunları giderildi.
+- **Yazma Sırası Koruması (isWriting Guard):** Firestore'a yazma işlemi devam ederken gelen `onSnapshot` güncellemeleri atlanıyor; yerel state ezilmiyor.
+- **Aktif Metin Girişi Koruması:** Kullanıcı herhangi bir textarea/input'a yazarken gelen bölüm (sections) senkronizasyonu erteleniyor.
+
 ## [3.0.1] - 2026-03-10
+
 
 ### v3.0.1
 - **Duyuru/Bildirim Editörü (Tiptap):** Önceki versiyonlarda kaybolan zengin metin editörü (Rich Text Editor) "Bilgilendirme Gönder" sayfasına tekrar entegre edildi. Kalın, italik, liste, hizalama ve renk paleti fonksiyonları eksiksiz çalışıyor.

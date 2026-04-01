@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
-import { X, Edit, Loader2, Upload, Save, CheckCircle } from "lucide-react";
+import { X, Edit, Loader2, Upload, Save, CheckCircle, Camera, ImageIcon } from "lucide-react";
 import { toast } from "sonner";
 import imageCompression from "browser-image-compression";
 import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
@@ -51,6 +51,8 @@ export default function ImageGallery({
     hideThumbnails = false,
 }: ImageGalleryProps) {
     const fileInputRef = React.useRef<HTMLInputElement>(null);
+    const cameraInputRef = React.useRef<HTMLInputElement>(null);
+    const [showPicker, setShowPicker] = useState(false);
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
     const [uploading, setUploading] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(0);
@@ -436,6 +438,7 @@ export default function ImageGallery({
 
             {!hideAddButton && (
                 <div className="w-auto">
+                    {/* Galeri input */}
                     <input
                         ref={fileInputRef}
                         type="file"
@@ -445,12 +448,22 @@ export default function ImageGallery({
                         onChange={handleFileSelect}
                         disabled={uploading || disabled}
                     />
+                    {/* Kamera input */}
+                    <input
+                        ref={cameraInputRef}
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        className="hidden"
+                        onChange={handleFileSelect}
+                        disabled={uploading || disabled}
+                    />
 
                     {!disabled && (
-                        renderTrigger ? renderTrigger(() => fileInputRef.current?.click(), uploading, uploadProgress) : (
+                        renderTrigger ? renderTrigger(() => setShowPicker(true), uploading, uploadProgress) : (
                             <label
                                 className="h-24 w-24 border-2 border-dashed rounded-lg flex items-center justify-center cursor-pointer hover:bg-accent transition-colors"
-                                onClick={() => fileInputRef.current?.click()}
+                                onClick={() => setShowPicker(true)}
                             >
                                 {uploading ? (
                                     <div className="flex flex-col items-center gap-1">
@@ -464,6 +477,53 @@ export default function ImageGallery({
                         )
                     )}
                 </div>
+            )}
+
+            {/* Kamera / Galeri Seçici */}
+            {showPicker && typeof document !== 'undefined' && createPortal(
+                <div
+                    className="fixed inset-0 z-[200] flex items-end justify-center bg-black/60 backdrop-blur-sm"
+                    onClick={() => setShowPicker(false)}
+                >
+                    <div
+                        className="w-full max-w-sm bg-background rounded-t-2xl shadow-2xl p-4 pb-8 animate-in slide-in-from-bottom duration-200"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="w-10 h-1 bg-muted-foreground/30 rounded-full mx-auto mb-5" />
+                        <p className="text-sm font-semibold text-center text-muted-foreground mb-4">Fotoğraf Ekle</p>
+                        <div className="grid grid-cols-2 gap-3">
+                            <button
+                                type="button"
+                                className="flex flex-col items-center gap-2 p-4 rounded-xl border-2 hover:border-primary hover:bg-primary/5 transition-colors"
+                                onClick={() => {
+                                    setShowPicker(false);
+                                    setTimeout(() => cameraInputRef.current?.click(), 50);
+                                }}
+                            >
+                                <div className="p-3 bg-blue-50 dark:bg-blue-900/30 rounded-full">
+                                    <Camera className="h-6 w-6 text-blue-600" />
+                                </div>
+                                <span className="text-sm font-medium">Kamera</span>
+                                <span className="text-xs text-muted-foreground">Fotoğraf çek</span>
+                            </button>
+                            <button
+                                type="button"
+                                className="flex flex-col items-center gap-2 p-4 rounded-xl border-2 hover:border-primary hover:bg-primary/5 transition-colors"
+                                onClick={() => {
+                                    setShowPicker(false);
+                                    setTimeout(() => fileInputRef.current?.click(), 50);
+                                }}
+                            >
+                                <div className="p-3 bg-purple-50 dark:bg-purple-900/30 rounded-full">
+                                    <ImageIcon className="h-6 w-6 text-purple-600" />
+                                </div>
+                                <span className="text-sm font-medium">Galeri</span>
+                                <span className="text-xs text-muted-foreground">Galeriden seç</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>,
+                document.body
             )}
 
             {/* Silme Onay Dialog'u */}

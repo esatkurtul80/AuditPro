@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useEffect, useRef, Fragment } from "react";
 import { Audit, Store } from "@/lib/types";
@@ -34,15 +34,15 @@ const renderFeedbackText = (text: string) => {
     if (!text) return null;
 
     // Split the text by the keywords
-    const parts = text.split(/(ÖNEMLİ:|NOT:|ÖNERİ:)/g);
+    const parts = text.split(/(├ûNEML─░:|NOT:|├ûNER─░:)/g);
 
     return parts.map((part, index) => {
-        if (part === 'ÖNEMLİ:') {
-            return <span key={index} style={{ backgroundColor: '#ef4444', color: 'white', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold', marginRight: '4px' }}>ÖNEMLİ:</span>;
+        if (part === '├ûNEML─░:') {
+            return <span key={index} style={{ backgroundColor: '#ef4444', color: 'white', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold', marginRight: '4px' }}>├ûNEML─░:</span>;
         } else if (part === 'NOT:') {
             return <span key={index} style={{ backgroundColor: '#22c55e', color: 'white', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold', marginRight: '4px' }}>NOT:</span>;
-        } else if (part === 'ÖNERİ:') {
-            return <span key={index} style={{ backgroundColor: '#3b82f6', color: 'white', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold', marginRight: '4px' }}>ÖNERİ:</span>;
+        } else if (part === '├ûNER─░:') {
+            return <span key={index} style={{ backgroundColor: '#3b82f6', color: 'white', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold', marginRight: '4px' }}>├ûNER─░:</span>;
         }
 
         // Handle normal text and newlines
@@ -87,7 +87,6 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
     // Dynamic Mobile Scaling
     const [mobileScale, setMobileScale] = useState(1);
     const [mobileMarginLeft, setMobileMarginLeft] = useState(0);
-    const [reportHeight, setReportHeight] = useState(1123);
 
     useEffect(() => {
         const handleResize = () => {
@@ -105,6 +104,10 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
 
                 setMobileScale(targetScale);
 
+                // Calculate centering margin
+                // scaledWidth = 794 * targetScale
+                // remainingSpace = w - scaledWidth
+                // marginLeft = remainingSpace / 2
                 const scaledWidth = contentWidth * targetScale;
                 const margin = (w - scaledWidth) / 2;
                 setMobileMarginLeft(margin);
@@ -118,20 +121,6 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
         window.addEventListener('resize', handleResize);
         return () => window.removeEventListener('resize', handleResize);
     }, [mode]);
-
-    useEffect(() => {
-        if (mode !== 'preview' || !reportRef.current) return;
-
-        const observer = new ResizeObserver((entries) => {
-            if (entries[0]) {
-                const height = entries[0].target.scrollHeight;
-                if (height > 0) setReportHeight(height);
-            }
-        });
-
-        observer.observe(reportRef.current);
-        return () => observer.disconnect();
-    }, [mode, reportRef.current]);
 
     const activeStore = store || fetchedStore;
 
@@ -238,15 +227,15 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
     const getProxiedUrl = (url: string) => {
         if (!url) return "";
         if (url.startsWith("data:")) return url; // Already base64
-        if (url.startsWith("local://")) return ""; // Offline/unsynced image – skip
-        if (!url.startsWith("http://") && !url.startsWith("https://")) return ""; // Not a real URL – skip
+        if (url.startsWith("local://")) return ""; // Offline/unsynced image ÔÇô skip
+        if (!url.startsWith("http://") && !url.startsWith("https://")) return ""; // Not a real URL ÔÇô skip
         return `/api/image-proxy?url=${encodeURIComponent(url)}`;
     };
 
     const generatePDF = async () => {
         if (!reportRef.current || !configLoaded) return;
         if (!window.html2pdf) {
-            toast.error("PDF kütüphanesi henüz yüklenmedi, lütfen birkaç saniye bekleyip tekrar deneyin.");
+            toast.error("PDF k├╝t├╝phanesi hen├╝z y├╝klenmedi, l├╝tfen birka├ğ saniye bekleyip tekrar deneyin.");
             return;
         }
 
@@ -254,152 +243,75 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
 
         const element = reportRef.current;
 
-        // Snapshot current style (transform dahil — mobil scale'i sıfırlamak için)
+        // Snapshot current style
         const originalStyle = {
-            width:           element.style.width,
-            margin:          element.style.margin,
-            marginLeft:      element.style.marginLeft,
-            boxShadow:       element.style.boxShadow,
-            height:          element.style.height,
-            minHeight:       element.style.minHeight,
-            transform:       element.style.transform,
-            transformOrigin: element.style.transformOrigin,
+            width: element.style.width,
+            margin: element.style.margin,
+            boxShadow: element.style.boxShadow,
+            height: element.style.height,
+            minHeight: element.style.minHeight
         };
 
-        // Normalize for clean rendering — transform sıfırlanmazsa
-        // html2canvas'ın y/height koordinatları tablet scale'i nedeniyle kayar
-        element.style.width           = '794px';
-        element.style.margin          = '0 auto';
-        element.style.marginLeft      = 'auto';
-        element.style.boxShadow       = 'none';
-        element.style.height          = 'auto';
-        element.style.minHeight       = 'auto';
-        element.style.transform       = 'none';
-        element.style.transformOrigin = '';
+        // Modify for print to ensure single page look
+        element.style.width = '794px';
+        element.style.margin = '0 auto';
+        element.style.boxShadow = 'none';
+        element.style.height = 'auto';
+        element.style.minHeight = 'auto';
 
-        window.scrollTo(0, 0);
-
-        // Sadece küçük thumbnail resimlere data-original-url ata
-        const imgEls = Array.from(element.querySelectorAll('a[href] > img')) as HTMLImageElement[];
-        imgEls.forEach(img => {
-            const anchor = img.closest('a') as HTMLAnchorElement | null;
-            if (anchor?.href) img.setAttribute('data-original-url', anchor.href);
-        });
-
-        // Gerçek içerik yüksekliğini spacer EKLEMEDEN önce kaydet
-        const realContentHeight = element.scrollHeight;
-
-        // İki frame bekle — layout tam oturması için
-        await new Promise<void>(r => requestAnimationFrame(() => requestAnimationFrame(() => r())));
+        const contentHeight = element.scrollHeight;
 
         const fileName = `Ozel_Rapor_${audit.storeName}_${format(new Date(), "yyyy-MM-dd")}.pdf`;
 
-        // SCALE her zaman 2 — her sayfayı ayrı yakalıyoruz, limit sorunu yok
-        const SCALE       = 2;
-        const PAGE_H_CSS  = 12000; // CSS px / PDF sayfası
-        const pages       = Math.ceil(realContentHeight / PAGE_H_CSS);
-        const pdfW_mm     = +(794 * 0.264583).toFixed(2);
-
-        const html2canvasCfg = {
-            scale:           SCALE,
-            useCORS:         true,
-            allowTaint:      true,
-            backgroundColor: '#ffffff',
-            scrollX:         0,
-            scrollY:         0,
-            x:               0,
-            windowWidth:     794,
-            logging:         false,
+        const opt = {
+            margin: 0,
+            filename: fileName,
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { scale: 2, useCORS: true, scrollY: 0, x: 0, y: 0, windowWidth: 794, height: contentHeight },
+            jsPDF: { unit: 'px', format: [794, contentHeight], orientation: 'portrait' }
         };
 
+        window.scrollTo(0, 0);
+
         try {
-            // jsPDF
-            const jspdfModule = await import('jspdf');
-            const jsPDFLib: any = jspdfModule.jsPDF ?? (jspdfModule as any).default?.jsPDF ?? (jspdfModule as any).default;
-            if (!jsPDFLib) throw new Error('jsPDF yüklenemedi');
+            // 1. Generate PDF object but don't save yet
+            const worker = window.html2pdf().set(opt).from(element).toPdf();
 
-            // Küçük thumbnail link koordinatları
-            const reportRect = element.getBoundingClientRect();
-            const imageLinks: { x: number; y: number; w: number; h: number; url: string }[] = [];
-            element.querySelectorAll('img[data-original-url]').forEach((img: any) => {
+            // 2. Wait for PDF container to be created
+            const pdf = await worker.get('pdf');
+
+            // 3. Calculate and add links
+            const images = element.querySelectorAll('img[data-original-url]');
+
+            images.forEach((img: any) => {
                 const rect = img.getBoundingClientRect();
-                if (rect.width >= 150) return;
+                const reportRect = element.getBoundingClientRect();
+
+                const x = rect.left - reportRect.left;
+                const y = rect.top - reportRect.top;
+                const w = rect.width;
+                const h = rect.height;
                 const url = img.getAttribute('data-original-url');
-                if (!url) return;
-                imageLinks.push({
-                    x: rect.left - reportRect.left,
-                    y: rect.top  - reportRect.top,
-                    w: rect.width,
-                    h: rect.height,
-                    url,
-                });
-            });
 
-            // İlk sayfanın yüksekliğini hesapla
-            const firstPageH = Math.min(PAGE_H_CSS, realContentHeight);
-            const firstPageMm = +(firstPageH * 0.264583).toFixed(2);
-
-            const pdf = new jsPDFLib({
-                unit:        'mm',
-                format:      [pdfW_mm, firstPageMm],
-                orientation: 'portrait',
-            });
-
-            // ── Her sayfayı ayrı capture et (SCALE=2 sabit, canvas limit yok) ──
-            for (let i = 0; i < pages; i++) {
-                const yStart   = i * PAGE_H_CSS;
-                const chunkH   = Math.min(PAGE_H_CSS, realContentHeight - yStart);
-                const chunkMm  = +(chunkH * 0.264583).toFixed(2);
-
-                const chunkCanvas: HTMLCanvasElement = await window.html2pdf()
-                    .set({ html2canvas: { ...html2canvasCfg, y: yStart, height: chunkH } })
-                    .from(element)
-                    .toCanvas()
-                    .get('canvas');
-
-                const imgData = chunkCanvas.toDataURL('image/jpeg', 0.92);
-
-                if (i === 0) {
-                    pdf.addImage(imgData, 'JPEG', 0, 0, pdfW_mm, chunkMm);
-                } else {
-                    pdf.addPage([pdfW_mm, chunkMm], 'portrait');
-                    pdf.addImage(imgData, 'JPEG', 0, 0, pdfW_mm, chunkMm);
+                if (url) {
+                    pdf.link(x, y, w, h, { url: url });
                 }
+            });
 
-                // Bu sayfaya düşen thumbnail linkleri ekle
-                const pageTopCss = yStart;
-                const pageBotCss = yStart + chunkH;
-                imageLinks.forEach(lnk => {
-                    if (lnk.y + lnk.h < pageTopCss || lnk.y > pageBotCss) return;
-                    const relY = lnk.y - pageTopCss;
-                    pdf.link(
-                        +(lnk.x * 0.264583).toFixed(2),
-                        +(relY   * 0.264583).toFixed(2),
-                        +(lnk.w  * 0.264583).toFixed(2),
-                        +(lnk.h  * 0.264583).toFixed(2),
-                        { url: lnk.url }
-                    );
-                });
-            }
-
-            imgEls.forEach(img => img.removeAttribute('data-original-url'));
-            pdf.save(fileName);
+            // 4. Save the PDF
+            await worker.save();
             onComplete?.();
 
         } catch (error) {
             console.error("PDF Generation Error:", error);
-            imgEls.forEach(img => img.removeAttribute('data-original-url'));
             onError?.(error);
         } finally {
             // Restore style
-            element.style.width           = originalStyle.width;
-            element.style.margin          = originalStyle.margin;
-            element.style.marginLeft      = originalStyle.marginLeft;
-            element.style.boxShadow       = originalStyle.boxShadow;
-            element.style.height          = originalStyle.height;
-            element.style.minHeight       = originalStyle.minHeight;
-            element.style.transform       = originalStyle.transform;
-            element.style.transformOrigin = originalStyle.transformOrigin;
+            element.style.width = originalStyle.width;
+            element.style.margin = originalStyle.margin;
+            element.style.boxShadow = originalStyle.boxShadow;
+            element.style.height = originalStyle.height;
+            element.style.minHeight = originalStyle.minHeight;
             setGenerating(false);
         }
     };
@@ -613,7 +525,7 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
                     color: #000;
                 }
                 
-                .generator-wrapper .section-card { margin-bottom: 25px; border: var(--border-style); }
+                .generator-wrapper .section-card { margin-bottom: 25px; border: var(--border-style); page-break-inside: avoid; }
                 .generator-wrapper .section-banner { background: var(--primary); color: #fff; padding: 10px 20px; display: flex; justify-content: space-between; }
                 
                 .generator-wrapper table { width: 100%; border-collapse: collapse; }
@@ -624,7 +536,7 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
                 .generator-wrapper .opinion-photo { flex: 1; height: 110px; background: #f5f5f5; border: 1px dashed #ccc; display: flex; align-items: center; justify-content: center; overflow: hidden; }
                 .generator-wrapper .opinion-photo img { width: 100%; height: 100%; object-fit: cover; }
 
-                /* Tasarım Sınıfları */
+                /* Tasar─▒m S─▒n─▒flar─▒ */
                 .st-1 { --primary: #800020; } .st-1 .report-header { background: linear-gradient(110deg, #fff 65%, #f8f8f8 65%); }
                 .st-2 { --primary: #002347; --header-bg: #002347; } .st-2 .report-header { color: white; flex-direction: row-reverse; } .st-2 .head-text h1, .st-2 .head-text h2 { color: white !important; }
                 .st-4 { --primary: #000; } .st-4 .report-header { background: #FFD700; border: none; }
@@ -699,19 +611,16 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
                         className="gap-2 bg-slate-900 hover:bg-slate-800 text-white shadow-sm ml-auto"
                     >
                         {generating ? (
-                            <><Loader2 className="h-4 w-4 animate-spin" /> Hazırlanıyor...</>
+                            <><Loader2 className="h-4 w-4 animate-spin" /> Haz─▒rlan─▒yor...</>
                         ) : (
-                            <><Download className="h-4 w-4" /> PDF İndir</>
+                            <><Download className="h-4 w-4" /> PDF ─░ndir</>
                         )}
                     </Button>
                 </div>
             )}
 
             {/* Report Container - hidden in download mode, visible in preview mode */}
-            <div
-                className={mode === 'preview' ? "px-4 md:px-8 bg-transparent print-preview-container overflow-hidden" : ""}
-                style={mode === 'preview' ? { paddingBottom: mobileScale < 1 ? 0 : '3rem', height: mobileScale < 1 && reportHeight ? (reportHeight * mobileScale) + 40 : undefined } : { position: "absolute", left: "-9999px", top: "-9999px" }}
-            >
+            <div className={mode === 'preview' ? "flex justify-center px-8 pb-12 bg-transparent min-h-full print-preview-container" : ""} style={mode === 'preview' ? {} : { position: "absolute", left: "-9999px", top: "-9999px" }}>
                 <div
                     ref={reportRef}
                     className={`generator-wrapper ${templateId} print-preview-content`}
@@ -724,7 +633,7 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
                         transform: mobileScale < 1 ? `scale(${mobileScale})` : 'none',
                         transformOrigin: mobileScale < 1 ? 'top left' : undefined,
                         marginLeft: mobileScale < 1 ? `${mobileMarginLeft}px` : (mode === 'preview' ? 'auto' : undefined),
-                        // marginBottom compensation removed because parent height is dynamically set now
+                        marginBottom: mobileScale < 1 ? `-${(1 - mobileScale) * 100}%` : undefined
                     }}
                 >
                     <div className="report-page">
@@ -734,8 +643,8 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
                                 {logo && <img src={logo.startsWith('http') ? getProxiedUrl(logo) : logo} alt="Logo" crossOrigin="anonymous" />}
                             </div>
                             <div className="head-text">
-                                <h1>Şube Denetim Raporu</h1>
-                                <h2>Görüş, Öneri ve Tespit Formu</h2>
+                                <h1>┼Şube Denetim Raporu</h1>
+                                <h2>G├Âr├╝┼ş, ├ûneri ve Tespit Formu</h2>
                             </div>
                         </header>
 
@@ -743,20 +652,20 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
 
                             <div className="info-panel">
                                 <div className="info-title">
-                                    {audit.storeName.toUpperCase()} - MAĞAZA BİLGİLERİ
+                                    {audit.storeName.toUpperCase()} - MA─ŞAZA B─░LG─░LER─░
                                 </div>
                                 <div className="info-grid-2col">
                                     <div className="col-left">
-                                        <div className="info-row"><span className="info-label">Mağaza Adı:</span> <span className="info-val">{audit.storeName}</span></div>
+                                        <div className="info-row"><span className="info-label">Ma─şaza Ad─▒:</span> <span className="info-val">{audit.storeName}</span></div>
                                         <div className="info-row"><span className="info-label">Denetimi Yapan:</span> <span className="info-val">{audit.auditorName}</span></div>
-                                        <div className="info-row"><span className="info-label">İlgili Hafta:</span> <span className="info-val">{getWeekString(audit.createdAt)}</span></div>
-                                        <div className="info-row"><span className="info-label">Mağaza Puanı:</span> <span className="score-badge">{audit.totalScore}</span></div>
+                                        <div className="info-row"><span className="info-label">─░lgili Hafta:</span> <span className="info-val">{getWeekString(audit.createdAt)}</span></div>
+                                        <div className="info-row"><span className="info-label">Ma─şaza Puan─▒:</span> <span className="score-badge">{audit.totalScore}</span></div>
                                     </div>
                                     <div className="col-right">
                                         <div className="info-row"><span className="info-label">Denetim Tarihi:</span> <span className="info-val">{getFormattedDate(audit.createdAt)}</span></div>
-                                        <div className="info-row"><span className="info-label">Başlama Saati:</span> <span className="info-val">{getFormattedTime(audit.startedAt)}</span></div>
-                                        <div className="info-row"><span className="info-label">Bitiş Saati:</span> <span className="info-val">{getFormattedTime(audit.completedAt)}</span></div>
-                                        <div className="info-row"><span className="info-label">Önceki Denetmen:</span> <span className="info-val">{prevAuditor}</span></div>
+                                        <div className="info-row"><span className="info-label">Ba┼şlama Saati:</span> <span className="info-val">{getFormattedTime(audit.startedAt)}</span></div>
+                                        <div className="info-row"><span className="info-label">Biti┼ş Saati:</span> <span className="info-val">{getFormattedTime(audit.completedAt)}</span></div>
+                                        <div className="info-row"><span className="info-label">├ûnceki Denetmen:</span> <span className="info-val">{prevAuditor}</span></div>
                                     </div>
                                 </div>
                             </div>
@@ -765,13 +674,13 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
                             {personnelEvals && personnelEvals.length > 0 && (
                                 <div className="section-card">
                                     <div className="section-banner" style={{ justifyContent: 'center', textAlign: 'center' }}>
-                                        <span>PERSONEL TUTUM VE DAVRANIŞLARI DEĞERLENDİRMESİ</span>
+                                        <span>PERSONEL TUTUM VE DAVRANI┼ŞLARI DE─ŞERLEND─░RMES─░</span>
                                     </div>
                                     <table>
                                         <thead>
                                             <tr style={{ backgroundColor: '#f5f5f5' }}>
-                                                <th style={{ width: '1%', whiteSpace: 'nowrap', paddingRight: '20px' }}>Personel Adı</th>
-                                                <th style={{ width: 'auto' }}>Yorum/Görüş</th>
+                                                <th style={{ width: '1%', whiteSpace: 'nowrap', paddingRight: '20px' }}>Personel Ad─▒</th>
+                                                <th style={{ width: 'auto' }}>Yorum/G├Âr├╝┼ş</th>
                                                 {showScoresInReport && <th style={{ width: '15%', minWidth: '80px', textAlign: 'center' }}>Puan</th>}
                                             </tr>
                                         </thead>
@@ -809,16 +718,16 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
                                     const hasNotes = a.notes && a.notes.some(n => n && n.trim() !== "");
                                     const hasPhotos = a.photos && a.photos.length > 0;
 
-                                    // 1. "Hayır" — always include
+                                    // 1. "Hay─▒r" ÔÇö always include
                                     if (a.answer === "hayir") return true;
 
                                     // 2. Checkbox:
-                                    //    - Eksik puan varsa (EKSİKLER) → her zaman ekle
-                                    //    - Tam puan aldıysa → "evet" ile aynı kural: sadece not varsa ekle
+                                    //    - Eksik puan varsa (EKS─░KLER) ÔåÆ her zaman ekle
+                                    //    - Tam puan ald─▒ysa ÔåÆ "evet" ile ayn─▒ kural: sadece not varsa ekle
                                     if (sectionHasAnswers && hasAnswer && a.answer !== "muaf" && a.questionType === "checkbox") {
                                         const isFullScore = (a.earnedPoints || 0) >= (a.maxPoints || 0);
                                         if (isFullScore) return hasNotes;
-                                        return true; // partial score → always show
+                                        return true; // partial score ÔåÆ always show
                                     }
 
                                     // 3. Rating/radio/multiple_choice with partial points
@@ -826,10 +735,10 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
                                         (a.questionType === "rating" || (a.questionType as string) === "radio" || a.questionType === "multiple_choice") &&
                                         (a.earnedPoints || 0) < (a.maxPoints || 0)) return true;
 
-                                    // 4. "Evet" cevaplı sorular: sadece not varsa ekle (sadece fotoğraf yeterli değil)
+                                    // 4. "Evet" cevapl─▒ sorular: sadece not varsa ekle (sadece foto─şraf yeterli de─şil)
                                     if (a.answer === "evet") return hasNotes;
 
-                                    // 5. Diğer cevaplar (muaf, sayı, metin vb.): not VEYA fotoğraf varsa ekle
+                                    // 5. Di─şer cevaplar (muaf, say─▒, metin vb.): not VEYA foto─şraf varsa ekle
                                     if (hasNotes || hasPhotos) return true;
 
                                     return false;
@@ -845,7 +754,7 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
                                         {/* Section Header */}
                                         <div className="section-banner">
                                             <span>{section.sectionName}</span>
-                                            <span>DEĞERLENDİRME</span>
+                                            <span>DE─ŞERLEND─░RME</span>
                                         </div>
 
                                         {/* Questions Table */}
@@ -868,36 +777,32 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
                                                                 {answer.photos && answer.photos.length > 0 && (
                                                                     <div style={{ display: 'flex', gap: '5px', marginTop: '6px', flexWrap: 'wrap' }}>
                                                                         {answer.photos.filter(p => p && (p.startsWith('http://') || p.startsWith('https://'))).map((p, pi) => (
-                                                                            <a key={pi} href={p} target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
-                                                                                <img
-                                                                                    src={p}
-                                                                                    data-proxied-url={getProxiedUrl(p)}
-                                                                                    onClick={(e) => {
-                                                                                        e.preventDefault();
-                                                                                        setSelectedImage(p);
-                                                                                    }}
-                                                                                    onError={(e) => {
-                                                                                        // On direct load fail, try proxy
-                                                                                        const el = e.target as HTMLImageElement;
-                                                                                        const proxied = el.getAttribute('data-proxied-url');
-                                                                                        if (proxied && el.src !== proxied) {
-                                                                                            el.src = proxied;
-                                                                                        } else {
-                                                                                            if (el.parentElement) el.parentElement.style.display = 'none';
-                                                                                        }
-                                                                                    }}
-                                                                                    style={{
-                                                                                        width: '80px',
-                                                                                        height: '80px',
-                                                                                        objectFit: 'cover',
-                                                                                        borderRadius: '4px',
-                                                                                        border: '1px solid #eee',
-                                                                                        cursor: 'pointer'
-                                                                                    }}
-                                                                                    crossOrigin="anonymous"
-                                                                                    alt={`Soru fotoğrafı ${pi + 1}`}
-                                                                                />
-                                                                            </a>
+                                                                            <img
+                                                                                key={pi}
+                                                                                src={p}
+                                                                                data-proxied-url={getProxiedUrl(p)}
+                                                                                onClick={() => setSelectedImage(p)}
+                                                                                onError={(e) => {
+                                                                                    // On direct load fail, try proxy
+                                                                                    const el = e.target as HTMLImageElement;
+                                                                                    const proxied = el.getAttribute('data-proxied-url');
+                                                                                    if (proxied && el.src !== proxied) {
+                                                                                        el.src = proxied;
+                                                                                    } else {
+                                                                                        el.style.display = 'none';
+                                                                                    }
+                                                                                }}
+                                                                                style={{
+                                                                                    width: '80px',
+                                                                                    height: '80px',
+                                                                                    objectFit: 'cover',
+                                                                                    borderRadius: '4px',
+                                                                                    border: '1px solid #eee',
+                                                                                    cursor: 'pointer'
+                                                                                }}
+                                                                                crossOrigin="anonymous"
+                                                                                alt={`Soru foto─şraf─▒ ${pi + 1}`}
+                                                                            />
                                                                         ))}
                                                                     </div>
                                                                 )}
@@ -922,7 +827,7 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
                                                                     }
                                                                     return (
                                                                         <span style={{ color: 'red', fontSize: '12px' }}>
-                                                                            <span style={{ textDecoration: 'underline' }}>EKSİKLER:</span>{" "}
+                                                                            <span style={{ textDecoration: 'underline' }}>EKS─░KLER:</span>{" "}
                                                                             {missingOptions.map(o => o.text).join(", ")}
                                                                         </span>
                                                                     );
@@ -965,7 +870,7 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
                                                     marginTop: reportAnswers.length > 0 ? '0' : '0', // attach to table if exists
                                                     textTransform: 'uppercase'
                                                 }}>
-                                                    {section.sectionName} GÖRÜŞ VE ÖNERİLERİNİZ
+                                                    {section.sectionName} G├ûR├£┼Ş VE ├ûNER─░LER─░N─░Z
                                                 </div>
                                                 <div style={{
                                                     padding: '15px',
@@ -989,18 +894,19 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
                                                                     <img
                                                                         src={img}
                                                                         data-proxied-url={getProxiedUrl(img)}
+                                                                        onClick={() => setSelectedImage(img)}
                                                                         onError={(e) => {
                                                                             const el = e.target as HTMLImageElement;
                                                                             const proxied = el.getAttribute('data-proxied-url');
                                                                             if (proxied && el.src !== proxied) {
                                                                                 el.src = proxied;
                                                                             } else {
-                                                                                if (el.parentElement) el.parentElement.style.display = 'none';
+                                                                                el.parentElement!.style.display = 'none';
                                                                             }
                                                                         }}
-                                                                        style={{ maxWidth: '100%', height: 'auto', objectFit: 'contain' }}
+                                                                        style={{ maxWidth: '100%', height: 'auto', objectFit: 'contain', cursor: 'pointer' }}
                                                                         crossOrigin="anonymous"
-                                                                        alt={`Bölüm geri bildirim fotoğrafı ${i + 1}`}
+                                                                        alt={`B├Âl├╝m geri bildirim foto─şraf─▒ ${i + 1}`}
                                                                     />
                                                                 </div>
                                                             ))}
@@ -1013,7 +919,7 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
                                 );
                             })}
 
-                            {/* GENERAL FEEDBACK (Puanlamadan Bağımsız) */}
+                            {/* GENERAL FEEDBACK (Puanlamadan Ba─ş─▒ms─▒z) */}
                             {((audit.generalFeedback?.note || (audit.generalFeedback?.images && audit.generalFeedback.images.length > 0)) ||
                                 ((audit as any).generalObservations)) && (
                                     <div className="section-card">
@@ -1026,7 +932,7 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
                                             borderBottom: '2px solid #ed1b24',
                                             textTransform: 'uppercase'
                                         }}>
-                                            GENEL GÖRÜŞ VE ÖNERİLER
+                                            GENEL G├ûR├£┼Ş VE ├ûNER─░LER
                                         </div>
                                         <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '15px', textAlign: 'left' }}>
                                             {audit.generalFeedback?.note && (
@@ -1048,14 +954,13 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
                                                             <img
                                                                 src={getProxiedUrl(img)}
                                                                 data-original-url={img}
+                                                                onClick={() => setSelectedImage(getProxiedUrl(img))}
                                                                 onError={(e) => {
-                                                                    if ((e.target as HTMLImageElement).parentElement) {
-                                                                        (e.target as HTMLImageElement).parentElement!.style.display = 'none';
-                                                                    }
+                                                                    (e.target as HTMLImageElement).parentElement!.style.display = 'none';
                                                                 }}
-                                                                style={{ maxWidth: '100%', height: 'auto', objectFit: 'contain' }}
+                                                                style={{ maxWidth: '100%', height: 'auto', objectFit: 'contain', cursor: 'pointer' }}
                                                                 crossOrigin="anonymous"
-                                                                alt={`Genel geri bildirim fotoğrafı ${i + 1}`}
+                                                                alt={`Genel geri bildirim foto─şraf─▒ ${i + 1}`}
                                                             />
                                                         </div>
                                                     ))}
@@ -1066,7 +971,7 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
                                 )}
 
                             <footer style={{ textAlign: 'center', fontSize: '11px', color: '#999', marginTop: '20px', paddingBottom: '20px' }}>
-                                AuditPro Denetim Sistemi | © {new Date().getFullYear()} Tüm Hakları Saklıdır.
+                                AuditPro Denetim Sistemi | ┬® {new Date().getFullYear()} T├╝m Haklar─▒ Sakl─▒d─▒r.
                             </footer>
                         </div>
                     </div>
@@ -1079,18 +984,18 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
                 <div style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999 }}>
                     <div style={{ backgroundColor: "white", padding: "20px", borderRadius: "8px", display: "flex", alignItems: "center", gap: "10px" }}>
                         <Loader2 className="animate-spin" />
-                        <span>PDF Oluşturuluyor...</span>
+                        <span>PDF Olu┼şturuluyor...</span>
                     </div>
                 </div>
             )}
             {/* Image Preview Modal */}
             <Dialog open={!!selectedImage} onOpenChange={(open) => !open && setSelectedImage(null)}>
                 <DialogContent className="max-w-[90vw] max-h-[90vh] p-0 bg-transparent border-none shadow-none flex items-center justify-center pointer-events-auto" showCloseButton={false}>
-                    <DialogTitle className="sr-only">Fotoğraf Önizleme</DialogTitle>
+                    <DialogTitle className="sr-only">Foto─şraf ├ûnizleme</DialogTitle>
                     <div className="relative inline-block">
                         <img
                             src={selectedImage || undefined}
-                            alt="Önizleme"
+                            alt="├ûnizleme"
                             onError={(e) => {
                                 // Fallback for modal
                                 (e.target as HTMLImageElement).src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 24 24" fill="none" stroke="%23ccc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="1" y1="1" x2="23" y2="23"></line><path d="M21 21H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h3m3-3h6l2 3h4a2 2 0 0 1 2 2v9.34m-7.72-2.06a4 4 0 1 1-5.56-5.56"></path></svg>';

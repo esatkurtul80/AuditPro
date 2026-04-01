@@ -113,6 +113,10 @@ export default function AuditPage() {
     const touchTimer = useRef<NodeJS.Timeout | null>(null);
     const sectionFeedbackRef = useRef<HTMLTextAreaElement>(null);
     const generalFeedbackRef = useRef<HTMLTextAreaElement>(null);
+    const isWriting = useRef(false); // Prevents onSnapshot from overwriting local state mid-write
+    const isEditing = useRef(false); // Prevents onSnapshot from overwriting while user is typing a note
+    const lastLocalWriteTime = useRef<number>(0); // Timestamp of last write by THIS device
+    const auditListenerUnsub = useRef<(() => void) | null>(null); // Real-time listener cleanup
 
     const isRegionalManager = userProfile?.role === 'bolge-muduru';
 
@@ -144,21 +148,29 @@ export default function AuditPage() {
         touchTimer.current = setTimeout(() => {
             setSectionToReset(index);
             setResetAlertOpen(true);
-        }, 800); // 800ms long press
+        }, 3000); // 2sn long press
     };
 
-    const handleTouchEnd = () => {
+    const handleTouchEnd = (e: React.TouchEvent | React.MouseEvent) => {
         if (touchTimer.current) {
             clearTimeout(touchTimer.current);
             touchTimer.current = null;
         }
     };
 
-    const onContextMenu = (e: React.MouseEvent, index: number) => {
+    const handleMouseDown = (index: number) => {
         if (!canEdit) return;
-        e.preventDefault(); // Prevent default browser context menu
-        setSectionToReset(index);
-        setResetAlertOpen(true);
+        touchTimer.current = setTimeout(() => {
+            setSectionToReset(index);
+            setResetAlertOpen(true);
+        }, 3000);
+    };
+
+    const handleMouseUp = () => {
+        if (touchTimer.current) {
+            clearTimeout(touchTimer.current);
+            touchTimer.current = null;
+        }
     };
 
     const confirmSectionReset = async () => {
@@ -273,12 +285,38 @@ export default function AuditPage() {
     }, [syncing, hasPending, uploadedImageUrls.length]);
 
     useEffect(() => {
-        if (auditId) {
-            loadAudit();
-        } else {
+        if (!auditId) {
             setLoading(false);
+            return;
         }
+        // Start real-time listener
+        const unsub = startAuditListener();
+        return () => {
+            if (unsub) unsub();
+        };
     }, [auditId]);
+
+    // Track when user is actively typing in any text field to pause onSnapshot sections sync
+    useEffect(() => {
+        const handleFocusIn = (e: FocusEvent) => {
+            const target = e.target as HTMLElement;
+            if (target.tagName === 'TEXTAREA' || target.tagName === 'INPUT') {
+                isEditing.current = true;
+            }
+        };
+        const handleFocusOut = (e: FocusEvent) => {
+            const target = e.target as HTMLElement;
+            if (target.tagName === 'TEXTAREA' || target.tagName === 'INPUT') {
+                isEditing.current = false;
+            }
+        };
+        document.addEventListener('focusin', handleFocusIn);
+        document.addEventListener('focusout', handleFocusOut);
+        return () => {
+            document.removeEventListener('focusin', handleFocusIn);
+            document.removeEventListener('focusout', handleFocusOut);
+        };
+    }, []);
 
     // Track personnel evaluation status
     useEffect(() => {
@@ -318,21 +356,92 @@ export default function AuditPage() {
         };
     }, [audit?.id, audit?.storeId]);
 
+    // Real-time listener: syncs audit state across devices
+    const startAuditListener = () => {
+        if (!auditId) return;
+        const auditRef = doc(db, "audits", auditId);
+        // includeMetadataChanges: true — we get notified for both local (pending) and server-confirmed writes
+        const unsub = onSnapshot(auditRef, { includeMetadataChanges: true }, async (auditDoc) => {
+            // hasPendingWrites: true means this snapshot is from THIS device's own local write (not yet server-confirmed).
+            // Skip it to prevent our own write from overwriting the optimistic state we already set.
+            if (auditDoc.metadata.hasPendingWrites) return;
+
+            // Also skip if this device is mid-write (belt-and-suspenders)
+            if (isWriting.current) return;
+
+            if (!auditDoc.exists()) {
+                toast.error("Denetim bulunamadı");
+                router.push("/denetmen");
+                return;
+            }
+
+            const auditData = { id: auditDoc.id, ...auditDoc.data() } as Audit;
+
+            // Cross-device sync: if audit was completed on another device, redirect this device
+            const currentMode = new URLSearchParams(window.location.search).get('mode');
+            if (auditData.status === "tamamlandi" && currentMode !== "view" && currentMode !== "edit") {
+                toast.info("Bu denetim başka bir cihazda tamamlandı.", { duration: 4000 });
+                router.replace(`/audits/${auditId}?mode=view`);
+                return;
+            }
+
+            // Suppress sections sync if:
+            // 1. This device wrote to Firestore within the last 3 seconds (echo suppression), OR
+            // 2. User currently has a text field focused (actively typing)
+            const isEchoFromOwnWrite = (Date.now() - lastLocalWriteTime.current) < 3000;
+            const activeEl = document.activeElement;
+            const userIsTyping = activeEl && (
+                activeEl.tagName === 'TEXTAREA' ||
+                activeEl.tagName === 'INPUT' ||
+                (activeEl as HTMLElement).contentEditable === 'true'
+            );
+            const skipSectionsSync = isEchoFromOwnWrite || !!userIsTyping;
+
+            // Sync full audit data (sections, generalFeedback, status, score) from Firestore.
+            // isWriting guard (above) prevents overwriting while this device is actively saving.
+            setAudit(prev => {
+                if (!prev) {
+                    // First load — full data
+                    return auditData;
+                }
+                // If user is actively typing, skip sections sync to avoid erasing typed text.
+                if (skipSectionsSync) {
+                    return {
+                        ...prev,
+                        status: auditData.status,
+                        totalScore: auditData.totalScore,
+                        completedAt: auditData.completedAt,
+                        updatedAt: auditData.updatedAt,
+                    };
+                }
+                // Full sync: update sections and generalFeedback from other device's writes
+                return {
+                    ...prev,
+                    sections: auditData.sections || prev.sections,
+                    generalFeedback: auditData.generalFeedback || prev.generalFeedback,
+                    status: auditData.status,
+                    totalScore: auditData.totalScore,
+                    completedAt: auditData.completedAt,
+                    updatedAt: auditData.updatedAt,
+                };
+            });
+
+            // First load: also fetch history and auditor name
+            if (loading) {
+                await processInitialAuditData(auditData);
+            }
+        }, (error) => {
+            console.error("Audit listener error:", error);
+            // Fallback to one-time fetch on listener error
+            loadAudit();
+        });
+        return unsub;
+    };
+
     const loadAudit = async () => {
         if (!auditId) return;
         try {
-            // Parallel Fetch: Current Audit & Store History (Last 5)
-            // This ensures "0 delay" for the history buttons
-            const [auditDoc, historyAudits] = await Promise.all([
-                getDoc(doc(db, "audits", auditId)),
-                // We'll fetch history based on storeId AFTER we see the audit, 
-                // BUT we can't know storeId until we fetch the audit.
-                // OPTIMIZATION: We fetch audit first, then history immediately.
-                // To do true parallel, we'd need storeId from URL or params, but we only have auditId.
-                // However, fetching history immediately after audit (in same loading block) 
-                // is fast enough to appear "instant" when loading finishes.
-                Promise.resolve(null)
-            ]);
+            const auditDoc = await getDoc(doc(db, "audits", auditId));
 
             if (!auditDoc.exists()) {
                 toast.error("Denetim bulunamadı");
@@ -340,6 +449,17 @@ export default function AuditPage() {
                 return;
             }
             const auditData = { id: auditDoc.id, ...auditDoc.data() } as Audit;
+            await processInitialAuditData(auditData);
+        } catch (error) {
+            console.error("Error loading audit:", error);
+            toast.error("Denetim yüklenirken hata oluştu");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const processInitialAuditData = async (auditData: Audit) => {
+        try {
 
             // NOW fetch history concurrently with other operations (like user details)
             // We do this BEFORE setting loading to false
@@ -457,8 +577,7 @@ export default function AuditPage() {
                 setOriginalAudit(JSON.parse(JSON.stringify(auditData)));
             }
         } catch (error) {
-            console.error("Error loading audit:", error);
-            toast.error("Denetim yüklenirken hata oluştu");
+            console.error("Error processing audit data:", error);
         } finally {
             setLoading(false);
         }
@@ -608,6 +727,8 @@ export default function AuditPage() {
         }
 
         try {
+            isWriting.current = true;
+            lastLocalWriteTime.current = Date.now(); // suppress echo from own write
             // Filter out local:// URLs before saving to Firestore
             const sectionsToSave = updatedAudit.sections.map(section => ({
                 ...section,
@@ -638,6 +759,8 @@ export default function AuditPage() {
             toast.error("Cevap kaydedilirken hata oluştu");
             // Revert on error
             setAudit(audit);
+        } finally {
+            isWriting.current = false;
         }
     };
 
@@ -656,6 +779,8 @@ export default function AuditPage() {
         if (currentMode === 'edit' && audit.status === 'tamamlandi') return;
 
         try {
+            isWriting.current = true;
+            lastLocalWriteTime.current = Date.now(); // suppress echo from own write
             const feedbackToSave = {
                 ...newFeedback,
                 // Strip local:// offline images — server can't display them
@@ -667,6 +792,8 @@ export default function AuditPage() {
             });
         } catch (error) {
             console.error("Error saving general feedback:", error);
+        } finally {
+            isWriting.current = false;
         }
     };
 
@@ -784,8 +911,24 @@ export default function AuditPage() {
                 score: audit.totalScore
             }, { uid: userProfile?.uid || "unknown", role: userProfile?.role });
 
-            // Prepare updated sections with actionData
-            const updatedSections = audit.sections.map(section => ({
+            // Fetch the LATEST sections from Firestore before completing.
+            // This ensures answers from BOTH devices (tablet + phone) are preserved,
+            // preventing one device's local state from overwriting the other's answers.
+            let sectionsToComplete = audit.sections;
+            let generalFeedbackToComplete = audit.generalFeedback;
+            try {
+                const freshDoc = await getDoc(doc(db, "audits", auditId));
+                if (freshDoc.exists()) {
+                    const freshData = freshDoc.data() as Audit;
+                    sectionsToComplete = freshData.sections || audit.sections;
+                    generalFeedbackToComplete = freshData.generalFeedback || audit.generalFeedback;
+                }
+            } catch (fetchErr) {
+                console.warn("Could not fetch fresh audit data, using local state:", fetchErr);
+            }
+
+            // Prepare updated sections with actionData (using fresh Firestore data)
+            const updatedSections = sectionsToComplete.map(section => ({
                 ...section,
                 answers: section.answers.map(answer => {
                     if (answer.answer === "hayir") {
@@ -809,10 +952,10 @@ export default function AuditPage() {
                 actionDeadline: actionDeadline,
                 sections: updatedSections,
                 allActionsResolved: false, // Initially false if there are actions
-                ...(audit.generalFeedback ? {
+                ...(generalFeedbackToComplete ? {
                     generalFeedback: {
-                        ...audit.generalFeedback,
-                        images: (audit.generalFeedback.images || []).filter((url: string) => !url.startsWith('local://')),
+                        ...generalFeedbackToComplete,
+                        images: (generalFeedbackToComplete.images || []).filter((url: string) => !url.startsWith('local://')),
                     }
                 } : {})
             });
@@ -1593,7 +1736,10 @@ export default function AuditPage() {
                                                 }}
                                                 onTouchStart={() => handleTouchStart(sectionIndex)}
                                                 onTouchEnd={handleTouchEnd}
-                                                onContextMenu={(e) => onContextMenu(e, sectionIndex)}
+                                                onMouseDown={() => handleMouseDown(sectionIndex)}
+                                                onMouseUp={handleMouseUp}
+                                                onMouseLeave={handleMouseUp}
+                                                onContextMenu={(e) => e.preventDefault()}
                                             >
                                                 <CardHeader className="p-0 px-3 md:p-6 w-full">
                                                     <div className="grid grid-cols-[auto_1fr_auto] items-center gap-3 md:gap-4 w-full">
