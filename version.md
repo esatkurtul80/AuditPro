@@ -2,11 +2,17 @@
 
 ```json
 {
-  "version": "3.0.2",
-  "build": 118,
+  "version": "3.0.3",
+  "build": 119,
   "status": "stable"
 }
 ```
+
+## [3.0.3] - 2026-04-02
+
+### v3.0.3
+- **Bölüm Görüş & Önerileri Yazma Koruması:** `updateSectionFeedback` fonksiyonuna `isWriting` ve `lastLocalWriteTime` guard'ları eklendi. Artık bölüm görüş alanına yazılırken Firestore'dan gelen `onSnapshot` echo'su 3 saniye boyunca bastırılıyor ve yazılan metin silinmiyor.
+- **Mobil Klavye Kapatma Koruması:** `onSnapshot` listener'daki `skipSectionsSync` kontrolü güçlendirildi. Önceki kod yalnızca `document.activeElement` kontrolüne dayanıyordu; mobilde klavye kapanınca `activeElement` değiştiğinden koruma devre dışı kalıyordu. Şimdi `isEditing` ref'i de ek kontrol olarak eklendi — kullanıcı textarea'dan odak kaldırana kadar senkronizasyon erteleniyor.
 
 ## [3.0.2] - 2026-04-01
 

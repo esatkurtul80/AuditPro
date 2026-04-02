@@ -1,0 +1,39 @@
+[0] Ln:1575 Section:ŞUBE - DEPO BÖLÜMÜ
+    Score:8/16 ActionPhotoReq:true HasActionData:false
+    QID:IAxuWWB0W7IxXLS7VDET
+    Q:İade bölümü yazısı ve yeri belirlenmiş mi? İade edilecek ürünler iade alanında t
+
+[1] Ln:2142 Section:ŞUBE - DEPO BÖLÜMÜ
+    Score:0/5 ActionPhotoReq:true HasActionData:false
+    QID:ZrQPWZY0dYHboLcHNaWH
+    Q:Tabela, tuğba logo, dış camlar ve tente temiz mi?
+
+[2] Ln:2361 Section:ŞUBE - DEPO BÖLÜMÜ
+    Score:0/10 ActionPhotoReq:true HasActionData:true
+    QID:lk2LoPG9F1CLov90E6sQ
+    Q:Boş saklama kapları düzenli bir şekilde istifleniyor mu ve tekrar kullanılacak ş
+
+[3] Ln:2433 Section:ŞUBE - DEPO BÖLÜMÜ
+    Score:0/5 ActionPhotoReq:true HasActionData:false
+    QID:mJTqHwggeqaNBV9uldhc
+    Q:Wc ve lavabolar temiz ve hijyenik mi? Tuvalet kağıdı ve el havlusu aparatında ta
+
+[4] Ln:2844 Section:ŞUBE - DEPO BÖLÜMÜ
+    Score:10/14 ActionPhotoReq:true HasActionData:false
+    QID:ul41xKsnrkw1FkA6VHJW
+    Q:Yangın tüpü var mı? Sayısı yeterli mi? Her katta en az bir adet bulunuyor mu? Ko
+
+[5] Ln:4158 Section:ŞUBE - ORTA ALAN BÖLÜMÜ
+    Score:3/5 ActionPhotoReq:true HasActionData:false
+    QID:jXhIq5XwfVKhcHfUOHIF
+    Q:Boş kutu çalışması yapılmış mı? Güvenlik bandı varmı ? Görsel varmı ? Boş kutula
+
+[6] Ln:9243 Section:ŞUBE - KASA BÖLÜMÜ
+    Score:0/15 ActionPhotoReq:true HasActionData:false
+    QID:H72q24ocF41ZGIiEhQB2
+    Q:Kasa arkası, kasa üzeri ve kasa önü ürünleri doluluğu yeterli mi? Etiket eksiği 
+
+[7] Ln:9360 Section:ŞUBE - KASA BÖLÜMÜ
+    Score:0/15 ActionPhotoReq:false HasActionData:false
+    QID:Vg1G8CYXA8DRwXrlF9AM
+    Q:Kasiyer kontrol listesi DOĞRU olarak uygulanıyor mu? Mağaza sorumlusu mesaisi ba

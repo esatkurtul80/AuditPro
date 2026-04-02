@@ -12,6 +12,7 @@ import {
     getDocs,
     collection,
     updateDoc,
+    runTransaction,
     Timestamp,
     arrayUnion,
     deleteField,
@@ -454,23 +455,30 @@ export default function AuditActionsPage() {
 
     const noteSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-    const updateActionData = async (sectionIndex: number, answerIndex: number, updates: Partial<any>) => {
-        if (!audit) return;
-        const updatedSections = [...audit.sections];
-        const currentData = updatedSections[sectionIndex].answers[answerIndex].actionData || { status: 'pending_store' };
-
-        // Merge updates
-        updatedSections[sectionIndex].answers[answerIndex].actionData = {
-            ...currentData,
-            ...updates,
-            // Ensure status is at least pending_store if not set or if rejected (we keep rejected until submitted)
-            status: currentData.status || 'pending_store'
-        };
-
+    const updateActionData = async (sectionIndex: number, answerIndex: number, updates: Partial<any>, removeImageUrl?: string) => {
+        const auditRef = doc(db, "audits", auditId);
         try {
-            await updateDoc(doc(db, "audits", auditId), {
-                sections: updatedSections,
-                updatedAt: Timestamp.now()
+            await runTransaction(db, async (transaction) => {
+                const freshDoc = await transaction.get(auditRef);
+                if (!freshDoc.exists()) return;
+                const freshSections: any[] = JSON.parse(JSON.stringify(freshDoc.data().sections));
+                const currentData = freshSections[sectionIndex].answers[answerIndex].actionData || { status: 'pending_store' };
+
+                const finalUpdates = { ...updates };
+                if (removeImageUrl !== undefined) {
+                    finalUpdates.storeImages = (currentData.storeImages || []).filter((url: string) => url !== removeImageUrl);
+                }
+
+                freshSections[sectionIndex].answers[answerIndex].actionData = {
+                    ...currentData,
+                    ...finalUpdates,
+                    status: currentData.status || 'pending_store'
+                };
+
+                transaction.update(auditRef, {
+                    sections: freshSections,
+                    updatedAt: Timestamp.now()
+                });
             });
         } catch (error) {
             console.error("Autosave failed", error);
@@ -665,13 +673,8 @@ export default function AuditActionsPage() {
                 // We read current valid list from 'audit' state (most reliable for server state) and filter.
                 // If we rely on 'submissionData', it's reactive.
 
-                const currentActionData = audit?.sections[sectionIndex].answers[answerIndex].actionData;
-                const currentServerImages = currentActionData?.storeImages || [];
-                const newServerImages = currentServerImages.filter(url => url !== fileToRemove);
-
-                await updateActionData(sectionIndex, answerIndex, {
-                    storeImages: newServerImages
-                });
+                // Pass the URL to remove — updateActionData will filter from fresh server data atomically
+                await updateActionData(sectionIndex, answerIndex, {}, fileToRemove);
             }
         } else {
             // It's a File (offline or uploading).
@@ -735,7 +738,7 @@ export default function AuditActionsPage() {
                 } catch (err) {
                     console.error("Auto-save failed", err);
                 }
-            }, 2000); // 2 seconds debounce
+            }, 800); // 800ms debounce — veri kaybını önlemek için kısaltıldı
         }
     };
 
@@ -804,23 +807,35 @@ export default function AuditActionsPage() {
 
         setSubmitting(true);
 
-        try {
-            const updatedSections = [...audit.sections];
+        // Pending debounce timer varsa flush et (not kayıt tamamlanmamış olabilir)
+        if (noteSaveTimerRef.current) {
+            clearTimeout(noteSaveTimerRef.current);
+            noteSaveTimerRef.current = null;
+            // Bekleyen tüm notları Firestore'a anında yaz
+            for (const item of pendingItems) {
+                const key = `${item.sIndex}-${item.aIndex}`;
+                const localNote = submissionData[key]?.note;
+                const serverNote = item.answer.actionData?.storeNote;
+                if (localNote && localNote !== serverNote) {
+                    await updateActionData(item.sIndex, item.aIndex, { storeNote: localNote });
+                }
+            }
+        }
 
-            // Process each item
+        try {
+            // Step 1: Upload files and collect image URLs per item
+            const itemImageUrls: Record<string, string[]> = {};
+
             for (const item of pendingItems) {
                 const key = `${item.sIndex}-${item.aIndex}`;
                 const data = submissionData[key];
-
                 const imageUrls: string[] = [];
 
                 if (data.images && data.images.length > 0) {
                     for (const fileOrUrl of data.images) {
-                        // If it's already a string URL (server draft), keep it.
                         if (typeof fileOrUrl === 'string') {
                             imageUrls.push(fileOrUrl);
                         } else {
-                            // Offline sırasında kaydedilen File — sıkıştırarak yükle
                             let fileToUpload = fileOrUrl as File;
                             const fileSizeMB = fileToUpload.size / 1024 / 1024;
                             if (fileSizeMB > 0.5) {
@@ -851,32 +866,48 @@ export default function AuditActionsPage() {
                     }
                 }
 
-                updatedSections[item.sIndex].answers[item.aIndex].actionData = {
-                    ...updatedSections[item.sIndex].answers[item.aIndex].actionData!,
-                    status: "pending_admin" as const,
-                    submittedAt: Timestamp.now(),
-                    // Update note timestamp if note changed or never set
-                    ...(data.note ? { noteUpdatedAt: Timestamp.now() } : {}),
-                    storeImages: imageUrls,
-                    storeNote: data.note || ""
-                };
+                itemImageUrls[key] = imageUrls;
             }
+
+            // Step 2: Atomic write — read fresh server data then apply all changes
+            const auditRef = doc(db, "audits", auditId);
+            let finalSectionsResult: any[] | null = null;
 
             const submitTimer = Logger.startTimer("action", "Store submitted action response", {
                 auditId: auditId,
                 actionCount: pendingItems.length
             }, { uid: userProfile?.uid || "unknown", role: userProfile?.role });
 
-            await updateDoc(doc(db, "audits", auditId), {
-                sections: updatedSections,
-                updatedAt: Timestamp.now()
+            await runTransaction(db, async (transaction) => {
+                const freshDoc = await transaction.get(auditRef);
+                if (!freshDoc.exists()) return;
+                const freshSections: any[] = JSON.parse(JSON.stringify(freshDoc.data().sections));
+
+                for (const item of pendingItems) {
+                    const key = `${item.sIndex}-${item.aIndex}`;
+                    const data = submissionData[key];
+                    const uploadedUrls = itemImageUrls[key] || [];
+
+                    freshSections[item.sIndex].answers[item.aIndex].actionData = {
+                        ...freshSections[item.sIndex].answers[item.aIndex].actionData,
+                        status: "pending_admin" as const,
+                        submittedAt: Timestamp.now(),
+                        ...(data.note ? { noteUpdatedAt: Timestamp.now() } : {}),
+                        storeImages: uploadedUrls,
+                        storeNote: data.note || ""
+                    };
+                }
+
+                transaction.update(auditRef, { sections: freshSections, updatedAt: Timestamp.now() });
+                finalSectionsResult = freshSections;
             });
 
-            // Log successful submission with duration
             submitTimer.stop();
 
             toast.success("Aksiyon planı başarıyla kaydedildi.");
-            setAudit({ ...audit, sections: updatedSections });
+            if (finalSectionsResult) {
+                setAudit({ ...audit, sections: finalSectionsResult });
+            }
             setSubmissionData({}); // Clear form data
 
             // Clear offline storage drafts for these items
@@ -921,42 +952,49 @@ export default function AuditActionsPage() {
         setSubmitting(true);
         try {
             const { sectionIndex, answerIndex } = selectedAction;
-            const updatedSections = [...audit.sections];
-            const actionData = updatedSections[sectionIndex].answers[answerIndex].actionData!;
+            const auditRef = doc(db, "audits", auditId);
+            let freshSectionsResult: any[] | null = null;
+            let hasUnresolvedActionsResult = false;
 
-            updatedSections[sectionIndex].answers[answerIndex].actionData = {
-                ...actionData,
-                status: "rejected" as const,
-                adminNote: rejectionReason,
-                rejectedAt: Timestamp.now(),
-                // Keep store note/images so they can see what they sent
-            };
+            await runTransaction(db, async (transaction) => {
+                const freshDoc = await transaction.get(auditRef);
+                if (!freshDoc.exists()) return;
+                const freshSections: any[] = JSON.parse(JSON.stringify(freshDoc.data().sections));
+                const actionData = freshSections[sectionIndex].answers[answerIndex].actionData || { status: 'pending_store' };
 
-            // Check if there are any unresolved actions - if we're rejecting an approved action, set allActionsResolved to false
-            let hasUnresolvedActions = false;
-            updatedSections.forEach(section => {
-                section.answers.forEach(a => {
-                    const isActionNeeded = a.answer === "hayir" || (a.questionType === "checkbox" && a.earnedPoints < a.maxPoints);
-                    if (isActionNeeded) {
-                        const status = a.actionData?.status || "pending_store";
-                        if (status !== "approved") {
+                freshSections[sectionIndex].answers[answerIndex].actionData = {
+                    ...actionData,
+                    status: "rejected" as const,
+                    adminNote: rejectionReason,
+                    rejectedAt: Timestamp.now(),
+                };
+
+                let hasUnresolvedActions = false;
+                freshSections.forEach((section: any) => {
+                    section.answers.forEach((a: any) => {
+                        const isActionNeeded = a.answer === "hayir" || (a.questionType === "checkbox" && a.earnedPoints < a.maxPoints);
+                        if (isActionNeeded && (a.actionData?.status || "pending_store") !== "approved") {
                             hasUnresolvedActions = true;
                         }
-                    }
+                    });
                 });
+
+                transaction.update(auditRef, {
+                    sections: freshSections,
+                    updatedAt: Timestamp.now(),
+                    ...(hasUnresolvedActions ? { allActionsResolved: false } : {})
+                });
+                freshSectionsResult = freshSections;
+                hasUnresolvedActionsResult = hasUnresolvedActions;
             });
 
-            await updateDoc(doc(db, "audits", auditId), {
-                sections: updatedSections,
-                updatedAt: Timestamp.now(),
-                ...(hasUnresolvedActions ? { allActionsResolved: false } : {})
-            });
-
-            setAudit({
-                ...audit,
-                sections: updatedSections,
-                ...(hasUnresolvedActions ? { allActionsResolved: false } : {})
-            });
+            if (freshSectionsResult) {
+                setAudit({
+                    ...audit,
+                    sections: freshSectionsResult,
+                    ...(hasUnresolvedActionsResult ? { allActionsResolved: false } : {})
+                });
+            }
             // Send Notification to Store Users
             try {
                 if (audit.storeId) {
@@ -967,7 +1005,7 @@ export default function AuditActionsPage() {
 
                     if (targetUsers.length > 0) {
                         const notificationsRef = collection(db, "notifications");
-                        const questionText = ((updatedSections[sectionIndex].answers[answerIndex] as any).questionText || "").substring(0, 50) + "...";
+                        const questionText = (((freshSectionsResult as unknown as any[])?.[sectionIndex]?.answers?.[answerIndex] as any)?.questionText || "").substring(0, 50) + "...";
                         const notifTitle = "Aksiyon Reddedildi - Düzeltme Gerekli";
 
                         // Format date for clarity
@@ -1043,24 +1081,9 @@ export default function AuditActionsPage() {
         setSubmitting(true);
         try {
             const { sectionIndex, answerIndex } = selectedAction;
-            const updatedSections = [...audit.sections];
-            const currentActionData = updatedSections[sectionIndex].answers[answerIndex].actionData!;
-
-            // Remove adminNote and rejectedAt by reconstructing object
-            const { adminNote, rejectedAt, ...rest } = currentActionData;
-            updatedSections[sectionIndex].answers[answerIndex].actionData = {
-                ...rest,
-                status: "pending_admin" as const,
-            };
-
-            // Calculate allActionsResolved
-            const allResolved = updatedSections.every(section =>
-                section.answers.every(a => {
-                    const isActionNeeded = a.answer === "hayir" || (a.questionType === "checkbox" && a.earnedPoints < a.maxPoints);
-                    if (!isActionNeeded) return true;
-                    return a.actionData?.status === "approved";
-                })
-            );
+            const auditRef = doc(db, "audits", auditId);
+            let freshSectionsResult: any[] | null = null;
+            let allResolvedResult = false;
 
             const revertTimer = Logger.startTimer("admin", "Admin reverted action rejection", {
                 auditId: auditId,
@@ -1068,20 +1091,44 @@ export default function AuditActionsPage() {
                 answer: selectedAction.answerIndex
             }, { uid: userProfile?.uid || "unknown", role: userProfile?.role });
 
-            await updateDoc(doc(db, "audits", auditId), {
-                sections: updatedSections,
-                updatedAt: Timestamp.now(),
-                allActionsResolved: allResolved
+            await runTransaction(db, async (transaction) => {
+                const freshDoc = await transaction.get(auditRef);
+                if (!freshDoc.exists()) return;
+                const freshSections: any[] = JSON.parse(JSON.stringify(freshDoc.data().sections));
+                const currentActionData = freshSections[sectionIndex].answers[answerIndex].actionData || {};
+                const { adminNote, rejectedAt, ...rest } = currentActionData;
+
+                freshSections[sectionIndex].answers[answerIndex].actionData = {
+                    ...rest,
+                    status: "pending_admin" as const,
+                };
+
+                const allResolved = freshSections.every((section: any) =>
+                    section.answers.every((a: any) => {
+                        const isActionNeeded = a.answer === "hayir" || (a.questionType === "checkbox" && a.earnedPoints < a.maxPoints);
+                        if (!isActionNeeded) return true;
+                        return a.actionData?.status === "approved";
+                    })
+                );
+
+                transaction.update(auditRef, {
+                    sections: freshSections,
+                    updatedAt: Timestamp.now(),
+                    allActionsResolved: allResolved
+                });
+                freshSectionsResult = freshSections;
+                allResolvedResult = allResolved;
             });
 
-            setAudit({
-                ...audit,
-                sections: updatedSections,
-                allActionsResolved: allResolved
-            });
-
-            // Log revert rejection with duration
             revertTimer.stop();
+
+            if (freshSectionsResult) {
+                setAudit({
+                    ...audit,
+                    sections: freshSectionsResult,
+                    allActionsResolved: allResolvedResult
+                });
+            }
 
             toast.success("Reddetme geri alındı");
             setRevertRejectionDialogOpen(false);
@@ -1101,26 +1148,9 @@ export default function AuditActionsPage() {
         setSubmitting(true);
         try {
             const { sectionIndex, answerIndex } = selectedAction;
-            const updatedSections = [...audit.sections];
-            const currentActionData = updatedSections[sectionIndex].answers[answerIndex].actionData!;
-
-            // Ensure we preserve store data when reverting
-            // Only reset status and remove admin approval/rejection metadata
-            const { adminNote, approvedAt, rejectedAt, resolvedAt, status, ...rest } = currentActionData;
-
-            updatedSections[sectionIndex].answers[answerIndex].actionData = {
-                ...rest,
-                status: "pending_admin" as const, // Reset to pending_admin (store already submitted)
-            };
-
-            // Calculate allActionsResolved
-            const allResolved = updatedSections.every(section =>
-                section.answers.every(a => {
-                    const isActionNeeded = a.answer === "hayir" || (a.questionType === "checkbox" && a.earnedPoints < a.maxPoints);
-                    if (!isActionNeeded) return true;
-                    return a.actionData?.status === "approved";
-                })
-            );
+            const auditRef = doc(db, "audits", auditId);
+            let freshSectionsResult: any[] | null = null;
+            let allResolvedResult = false;
 
             const revertApprovalTimer = Logger.startTimer("admin", "Admin reverted action approval", {
                 auditId: auditId,
@@ -1128,20 +1158,44 @@ export default function AuditActionsPage() {
                 answer: selectedAction.answerIndex
             }, { uid: userProfile?.uid || "unknown", role: userProfile?.role });
 
-            await updateDoc(doc(db, "audits", auditId), {
-                sections: updatedSections,
-                updatedAt: Timestamp.now(),
-                allActionsResolved: allResolved
+            await runTransaction(db, async (transaction) => {
+                const freshDoc = await transaction.get(auditRef);
+                if (!freshDoc.exists()) return;
+                const freshSections: any[] = JSON.parse(JSON.stringify(freshDoc.data().sections));
+                const currentActionData = freshSections[sectionIndex].answers[answerIndex].actionData || {};
+                const { adminNote, approvedAt, rejectedAt, resolvedAt, status, ...rest } = currentActionData;
+
+                freshSections[sectionIndex].answers[answerIndex].actionData = {
+                    ...rest,
+                    status: "pending_admin" as const,
+                };
+
+                const allResolved = freshSections.every((section: any) =>
+                    section.answers.every((a: any) => {
+                        const isActionNeeded = a.answer === "hayir" || (a.questionType === "checkbox" && a.earnedPoints < a.maxPoints);
+                        if (!isActionNeeded) return true;
+                        return a.actionData?.status === "approved";
+                    })
+                );
+
+                transaction.update(auditRef, {
+                    sections: freshSections,
+                    updatedAt: Timestamp.now(),
+                    allActionsResolved: allResolved
+                });
+                freshSectionsResult = freshSections;
+                allResolvedResult = allResolved;
             });
 
-            setAudit({
-                ...audit,
-                sections: updatedSections,
-                allActionsResolved: allResolved
-            });
-
-            // Log revert approval with duration
             revertApprovalTimer.stop();
+
+            if (freshSectionsResult) {
+                setAudit({
+                    ...audit,
+                    sections: freshSectionsResult,
+                    allActionsResolved: allResolvedResult
+                });
+            }
 
             toast.success("Onay geri alındı - Aksiyon tekrar onay bekliyor");
             setRevertApprovalDialogOpen(false);
@@ -1164,22 +1218,9 @@ export default function AuditActionsPage() {
 
         setSubmitting(true);
         try {
-            const updatedSections = [...audit.sections];
-            updatedSections[targetSectionIndex].answers[targetAnswerIndex].actionData = {
-                ...updatedSections[targetSectionIndex].answers[targetAnswerIndex].actionData!,
-                status: "approved" as const,
-                approvedAt: Timestamp.now(),
-                resolvedAt: Timestamp.now(),
-            };
-
-            // Check if all actions are resolved
-            const allResolved = updatedSections.every(section =>
-                section.answers.every(a => {
-                    const isActionNeeded = a.answer && a.answer.trim() !== "" && a.answer !== "muaf" && (a.earnedPoints || 0) < (a.maxPoints || 0);
-                    if (!isActionNeeded) return true;
-                    return a.actionData?.status === "approved";
-                })
-            );
+            const auditRef = doc(db, "audits", auditId);
+            let freshSectionsResult: any[] | null = null;
+            let allResolvedResult = false;
 
             const approveTimer = Logger.startTimer("admin", "Admin approved action", {
                 auditId: auditId,
@@ -1187,20 +1228,44 @@ export default function AuditActionsPage() {
                 answer: targetAnswerIndex
             }, { uid: userProfile?.uid || "unknown", role: userProfile?.role });
 
-            await updateDoc(doc(db, "audits", auditId), {
-                sections: updatedSections,
-                updatedAt: Timestamp.now(),
-                allActionsResolved: allResolved
+            await runTransaction(db, async (transaction) => {
+                const freshDoc = await transaction.get(auditRef);
+                if (!freshDoc.exists()) return;
+                const freshSections: any[] = JSON.parse(JSON.stringify(freshDoc.data().sections));
+
+                freshSections[targetSectionIndex].answers[targetAnswerIndex].actionData = {
+                    ...freshSections[targetSectionIndex].answers[targetAnswerIndex].actionData,
+                    status: "approved" as const,
+                    approvedAt: Timestamp.now(),
+                    resolvedAt: Timestamp.now(),
+                };
+
+                const allResolved = freshSections.every((section: any) =>
+                    section.answers.every((a: any) => {
+                        const isActionNeeded = a.answer && a.answer.trim() !== "" && a.answer !== "muaf" && (a.earnedPoints || 0) < (a.maxPoints || 0);
+                        if (!isActionNeeded) return true;
+                        return a.actionData?.status === "approved";
+                    })
+                );
+
+                transaction.update(auditRef, {
+                    sections: freshSections,
+                    updatedAt: Timestamp.now(),
+                    allActionsResolved: allResolved
+                });
+                freshSectionsResult = freshSections;
+                allResolvedResult = allResolved;
             });
 
-            setAudit({
-                ...audit,
-                sections: updatedSections,
-                allActionsResolved: allResolved
-            });
-
-            // Log approval with duration
             approveTimer.stop();
+
+            if (freshSectionsResult) {
+                setAudit({
+                    ...audit,
+                    sections: freshSectionsResult,
+                    allActionsResolved: allResolvedResult
+                });
+            }
 
             // toast.success("Aksiyon onaylandı"); // Removed per user request to reduce noise
             setApproveDialogOpen(false);
@@ -1833,16 +1898,23 @@ export default function AuditActionsPage() {
                                                 </div>
                                             )}
 
-                                            {/* Submitted Content (View for Admin or Store waiting) */}
-                                            {/* Only show if store has actually submitted (not just typed but not submitted) */}
-                                            {actionData && status !== "pending_store" && status !== "rejected" && (
-                                                <div className="space-y-4 border-t pt-4">
+                                            {/* Submitted Content (View for Admin or Store waiting/rejected) */}
+                                            {actionData && (actionData.storeNote || (actionData.storeImages && actionData.storeImages.length > 0)) && (
+                                                <div className={cn(
+                                                    "space-y-4 border-t pt-4",
+                                                    status === "rejected" && "opacity-70"
+                                                )}>
                                                     <h4 className="font-medium flex items-center gap-2">
                                                         <CheckCircle2 className="h-4 w-4 text-primary" />
-                                                        Mağaza Cevabı
+                                                        {status === "rejected" ? "Reddedilen Önceki Dönüş" : "Mağaza Cevabı"}
                                                     </h4>
-                                                    <div className="bg-gray-50/80 border p-4 rounded-lg">
-                                                        <p className="text-sm whitespace-pre-wrap">{actionData.storeNote}</p>
+                                                    <div className={cn(
+                                                        "border p-4 rounded-lg",
+                                                        status === "rejected" ? "bg-red-50/50 dark:bg-red-900/10" : "bg-gray-50/80"
+                                                    )}>
+                                                        {actionData.storeNote && (
+                                                            <p className="text-sm whitespace-pre-wrap">{actionData.storeNote}</p>
+                                                        )}
                                                         {actionData.storeImages && actionData.storeImages.length > 0 && (
                                                             <div className="mt-4">
                                                                 <Label className="text-xs text-muted-foreground mb-2 block">Kanıt Fotoğrafları</Label>
@@ -1864,7 +1936,6 @@ export default function AuditActionsPage() {
                                                                 let dateToUse: any = null;
                                                                 let label = "Gönderim";
 
-                                                                // Logic: Specific action dates first, then submission, then general status dates
                                                                 if (photoUploadedAt) {
                                                                     dateToUse = photoUploadedAt;
                                                                     label = "Gönderim";

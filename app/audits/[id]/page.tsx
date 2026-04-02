@@ -387,15 +387,16 @@ export default function AuditPage() {
 
             // Suppress sections sync if:
             // 1. This device wrote to Firestore within the last 3 seconds (echo suppression), OR
-            // 2. User currently has a text field focused (actively typing)
+            // 2. User currently has a text field focused (actively typing) — use BOTH the
+            //    persistent isEditing ref (survives mobile keyboard close) AND activeElement check
             const isEchoFromOwnWrite = (Date.now() - lastLocalWriteTime.current) < 3000;
             const activeEl = document.activeElement;
-            const userIsTyping = activeEl && (
+            const userIsTyping = isEditing.current || !!(activeEl && (
                 activeEl.tagName === 'TEXTAREA' ||
                 activeEl.tagName === 'INPUT' ||
                 (activeEl as HTMLElement).contentEditable === 'true'
-            );
-            const skipSectionsSync = isEchoFromOwnWrite || !!userIsTyping;
+            ));
+            const skipSectionsSync = isEchoFromOwnWrite || userIsTyping;
 
             // Sync full audit data (sections, generalFeedback, status, score) from Firestore.
             // isWriting guard (above) prevents overwriting while this device is actively saving.
@@ -1436,6 +1437,8 @@ export default function AuditPage() {
         }
 
         try {
+            isWriting.current = true;
+            lastLocalWriteTime.current = Date.now(); // suppress onSnapshot echo for 3s
             // Filter out local:// URLs before saving to Firestore
             const sectionsToSave = updatedAudit.sections.map(sec => ({
                 ...sec,
@@ -1458,6 +1461,8 @@ export default function AuditPage() {
         } catch (error) {
             console.error("Feedback update error", error);
             toast.error("Görüş kaydedilirken hata oluştu");
+        } finally {
+            isWriting.current = false;
         }
     };
 
