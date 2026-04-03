@@ -29,7 +29,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Plus, UserCircle, Star, Save, CheckCircle2, UserPlus, UserMinus, ArrowRightLeft, AlertCircle } from "lucide-react";
+import { Loader2, Plus, UserCircle, Star, Save, CheckCircle2, UserPlus, UserMinus, ArrowRightLeft, AlertCircle, Pencil, ChevronsUpDown, Check } from "lucide-react";
 import { toast } from "sonner";
 import {
     Dialog,
@@ -40,6 +40,8 @@ import {
     DialogTitle,
     DialogTrigger,
 } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 
 interface Props {
     auditId: string;
@@ -68,6 +70,10 @@ export function PersonnelEvaluationSection({ auditId, storeId, storeName, canEdi
     const evaluationsRef = useRef<Record<string, PersonnelEvaluation>>({});
 
     const [savingId, setSavingId] = useState<string | null>(null);
+    // Debounce ref: prevents rapid status changes from overlapping async saves
+    const saveDebouncerRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+    // Write-time guard: suppress Firestore echo for 3s after any local write (like main audit page pattern)
+    const lastEvalWriteTimeRef = useRef<Record<string, number>>({});
 
     // List of all stores for transfer feature
     const [allStores, setAllStores] = useState<Store[]>([]);
@@ -77,8 +83,64 @@ export function PersonnelEvaluationSection({ auditId, storeId, storeName, canEdi
     const [isSearchingGlobal, setIsSearchingGlobal] = useState(false);
     const [pullingPersonnelId, setPullingPersonnelId] = useState<string | null>(null);
 
+    // Personel Çek (browse by store) state
+    const [modalTab, setModalTab] = useState<'new' | 'pull'>('new');
+    const [pullStoreOpen, setPullStoreOpen] = useState(false);
+    const [pullStoreId, setPullStoreId] = useState<string>('');
+    const [pullStorePersonnel, setPullStorePersonnel] = useState<StorePersonnel[]>([]);
+    const [loadingPullStore, setLoadingPullStore] = useState(false);
+
+    // Inline name editing
+    const [editingNameId, setEditingNameId] = useState<string | null>(null);
+    const [editingNameValue, setEditingNameValue] = useState("");
+    const [savingName, setSavingName] = useState(false);
+    // Duplicate warning after name edit
+    const [nameEditDuplicates, setNameEditDuplicates] = useState<{ personnelId: string; matches: (StorePersonnel & { storeName?: string })[] }>({ personnelId: '', matches: [] });
+
     // Refs for textareas to manage cursor positioning
     const textareaRefs = useRef<{ [key: string]: HTMLTextAreaElement | null }>({});
+    // Tracks which personnel's textarea is currently focused — prevents onSnapshot from resetting cursor mid-edit
+    const focusedPersonnelIdRef = useRef<string | null>(null);
+
+    // ── Save inline name edit ──────────────────────────────────────────────────
+    const handleSaveName = async (personnelId: string) => {
+        const trimmed = editingNameValue.trim();
+        if (!trimmed) { setEditingNameId(null); return; }
+        setSavingName(true);
+        try {
+            const { updateDoc, doc: fsDoc, getDocs: gds, collection: col, query: q, where: wh, Timestamp } = await import("firebase/firestore");
+            // Update store_personnel
+            await updateDoc(fsDoc(db, "store_personnel", personnelId), { name: trimmed, updatedAt: Timestamp.now() });
+            // Update any existing eval for this audit
+            const existingEval = evaluationsRef.current[personnelId];
+            if (existingEval?.id) {
+                await updateDoc(fsDoc(db, "personnel_evaluations", existingEval.id), { personnelName: trimmed });
+            }
+            // Update local personnel list
+            setPersonnelList(prev => prev.map(p => p.id === personnelId ? { ...p, name: trimmed } : p));
+            toast.success("İsim güncellendi.");
+
+            // Search other stores for same name (duplicate check)
+            try {
+                const snap = await gds(q(col(db, "store_personnel"), wh("status", "==", "active")));
+                const matches = snap.docs
+                    .map(d => ({ id: d.id, ...d.data() } as StorePersonnel))
+                    .filter(p => p.storeId !== storeId && p.name.toLocaleUpperCase('tr-TR') === trimmed.toLocaleUpperCase('tr-TR'));
+                if (matches.length > 0) {
+                    const storeMap: Record<string, string> = {};
+                    allStores.forEach(s => { storeMap[s.id] = s.name; });
+                    const withNames = matches.map(p => ({ ...p, storeName: storeMap[p.storeId] || 'Bilinmiyor' }));
+                    setNameEditDuplicates({ personnelId, matches: withNames });
+                }
+            } catch (_) { /* silent */ }
+        } catch (e) {
+            console.error(e);
+            toast.error("İsim kaydedilemedi.");
+        } finally {
+            setSavingName(false);
+            setEditingNameId(null);
+        }
+    };
 
     useEffect(() => {
         if (!storeId) return;
@@ -112,24 +174,30 @@ export function PersonnelEvaluationSection({ auditId, storeId, storeName, canEdi
                 evaluationsRef.current = evalsToSet;
                 setEvaluations(evalsToSet);
 
-                // Also hydrate drafts immediately when evaluations arrive
-                // (handles the race where evaluations snapshot comes AFTER personnelList)
+                // Also sync drafts on every evaluation snapshot — enables cross-device real-time updates
                 setDrafts(prev => {
                     const newDrafts = { ...prev };
                     let changed = false;
                     Object.values(evalsToSet).forEach(ev => {
                         if (!newDrafts[ev.personnelId]) return;
+                        // Never hydrate sentinel (on_leave / cleared) values into the UI draft
+                        const isSentinel = (ev.score !== undefined && ev.score < 0) || ev.comment === "[İzinli]";
+                        if (isSentinel) return;
+                        // Echo suppression: skip if WE wrote this recently (our own Firestore echo)
+                        const recentWrite = Date.now() - (lastEvalWriteTimeRef.current[ev.personnelId] || 0) < 3000;
+                        if (recentWrite) return;
+                        // Outside echo window: server wins — applies cross-device changes
                         const d = newDrafts[ev.personnelId];
                         const svScore = ev.score !== undefined ? ev.score.toString() : "";
                         const svComment = ev.comment ?? "";
-                        if (d.score === "" && svScore !== "") {
-                            newDrafts[ev.personnelId] = { ...d, score: svScore };
-                            changed = true;
-                        }
-                        if (newDrafts[ev.personnelId].comment === "" && svComment !== "") {
-                            newDrafts[ev.personnelId] = { ...newDrafts[ev.personnelId], comment: svComment };
-                            changed = true;
-                        }
+                        let updated = { ...d };
+                        let anyChange = false;
+                        if (svScore !== d.score) { updated.score = svScore; anyChange = true; }
+                        // CURSOR FIX: don't update comment if this textarea is currently focused
+                        // — React re-renders from external setDrafts reset cursor position mid-edit
+                        const isBeingEdited = focusedPersonnelIdRef.current === ev.personnelId;
+                        if (!isBeingEdited && svComment !== d.comment) { updated.comment = svComment; anyChange = true; }
+                        if (anyChange) { newDrafts[ev.personnelId] = updated; changed = true; }
                     });
                     return changed ? newDrafts : prev;
                 });
@@ -149,9 +217,13 @@ export function PersonnelEvaluationSection({ auditId, storeId, storeName, canEdi
                         if (!newDrafts[p.id]) {
                             // Use evaluationsRef.current to populate score/comment immediately
                             const existingEval = evaluationsRef.current[p.id];
+                            const initScore = existingEval?.score !== undefined && existingEval.score >= 0
+                                ? existingEval.score.toString() : "";
+                            const initComment = existingEval?.comment && existingEval.comment !== "[İzinli]"
+                                ? existingEval.comment : "";
                             newDrafts[p.id] = {
-                                score: existingEval?.score !== undefined ? existingEval.score.toString() : "",
-                                comment: existingEval?.comment ?? "",
+                                score: initScore,
+                                comment: initComment,
                                 status: p.status,
                                 targetStoreId: p.targetStoreId || "none"
                             };
@@ -179,37 +251,6 @@ export function PersonnelEvaluationSection({ auditId, storeId, storeName, canEdi
         };
     }, [storeId, auditId]);
 
-    // Sync evaluations → drafts whenever Firestore data arrives (online or from cache)
-    useEffect(() => {
-        if (Object.keys(evaluations).length === 0) return;
-
-        setDrafts(prev => {
-            const newDrafts = { ...prev };
-            let changed = false;
-
-            Object.values(evaluations).forEach(ev => {
-                if (!newDrafts[ev.personnelId]) return;
-
-                const draft = newDrafts[ev.personnelId];
-                const serverScore = ev.score !== undefined ? ev.score.toString() : "";
-                const serverComment = ev.comment ?? "";
-
-                // Only overwrite when draft matches what the server has — this is a fresh load/remount,
-                // not an in-progress keystroke. We detect this by checking if the draft has
-                // never been touched (i.e. it still has the initial empty values).
-                if (draft.score === "" && serverScore !== "") {
-                    newDrafts[ev.personnelId] = { ...draft, score: serverScore };
-                    changed = true;
-                }
-                if (draft.comment === "" && serverComment !== "") {
-                    newDrafts[ev.personnelId] = { ...newDrafts[ev.personnelId], comment: serverComment };
-                    changed = true;
-                }
-            });
-
-            return changed ? newDrafts : prev;
-        });
-    }, [evaluations]);
 
     const searchGlobalPersonnel = async () => {
         if (!newPersonnelName.trim()) {
@@ -243,6 +284,21 @@ export function PersonnelEvaluationSection({ auditId, storeId, storeName, canEdi
         }
     };
 
+    // Load personnel of a selected store for the pull tab
+    const loadStorePersonnel = async (selectedStoreId: string) => {
+        if (!selectedStoreId) { setPullStorePersonnel([]); return; }
+        setLoadingPullStore(true);
+        try {
+            const snap = await getDocs(query(
+                collection(db, 'store_personnel'),
+                where('storeId', '==', selectedStoreId),
+                where('status', '==', 'active')
+            ));
+            setPullStorePersonnel(snap.docs.map(d => ({ id: d.id, ...d.data() } as StorePersonnel)));
+        } catch { toast.error('Personel listesi yüklenemedi.'); }
+        finally { setLoadingPullStore(false); }
+    };
+
     const handlePullPersonnel = async (p: StorePersonnel) => {
         setPullingPersonnelId(p.id);
         try {
@@ -262,6 +318,10 @@ export function PersonnelEvaluationSection({ auditId, storeId, storeName, canEdi
             setIsAddModalOpen(false);
             setNewPersonnelName("");
             setGlobalSearchResults([]);
+            setModalTab('new');
+            setPullStoreOpen(false);
+            setPullStoreId('');
+            setPullStorePersonnel([]);
             toast.success(`${p.name} başarıyla bu mağazaya transfer edildi.`);
         } catch (error) {
             console.error("Error pulling personnel:", error);
@@ -309,6 +369,10 @@ export function PersonnelEvaluationSection({ auditId, storeId, storeName, canEdi
         setIsAddModalOpen(false);
         setNewPersonnelName("");
         setGlobalSearchResults([]);
+        setModalTab('new');
+        setPullStoreOpen(false);
+        setPullStoreId('');
+        setPullStorePersonnel([]);
     };
 
     // Instant Save - Operates on every keystroke/change, relying on Firestore's built-in offline caching and request batching
@@ -316,36 +380,88 @@ export function PersonnelEvaluationSection({ auditId, storeId, storeName, canEdi
         if (!userProfile?.uid) return; // Wait for profile
 
         setSavingId(personnelId);
+        // Mark this personnel's eval as "just written" to suppress Firestore echo
+        lastEvalWriteTimeRef.current[personnelId] = Date.now();
         try {
             const now = Timestamp.now();
-            let evalId = evaluations[personnelId]?.id;
+            // Always read from ref (mutable, never stale) — prevents duplicate doc creation
+            // from rapid saves where React state hasn't re-rendered yet
+            let evalId = evaluationsRef.current[personnelId]?.id;
 
-            // 1. Handle Status Change (Transfer / Resign)
-            if (currentDraft.status !== "active" && currentDraft.status !== personnel.status) {
+            // 1. Handle Status Change (any direction including back to active)
+            if (currentDraft.status !== personnel.status) {
                 const updateData: any = {
                     status: currentDraft.status,
                     updatedAt: now,
                 };
 
                 if (currentDraft.status === "transferred" && currentDraft.targetStoreId !== "none") {
-                    updateData.storeId = currentDraft.targetStoreId; // move them permanently
-                    updateData.targetStoreId = currentDraft.targetStoreId; // keep record
-                    updateData.status = "active"; // They become active in the new store
+                    updateData.storeId = currentDraft.targetStoreId;
+                    updateData.targetStoreId = currentDraft.targetStoreId;
+                    updateData.status = "active";
                 }
 
                 await updateDoc(doc(db, "store_personnel", personnelId), updateData);
-                toast.success(`${personnel.name} durumu güncellendi.`);
+
+                // If switching back to active from on_leave, clear the sentinel eval record
+                // NOTE: denetmenler delete yapamıyor — score:-2 ile "temizlendi" sentinel yaz
+                if (currentDraft.status === "active" && personnel.status === "on_leave") {
+                    if (evalId) {
+                        // score:-2 = "cleared pending" sentinel — filtered same as score:-1
+                        await updateDoc(doc(db, "personnel_evaluations", evalId), {
+                            score: -2,
+                            comment: "",
+                        });
+                    }
+                    toast.success(`${personnel.name} tekrar aktif.`);
+                    if (onPersonnelChange) onPersonnelChange();
+                    return;
+                }
+
+                if (currentDraft.status !== "active") {
+                    toast.success(`${personnel.name} durumu güncellendi.`);
+                }
             }
 
-            // 2. Save score/comment if provided or delete if cleared
+            // 2. on_leave: save a special marker evaluation (score=-1 signals "on leave")
+            if (currentDraft.status === "on_leave") {
+                const evalData = {
+                    personnelId,
+                    personnelName: personnel.name,
+                    auditId,
+                    storeId,
+                    storeName,
+                    auditorId: userProfile?.uid || "unknown",
+                    auditorName: userProfile?.firstName ? `${userProfile.firstName} ${userProfile.lastName}` : (userProfile?.displayName || "Denetmen"),
+                    score: -1, // sentinel: means "on leave, no score"
+                    comment: "[İzinli]",
+                    createdAt: evaluations[personnelId] ? evaluations[personnelId].createdAt : now,
+                };
+                if (evalId) {
+                    await updateDoc(doc(db, "personnel_evaluations", evalId), evalData);
+                } else {
+                    const newDocRef = doc(collection(db, "personnel_evaluations"));
+                    setEvaluations(prev => ({
+                        ...prev,
+                        [personnelId]: { id: newDocRef.id, ...evalData } as PersonnelEvaluation
+                    }));
+                    await setDoc(newDocRef, evalData);
+                }
+                if (onPersonnelChange) onPersonnelChange();
+                return;
+            }
+
+            // 3. Save score/comment if provided; if cleared, write sentinel (denetmen can't delete)
             if (currentDraft.score === "" && currentDraft.comment.trim() === "") {
                 if (evalId) {
-                    await deleteDoc(doc(db, "personnel_evaluations", evalId));
-                    // Prevent deleting multiple times before snapshot triggers:
-                    const updatedEvals = { ...evaluations };
-                    delete updatedEvals[personnelId];
-                    setEvaluations(updatedEvals);
+                    // Can't deleteDoc — denetmen has no delete permission.
+                    // Write score:-2 "cleared" sentinel instead; it's filtered everywhere in the UI.
+                    await updateDoc(doc(db, "personnel_evaluations", evalId), {
+                        score: -2,
+                        comment: "",
+                    });
                 }
+                // If no evalId yet, nothing to clear — just skip writing.
             } else {
                 const evalData = {
                     personnelId,
@@ -364,13 +480,13 @@ export function PersonnelEvaluationSection({ auditId, storeId, storeName, canEdi
                     await updateDoc(doc(db, "personnel_evaluations", evalId), evalData);
                 } else {
                     const newDocRef = doc(collection(db, "personnel_evaluations"));
-                    // Store the reference immediately in local state so the next instant keystroke uses updateDoc 
-                    // instead of continually creating duplicate records while waiting for snapshot or connection.
+                    // Update ref IMMEDIATELY (sync) so any concurrent debounced call
+                    // sees the new ID and uses updateDoc, never creating a duplicate.
+                    evaluationsRef.current[personnelId] = { id: newDocRef.id, ...evalData } as PersonnelEvaluation;
                     setEvaluations(prev => ({
                         ...prev,
                         [personnelId]: { id: newDocRef.id, ...evalData } as PersonnelEvaluation
                     }));
-
                     await setDoc(newDocRef, evalData);
                 }
             }
@@ -383,6 +499,7 @@ export function PersonnelEvaluationSection({ auditId, storeId, storeName, canEdi
             setSavingId(null);
         }
     };
+
 
 
     if (loading) {
@@ -420,87 +537,181 @@ export function PersonnelEvaluationSection({ auditId, storeId, storeName, canEdi
                             </DialogTrigger>
                             <DialogContent>
                                 <DialogHeader>
-                                    <DialogTitle>Yeni Personel Ekle</DialogTitle>
+                                    <DialogTitle>Personel İşlemleri</DialogTitle>
                                     <DialogDescription>
-                                        Sisteme eklenen personel bu mağazanın kadrosuna dahil edilir ve sonraki ziyaretlerde otomatik listelenir.
+                                        Yeni personel oluşturun veya başka bir mağazadan personel çekin.
                                     </DialogDescription>
                                 </DialogHeader>
-                                <div className="space-y-4 py-4">
-                                    <div className="space-y-2">
-                                        <Label>Personel Adı Soyadı</Label>
-                                        <Input
-                                            placeholder="Örn: Ali Yılmaz"
-                                            value={newPersonnelName}
-                                            onChange={(e) => {
-                                                setNewPersonnelName(e.target.value);
-                                                setGlobalSearchResults([]); // clear results if user types again
-                                            }}
-                                            onKeyDown={(e) => {
-                                                if (e.key === 'Enter') searchGlobalPersonnel();
-                                            }}
-                                        />
-                                    </div>
 
-                                    {globalSearchResults.length > 0 && (
-                                        <div className="mt-4 p-4 border rounded-xl bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800/50 space-y-3">
-                                            <div className="flex items-start gap-2 text-amber-800 dark:text-amber-200">
-                                                <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
-                                                <div className="text-sm">
-                                                    <p className="font-semibold">Benzer kayıtlar bulundu!</p>
-                                                    <p className="text-amber-700/80 dark:text-amber-300/80">
-                                                        Aradığınız kişi başka bir mağazada (veya eski mağazasında) aktif görünüyor olabilir. Çift kayıt oluşturmamak için kişiyi bu mağazaya çekebilirsiniz (Transfer).
-                                                    </p>
-                                                </div>
+                                {/* Tab buttons */}
+                                <div className="flex gap-2 border-b border-border pb-0">
+                                    <button
+                                        onClick={() => setModalTab('new')}
+                                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                                            modalTab === 'new'
+                                                ? 'border-indigo-600 text-indigo-600'
+                                                : 'border-transparent text-muted-foreground hover:text-foreground'
+                                        }`}
+                                    >
+                                        <Plus className="w-3.5 h-3.5 inline mr-1" />Yeni Ekle
+                                    </button>
+                                    <button
+                                        onClick={() => setModalTab('pull')}
+                                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                                            modalTab === 'pull'
+                                                ? 'border-indigo-600 text-indigo-600'
+                                                : 'border-transparent text-muted-foreground hover:text-foreground'
+                                        }`}
+                                    >
+                                        <ArrowRightLeft className="w-3.5 h-3.5 inline mr-1" />Personel Çek
+                                    </button>
+                                </div>
+
+                                {/* ── TAB: Yeni Ekle ── */}
+                                {modalTab === 'new' && (
+                                    <>
+                                        <div className="space-y-4 py-2">
+                                            <div className="space-y-2">
+                                                <Label>Personel Adı Soyadı</Label>
+                                                <Input
+                                                    placeholder="Örn: ALİ YILMAZ"
+                                                    value={newPersonnelName}
+                                                    autoCapitalize="characters"
+                                                    onChange={(e) => {
+                                                        setNewPersonnelName(e.target.value.toLocaleUpperCase('tr-TR'));
+                                                        setGlobalSearchResults([]);
+                                                    }}
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === 'Enter') searchGlobalPersonnel();
+                                                    }}
+                                                />
                                             </div>
-                                            <div className="space-y-2 mt-2">
-                                                {globalSearchResults.map(g => {
-                                                    const s = allStores.find(st => st.id === g.storeId);
-                                                    return (
-                                                        <div key={g.id} className="flex items-center justify-between p-2 bg-white dark:bg-slate-900 rounded-lg border shadow-sm">
-                                                            <div>
-                                                                <p className="font-medium text-sm">{g.name}</p>
-                                                                <p className="text-xs text-muted-foreground">Kayıtlı olduğu yer: {s?.name || 'Bilinmiyor'}</p>
+
+                                            {globalSearchResults.length > 0 && (
+                                                <div className="p-4 border rounded-xl bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800/50 space-y-3">
+                                                    <div className="flex items-start gap-2 text-amber-800 dark:text-amber-200">
+                                                        <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+                                                        <div className="text-sm">
+                                                            <p className="font-semibold">Benzer kayıtlar bulundu!</p>
+                                                            <p className="text-amber-700/80 dark:text-amber-300/80">
+                                                                Bu kişi başka bir mağazada kayıtlı olabilir. Çift kayıt oluşturmamak için Transfer butonunu kullanın.
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        {globalSearchResults.map(g => {
+                                                            const s = allStores.find(st => st.id === g.storeId);
+                                                            return (
+                                                                <div key={g.id} className="flex items-center justify-between p-2 bg-white dark:bg-slate-900 rounded-lg border shadow-sm">
+                                                                    <div>
+                                                                        <p className="font-medium text-sm">{g.name}</p>
+                                                                        <p className="text-xs text-muted-foreground">{s?.name || 'Bilinmiyor'}</p>
+                                                                    </div>
+                                                                    <Button size="sm" variant="outline"
+                                                                        className="text-indigo-600 border-indigo-200 hover:bg-indigo-50"
+                                                                        onClick={() => handlePullPersonnel(g)}
+                                                                        disabled={pullingPersonnelId === g.id}
+                                                                    >
+                                                                        {pullingPersonnelId === g.id ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <ArrowRightLeft className="w-3 h-3 mr-1" />}
+                                                                        Bu Mağazaya Çek
+                                                                    </Button>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                        <DialogFooter className="gap-2 sm:gap-0">
+                                            <Button variant="outline" onClick={handleCloseModal}>İptal</Button>
+                                            {globalSearchResults.length > 0 ? (
+                                                <Button onClick={createNewPersonnel}
+                                                    disabled={addingPersonnel || !newPersonnelName.trim()}
+                                                    className="bg-slate-900 hover:bg-slate-800 text-white dark:bg-white dark:text-black dark:hover:bg-slate-200">
+                                                    {addingPersonnel ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Plus className="w-4 h-4 mr-2" />}
+                                                    Yine de Yeni Oluştur
+                                                </Button>
+                                            ) : (
+                                                <Button onClick={searchGlobalPersonnel}
+                                                    disabled={isSearchingGlobal || addingPersonnel || !newPersonnelName.trim()}
+                                                    className="bg-indigo-600 hover:bg-indigo-700 text-white">
+                                                    {(isSearchingGlobal || addingPersonnel) ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                                                    Ekle ve Listele
+                                                </Button>
+                                            )}
+                                        </DialogFooter>
+                                    </>
+                                )}
+
+                                {/* ── TAB: Personel Çek ── */}
+                                {modalTab === 'pull' && (
+                                    <>
+                                        <div className="space-y-4 py-2">
+                                            <div className="space-y-1.5">
+                                                <Label>Mağaza Seç</Label>
+                                                <Select
+                                                    value={pullStoreId}
+                                                    onValueChange={(val) => {
+                                                        setPullStoreId(val);
+                                                        setPullStorePersonnel([]);
+                                                        loadStorePersonnel(val);
+                                                    }}
+                                                >
+                                                    <SelectTrigger className="w-full">
+                                                        <SelectValue placeholder="Mağaza seçin..." />
+                                                    </SelectTrigger>
+                                                    <SelectContent
+                                                        position="popper"
+                                                        side="bottom"
+                                                        className="max-h-72 overflow-y-auto"
+                                                    >
+                                                        {allStores.filter(s => s.id !== storeId).map(s => (
+                                                            <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+
+                                            {loadingPullStore && (
+                                                <div className="flex items-center justify-center py-6 text-muted-foreground">
+                                                    <Loader2 className="w-5 h-5 animate-spin mr-2" /> Yükleniyor...
+                                                </div>
+                                            )}
+
+                                            {!loadingPullStore && pullStoreId && pullStorePersonnel.length === 0 && (
+                                                <p className="text-sm text-muted-foreground text-center py-4">Bu mağazada aktif personel bulunmuyor.</p>
+                                            )}
+
+                                            {pullStorePersonnel.length > 0 && (
+                                                <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                                                    {pullStorePersonnel.map(p => (
+                                                        <div key={p.id} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-900 rounded-lg border">
+                                                            <div className="flex items-center gap-2">
+                                                                <UserCircle className="w-5 h-5 text-slate-400" />
+                                                                <span className="font-medium text-sm">{p.name}</span>
                                                             </div>
                                                             <Button
                                                                 size="sm"
-                                                                variant="outline"
-                                                                className="text-indigo-600 border-indigo-200 hover:bg-indigo-50"
-                                                                onClick={() => handlePullPersonnel(g)}
-                                                                disabled={pullingPersonnelId === g.id}
+                                                                className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                                                                onClick={() => handlePullPersonnel(p)}
+                                                                disabled={pullingPersonnelId === p.id}
                                                             >
-                                                                {pullingPersonnelId === g.id ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <ArrowRightLeft className="w-3 h-3 mr-1" />}
-                                                                Bu Mağazaya Çek
+                                                                {pullingPersonnelId === p.id
+                                                                    ? <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                                                                    : <ArrowRightLeft className="w-3 h-3 mr-1" />
+                                                                }
+                                                                Çek
                                                             </Button>
                                                         </div>
-                                                    )
-                                                })}
-                                            </div>
+                                                    ))}
+                                                </div>
+                                            )}
                                         </div>
-                                    )}
-                                </div>
-                                <DialogFooter className="gap-2 sm:gap-0">
-                                    <Button variant="outline" onClick={handleCloseModal}>İptal</Button>
-
-                                    {globalSearchResults.length > 0 ? (
-                                        <Button
-                                            onClick={createNewPersonnel}
-                                            disabled={addingPersonnel || !newPersonnelName.trim()}
-                                            className="bg-slate-900 hover:bg-slate-800 text-white dark:bg-white dark:text-black dark:hover:bg-slate-200"
-                                        >
-                                            {addingPersonnel ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Plus className="w-4 h-4 mr-2" />}
-                                            Yine de Yeni Oluştur
-                                        </Button>
-                                    ) : (
-                                        <Button
-                                            onClick={searchGlobalPersonnel}
-                                            disabled={isSearchingGlobal || addingPersonnel || !newPersonnelName.trim()}
-                                            className="bg-indigo-600 hover:bg-indigo-700 text-white"
-                                        >
-                                            {(isSearchingGlobal || addingPersonnel) ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-                                            Ekle ve Listele
-                                        </Button>
-                                    )}
-                                </DialogFooter>
+                                        <DialogFooter>
+                                            <Button variant="outline" onClick={handleCloseModal}>İptal</Button>
+                                        </DialogFooter>
+                                    </>
+                                )}
                             </DialogContent>
                         </Dialog>
                     )}
@@ -535,7 +746,36 @@ export function PersonnelEvaluationSection({ auditId, storeId, storeName, canEdi
                                                     <UserCircle className="w-6 h-6 text-slate-500" />
                                                 </div>
                                                 <div>
-                                                    <h4 className="font-semibold text-base">{personnel.name}</h4>
+                                                    {editingNameId === personnel.id ? (
+                                                        <div className="flex items-center gap-1">
+                                                            <Input
+                                                                autoFocus
+                                                                autoCapitalize="characters"
+                                                                value={editingNameValue}
+                                                                onChange={e => setEditingNameValue(e.target.value.toLocaleUpperCase('tr-TR'))}
+                                                                onKeyDown={e => {
+                                                                    if (e.key === 'Enter') handleSaveName(personnel.id);
+                                                                    if (e.key === 'Escape') setEditingNameId(null);
+                                                                }}
+                                                                onBlur={() => handleSaveName(personnel.id)}
+                                                                className="h-7 text-sm font-semibold px-2 py-0 w-40"
+                                                                disabled={savingName}
+                                                            />
+                                                        </div>
+                                                    ) : (
+                                                        <div className="flex items-center gap-1">
+                                                            <h4 className="font-semibold text-base">{personnel.name}</h4>
+                                                            {canEdit && (
+                                                                <button
+                                                                    onClick={() => { setEditingNameId(personnel.id); setEditingNameValue(personnel.name); }}
+                                                                    className="p-0.5 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400"
+                                                                    title="İsmi düzenle"
+                                                                >
+                                                                    <Pencil className="w-3 h-3 text-slate-400" />
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    )}
                                                     <div className="flex items-center gap-1.5 mt-0.5">
                                                         {personnel.status === 'active' ? (
                                                             <span className="inline-flex items-center text-xs font-medium text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 px-2 py-0.5 rounded-full">
@@ -544,6 +784,10 @@ export function PersonnelEvaluationSection({ auditId, storeId, storeName, canEdi
                                                         ) : personnel.status === 'resigned' ? (
                                                             <span className="inline-flex items-center text-xs font-medium text-rose-600 bg-rose-50 dark:bg-rose-950/30 px-2 py-0.5 rounded-full">
                                                                 <UserMinus className="w-3 h-3 mr-1" /> Ayrıldı
+                                                            </span>
+                                                        ) : personnel.status === 'on_leave' ? (
+                                                            <span className="inline-flex items-center text-xs font-medium text-sky-600 bg-sky-50 dark:bg-sky-950/30 px-2 py-0.5 rounded-full">
+                                                                İzinli
                                                             </span>
                                                         ) : (
                                                             <span className="inline-flex items-center text-xs font-medium text-amber-600 bg-amber-50 dark:bg-amber-950/30 px-2 py-0.5 rounded-full">
@@ -555,17 +799,68 @@ export function PersonnelEvaluationSection({ auditId, storeId, storeName, canEdi
                                                 </div>
                                             </div>
 
-                                            {canEdit && !isInactiveLocked && (
+                                            {/* Duplicate name warning after inline edit */}
+                                            {nameEditDuplicates.personnelId === personnel.id && nameEditDuplicates.matches.length > 0 && (
+                                                <div className="mt-2 p-3 rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800/50 space-y-2">
+                                                    <div className="flex items-start justify-between gap-2">
+                                                        <div className="flex items-start gap-2 text-amber-800 dark:text-amber-200">
+                                                            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                                                            <p className="text-xs font-semibold">Bu isimde biri başka mağazada kayıtlı!</p>
+                                                        </div>
+                                                        <button
+                                                            onClick={() => setNameEditDuplicates({ personnelId: '', matches: [] })}
+                                                            className="text-amber-600 hover:text-amber-800 dark:text-amber-400 shrink-0"
+                                                        >
+                                                            <span className="text-xs">✕</span>
+                                                        </button>
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        {nameEditDuplicates.matches.map(m => (
+                                                            <div key={m.id} className="flex items-center justify-between bg-white dark:bg-slate-900 rounded-lg px-2.5 py-2 border text-xs">
+                                                                <div>
+                                                                    <p className="font-medium">{m.name}</p>
+                                                                    <p className="text-muted-foreground">{m.storeName}</p>
+                                                                </div>
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="outline"
+                                                                    className="h-7 text-xs text-indigo-600 border-indigo-200 hover:bg-indigo-50"
+                                                                    onClick={() => {
+                                                                        handlePullPersonnel(m);
+                                                                        setNameEditDuplicates({ personnelId: '', matches: [] });
+                                                                    }}
+                                                                    disabled={pullingPersonnelId === m.id}
+                                                                >
+                                                                    {pullingPersonnelId === m.id
+                                                                        ? <Loader2 className="w-3 h-3 animate-spin mr-1" />
+                                                                        : <ArrowRightLeft className="w-3 h-3 mr-1" />}
+                                                                    Bu Mağazaya Çek
+                                                                </Button>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {canEdit && personnel.status !== 'transferred' && (
                                                 <div className="space-y-3 pt-2">
                                                     <div className="space-y-1.5">
                                                         <Label className="text-xs text-muted-foreground uppercase tracking-wider">Durum Bildirimi</Label>
                                                         <Select
                                                             value={draft.status}
                                                             onValueChange={(val: any) => {
-                                                                const newDraft = { ...draft, status: val };
+                                                                let newDraft = { ...draft, status: val };
+                                                                // When switching back from on_leave → active, clear sentinel values
+                                                                if (val === "active" && draft.status === "on_leave") {
+                                                                    newDraft = { ...newDraft, score: "", comment: "" };
+                                                                }
                                                                 setDrafts(p => ({ ...p, [personnel.id]: newDraft }));
                                                                 if (val !== "transferred") {
-                                                                    instantSaveEvaluation(personnel.id, personnel, newDraft);
+                                                                    // Debounce: cancel pending save for this personnel, schedule a new one
+                                                                    clearTimeout(saveDebouncerRef.current[personnel.id]);
+                                                                    saveDebouncerRef.current[personnel.id] = setTimeout(() => {
+                                                                        instantSaveEvaluation(personnel.id, personnel, newDraft);
+                                                                    }, 500);
                                                                 }
                                                             }}
                                                         >
@@ -574,6 +869,7 @@ export function PersonnelEvaluationSection({ auditId, storeId, storeName, canEdi
                                                             </SelectTrigger>
                                                             <SelectContent>
                                                                 <SelectItem value="active">Mağazada Çalışıyor</SelectItem>
+                                                                <SelectItem value="on_leave">Haftalık İzinli</SelectItem>
                                                                 <SelectItem value="resigned">İşten Ayrıldı</SelectItem>
                                                                 <SelectItem value="transferred">Başka Mağazaya Geçti</SelectItem>
                                                             </SelectContent>
@@ -619,24 +915,30 @@ export function PersonnelEvaluationSection({ auditId, storeId, storeName, canEdi
                                                     <span className="text-xs text-muted-foreground font-medium bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded">Etki: %0</span>
                                                 </div>
                                                 <Input
-                                                    type="number"
-                                                    min="0"
-                                                    max="100"
+                                                    type="text"
+                                                    inputMode="numeric"
                                                     placeholder="100 üzerinden puanlayın"
                                                     value={draft.score}
                                                     onChange={(e) => {
                                                         const val = e.target.value;
-                                                        if (val !== "" && (!/^\d+$/.test(val))) return;
-                                                        let num = parseInt(val);
+                                                        // Allow empty string or digits only
+                                                        if (val !== "" && !/^\d+$/.test(val)) return;
+                                                        // Clamp 0-100
                                                         let finalVal = val;
-                                                        if (num > 100) finalVal = "100";
-                                                        if (num < 0) finalVal = "0";
-
+                                                        if (val !== "") {
+                                                            const num = parseInt(val, 10);
+                                                            if (num > 100) finalVal = "100";
+                                                            else if (num < 0) finalVal = "0";
+                                                        }
                                                         const newDraft = { ...draft, score: finalVal };
                                                         setDrafts(p => ({ ...p, [personnel.id]: newDraft }));
-                                                        instantSaveEvaluation(personnel.id, personnel, newDraft);
+                                                        // Debounce: rapid keystrokes → only the final value hits Firestore
+                                                        clearTimeout(saveDebouncerRef.current[`score_${personnel.id}`]);
+                                                        saveDebouncerRef.current[`score_${personnel.id}`] = setTimeout(() => {
+                                                            instantSaveEvaluation(personnel.id, personnel, newDraft);
+                                                        }, 300);
                                                     }}
-                                                    disabled={!canEdit || isInactiveLocked || draft.status !== 'active'}
+                                                    disabled={!canEdit || isInactiveLocked || draft.status === 'on_leave'}
                                                     className="font-medium max-w-[200px]"
                                                 />
                                             </div>
@@ -672,7 +974,7 @@ export function PersonnelEvaluationSection({ auditId, storeId, storeName, canEdi
                                                                 }
                                                             }, 50);
                                                         }}
-                                                        disabled={!canEdit || isInactiveLocked || draft.status !== 'active'}
+                                                        disabled={!canEdit || isInactiveLocked || draft.status === 'on_leave'}
                                                     >
                                                         Önemli
                                                     </Button>
@@ -701,7 +1003,7 @@ export function PersonnelEvaluationSection({ auditId, storeId, storeName, canEdi
                                                                 }
                                                             }, 50);
                                                         }}
-                                                        disabled={!canEdit || isInactiveLocked || draft.status !== 'active'}
+                                                        disabled={!canEdit || isInactiveLocked || draft.status === 'on_leave'}
                                                     >
                                                         Not
                                                     </Button>
@@ -730,21 +1032,33 @@ export function PersonnelEvaluationSection({ auditId, storeId, storeName, canEdi
                                                                 }
                                                             }, 50);
                                                         }}
-                                                        disabled={!canEdit || isInactiveLocked || draft.status !== 'active'}
+                                                        disabled={!canEdit || isInactiveLocked || draft.status === 'on_leave'}
                                                     >
                                                         Öneri
                                                     </Button>
                                                 </div>
                                                 <Textarea
                                                     ref={(el) => { textareaRefs.current[personnel.id] = el; }}
-                                                    placeholder="Personelin kılık kıyafet, davranış, mesai giriş çıkış ve görev bilinci hakkında detyalı yorumunuzu yazın..."
+                                                    placeholder="Personelin kılık kıyafet, davranış, mesai giriş çıkış ve görev bilinci hakkında detaylı yorumunuzu yazın..."
                                                     value={draft.comment}
+                                                    onFocus={() => { focusedPersonnelIdRef.current = personnel.id; }}
+                                                    onBlur={(e) => {
+                                                        focusedPersonnelIdRef.current = null;
+                                                        // Textarea'dan ayrılınca bekleyen debounce'u iptal et ve hemen kaydet
+                                                        clearTimeout(saveDebouncerRef.current[`comment_${personnel.id}`]);
+                                                        const latestDraft = { ...draft, comment: e.target.value };
+                                                        instantSaveEvaluation(personnel.id, personnel, latestDraft);
+                                                    }}
                                                     onChange={(e) => {
                                                         const newDraft = { ...draft, comment: e.target.value };
                                                         setDrafts(p => ({ ...p, [personnel.id]: newDraft }));
-                                                        instantSaveEvaluation(personnel.id, personnel, newDraft);
+                                                        // Debounce: kullanıcı yazmayı bırakınca Firestore'a yaz
+                                                        clearTimeout(saveDebouncerRef.current[`comment_${personnel.id}`]);
+                                                        saveDebouncerRef.current[`comment_${personnel.id}`] = setTimeout(() => {
+                                                            instantSaveEvaluation(personnel.id, personnel, newDraft);
+                                                        }, 800);
                                                     }}
-                                                    disabled={!canEdit || isInactiveLocked || draft.status !== 'active'}
+                                                    disabled={!canEdit || isInactiveLocked || draft.status === 'on_leave'}
                                                     className="min-h-[100px] resize-y"
                                                 />
                                             </div>

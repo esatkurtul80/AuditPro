@@ -2,11 +2,17 @@
 
 ```json
 {
-  "version": "3.0.3",
-  "build": 119,
+  "version": "3.0.4",
+  "build": 120,
   "status": "stable"
 }
 ```
+
+## [3.0.4] - 2026-04-03
+
+### v3.0.4
+- **Özel Rapor Not Formatı:** Soru notlarında kullanılan "ÖNEMLİ:", "NOT:" ve "ÖNERİ:" ibareleri genel görüşteki renklendirmelerle standart hale getirildi. Otomatik eklenen "Not:" öneki kaldırılarak doğrudan kullanıcının formatı kullanılması sağlandı.
+- **Mobil Klavye Kapanma Sorunu:** Hızlı not ekleme butonlarına ("Önemli", "Not", "Öneri") tıklandığında klavyenin kapanıp açılması ve ekran kayması sorunu `onPointerDown` ve `preventDefault` kullanılarak tamamen çözüldü.
 
 ## [3.0.3] - 2026-04-02
 

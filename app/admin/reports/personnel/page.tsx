@@ -11,14 +11,26 @@ import { Input } from "@/components/ui/input";
 import { DataTable } from "@/components/ui/data-table";
 import { DataTableColumnHeader } from "@/components/ui/data-table-column-header";
 import { ColumnDef } from "@tanstack/react-table";
-import { collection, getDocs, query, orderBy, Timestamp, getDoc, doc, updateDoc } from "firebase/firestore";
+import { collection, getDocs, query, orderBy, Timestamp, getDoc, doc, updateDoc, deleteDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { PersonnelEvaluation, Store, UserProfile, DateRangeFilter, PersonnelStatus, StorePersonnel } from "@/lib/types";
-import { Loader2, FileSpreadsheet, Star, Settings2, Save, Eye, Search, X } from "lucide-react";
+import { Loader2, FileSpreadsheet, Star, Settings2, Save, Eye, Search, X, Pencil, Trash2 } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -29,6 +41,7 @@ interface EvaluationRow extends PersonnelEvaluation {
     formattedDate: string;
     parsedDate: Date;
     regionalManagerName?: string;
+    personnelStatus?: string; // current status from store_personnel (joined on load/edit)
 }
 
 const turkishSort = (rowA: any, rowB: any, columnId: string) => {
@@ -64,6 +77,18 @@ export default function PersonnelReportPage() {
     const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
     const [selectedPersonnelHistory, setSelectedPersonnelHistory] = useState<EvaluationRow[]>([]);
     const [historyPersonnelName, setHistoryPersonnelName] = useState("");
+
+    // Edit Evaluation State
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [editingEval, setEditingEval] = useState<EvaluationRow | null>(null);
+    const [editName, setEditName] = useState("");
+    const [editScore, setEditScore] = useState("");
+    const [editComment, setEditComment] = useState("");
+    const [editStatus, setEditStatus] = useState<PersonnelStatus>("active");
+    const [editTargetStoreId, setEditTargetStoreId] = useState("none");
+    const [isSavingEdit, setIsSavingEdit] = useState(false);
+    const [isDeletingId, setIsDeletingId] = useState<string | null>(null);
+    const [isDeletingPersonnelId, setIsDeletingPersonnelId] = useState<string | null>(null);
 
     // Settings State
     const [showScoresInReport, setShowScoresInReport] = useState(true);
@@ -136,13 +161,25 @@ export default function PersonnelReportPage() {
                 }).map(ev => {
                     const store = storesList.find(s => s.id === ev.storeId);
                     const rm = rmList.find(r => r.uid === store?.regionalManagerId);
+                    const auditor = auditorsList.find(a => a.uid === ev.auditorId);
                     return {
                         ...ev,
-                        regionalManagerName: rm ? (rm.displayName || `${rm.firstName} ${rm.lastName}`) : undefined
+                        auditorName: auditor ? (auditor.displayName || `${auditor.firstName || ''} ${auditor.lastName || ''}`.trim()) : ev.auditorName,
+                        regionalManagerName: rm ? (rm.displayName || `${rm.firstName || ''} ${rm.lastName || ''}`.trim()) : undefined
                     };
                 }).sort((a, b) => b.parsedDate.getTime() - a.parsedDate.getTime());
 
-                setEvaluations(evalsList);
+                // Deduplicate: for each personnelId+auditId pair keep only the most recent record
+                // (race condition in older saves could create duplicate docs for the same person/audit)
+                const deduped = new Map<string, typeof evalsList[0]>();
+                evalsList.forEach(ev => {
+                    const key = `${ev.personnelId}__${ev.auditId}`;
+                    if (!deduped.has(key)) {
+                        deduped.set(key, ev); // already sorted desc, so first = most recent
+                    }
+                });
+
+                setEvaluations(Array.from(deduped.values()));
 
                 // Fetch Settings
                 const settingsSnap = await getDoc(doc(db, "settings", "personnel_settings"));
@@ -261,7 +298,109 @@ export default function PersonnelReportPage() {
         }
     };
 
-    const columns: ColumnDef<EvaluationRow>[] = [
+    const openEditModal = async (row: EvaluationRow) => {
+        setEditingEval(row);
+        setEditName(row.personnelName || "");
+        setEditScore(row.score < 0 ? "" : (row.score?.toString() || ""));
+        setEditComment(row.comment === "[İzinli]" ? "" : (row.comment || ""));
+        // Load current status from store_personnel
+        try {
+            const snap = await getDoc(doc(db, "store_personnel", row.personnelId));
+            if (snap.exists()) {
+                const d = snap.data();
+                setEditStatus((d.status as PersonnelStatus) || "active");
+                setEditTargetStoreId(d.targetStoreId || "none");
+            } else {
+                setEditStatus("active");
+                setEditTargetStoreId("none");
+            }
+        } catch {
+            setEditStatus("active");
+            setEditTargetStoreId("none");
+        }
+        setIsEditModalOpen(true);
+    };
+
+    const handleSaveEdit = async () => {
+        if (!editingEval) return;
+        setIsSavingEdit(true);
+        try {
+            // on_leave → always write sentinel values regardless of disabled input state
+            const scoreNum = editStatus === "on_leave"
+                ? -1
+                : editScore === "" ? -2 : Math.min(100, Math.max(0, parseInt(editScore, 10) || 0));
+            const commentVal = editStatus === "on_leave" ? "[İzinli]" : editComment.trim();
+            const evalUpdate: any = {
+                personnelName: editName.trim(),
+                score: scoreNum,
+                comment: commentVal,
+                personnelStatus: editStatus, // store status in eval doc for badge display
+            };
+            await updateDoc(doc(db, "personnel_evaluations", editingEval.id), evalUpdate);
+
+            // Update store_personnel: name + status
+            const personnelUpdate: any = { updatedAt: Timestamp.now() };
+            if (editName.trim() !== editingEval.personnelName) personnelUpdate.name = editName.trim();
+            personnelUpdate.status = editStatus;
+            if (editStatus === "transferred" && editTargetStoreId !== "none") {
+                personnelUpdate.storeId = editTargetStoreId;
+                personnelUpdate.targetStoreId = editTargetStoreId;
+            }
+            await updateDoc(doc(db, "store_personnel", editingEval.personnelId), personnelUpdate);
+
+            setEvaluations(prev => prev.map(e =>
+                e.id === editingEval.id
+                    ? { ...e, personnelName: editName.trim(), score: scoreNum, comment: commentVal, personnelStatus: editStatus }
+                    : e
+            ));
+            toast.success("Değerlendirme ve durum güncellendi.");
+            setIsEditModalOpen(false);
+        } catch (e) {
+            console.error(e);
+            toast.error("Güncelleme başarısız.");
+        } finally {
+            setIsSavingEdit(false);
+        }
+    };
+
+    const handleDeleteEval = async (row: EvaluationRow) => {
+        if (!confirm(`"${row.personnelName}" değerlendirmesi silinsin mi?`)) return;
+        setIsDeletingId(row.id);
+        try {
+            await deleteDoc(doc(db, "personnel_evaluations", row.id));
+            setEvaluations(prev => prev.filter(e => e.id !== row.id));
+            toast.success("Değerlendirme silindi.");
+        } catch (e) {
+            console.error(e);
+            toast.error("Silme başarısız.");
+        } finally {
+            setIsDeletingId(null);
+        }
+    };
+
+    const handleDeletePersonnel = async (personnelId: string, personnelName: string) => {
+        if (!userProfile || userProfile.role !== "admin") return;
+        setIsDeletingPersonnelId(personnelId);
+        try {
+            // Personel verisini sil
+            await deleteDoc(doc(db, "store_personnel", personnelId));
+            
+            // Personele ait tüm değerlendirmeleri sil
+            const evalsToDelete = evaluations.filter(e => e.personnelId === personnelId);
+            const deletePromises = evalsToDelete.map(ev => deleteDoc(doc(db, "personnel_evaluations", ev.id)));
+            await Promise.all(deletePromises);
+            
+            setEvaluations(prev => prev.filter(e => e.personnelId !== personnelId));
+            toast.success(`"${personnelName}" ve tüm değerlendirmeleri silindi.`);
+        } catch (e) {
+            console.error(e);
+            toast.error("Personel silinirken bir hata oluştu.");
+        } finally {
+            setIsDeletingPersonnelId(null);
+        }
+    };
+
+    const baseColumns: ColumnDef<EvaluationRow>[] = [
         {
             accessorKey: "formattedDate",
             header: "Tarih",
@@ -273,7 +412,7 @@ export default function PersonnelReportPage() {
             header: ({ column }) => <DataTableColumnHeader column={column} title="Bölge Müdürü" />,
             meta: {
                 title: "Bölge Müdürü",
-                filterOptions: regionalManagers.map(rm => ({ label: rm.displayName || rm.firstName + ' ' + rm.lastName, value: rm.displayName || rm.firstName + ' ' + rm.lastName }))
+                filterOptions: Array.from(new Set(regionalManagers.map(rm => rm.displayName || `${rm.firstName || ''} ${rm.lastName || ''}`.trim()))).map(name => ({ label: name, value: name }))
             },
             cell: ({ row }) => <div className="text-sm">{row.original.regionalManagerName || "-"}</div>,
             filterFn: (row, id, value) => Array.isArray(value) && value.includes(row.getValue(id)),
@@ -284,7 +423,7 @@ export default function PersonnelReportPage() {
             header: ({ column }) => <DataTableColumnHeader column={column} title="Mağaza" />,
             meta: {
                 title: "Mağaza",
-                filterOptions: stores.map(s => ({ label: s.name || s.id, value: s.name || s.id }))
+                filterOptions: Array.from(new Set(stores.map(s => s.name || s.id))).map(name => ({ label: name, value: name }))
             },
             cell: ({ row }) => <div className="font-medium">{row.original.storeName || "-"}</div>,
             filterFn: (row, id, value) => Array.isArray(value) && value.includes(row.getValue(id)),
@@ -304,6 +443,23 @@ export default function PersonnelReportPage() {
             meta: { title: "Puan" },
             cell: ({ row }) => {
                 const score = row.original.score;
+                const pStatus = row.original.personnelStatus;
+                // Resigned badge (show even with valid score — it was their last score)
+                if (pStatus === "resigned") {
+                    return (
+                        <div className="flex justify-center">
+                            <Badge className="bg-rose-500 text-white font-medium px-2">Ayrıldı</Badge>
+                        </div>
+                    );
+                }
+                // on_leave / cleared sentinel
+                if ((score ?? 0) < 0) {
+                    return (
+                        <div className="flex justify-center">
+                            <Badge className="bg-sky-500 text-white font-medium px-2">İzinli</Badge>
+                        </div>
+                    );
+                }
                 if (score === undefined || score === null) return <div className="text-center">-</div>;
 
                 let color = "bg-green-500";
@@ -326,7 +482,9 @@ export default function PersonnelReportPage() {
             meta: { title: "Yorum" },
             cell: ({ row }) => (
                 <div className="max-w-[400px] whitespace-pre-wrap break-words text-sm text-muted-foreground">
-                    {row.original.comment || <span className="italic opacity-50">Yorum yapılmadı</span>}
+                    {row.original.comment === "[İzinli]" ? (
+                        <span className="italic text-sky-500">İzin dönemi — yorum girilmedi</span>
+                    ) : row.original.comment || <span className="italic opacity-50">Yorum yapılmadı</span>}
                 </div>
             )
         },
@@ -335,13 +493,44 @@ export default function PersonnelReportPage() {
             header: ({ column }) => <DataTableColumnHeader column={column} title="Denetmen" />,
             meta: {
                 title: "Denetmen",
-                filterOptions: auditors.map(a => ({ label: a.displayName || a.firstName + ' ' + a.lastName, value: a.displayName || a.firstName + ' ' + a.lastName }))
+                filterOptions: Array.from(new Set(auditors.map(a => a.displayName || `${a.firstName || ''} ${a.lastName || ''}`.trim()))).map(name => ({ label: name, value: name }))
             },
             cell: ({ row }) => <div className="text-sm">{row.original.auditorName || "-"}</div>,
             filterFn: (row, id, value) => Array.isArray(value) && value.includes(row.getValue(id)),
             sortingFn: turkishSort
         },
+        {
+            id: "actions",
+            header: () => <div className="text-center">İşlem</div>,
+            cell: ({ row }) => (
+                <div className="flex items-center justify-center gap-1">
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50"
+                        onClick={() => openEditModal(row.original)}
+                        title="Düzenle"
+                    >
+                        <Pencil className="w-4 h-4" />
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-rose-500 hover:text-rose-700 hover:bg-rose-50"
+                        onClick={() => handleDeleteEval(row.original)}
+                        disabled={isDeletingId === row.original.id}
+                        title="Sil"
+                    >
+                        {isDeletingId === row.original.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                    </Button>
+                </div>
+            )
+        },
     ];
+
+    const columns = userProfile?.role === "rapor-yoneticisi" 
+        ? baseColumns.filter(c => c.id !== "actions") 
+        : baseColumns;
 
     const personnelColumns: ColumnDef<any>[] = [
         {
@@ -357,7 +546,7 @@ export default function PersonnelReportPage() {
             header: ({ column }) => <DataTableColumnHeader column={column} title="Son Çalıştığı Mağaza" />,
             meta: {
                 title: "Son Çalıştığı Mağaza",
-                filterOptions: stores.map(s => ({ label: s.name || s.id, value: s.name || s.id }))
+                filterOptions: Array.from(new Set(stores.map(s => s.name || s.id))).map(name => ({ label: name, value: name }))
             },
             cell: ({ row }) => <div className="font-medium text-muted-foreground">{row.original.storeName || "-"}</div>,
             filterFn: (row, id, value) => Array.isArray(value) && value.includes(row.getValue(id)),
@@ -386,9 +575,9 @@ export default function PersonnelReportPage() {
         },
         {
             id: "history",
-            header: () => <div className="text-center">Geçmiş</div>,
+            header: () => <div className="text-center">İşlem</div>,
             cell: ({ row }) => (
-                <div className="flex justify-center">
+                <div className="flex items-center justify-center gap-2">
                     <Button
                         variant="ghost"
                         size="sm"
@@ -402,6 +591,38 @@ export default function PersonnelReportPage() {
                         <Eye className="w-4 h-4" />
                         Görüntüle
                     </Button>
+                    {userProfile?.role === "admin" && (
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="gap-2 text-rose-600 hover:text-rose-800 hover:bg-rose-50"
+                                    disabled={isDeletingPersonnelId === row.original.personnelId}
+                                >
+                                    {isDeletingPersonnelId === row.original.personnelId ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                                    Sil
+                                </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>Emin misiniz?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        <strong className="text-foreground">{row.original.personnelName}</strong> adlı personeli ve bu personele ait <strong>tüm değerlendirme kayıtlarını</strong> tamamen silmek üzeresiniz. Bu işlem geri alınamaz.
+                                    </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>İptal</AlertDialogCancel>
+                                    <AlertDialogAction 
+                                        onClick={() => handleDeletePersonnel(row.original.personnelId, row.original.personnelName)}
+                                        className="bg-rose-600 hover:bg-rose-700 text-white"
+                                    >
+                                        Sil
+                                    </AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                    )}
                 </div>
             )
         }
@@ -581,13 +802,19 @@ export default function PersonnelReportPage() {
                                                     <CardTitle className="text-sm font-medium">{ev.formattedDate}</CardTitle>
                                                     <CardDescription className="text-xs mt-1">{ev.storeName} - {ev.auditorName}</CardDescription>
                                                 </div>
-                                                <Badge className={cn("text-white font-mono min-w-[3rem] justify-center", color)}>
-                                                    {ev.score ?? "-"}
-                                                </Badge>
+                                                {(ev.score ?? 0) < 0 ? (
+                                                    <Badge className="bg-sky-500 text-white">İzinli</Badge>
+                                                ) : (
+                                                    <Badge className={cn("text-white font-mono min-w-[3rem] justify-center", color)}>
+                                                        {ev.score ?? "-"}
+                                                    </Badge>
+                                                )}
                                             </CardHeader>
                                             <CardContent className="px-4 pb-4">
                                                 <p className="text-sm text-foreground whitespace-pre-wrap">
-                                                    {ev.comment || <span className="italic opacity-50">Yorum girilmemiş.</span>}
+                                                    {ev.comment === "[İzinli]" ? (
+                                                        <span className="italic text-sky-500">İzin dönemi — yorum girilmedi</span>
+                                                    ) : ev.comment || <span className="italic opacity-50">Yorum girilmemiş.</span>}
                                                 </p>
                                             </CardContent>
                                         </Card>
@@ -596,6 +823,84 @@ export default function PersonnelReportPage() {
                             )}
                         </div>
                     </ScrollArea>
+                </DialogContent>
+            </Dialog>
+
+            {/* Edit Evaluation Dialog */}
+            <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+                <DialogContent className="max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle>Değerlendirmeyi Düzenle</DialogTitle>
+                        <DialogDescription>
+                            Personel adı, puan ve yorumu güncelleyebilirsiniz.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-2">
+                        <div className="space-y-1.5">
+                            <Label>Personel Adı Soyadı</Label>
+                            <Input value={editName} onChange={e => setEditName(e.target.value)} placeholder="Ad Soyad" />
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label>Durum</Label>
+                            <Select value={editStatus} onValueChange={(v) => setEditStatus(v as PersonnelStatus)}>
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="active">Mağazada Çalışıyor</SelectItem>
+                                    <SelectItem value="on_leave">Haftalık İzinli</SelectItem>
+                                    <SelectItem value="resigned">İşten Ayrıldı</SelectItem>
+                                    <SelectItem value="transferred">Başka Mağazaya Geçti</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        {editStatus === "transferred" && (
+                            <div className="space-y-1.5">
+                                <Label>Atanacak Mağaza</Label>
+                                <Select value={editTargetStoreId} onValueChange={setEditTargetStoreId}>
+                                    <SelectTrigger><SelectValue placeholder="Mağaza seçin" /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="none" disabled>Lütfen Mağaza Seçin</SelectItem>
+                                        {stores.filter(s => s.id !== editingEval?.storeId).map(s => (
+                                            <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        )}
+                        <div className="space-y-1.5">
+                            <Label>Puan (0-100)</Label>
+                            <Input
+                                type="text"
+                                inputMode="numeric"
+                                value={editScore}
+                                onChange={e => {
+                                    const v = e.target.value;
+                                    if (v !== "" && !/^\d+$/.test(v)) return;
+                                    if (v !== "" && parseInt(v, 10) > 100) { setEditScore("100"); return; }
+                                    setEditScore(v);
+                                }}
+                                placeholder="0-100"
+                                className="max-w-[160px]"
+                                disabled={editStatus === "on_leave"}
+                            />
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label>Yorum</Label>
+                            <Textarea
+                                value={editComment}
+                                onChange={e => setEditComment(e.target.value)}
+                                placeholder="Personel hakkında yorum..."
+                                className="min-h-[100px]"
+                                disabled={editStatus === "on_leave"}
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsEditModalOpen(false)}>İptal</Button>
+                        <Button onClick={handleSaveEdit} disabled={isSavingEdit || !editName.trim()} className="bg-indigo-600 hover:bg-indigo-700 text-white">
+                            {isSavingEdit ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                            Kaydet
+                        </Button>
+                    </DialogFooter>
                 </DialogContent>
             </Dialog>
         </div>

@@ -1355,19 +1355,23 @@ export default function SchedulePage() {
             // If it's in New Ready, skip it here
             if (newReady.some(nr => nr.id === store.id)) return false;
 
-            // Check past audits in current month
-            const hasAuditThisMonth = audits.some(a =>
-                a.storeId === store.id &&
-                a.createdAt >= currentMonthStart
-            );
+            // Check past audits in current month OR within 12 days
+            const hasAuditRecent = audits.some(a => {
+                if (a.storeId !== store.id) return false;
+                const isThisMonth = a.createdAt >= currentMonthStart && a.createdAt <= endOfMonth(currentDate);
+                const diffDays = Math.abs(differenceInDays(a.createdAt, currentDate));
+                return isThisMonth || diffDays <= 12;
+            });
 
-            // Check scheduled items in current month
-            const isScheduledThisMonth = schedule.some(s =>
-                s.storeId === store.id &&
-                s.date >= currentMonthStart
-            );
+            // Check scheduled items in current month OR within 12 days
+            const isScheduledRecent = schedule.some(s => {
+                if (s.storeId !== store.id) return false;
+                const isThisMonth = s.date >= currentMonthStart && s.date <= endOfMonth(currentDate);
+                const diffDays = Math.abs(differenceInDays(s.date, currentDate));
+                return isThisMonth || diffDays <= 12;
+            });
 
-            return !hasAuditThisMonth && !isScheduledThisMonth;
+            return !hasAuditRecent && !isScheduledRecent;
         }).map(store => ({ ...store, lastScore: getLastAuditScore(store.id) }));
 
         // 3. Re-Audit Candidates (Low Score & 12 Day Rule)

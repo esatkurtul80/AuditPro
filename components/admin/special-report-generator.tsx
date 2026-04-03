@@ -779,15 +779,27 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
                                             {personnelEvals.map((pv, i) => (
                                                 <tr key={i}>
                                                     <td style={{ verticalAlign: 'top', fontWeight: 'bold', whiteSpace: 'nowrap', paddingRight: '20px' }}>{pv.personnelName}</td>
-                                                    <td style={{ verticalAlign: 'top', fontSize: '13px', color: '#555', fontStyle: 'italic', whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'break-word' }}>{pv.comment ? renderFeedbackText(pv.comment) : '-'}</td>
+                                                    <td style={{ verticalAlign: 'top', fontSize: '13px', color: '#555', fontStyle: 'italic', whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'break-word' }}>
+                                                        {pv.comment === '[İzinli]'
+                                                            ? <span style={{ color: '#0284c7', fontStyle: 'italic' }}>[İzinli]</span>
+                                                            : (pv.comment === '[İşten Ayrıldı]' || (pv as any).personnelStatus === 'resigned')
+                                                                ? <span style={{ color: '#e11d48', fontStyle: 'italic' }}>[İşten Ayrıldı]</span>
+                                                                : pv.comment ? renderFeedbackText(pv.comment) : '-'}
+                                                    </td>
                                                     {showScoresInReport && (
                                                         <td style={{ verticalAlign: 'top', textAlign: 'center', fontWeight: 'bold' }}>
-                                                            <span className="score-badge" style={{
-                                                                background: (pv.score || 0) < 50 ? '#ffcccc' : (pv.score || 0) < 80 ? '#fff3cd' : '#d4edda',
-                                                                color: '#333'
-                                                            }}>
-                                                                {pv.score ?? '-'}
-                                                            </span>
+                                                            {(pv as any).personnelStatus === 'resigned' ? (
+                                                                <span style={{ color: '#e11d48', fontWeight: 'bold', fontSize: '12px' }}>Ayrıldı</span>
+                                                            ) : (pv.comment === '[İzinli]' || (pv.score !== undefined && pv.score < 0)) ? (
+                                                                <span style={{ color: '#0284c7', fontWeight: 'bold', fontSize: '12px' }}>İzinli</span>
+                                                            ) : (
+                                                                <span className="score-badge" style={{
+                                                                    background: (pv.score || 0) < 50 ? '#ffcccc' : (pv.score || 0) < 80 ? '#fff3cd' : '#d4edda',
+                                                                    color: '#333'
+                                                                }}>
+                                                                    {pv.score ?? '-'}
+                                                                </span>
+                                                            )}
                                                         </td>
                                                     )}
                                                 </tr>
@@ -859,9 +871,9 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
                                                                     {answer.questionText}
                                                                 </div>
                                                                 {/* Notes under the question */}
-                                                                {answer.notes && answer.notes.length > 0 && (
+                                                                {answer.notes && answer.notes.some(n => n && n.trim() !== "") && (
                                                                     <div style={{ fontSize: '11px', color: '#555', marginTop: '4px', fontStyle: 'italic', background: '#f9f9f9', padding: '4px', borderRadius: '4px' }}>
-                                                                        <strong>Not:</strong> {answer.notes.join(", ")}
+                                                                        {renderFeedbackText(answer.notes.filter(n => n && n.trim() !== "").join("\n"))}
                                                                     </div>
                                                                 )}
                                                                 {/* Photos under the question/notes */}

@@ -117,6 +117,9 @@ export default function AuditPage() {
     const isEditing = useRef(false); // Prevents onSnapshot from overwriting while user is typing a note
     const lastLocalWriteTime = useRef<number>(0); // Timestamp of last write by THIS device
     const auditListenerUnsub = useRef<(() => void) | null>(null); // Real-time listener cleanup
+    const pageDebouncer = useRef<Record<string, NodeJS.Timeout>>({}); // Debounce timers for text inputs
+    const auditRef = useRef<typeof audit>(null); // Always points to latest audit — used inside debounce closures to avoid stale state
+    const currentSectionIndexRef = useRef<number | string | null>(0); // Tracks currentSectionIndex for async callbacks
 
     const isRegionalManager = userProfile?.role === 'bolge-muduru';
 
@@ -212,9 +215,10 @@ export default function AuditPage() {
                 sectionScores.push((sectionEarned / sectionMax) * 100);
             }
         });
-        updatedAudit.totalScore = sectionScores.length > 0
-            ? Math.round(sectionScores.reduce((sum, s) => sum + s, 0) / sectionScores.length)
+        const rawScore = sectionScores.length > 0
+            ? sectionScores.reduce((sum, s) => sum + s, 0) / sectionScores.length
             : 0;
+        updatedAudit.totalScore = (rawScore > 99 && rawScore < 100) ? 99 : Math.round(rawScore);
 
         // Update local state
         setAudit(updatedAudit);
@@ -283,6 +287,23 @@ export default function AuditPage() {
             }, 5000);
         }
     }, [syncing, hasPending, uploadedImageUrls.length]);
+
+    // Keep auditRef in sync so debounce closures always read fresh state
+    useEffect(() => { auditRef.current = audit; }, [audit]);
+
+    // Keep currentSectionIndexRef in sync for use inside onSnapshot async callback
+    useEffect(() => { currentSectionIndexRef.current = currentSectionIndex; }, [currentSectionIndex]);
+
+    // Imperative update for sectionFeedbackRef when user navigates to a different section
+    // (uncontrolled input doesn't auto-update on prop change, so we do it manually)
+    useEffect(() => {
+        if (sectionFeedbackRef.current && audit && typeof currentSectionIndex === 'number') {
+            const note = audit.sections[currentSectionIndex]?.feedback?.note || "";
+            if (sectionFeedbackRef.current.value !== note) {
+                sectionFeedbackRef.current.value = note;
+            }
+        }
+    }, [currentSectionIndex]);
 
     useEffect(() => {
         if (!auditId) {
@@ -389,7 +410,7 @@ export default function AuditPage() {
             // 1. This device wrote to Firestore within the last 3 seconds (echo suppression), OR
             // 2. User currently has a text field focused (actively typing) — use BOTH the
             //    persistent isEditing ref (survives mobile keyboard close) AND activeElement check
-            const isEchoFromOwnWrite = (Date.now() - lastLocalWriteTime.current) < 3000;
+            const isEchoFromOwnWrite = (Date.now() - lastLocalWriteTime.current) < 1200;
             const activeEl = document.activeElement;
             const userIsTyping = isEditing.current || !!(activeEl && (
                 activeEl.tagName === 'TEXTAREA' ||
@@ -402,8 +423,8 @@ export default function AuditPage() {
             // isWriting guard (above) prevents overwriting while this device is actively saving.
             setAudit(prev => {
                 if (!prev) {
-                    // First load — full data
-                    return auditData;
+                    // First load — full data, ensure sections is always an array
+                    return { ...auditData, sections: Array.isArray(auditData.sections) ? auditData.sections : [] };
                 }
                 // If user is actively typing, skip sections sync to avoid erasing typed text.
                 if (skipSectionsSync) {
@@ -415,10 +436,12 @@ export default function AuditPage() {
                         updatedAt: auditData.updatedAt,
                     };
                 }
-                // Full sync: update sections and generalFeedback from other device's writes
+                // Full sync: update sections and generalFeedback from other device's writes.
+                // Guard: only accept sections if it is actually an array (field-path writes can corrupt it to a map).
+                const remoteSections = Array.isArray(auditData.sections) ? auditData.sections : prev.sections;
                 return {
                     ...prev,
-                    sections: auditData.sections || prev.sections,
+                    sections: remoteSections,
                     generalFeedback: auditData.generalFeedback || prev.generalFeedback,
                     status: auditData.status,
                     totalScore: auditData.totalScore,
@@ -426,6 +449,23 @@ export default function AuditPage() {
                     updatedAt: auditData.updatedAt,
                 };
             });
+
+            // Imperative DOM update for uncontrolled textareas — React won't touch them,
+            // so we manually sync when remote data arrives and user is not typing.
+            if (!userIsTyping) {
+                if (generalFeedbackRef.current) {
+                    const remoteNote = auditData.generalFeedback?.note || "";
+                    if (generalFeedbackRef.current.value !== remoteNote) {
+                        generalFeedbackRef.current.value = remoteNote;
+                    }
+                }
+                if (sectionFeedbackRef.current && typeof currentSectionIndexRef.current === 'number') {
+                    const remoteSecNote = auditData.sections?.[currentSectionIndexRef.current]?.feedback?.note || "";
+                    if (sectionFeedbackRef.current.value !== remoteSecNote) {
+                        sectionFeedbackRef.current.value = remoteSecNote;
+                    }
+                }
+            }
 
             // First load: also fetch history and auditor name
             if (loading) {
@@ -485,6 +525,15 @@ export default function AuditPage() {
 
             // Wait for history and auditor name
             const [pastAudits, _] = await Promise.all([historyPromise, auditorNamePromise]);
+
+            // Defensive guard: Firestore may return sections as a non-array if the document was
+            // corrupted by a field-path write on an array. Bail early to avoid a crash.
+            if (!Array.isArray(auditData.sections)) {
+                console.error("[AuditPage] sections is not an array:", typeof auditData.sections);
+                setAudit({ ...auditData, sections: [] });
+                setLoading(false);
+                return;
+            }
 
             // Ensure each answer has at least one empty note
             auditData.sections.forEach(section => {
@@ -616,7 +665,7 @@ export default function AuditPage() {
         answerIndex: number,
         updates: Partial<AuditAnswer>
     ) => {
-        if (!audit || !auditId) return;
+        if (!auditRef.current || !auditId) return;
 
         // Mark as dirty when editing in edit mode
         if (isEditMode && !isDirty) {
@@ -624,133 +673,107 @@ export default function AuditPage() {
         }
 
         const now = Date.now();
-        const currentAnswer = audit.sections[sectionIndex].answers[answerIndex];
+        const snapshot = auditRef.current; // read latest state (stale-closure-free)
+        const currentAnswer = snapshot.sections[sectionIndex]?.answers[answerIndex];
+        if (!currentAnswer) return;
 
         // First answer logic check
         const isFirstAnswer = (!currentAnswer.answer || currentAnswer.answer === "") && (!currentAnswer.durationSeconds || currentAnswer.durationSeconds === 0);
 
-        const updatedAudit = { ...audit };
-        // Shallow copy answer then apply updates
-        let newAnswer = {
-            ...updatedAudit.sections[sectionIndex].answers[answerIndex],
-            ...updates,
-        };
-
-        // If answer changed to "evet" or "muaf", OR if checkbox points are max (implicitly via updates), 
-        // we should remove existing actionData to prevent stale "approved" status on next "saveAndNotify".
-
-        // Helper to check if given ALL fields, action is needed
+        // Helper to check if action is needed
         const isActionNeeded = (ans: AuditAnswer) => {
             if (ans.answer === "hayir") return true;
             if (ans.questionType === "checkbox" && ans.earnedPoints < ans.maxPoints) return true;
             return false;
         };
 
-        // Note: 'updates' might only have 'answer', so we merged it into newAnswer above.
-        // We also need to apply point logic here before checking isActionNeeded because updates might be "evet" but points not set yet in 'updates'?
-        // Wait, logic below "Puanı güncelle" sets earnedPoints. relying on that order is safer.
-
-        // Let's re-order: Apply logic first, then check actionData cleanup.
+        // Build the updated answer
+        let newAnswer: AuditAnswer = { ...currentAnswer, ...updates };
 
         if (updates.answer) {
-            if (updates.answer === "evet") {
-                newAnswer.earnedPoints = newAnswer.maxPoints;
-            } else if (updates.answer === "hayir") {
-                newAnswer.earnedPoints = 0;
-            } else if (updates.answer === "muaf") {
-                newAnswer.earnedPoints = newAnswer.maxPoints;
-            }
+            if (updates.answer === "evet") newAnswer.earnedPoints = newAnswer.maxPoints;
+            else if (updates.answer === "hayir") newAnswer.earnedPoints = 0;
+            else if (updates.answer === "muaf") newAnswer.earnedPoints = newAnswer.maxPoints;
         }
 
-        // NOW check action requirement
         if (!isActionNeeded(newAnswer)) {
             delete newAnswer.actionData;
         }
 
-        updatedAudit.sections[sectionIndex].answers[answerIndex] = newAnswer;
-
-        // Only update duration if it's the first time answering
         if (isFirstAnswer) {
-            // Calculate seconds since last action
-            const durationSinceLastAction = (now - lastActionTime.current) / 1000;
-            // Round to integer as requested
-            updatedAudit.sections[sectionIndex].answers[answerIndex].durationSeconds = Math.round(durationSinceLastAction);
-
+            newAnswer.durationSeconds = Math.round((now - lastActionTime.current) / 1000);
         }
 
-        // Always update lastActionTime on any interaction
         lastActionTime.current = now;
 
-        // Note: Puanı güncelle logic was duplicated above to ensure newAnswer is consistent. Removed/Redundant below? 
-        // We already updated newAnswer above. But we need to make sure logic flow is correct.
-        // The previous code block updated points on `updatedAudit` directly later. 
-        // We updated `newAnswer` and assigned it. So we can skip the manual update below or keep it?
-        // Let's remove the redundant block below since we moved it up.
-
-        // Section Score Calculation
-        const sectionScores: number[] = [];
-
-        updatedAudit.sections.forEach(section => {
-            let sectionEarned = 0;
-            let sectionMax = 0;
-
-            section.answers.forEach(answer => {
-                // Sadece cevaplanmış soruları hesaba kat
-                if (answer.answer && answer.answer.trim() !== "" && answer.answer !== "muaf") {
-                    sectionEarned += answer.earnedPoints;
-                    sectionMax += answer.maxPoints;
+        // OPTIMISTIC UPDATE — immutable prev callback, no stale closure
+        setAudit(prev => {
+            if (!prev || !Array.isArray(prev.sections)) return prev;
+            const newSections = prev.sections.map((sec, si) =>
+                si !== sectionIndex ? sec : {
+                    ...sec,
+                    answers: sec.answers.map((ans, ai) => ai !== answerIndex ? ans : newAnswer)
                 }
+            );
+            const scores: number[] = [];
+            newSections.forEach(sec => {
+                let e = 0, m = 0;
+                sec.answers.forEach(a => {
+                    if (a.answer && a.answer.trim() !== "" && a.answer !== "muaf") {
+                        e += a.earnedPoints; m += a.maxPoints;
+                    }
+                });
+                if (m > 0) scores.push((e / m) * 100);
             });
-
-            if (sectionMax > 0) {
-                const sectionScore = (sectionEarned / sectionMax) * 100;
-                sectionScores.push(sectionScore);
-            }
+            const raw = scores.length > 0 ? scores.reduce((s, v) => s + v, 0) / scores.length : 0;
+            const totalScore = (raw > 99 && raw < 100) ? 99 : Math.round(raw);
+            return { ...prev, sections: newSections, totalScore, updatedAt: Timestamp.now() };
         });
-
-        // Tüm bölüm skorlarının ortalamasını al
-        const finalScore = sectionScores.length > 0
-            ? sectionScores.reduce((sum, score) => sum + score, 0) / sectionScores.length
-            : 0;
-
-        updatedAudit.totalScore = Math.round(finalScore);
-        updatedAudit.updatedAt = Timestamp.now();
-
-        // OPTIMISTIC UPDATE: Set state immediately
-        setAudit(updatedAudit);
 
         // If in edit mode, DON'T save to Firebase (only save when clicking "Kaydet")
         const currentMode = new URLSearchParams(window.location.search).get('mode');
-        const isInEditMode = currentMode === 'edit' && audit.status === 'tamamlandi';
-
-        if (isInEditMode) {
-            return;
-        }
+        const isInEditMode = currentMode === 'edit' && snapshot.status === 'tamamlandi';
+        if (isInEditMode) return;
 
         try {
             isWriting.current = true;
-            lastLocalWriteTime.current = Date.now(); // suppress echo from own write
-            // Filter out local:// URLs before saving to Firestore
-            const sectionsToSave = updatedAudit.sections.map(section => ({
+            lastLocalWriteTime.current = Date.now();
+
+            // Use auditRef.current (latest) to build sectionsToSave — avoids stale closure data loss
+            const latestAudit = auditRef.current;
+            if (!latestAudit || !Array.isArray(latestAudit.sections)) return;
+
+            const sectionsToSave = latestAudit.sections.map((section, si) => ({
                 ...section,
-                answers: section.answers.map(answer => ({
-                    ...answer,
-                    photos: (answer.photos || []).filter(url => !url.startsWith('local://'))
-                }))
+                answers: section.answers.map((answer, ai) => {
+                    const ans = (si === sectionIndex && ai === answerIndex) ? newAnswer : answer;
+                    return { ...ans, photos: (ans.photos || []).filter((url: string) => !url.startsWith('local://')) };
+                })
             }));
 
-            // Prepare generalFeedback: strip local:// images before saving
-            const generalFeedbackToSave = updatedAudit.generalFeedback
+            const generalFeedbackToSave = latestAudit.generalFeedback
                 ? {
-                    ...updatedAudit.generalFeedback,
-                    images: (updatedAudit.generalFeedback.images || []).filter((url: string) => !url.startsWith('local://')),
+                    ...latestAudit.generalFeedback,
+                    images: (latestAudit.generalFeedback.images || []).filter((url: string) => !url.startsWith('local://')),
                 }
                 : undefined;
 
+            // Recalculate score from the latest data we're about to write
+            const scores: number[] = [];
+            sectionsToSave.forEach(sec => {
+                let e = 0, m = 0;
+                sec.answers.forEach((a: AuditAnswer) => {
+                    if (a.answer && a.answer.trim() !== "" && a.answer !== "muaf") { e += a.earnedPoints; m += a.maxPoints; }
+                });
+                if (m > 0) scores.push((e / m) * 100);
+            });
+            const raw = scores.length > 0 ? scores.reduce((s, v) => s + v, 0) / scores.length : 0;
+            const totalScore = (raw > 99 && raw < 100) ? 99 : Math.round(raw);
+
             const firestorePayload: Record<string, unknown> = {
                 sections: sectionsToSave,
-                totalScore: updatedAudit.totalScore,
-                updatedAt: updatedAudit.updatedAt,
+                totalScore,
+                updatedAt: Timestamp.now(),
             };
             if (generalFeedbackToSave) firestorePayload.generalFeedback = generalFeedbackToSave;
 
@@ -758,15 +781,12 @@ export default function AuditPage() {
         } catch (error) {
             console.error("Error updating answer:", error);
             toast.error("Cevap kaydedilirken hata oluştu");
-            // Revert on error
-            setAudit(audit);
         } finally {
             isWriting.current = false;
         }
     };
 
-    // Saves generalFeedback (note + images) to Firestore immediately — same pattern as updateAnswer.
-    // This ensures photos and notes persist after page reload / logout-login.
+    // Saves generalFeedback (note + images) to Firestore — debounced 800ms for text, immediate for images.
     const updateGeneralFeedback = async (patch: { note?: string; images?: string[]; type?: "important" | "note" | "suggestion" | null }) => {
         if (!audit || !auditId) return;
         if (isEditMode && !isDirty) setIsDirty(true);
@@ -778,6 +798,36 @@ export default function AuditPage() {
         // In edit mode don't auto-save to Firestore (user must click Kaydet)
         const currentMode = new URLSearchParams(window.location.search).get('mode');
         if (currentMode === 'edit' && audit.status === 'tamamlandi') return;
+
+        // Debounce sadece metin değişimlerinde — fotoğraflar anında kaydedilir
+        const isTextOnly = patch.note !== undefined && patch.images === undefined;
+        if (isTextOnly) {
+            // Kullanıcı yazmaya başlar başlamaz snapshot'u baskıla — debounce bitip Firestore'a yazmasını bekleme
+            lastLocalWriteTime.current = Date.now();
+            clearTimeout(pageDebouncer.current['generalFeedback']);
+            pageDebouncer.current['generalFeedback'] = setTimeout(async () => {
+                // auditRef.current = en güncel state (stale closure sorunu yok)
+                const latestFeedback = auditRef.current?.generalFeedback;
+                if (!latestFeedback) return;
+                try {
+                    isWriting.current = true;
+                    lastLocalWriteTime.current = Date.now();
+                    const feedbackToSave = {
+                        ...latestFeedback,
+                        images: (latestFeedback.images || []).filter((url: string) => !url.startsWith('local://')),
+                    };
+                    await updateDoc(doc(db, "audits", auditId), {
+                        generalFeedback: feedbackToSave,
+                        updatedAt: Timestamp.now(),
+                    });
+                } catch (error) {
+                    console.error("Error saving general feedback:", error);
+                } finally {
+                    isWriting.current = false;
+                }
+            }, 800);
+            return;
+        }
 
         try {
             isWriting.current = true;
@@ -1404,65 +1454,99 @@ export default function AuditPage() {
         sectionIndex: number,
         updates: Partial<{ note: string; images: string[]; type: "important" | "note" | "suggestion" | null }>
     ) => {
-        if (!audit || !auditId) return;
+        if (!auditRef.current || !auditId) return;
 
         // Mark as dirty when editing in edit mode
         if (isEditMode && !isDirty) {
             setIsDirty(true);
         }
 
-        const updatedAudit = { ...audit };
-        const section = updatedAudit.sections[sectionIndex];
-
-        // Initialize feedback if not exists
-        if (!section.feedback) {
-            section.feedback = { note: "", images: [] };
-        }
-
-        // Update feedback
-        section.feedback = { ...section.feedback, ...updates };
-
-        // Ensure images is always array
-        if (!section.feedback.images) section.feedback.images = [];
-
-        // Update state
-        setAudit(updatedAudit);
+        // Stale-closure-free optimistic update using prev callback
+        setAudit(prev => {
+            if (!prev) return prev;
+            const newSections = prev.sections.map((sec, si) => {
+                if (si !== sectionIndex) return sec;
+                const existingFeedback = sec.feedback || { note: "", images: [] };
+                const newFeedback = { ...existingFeedback, ...updates };
+                if (!newFeedback.images) newFeedback.images = [];
+                return { ...sec, feedback: newFeedback };
+            });
+            return { ...prev, sections: newSections };
+        });
 
         // If in edit mode, DON'T save to Firebase (only save when clicking "Kaydet")
         const currentMode = new URLSearchParams(window.location.search).get('mode');
-        const isInEditMode = currentMode === 'edit' && audit.status === 'tamamlandi';
+        const isInEditMode = currentMode === 'edit' && auditRef.current?.status === 'tamamlandi';
 
         if (isInEditMode) {
             return;
         }
 
-        try {
-            isWriting.current = true;
-            lastLocalWriteTime.current = Date.now(); // suppress onSnapshot echo for 3s
-            // Filter out local:// URLs before saving to Firestore
-            const sectionsToSave = updatedAudit.sections.map(sec => ({
-                ...sec,
-                answers: sec.answers.map(ans => ({
-                    ...ans,
-                    photos: (ans.photos || []).filter(u => !u.startsWith('local://'))
-                })),
-                feedback: sec.feedback ? {
-                    ...sec.feedback,
-                    note: sec.feedback.note || "", // Ensure note is not undefined
-                    images: (sec.feedback.images || []).filter(u => !u.startsWith('local://')),
-                    type: sec.feedback.type || null
-                } : null // Firestore doesn't support undefined in arrays, use null
-            }));
+        // Debounce sadece metin değişimlerinde — fotoğraflar anında kaydedilir
+        const isTextOnly = updates.note !== undefined && updates.images === undefined;
 
-            await updateDoc(doc(db, "audits", auditId), {
-                sections: sectionsToSave,
-                updatedAt: Timestamp.now()
-            });
-        } catch (error) {
-            console.error("Feedback update error", error);
-            toast.error("Görüş kaydedilirken hata oluştu");
-        } finally {
-            isWriting.current = false;
+        // doSave: reads from auditRef (latest state), writes full sections array safely
+        // NOTE: Firestore field-path with array index (sections.0.feedback) converts array→map, breaking .forEach.
+        // We always write the complete sections array to keep Firestore type-safe.
+        const doSave = async () => {
+            const latestAudit = auditRef.current;
+            if (!latestAudit || !Array.isArray(latestAudit.sections)) return;
+            try {
+                isWriting.current = true;
+                lastLocalWriteTime.current = Date.now();
+                const sectionsToSave = latestAudit.sections.map((sec, si) => {
+                    const cleanedAnswers = sec.answers.map(ans => ({
+                        ...ans,
+                        photos: (ans.photos || []).filter((u: string) => !u.startsWith('local://'))
+                    }));
+
+                    if (si === sectionIndex) {
+                        const existingFeedback = sec.feedback || { note: "", images: [] };
+                        const newFeedback = { ...existingFeedback, ...updates };
+                        if (!newFeedback.images) newFeedback.images = [];
+                        
+                        return {
+                            ...sec,
+                            answers: cleanedAnswers,
+                            feedback: {
+                                note: newFeedback.note || "",
+                                images: newFeedback.images.filter((u: string) => !u.startsWith('local://')),
+                                type: newFeedback.type || null
+                            }
+                        };
+                    }
+
+                    return {
+                        ...sec,
+                        answers: cleanedAnswers,
+                        feedback: sec.feedback ? {
+                            ...sec.feedback,
+                            note: sec.feedback.note || "",
+                            images: (sec.feedback.images || []).filter((u: string) => !u.startsWith('local://')),
+                            type: sec.feedback.type || null
+                        } : null
+                    };
+                });
+
+                await updateDoc(doc(db, "audits", auditId), {
+                    sections: sectionsToSave,
+                    updatedAt: Timestamp.now()
+                });
+            } catch (error) {
+                console.error("Feedback update error", error);
+                toast.error("Görüş kaydedilirken hata oluştu");
+            } finally {
+                isWriting.current = false;
+            }
+        };
+
+        if (isTextOnly) {
+            // Kullanıcı yazmaya başlar başlamaz snapshot'u baskıla
+            lastLocalWriteTime.current = Date.now();
+            clearTimeout(pageDebouncer.current[`sectionFeedback_${sectionIndex}`]);
+            pageDebouncer.current[`sectionFeedback_${sectionIndex}`] = setTimeout(() => doSave(), 800);
+        } else {
+            doSave();
         }
     };
 
@@ -1966,7 +2050,14 @@ export default function AuditPage() {
                                             <Label>Genel Görüş & Notlar</Label>
                                             <Textarea
                                                 ref={generalFeedbackRef}
-                                                value={audit?.generalFeedback?.note || ""}
+                                                defaultValue={audit?.generalFeedback?.note || ""}
+                                                onFocus={() => { isEditing.current = true; }}
+                                                onBlur={(e) => {
+                                                    isEditing.current = false;
+                                                    // Blur'da bekleyen debounce'u iptal et ve anında kaydet
+                                                    clearTimeout(pageDebouncer.current['generalFeedback']);
+                                                    updateGeneralFeedback({ note: e.target.value });
+                                                }}
                                                 onChange={(e) => updateGeneralFeedback({ note: e.target.value })}
                                                 placeholder="Genel görüşleriniz... (Örn: ÖNEMLİ: Temizliğe dikkat edilmemiş)"
                                                 disabled={!canEdit}
@@ -2387,13 +2478,162 @@ export default function AuditPage() {
                                                                 <SheetDescription>Bu soruyla ilgili detaylı notlarınızı aşağıya yazabilirsiniz.</SheetDescription>
                                                             </SheetHeader>
                                                             <div className="flex flex-col h-[calc(100%-4rem)] pb-12 sm:pb-8">
+                                                                <div className="flex flex-wrap gap-2 mb-2">
+                                                                    <Button
+                                                                        type="button"
+                                                                        variant="outline"
+                                                                        size="sm"
+                                                                        className="hover:bg-red-50 hover:text-red-600 border-slate-200 dark:border-slate-800"
+                                                                        onPointerDown={(e) => e.preventDefault()}
+                                                                        onClick={(e) => {
+                                                                            e.preventDefault();
+                                                                            const el = document.getElementById(`question_note_${currentSectionIndex}_${answerIndex}`) as HTMLTextAreaElement;
+                                                                            const currentNote = el?.value !== undefined ? el.value : (answer.notes ? answer.notes.join("\n\n") : "");
+                                                                            const cursorStart = el?.selectionStart ?? currentNote.length;
+                                                                            const cursorEnd = el?.selectionEnd ?? currentNote.length;
+
+                                                                            const textToInsert = currentNote.length === 0 || cursorStart === 0 ? "ÖNEMLİ: " : "\nÖNEMLİ: ";
+                                                                            const newNote = currentNote.slice(0, cursorStart) + textToInsert + currentNote.slice(cursorEnd);
+
+                                                                            if (el) {
+                                                                                el.value = newNote;
+                                                                            }
+                                                                            updateAnswer(currentSectionIndex, answerIndex, { notes: [newNote] });
+
+                                                                            setTimeout(() => {
+                                                                                if (el) {
+                                                                                    el.focus();
+                                                                                    el.setSelectionRange(cursorStart + textToInsert.length, cursorStart + textToInsert.length);
+                                                                                }
+                                                                            }, 20);
+                                                                        }}
+                                                                        disabled={!canEdit}
+                                                                    >
+                                                                        Önemli
+                                                                    </Button>
+                                                                    <Button
+                                                                        type="button"
+                                                                        variant="outline"
+                                                                        size="sm"
+                                                                        className="hover:bg-green-50 hover:text-green-600 border-slate-200 dark:border-slate-800"
+                                                                        onPointerDown={(e) => e.preventDefault()}
+                                                                        onClick={(e) => {
+                                                                            e.preventDefault();
+                                                                            const el = document.getElementById(`question_note_${currentSectionIndex}_${answerIndex}`) as HTMLTextAreaElement;
+                                                                            const currentNote = el?.value !== undefined ? el.value : (answer.notes ? answer.notes.join("\n\n") : "");
+                                                                            const cursorStart = el?.selectionStart ?? currentNote.length;
+                                                                            const cursorEnd = el?.selectionEnd ?? currentNote.length;
+
+                                                                            const textToInsert = currentNote.length === 0 || cursorStart === 0 ? "NOT: " : "\nNOT: ";
+                                                                            const newNote = currentNote.slice(0, cursorStart) + textToInsert + currentNote.slice(cursorEnd);
+
+                                                                            if (el) {
+                                                                                el.value = newNote;
+                                                                            }
+                                                                            updateAnswer(currentSectionIndex, answerIndex, { notes: [newNote] });
+
+                                                                            setTimeout(() => {
+                                                                                if (el) {
+                                                                                    el.focus();
+                                                                                    el.setSelectionRange(cursorStart + textToInsert.length, cursorStart + textToInsert.length);
+                                                                                }
+                                                                            }, 20);
+                                                                        }}
+                                                                        disabled={!canEdit}
+                                                                    >
+                                                                        Not
+                                                                    </Button>
+                                                                    <Button
+                                                                        type="button"
+                                                                        variant="outline"
+                                                                        size="sm"
+                                                                        className="hover:bg-blue-50 hover:text-blue-600 border-slate-200 dark:border-slate-800"
+                                                                        onPointerDown={(e) => e.preventDefault()}
+                                                                        onClick={(e) => {
+                                                                            e.preventDefault();
+                                                                            const el = document.getElementById(`question_note_${currentSectionIndex}_${answerIndex}`) as HTMLTextAreaElement;
+                                                                            const currentNote = el?.value !== undefined ? el.value : (answer.notes ? answer.notes.join("\n\n") : "");
+                                                                            const cursorStart = el?.selectionStart ?? currentNote.length;
+                                                                            const cursorEnd = el?.selectionEnd ?? currentNote.length;
+
+                                                                            const textToInsert = currentNote.length === 0 || cursorStart === 0 ? "ÖNERİ: " : "\nÖNERİ: ";
+                                                                            const newNote = currentNote.slice(0, cursorStart) + textToInsert + currentNote.slice(cursorEnd);
+
+                                                                            if (el) {
+                                                                                el.value = newNote;
+                                                                            }
+                                                                            updateAnswer(currentSectionIndex, answerIndex, { notes: [newNote] });
+
+                                                                            setTimeout(() => {
+                                                                                if (el) {
+                                                                                    el.focus();
+                                                                                    el.setSelectionRange(cursorStart + textToInsert.length, cursorStart + textToInsert.length);
+                                                                                }
+                                                                            }, 20);
+                                                                        }}
+                                                                        disabled={!canEdit}
+                                                                    >
+                                                                        Öneri
+                                                                    </Button>
+                                                                </div>
                                                                 <Textarea
-                                                                    value={answer.notes ? answer.notes.join("\n\n") : ""}
+                                                                    id={`question_note_${currentSectionIndex}_${answerIndex}`}
+                                                                    defaultValue={answer.notes ? answer.notes.join("\n\n") : ""}
+                                                                    onFocus={() => { isEditing.current = true; }}
+                                                                    onBlur={(e) => {
+                                                                        isEditing.current = false;
+                                                                        // Blur'da bekleyen debounce'u iptal et ve anında kaydet
+                                                                        const key = `note_${currentSectionIndex}_${answerIndex}`;
+                                                                        clearTimeout(pageDebouncer.current[key]);
+                                                                        if (canEdit) {
+                                                                            updateAnswer(currentSectionIndex, answerIndex, { notes: [e.target.value] });
+                                                                        }
+                                                                    }}
                                                                     onChange={(e) => {
                                                                         if (!canEdit) return;
-                                                                        updateAnswer(currentSectionIndex, answerIndex, {
-                                                                            notes: [e.target.value],
+                                                                        const value = e.target.value;
+                                                                        const key = `note_${currentSectionIndex}_${answerIndex}`;
+                                                                        clearTimeout(pageDebouncer.current[key]);
+                                                                        // Yazma başlınca hemen snapshot baskıla
+                                                                        lastLocalWriteTime.current = Date.now();
+                                                                        // Optimistik güncelleme — prev kullanarak stale closure yok
+                                                                        setAudit(prev => {
+                                                                            if (!prev) return prev;
+                                                                            const newSections = prev.sections.map((sec, si) =>
+                                                                                si !== currentSectionIndex ? sec : {
+                                                                                    ...sec,
+                                                                                    answers: sec.answers.map((ans, ai) =>
+                                                                                        ai !== answerIndex ? ans : { ...ans, notes: [value] }
+                                                                                    )
+                                                                                }
+                                                                            );
+                                                                            return { ...prev, sections: newSections };
                                                                         });
+                                                                        // Debounce: updateAnswer ÇAĞIRMIYOR (stale setAudit ezme riski var)
+                                                                        // Bunun yerine auditRef üzerinden direkt Firestore yazıyoruz
+                                                                        pageDebouncer.current[key] = setTimeout(async () => {
+                                                                            const curr = auditRef.current;
+                                                                            if (!curr || !auditId) return;
+                                                                            try {
+                                                                                isWriting.current = true;
+                                                                                lastLocalWriteTime.current = Date.now();
+                                                                                const sectionsToSave = curr.sections.map(sec => ({
+                                                                                    ...sec,
+                                                                                    answers: sec.answers.map(ans => ({
+                                                                                        ...ans,
+                                                                                        photos: (ans.photos || []).filter(u => !u.startsWith('local://'))
+                                                                                    }))
+                                                                                }));
+                                                                                await updateDoc(doc(db, "audits", auditId), {
+                                                                                    sections: sectionsToSave,
+                                                                                    updatedAt: Timestamp.now()
+                                                                                });
+                                                                            } catch (err) {
+                                                                                console.error("Note save error:", err);
+                                                                            } finally {
+                                                                                isWriting.current = false;
+                                                                            }
+                                                                        }, 800);
                                                                     }}
                                                                     placeholder="Notunuzu buraya yazın..."
                                                                     className="flex-1 resize-none border focus-visible:ring-1 p-4 text-base rounded-xl"
@@ -2508,15 +2748,20 @@ export default function AuditPage() {
                                                     variant="outline"
                                                     size="sm"
                                                     className="hover:bg-red-50 hover:text-red-600 border-slate-200 dark:border-slate-800"
-                                                    onClick={() => {
+                                                    onPointerDown={(e) => e.preventDefault()}
+                                                    onClick={(e) => {
+                                                        e.preventDefault();
                                                         const el = sectionFeedbackRef.current;
-                                                        const currentNote = audit.sections[currentSectionIndex].feedback?.note || "";
+                                                        const currentNote = el?.value !== undefined ? el.value : (audit.sections[currentSectionIndex].feedback?.note || "");
                                                         const cursorStart = el?.selectionStart ?? currentNote.length;
                                                         const cursorEnd = el?.selectionEnd ?? currentNote.length;
 
                                                         const textToInsert = currentNote.length === 0 || cursorStart === 0 ? "ÖNEMLİ: " : "\nÖNEMLİ: ";
                                                         const newNote = currentNote.slice(0, cursorStart) + textToInsert + currentNote.slice(cursorEnd);
 
+                                                        if (el) {
+                                                            el.value = newNote;
+                                                        }
                                                         updateSectionFeedback(currentSectionIndex, { note: newNote });
 
                                                         setTimeout(() => {
@@ -2524,7 +2769,7 @@ export default function AuditPage() {
                                                                 el.focus();
                                                                 el.setSelectionRange(cursorStart + textToInsert.length, cursorStart + textToInsert.length);
                                                             }
-                                                        }, 50);
+                                                        }, 20);
                                                     }}
                                                     disabled={!canEdit}
                                                 >
@@ -2535,15 +2780,20 @@ export default function AuditPage() {
                                                     variant="outline"
                                                     size="sm"
                                                     className="hover:bg-green-50 hover:text-green-600 border-slate-200 dark:border-slate-800"
-                                                    onClick={() => {
+                                                    onPointerDown={(e) => e.preventDefault()}
+                                                    onClick={(e) => {
+                                                        e.preventDefault();
                                                         const el = sectionFeedbackRef.current;
-                                                        const currentNote = audit.sections[currentSectionIndex].feedback?.note || "";
+                                                        const currentNote = el?.value !== undefined ? el.value : (audit.sections[currentSectionIndex].feedback?.note || "");
                                                         const cursorStart = el?.selectionStart ?? currentNote.length;
                                                         const cursorEnd = el?.selectionEnd ?? currentNote.length;
 
                                                         const textToInsert = currentNote.length === 0 || cursorStart === 0 ? "NOT: " : "\nNOT: ";
                                                         const newNote = currentNote.slice(0, cursorStart) + textToInsert + currentNote.slice(cursorEnd);
 
+                                                        if (el) {
+                                                            el.value = newNote;
+                                                        }
                                                         updateSectionFeedback(currentSectionIndex, { note: newNote });
 
                                                         setTimeout(() => {
@@ -2551,7 +2801,7 @@ export default function AuditPage() {
                                                                 el.focus();
                                                                 el.setSelectionRange(cursorStart + textToInsert.length, cursorStart + textToInsert.length);
                                                             }
-                                                        }, 50);
+                                                        }, 20);
                                                     }}
                                                     disabled={!canEdit}
                                                 >
@@ -2562,15 +2812,20 @@ export default function AuditPage() {
                                                     variant="outline"
                                                     size="sm"
                                                     className="hover:bg-blue-50 hover:text-blue-600 border-slate-200 dark:border-slate-800"
-                                                    onClick={() => {
+                                                    onPointerDown={(e) => e.preventDefault()}
+                                                    onClick={(e) => {
+                                                        e.preventDefault();
                                                         const el = sectionFeedbackRef.current;
-                                                        const currentNote = audit.sections[currentSectionIndex].feedback?.note || "";
+                                                        const currentNote = el?.value !== undefined ? el.value : (audit.sections[currentSectionIndex].feedback?.note || "");
                                                         const cursorStart = el?.selectionStart ?? currentNote.length;
                                                         const cursorEnd = el?.selectionEnd ?? currentNote.length;
 
                                                         const textToInsert = currentNote.length === 0 || cursorStart === 0 ? "ÖNERİ: " : "\nÖNERİ: ";
                                                         const newNote = currentNote.slice(0, cursorStart) + textToInsert + currentNote.slice(cursorEnd);
 
+                                                        if (el) {
+                                                            el.value = newNote;
+                                                        }
                                                         updateSectionFeedback(currentSectionIndex, { note: newNote });
 
                                                         setTimeout(() => {
@@ -2578,7 +2833,7 @@ export default function AuditPage() {
                                                                 el.focus();
                                                                 el.setSelectionRange(cursorStart + textToInsert.length, cursorStart + textToInsert.length);
                                                             }
-                                                        }, 50);
+                                                        }, 20);
                                                     }}
                                                     disabled={!canEdit}
                                                 >
@@ -2589,7 +2844,14 @@ export default function AuditPage() {
                                             <Label>Notlar</Label>
                                             <Textarea
                                                 ref={sectionFeedbackRef}
-                                                value={audit.sections[currentSectionIndex].feedback?.note || ""}
+                                                defaultValue={audit.sections[currentSectionIndex].feedback?.note || ""}
+                                                onFocus={() => { isEditing.current = true; }}
+                                                onBlur={(e) => {
+                                                    isEditing.current = false;
+                                                    // Blur'da bekleyen debounce'u iptal et ve anında kaydet
+                                                    clearTimeout(pageDebouncer.current[`sectionFeedback_${currentSectionIndex}`]);
+                                                    updateSectionFeedback(currentSectionIndex, { note: e.target.value });
+                                                }}
                                                 onChange={(e) => updateSectionFeedback(currentSectionIndex, { note: e.target.value })}
                                                 placeholder="Bölüm hakkındaki görüşleriniz..."
                                                 disabled={!canEdit}

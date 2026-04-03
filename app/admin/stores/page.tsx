@@ -488,8 +488,7 @@ export default function AdminStoresPage() {
             header: ({ column }) => <DataTableColumnHeader column={column} title="Mağaza Adı" />,
             meta: { 
                 title: "Mağaza Adı",
-                filterOptions: stores
-                    .map(s => ({ label: s.name || s.id, value: s.name || s.id }))
+                filterOptions: Array.from(new Set(stores.map(s => (s.name || s.id)?.trim()))).filter(Boolean).map(val => ({ label: val, value: val }))
                     .sort((a, b) => a.label.localeCompare(b.label, 'tr-TR', { sensitivity: 'base' }))
             },
             cell: ({ row }) => {

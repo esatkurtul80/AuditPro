@@ -337,7 +337,7 @@ export interface Announcement {
 }
 
 // Store Personnel Evaluation
-export type PersonnelStatus = "active" | "resigned" | "transferred";
+export type PersonnelStatus = "active" | "resigned" | "transferred" | "on_leave";
 
 export interface StorePersonnel {
     id: string;

@@ -163,21 +163,28 @@ function PendingStoresTab({
   const monthStart = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
   const monthEnd = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0, 23, 59, 59);
 
-  // Stores audited (completed) this month
+  // Stores audited (completed) this month OR within 12 days
   const auditedThisMonthIds = new Set(
     audits
       .filter((a) => {
         const d: Date = a.completedAt?.toDate?.() || (a.createdAt instanceof Date ? a.createdAt : new Date(a.createdAt));
-        return a.status === "tamamlandi" && d >= monthStart && d <= monthEnd;
+        if (a.status !== "tamamlandi") return false;
+        const isThisMonth = d >= monthStart && d <= monthEnd;
+        const diffDays = Math.abs(differenceInDays(d, currentDate));
+        return isThisMonth || diffDays <= 12;
       })
       .map((a) => a.storeId as string)
   );
 
-  // Stores scheduled (any status — incl. draft) this month
+  // Stores scheduled (any status — incl. draft) this month OR within 12 days
   const scheduledThisMonthIds = new Set(
     schedule
-      .filter((item) => item.type !== "leave" && item.type !== "blocked" && item.storeId &&
-        item.date >= monthStart && item.date <= monthEnd)
+      .filter((item) => {
+        if (item.type === "leave" || item.type === "blocked" || !item.storeId) return false;
+        const isThisMonth = item.date >= monthStart && item.date <= monthEnd;
+        const diffDays = Math.abs(differenceInDays(item.date, currentDate));
+        return isThisMonth || diffDays <= 12;
+      })
       .map((item) => item.storeId!)
   );
 

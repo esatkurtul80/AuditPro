@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ProtectedRoute } from "@/components/protected-route";
 import { DashboardLayout } from "@/components/dashboard-layout";
 import { StatCard } from "@/components/stat-card";
@@ -88,6 +89,7 @@ import { SpecialReportGenerator } from "@/components/admin/special-report-genera
 
 export default function AdminDashboard() {
 
+    const router = useRouter();
     const [loading, setLoading] = useState(true);
     const [audits, setAudits] = useState<Audit[]>([]);
     const [stores, setStores] = useState<Store[]>([]);
@@ -261,7 +263,7 @@ export default function AdminDashboard() {
         // ... previous columns
         {
             accessorKey: "auditTypeName",
-            meta: { title: "Denetim Türü", filterOptions: auditTypes.map(type => ({ value: type.name, label: type.name })) },
+            meta: { title: "Denetim Türü", filterOptions: Array.from(new Set(auditTypes.map(type => type.name?.trim()))).filter(Boolean).map(name => ({ value: name, label: name })) },
             header: ({ column }: { column: Column<Audit> }) => <DataTableColumnHeader column={column} title="Denetim Türü" />,
             cell: ({ row }: { row: Row<Audit> }) => <span className="font-medium">{row.original.auditTypeName}</span>,
             filterFn: (row: Row<Audit>, id: string, value: string[]) => {
@@ -270,7 +272,7 @@ export default function AdminDashboard() {
         },
         {
             accessorKey: "storeName",
-            meta: { title: "Mağaza", filterOptions: stores.map(store => ({ value: store.name, label: store.name })).sort((a, b) => a.label.localeCompare(b.label, 'tr-TR', { sensitivity: 'base' })) },
+            meta: { title: "Mağaza", filterOptions: Array.from(new Set(stores.map(store => store.name?.trim()))).filter(Boolean).map(name => ({ value: name, label: name })).sort((a, b) => a.label.localeCompare(b.label, 'tr-TR', { sensitivity: 'base' })) },
             header: ({ column }: { column: Column<Audit> }) => <DataTableColumnHeader column={column} title="Mağaza" />,
             cell: ({ row }: { row: Row<Audit> }) => <span>{row.original.storeName}</span>,
             filterFn: (row: Row<Audit>, id: string, value: string[]) => {
@@ -484,19 +486,20 @@ export default function AdminDashboard() {
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                            <DropdownMenuItem asChild>
-                                <Link href={`/audits/${row.original.id}`} className="cursor-pointer">
-                                    <Eye className="mr-2 h-4 w-4" />
-                                    Görüntüle
-                                </Link>
+                            <DropdownMenuItem
+                                className="cursor-pointer"
+                                onClick={() => router.push(`/audits/${row.original.id}`)}
+                            >
+                                <Eye className="mr-2 h-4 w-4" />
+                                Görüntüle
                             </DropdownMenuItem>
-                            <DropdownMenuItem asChild>
-                                <Link href={`/audits/${row.original.id}?mode=edit`} className="cursor-pointer">
-                                    <Pencil className="mr-2 h-4 w-4" />
-                                    Düzenle
-                                </Link>
+                            <DropdownMenuItem
+                                className="cursor-pointer"
+                                onClick={() => router.push(`/audits/${row.original.id}?mode=edit`)}
+                            >
+                                <Pencil className="mr-2 h-4 w-4" />
+                                Düzenle
                             </DropdownMenuItem>
-                            {/* Special Report Option Removed as requested */}
                             <DropdownMenuItem
                                 className="text-red-600 cursor-pointer"
                                 onClick={() => {

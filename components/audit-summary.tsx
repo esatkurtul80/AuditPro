@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 // v.1 Rapor
 
@@ -110,7 +110,7 @@ export function AuditSummary({ audit, onQuestionClick, showIncompleteOnly = fals
     let count = 0;
     audit.sections.forEach(section => {
       section.answers.forEach(answer => {
-        if (type === 'all') { if (answer.answer && answer.answer.trim() !== "" && answer.answer !== "muaf") count++; }
+        if (type === 'all') { if (answer.answer && answer.answer.trim() !== "") count++; }
         else if (type === 'incomplete' && isIncompleteAnswer(answer)) count++;
         else if (type === 'incomplete-notes' && (isIncompleteAnswer(answer) || hasNotes(answer))) count++;
       });
@@ -246,7 +246,7 @@ export function AuditSummary({ audit, onQuestionClick, showIncompleteOnly = fals
   const renderSectionGroup = (filterType: 'all' | 'incomplete' | 'incomplete-notes') => {
     const hasAnyQuestions = audit.sections.some(section => {
       const filtered = section.answers.filter(a => {
-        if (filterType === 'all') return a.answer && a.answer.trim() !== "" && a.answer !== "muaf";
+        if (filterType === 'all') return a.answer && a.answer.trim() !== "";
         if (filterType === 'incomplete') return isIncompleteAnswer(a);
         if (filterType === 'incomplete-notes') return isIncompleteAnswer(a) || hasNotes(a);
         return false;
@@ -296,7 +296,7 @@ export function AuditSummary({ audit, onQuestionClick, showIncompleteOnly = fals
                     const sectionScore = sectionMax > 0 ? Math.round((sectionEarned / sectionMax) * 100) : 0;
 
                     const filteredQuestions = section.answers.filter(a => {
-                      if (filterType === 'all') return a.answer && a.answer.trim() !== "" && a.answer !== "muaf";
+                      if (filterType === 'all') return a.answer && a.answer.trim() !== "";
                       if (filterType === 'incomplete') return isIncompleteAnswer(a);
                       if (filterType === 'incomplete-notes') return isIncompleteAnswer(a) || hasNotes(a);
                       return false;
@@ -451,7 +451,7 @@ export function AuditSummary({ audit, onQuestionClick, showIncompleteOnly = fals
               const sectionScore = sectionMax > 0 ? Math.round((sectionEarned / sectionMax) * 100) : 0;
 
               const filteredQuestions = section.answers.filter(a => {
-                if (filterType === 'all') return a.answer && a.answer.trim() !== "" && a.answer !== "muaf";
+                if (filterType === 'all') return a.answer && a.answer.trim() !== "";
                 if (filterType === 'incomplete') return isIncompleteAnswer(a);
                 if (filterType === 'incomplete-notes') return isIncompleteAnswer(a) || hasNotes(a);
                 return false;
@@ -608,7 +608,7 @@ export function AuditSummary({ audit, onQuestionClick, showIncompleteOnly = fals
 
       const filteredData = audit.sections.map(section => {
         const answers = section.answers.filter(a => {
-          if (type === 'all') return a.answer && a.answer.trim() !== "" && a.answer !== "muaf";
+          if (type === 'all') return a.answer && a.answer.trim() !== "";
           if (type === 'incomplete') return isIncompleteAnswer(a);
           if (type === 'incomplete-notes') return isIncompleteAnswer(a) || hasNotes(a);
           return false;
@@ -777,7 +777,7 @@ export function AuditSummary({ audit, onQuestionClick, showIncompleteOnly = fals
           let answerCell: any = '';
 
           if (answer.questionType === 'yes_no' || !answer.questionType) {
-            answerCell = answer.answer === 'evet' ? 'Evet' : answer.answer === 'hayır' ? 'Hayır' : 'Muaf';
+            answerCell = answer.answer === 'evet' ? 'Evet' : answer.answer === 'hayir' ? 'Hayır' : 'Muaf';
           } else if (answer.questionType === 'rating') {
             // Rating için özel obje
             answerCell = {
