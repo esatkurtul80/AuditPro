@@ -2,11 +2,18 @@
 
 ```json
 {
-  "version": "3.0.4",
-  "build": 120,
+  "version": "3.0.5",
+  "build": 121,
   "status": "stable"
 }
 ```
+
+## [3.0.5] - 2026-04-07
+
+### v3.0.5
+- **Toplu Denetim Analizi (PDF Çıktısı):** Uzun metinlerde ve PDF raporu oluşturmada yaşanan sayfa sonlarında eksik çıkma ve yarım kalma sorunları `html2pdf.js` + `jsPDF` manuel sayfalama mekanizmasıyla kökten çözüldü. Rapor dışarı sarılarak modal kısıtlamalarından kurtarıldı.
+- **Toplu Denetim Analizi (Kapsam):** Yapay zekaya yalnızca bölüm bazlı hatalar değil, personellerdeki "eksi puanlanmış" ve "özel yorum yapılmış" olumsuz değerlendirmeler de eklendi. Yapay zeka artık personellerin gelişim alanları ve eksiklikleri ile ilgili nokta atışı analiz yapıyor.
+- **Toplu Denetim Analizi (UI/UX):** Analiz yürütülürken işlemi takip edilebilir kılan (00:00:00 formatında) anlık çalışan bir sayaç eklendi. İndirilen PDF dosyasının adı ve rapor başlığı "GG.AA.YYYY Denetim Raporu Analizi" ve "Denetim Analizi" olarak sadeleştirildi.
 
 ## [3.0.4] - 2026-04-03
 

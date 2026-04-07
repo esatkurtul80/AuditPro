@@ -86,6 +86,7 @@ import { ColumnDef, Column, Row } from "@tanstack/react-table";
 import { DataTableColumnHeader } from "@/components/ui/data-table-column-header";
 import { NotificationFeed } from "@/components/announcements/notification-feed";
 import { SpecialReportGenerator } from "@/components/admin/special-report-generator";
+import { BulkAIAnalysisDialog } from "@/components/admin/bulk-ai-analysis-dialog";
 
 export default function AdminDashboard() {
 
@@ -95,12 +96,11 @@ export default function AdminDashboard() {
     const [stores, setStores] = useState<Store[]>([]);
     const [auditTypes, setAuditTypes] = useState<AuditType[]>([]);
 
-    // Default to start of current month to today
+    // Default to today
     const [dateRange, setDateRange] = useState<DateRangeFilter>(() => {
         const now = new Date();
-        const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
         return {
-            from: firstDay,
+            from: now,
             to: now,
         };
     });
@@ -794,6 +794,7 @@ export default function AdminDashboard() {
                                             Tarihi Temizle
                                         </Button>
                                     )}
+                                    <BulkAIAnalysisDialog audits={dateFilteredAudits} dateRange={dateRange} />
                                 </div>
                             }
                         />

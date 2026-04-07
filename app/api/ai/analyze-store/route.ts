@@ -24,12 +24,12 @@ export async function POST(req: Request) {
         const storeData = storeDoc.data();
         const storeName = storeData?.name || "Bilinmeyen Mağaza";
 
-        // 2. Fetch Recent Audits (Last 10 completed)
+        // 2. Fetch Recent Audits (Last 6 completed: 1 current + 5 past)
         const auditsSnapshot = await db.collection("audits")
             .where("storeId", "==", storeId)
             .where("status", "==", "tamamlandi")
             .orderBy("completedAt", "desc")
-            .limit(10)
+            .limit(6)
             .get();
 
         if (auditsSnapshot.empty) {
@@ -38,155 +38,164 @@ export async function POST(req: Request) {
             });
         }
 
-        const audits = auditsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        const totalAudits = audits.length;
-        const averageScore = audits.reduce((acc, curr: any) => acc + (curr.totalScore || 0), 0) / totalAudits;
+        const audits = auditsSnapshot.docs.map(doc => ({ id: doc.id, ...(doc.data() as any) }) as any);
+        const currentAudit = audits[0] as any; // En güncel denetim
 
-        // --- Data Processing for Advanced Analysis ---
+        const pastAuditsData = audits.slice(1).map((data: any) => {
+            // Firestore timestamp parsing
+            let dateStr = 'Tarih Yok';
+            if (data.completedAt) {
+                if (typeof data.completedAt.toDate === 'function') {
+                    dateStr = data.completedAt.toDate().toLocaleDateString('tr-TR');
+                } else if (data.completedAt._seconds) {
+                    dateStr = new Date(data.completedAt._seconds * 1000).toLocaleDateString('tr-TR');
+                } else if (data.completedAt.seconds) {
+                    dateStr = new Date(data.completedAt.seconds * 1000).toLocaleDateString('tr-TR');
+                }
+            }
+            
+            return {
+                id: data.id,
+                totalScore: data.totalScore,
+                date: dateStr,
+                summary: data.sections?.map((s: any) => ({
+                    name: s.name || s.title || "İsimsiz Bölüm",
+                    score: s.score,
+                }))
+            };
+        });
 
-        // A. Question History for Streaks
-        // Map: QuestionText -> Array of { date, passed (bool) }
-        const questionHistory: Record<string, { date: Date, passed: boolean, notes: string[] }[]> = {};
+        // 3. Güncel denetim verilerini JSON formatına dönüştürme
+        let currentDateStr = 'Tarih Yok';
+        if (currentAudit.completedAt) {
+            if (typeof currentAudit.completedAt.toDate === 'function') {
+                currentDateStr = currentAudit.completedAt.toDate().toLocaleDateString('tr-TR');
+            } else if (currentAudit.completedAt._seconds) {
+                currentDateStr = new Date(currentAudit.completedAt._seconds * 1000).toLocaleDateString('tr-TR');
+            } else if (currentAudit.completedAt.seconds) {
+                currentDateStr = new Date(currentAudit.completedAt.seconds * 1000).toLocaleDateString('tr-TR');
+            }
+        }
 
-        // B. Action Stats
-        let totalActions = 0;
-        let overdueActions = 0; // Pending store > 3 days
-        let completedActions = 0;
-        let storeResponseTimes: number[] = []; // In days
-
-        // C. Consolidated Notes
-        const allAuditorNotes: string[] = [];
-
-        // Iterate audits (oldest to newest for streak calculation context, but we fetched desc)
-        // Let's reverse for processing
-        const auditsAsc = [...audits].reverse();
-
-        auditsAsc.forEach((audit: any) => {
-            const auditDate = audit.completedAt?.toDate ? audit.completedAt.toDate() : new Date();
-
-            audit.sections?.forEach((section: any) => {
-                section.answers?.forEach((answer: any) => {
-                    const questionText = answer.questionText;
-                    const passed = answer.answer === "evet" || (answer.questionType === "checkbox" && answer.earnedPoints === answer.maxPoints);
-
-                    if (!questionHistory[questionText]) {
-                        questionHistory[questionText] = [];
-                    }
-
-                    // Collect notes from "hayir" answers
-                    if (!passed && answer.notes && answer.notes.length > 0) {
-                        allAuditorNotes.push(...answer.notes.map((n: string) => `[${questionText}]: ${n}`));
-                    } else if (!passed && answer.answer === "hayir") {
-                        // Some notes might be in actionData
-                        if (answer.actionData?.originalNotes) {
-                            allAuditorNotes.push(`[${questionText}]: ${answer.actionData.originalNotes}`);
-                        }
-                    }
-
-                    questionHistory[questionText].push({
-                        date: auditDate,
-                        passed,
-                        notes: answer.notes || []
-                    });
-
-                    // Action Analysis
-                    const isActionNeeded = !passed;
-                    if (isActionNeeded && answer.actionData) {
-                        totalActions++;
-                        const action = answer.actionData;
-
-                        if (action.status === "approved" || action.status === "resolved") {
-                            completedActions++;
-                            if (action.submittedAt && audit.completedAt) {
-                                const submitted = action.submittedAt.toDate();
-                                const completed = audit.completedAt.toDate();
-                                const diffTime = Math.abs(submitted.getTime() - completed.getTime());
-                                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                                storeResponseTimes.push(diffDays);
-                            }
-                        } else if (action.status === "pending_store") {
-                            // Check if overdue (3 days)
-                            const daysPending = Math.ceil((new Date().getTime() - auditDate.getTime()) / (1000 * 60 * 60 * 24));
-                            if (daysPending > 3) {
-                                overdueActions++;
-                            }
-                        }
+        const currentAuditFormatted = {
+            storeName,
+            totalScore: currentAudit.totalScore,
+            date: currentDateStr,
+            generalNotes: currentAudit.summary || currentAudit.notes || "",
+            sections: currentAudit.sections?.map((section: any) => {
+                const answersInfo = section.answers?.map((ans: any) => {
+                    return {
+                        question: ans.questionText,
+                        answer: ans.answer,
+                        points: ans.earnedPoints,
+                        notes: ans.notes || [], // Denetmenin girdiği 'ÖNEMLİ', 'NOT', 'ÖNERİ'
+                        actionOriginalNotes: ans.actionData?.originalNotes || null
                     }
                 });
-            });
+                return {
+                    sectionName: section.title || section.name || "Genel",
+                    sectionScore: section.score,
+                    details: answersInfo
+                };
+            })
+        };
+
+        const jsonInput = JSON.stringify({
+            currentAudit: currentAuditFormatted,
+            pastAuditsSummary: pastAuditsData
+        }, null, 2);
+
+        // 4. API İsteği: System Prompt Ayarlaması
+        const systemPrompt = `Sen, bir kuruyemiş firmasında mağaza operasyonlarını, kaliteyi ve personel motivasyonunu artırmayı hedefleyen uzman bir iç denetim analistisin.
+
+Sana veritabanından çekilmiş, mağazanın tüm bölümlerine (Lokum, Kuruyemiş, Kasa, Leblebi, Personel vb.) ait detaylı denetim verilerini ve geçmiş denetim özetlerini iletiyorum.
+
+GÖREVİN: Bu verileri okuyarak, tüm bölümleri kapsayan tek bir bütüncül analiz raporu oluşturmak.
+
+KESİN KURALLAR (BUNLARA SIKI SIKIYA UY):
+
+Üslup: Asla suçlayıcı veya kırıcı olma. Motive edici, yapıcı ve profesyonel bir kurumsal dil kullan. Eksikleri birer 'hata' değil, 'gelişim alanı' olarak belirt.
+
+Tüm Bölümleri Analiz Et: Sana gönderilen verideki hiçbir bölümü atlama. Lokum, Kuruyemiş, Kasa, Leblebi vb. veride hangi bölümler varsa hepsini raporun içinde ayrı alt başlıklar halinde tek tek yorumla.
+
+BİREBİR AKTARIM (KIRMIZI ÇİZGİ): Denetmenin sistemde girdiği 'ÖNEMLİ', 'NOT' ve 'ÖNERİ' kısımlarını ASLA kendi kelimelerinle özetleme, değiştirme veya yorumlama. Bu kısımları rapora tırnak işareti içinde ve denetmenin yazdığı orijinal cümlelerle birebir ekle.
+
+Geçmiş Analizi: Aynı eksiklikler geçmiş denetimlerde de varsa bunu nazikçe 'tekrar eden bir durum' olarak belirt. Düzelen konular varsa ekibi tebrik et.
+
+RAPOR ÇIKTI FORMATI:
+Lütfen çıktıyı tam olarak aşağıdaki düzende ve emojileri kullanarak ver:
+
+🌟 1. Denetim Genel Değerlendirmesi
+Mağazanın genel puanı üzerinden motive edici bir özet. (Denetmen genel bir NOT bırakmışsa birebir buraya ekle).
+
+🔍 2. Bölüm Bazlı Detaylı Analiz
+(Verideki her bir bölüm için aşağıdaki yapıyı uyarla ve tüm bölümleri listele)
+
+[Bölüm Adı - Örn: Lokum]: Bölüm puanına ve sorulardaki eksiklere göre kısa, yapıcı analiz.
+
+📌 Denetmenin Notu / Önemli: "[Eğer bu bölüme özel yazılmış bir ÖNEMLİ veya NOT varsa, denetmenin cümlesini buraya birebir yaz, yoksa bu satırı ekleme]"
+
+[Bölüm Adı - Örn: Kuruyemiş]: ...
+(Bu şekilde tüm bölümleri tek tek analiz et)
+
+📈 3. Geçmişten Bugüne Durumumuz
+Geçmiş verilere kıyasla mağazanın ilerleyişi ve dikkat edilmesi gereken kronikleşmeye yüz tutmuş detaylar.
+
+💡 4. Denetmenin Önerileri ve Aksiyon Adımları
+Denetmenin 'ÖNERİ' başlığı altında yazdığı cümleleri BİREBİR aktar. Eğer denetmenin özel bir önerisi yoksa, senin verilerden çıkardığın en kritik 2-3 yapıcı tavsiyeyi maddeler halinde yaz.`;
+
+        // Not: API'deki en stabil ve güncel model olan gemini-2.5-flash kullanılıyor.
+        const model = genAI.getGenerativeModel({ 
+            model: "gemini-2.5-flash",
+            systemInstruction: systemPrompt 
         });
 
-        // Detect Streaks (Consecutive Failures in last 3+ appearnces)
-        const streakFailures: string[] = [];
-        Object.entries(questionHistory).forEach(([qText, history]) => {
-            // Get last 3 entries
-            const last3 = history.slice(-3);
-            if (last3.length >= 3 && last3.every(h => !h.passed)) {
-                streakFailures.push(`${qText} (Son ${last3.length} denetimde üst üste hatalı)`);
-            }
-        });
+        const prompt = `Aşağıda güncel denetim ve geçmiş denetim özetlerini içeren JSON verisi bulunmaktadır. Lütfen bu veriyi okuyarak sistem talimatlarına KESİNLİKLE uygun bir analiz raporunu oluştur. Orijinal notları (varsa) mutlaka tırnak içinde birebir ekle. Şablon dışına çıkma.
 
-        // Calculate Stats
-        const avgResponseTime = storeResponseTimes.length > 0
-            ? (storeResponseTimes.reduce((a, b) => a + b, 0) / storeResponseTimes.length).toFixed(1)
-            : "Veri Yok";
+VERİ:
+${jsonInput}`;
 
-        const topNotes = allAuditorNotes.slice(-10).join("\n- "); // Last 10 notes
-
-        // 4. Construct Prompt
-        const prompt = `
-            Sen uzman bir perakende denetim yöneticisisin ve veriye dayalı stratejik analiz yapıyorsun.
-            Aşağıdaki detaylı verilere dayanarak, mağaza müdürü için **SWOT Analizi** (Güçlü Yönler, Zayıf Yönler, Fırsatlar, Tehditler) formatında profesyonel bir rapor hazırla.
-
-            MAĞAZA: ${storeName}
-            ANALİZ DÖNEMİ: Son ${totalAudits} Denetim
-            ORTALAMA PUAN: ${averageScore.toFixed(1)} / 100
-
-            🚩 KRİTİK BULGULAR (STREAKS):
-            [Aşağıdaki maddeler son denetimlerde sürekli olarak hatalı çıkmıştır. Bu kronik bir sorundur.]
-            ${streakFailures.join("\n") || "Kronikleşen (arka arkaya 3+) hata bulunmamaktadır."}
-
-            ⚡ AKSİYON PERFORMANSI:
-            - Toplam Açılan Aksiyon: ${totalActions}
-            - Gecikmiş Aksiyonlar: ${overdueActions} (Mağaza 3 günden uzun süredir dönüş yapmamış)
-            - Ortalama Mağaza Dönüş Hızı: ${avgResponseTime} Gün
-            
-            📝 DENETMEN NOTLARI VE BULGULAR (Özet):
-            - ${topNotes || "Önemli bir not bulunmamaktadır."}
-
-            ---
-            
-            GÖREVİN:
-            Bu verileri yorumla ve aşağıdaki başlıklarla markdown formatında rapor oluştur.
-            
-            ## 🛡️ SWOT ANALİZİ
-            
-            ### 💪 Strengths (Güçlü Yönler)
-            - Puanı yüksek tutan alanlar ve iyi yönetilen süreçler.
-            
-            ### ⚠️ Weaknesses (Zayıf Yönler)
-            - Özellikle "Kritik Bulgular" (Streaks) kısmındaki kronikleşen hataları buraya al.
-            - Geciken aksiyonlar varsa mağaza disiplini hakkında yorum yap.
-            
-            ### 🎯 Opportunities (Fırsatlar)
-            - Puanı artırmak için hızlı kazanım alanları.
-            - Denetmen notlarından yola çıkarak iyileştirme önerileri.
-            
-            ### 🚫 Threats (Tehditler)
-            - Tekrarlanan hataların (Streaks) yaratabileceği uzun vadeli riskler.
-            
-            ## 🚀 STRATEJİK YOL HARİTASI
-            [Mağaza müdürüne, sorunları çözmek için 3 maddelik net ve sert olmayan, motive edici bir aksiyon planı ver.]
-            
-            Ton: Profesyonel, yapıcı, analitik ve çözüm odaklı. Türkçe yanıt ver.
-        `;
-
-        // 5. Call Gemini
-        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
         const result = await model.generateContent(prompt);
         const responseText = result.response.text();
 
-        return NextResponse.json({ report: responseText });
+        let startTimeStr = '-';
+        if (currentAudit.createdAt) {
+            const d = typeof currentAudit.createdAt.toDate === 'function' ? currentAudit.createdAt.toDate() : new Date((currentAudit.createdAt.seconds || currentAudit.createdAt._seconds) * 1000);
+            startTimeStr = d.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+        } else if (currentAudit.startedAt) {
+             const d = typeof currentAudit.startedAt.toDate === 'function' ? currentAudit.startedAt.toDate() : new Date((currentAudit.startedAt.seconds || currentAudit.startedAt._seconds) * 1000);
+             startTimeStr = d.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+        }
+
+        let endTimeStr = '-';
+        if (currentAudit.completedAt) {
+            const d = typeof currentAudit.completedAt.toDate === 'function' ? currentAudit.completedAt.toDate() : new Date((currentAudit.completedAt.seconds || currentAudit.completedAt._seconds) * 1000);
+            endTimeStr = d.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+        }
+        
+        // Find week number if not explicitly defined
+        let weekStr = currentAudit.period || currentAudit.week || '-';
+        if (weekStr === '-' && currentAudit.completedAt) {
+             const d = typeof currentAudit.completedAt.toDate === 'function' ? currentAudit.completedAt.toDate() : new Date((currentAudit.completedAt.seconds || currentAudit.completedAt._seconds) * 1000);
+             const startDate = new Date(d.getFullYear(), 0, 1);
+             const days = Math.floor((d.getTime() - startDate.getTime()) / (24 * 60 * 60 * 1000));
+             const weekNumber = Math.ceil(days / 7);
+             weekStr = `${d.getFullYear()} / ${weekNumber}. Hafta`;
+        }
+
+        return NextResponse.json({ 
+            report: responseText,
+            metadata: {
+                storeName: storeName,
+                auditorName: currentAudit.auditorName || currentAudit.inspectorName || '-',
+                relatedWeek: weekStr,
+                totalScore: currentAudit.totalScore || 0,
+                auditDate: currentDateStr,
+                startTime: startTimeStr,
+                endTime: endTimeStr,
+                previousAuditor: audits.length > 1 ? (audits[1].auditorName || audits[1].inspectorName || '-') : '-'
+            }
+        });
 
     } catch (error: any) {
         console.error("AI API Error:", error);

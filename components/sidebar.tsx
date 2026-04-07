@@ -252,6 +252,7 @@ function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar }: 
                             <SendNotificationDialog
                                 trigger={
                                     <button
+                                        suppressHydrationWarning
                                         type="button"
                                         onClick={() => {
                                             // Optional: Close sidebar on mobile if needed, but Dialog acts as overlay
