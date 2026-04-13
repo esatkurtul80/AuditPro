@@ -14,13 +14,17 @@ export async function markAnnouncementAsRead(
     userName: string
 ): Promise<void> {
     try {
+        if (!announcementId) return;
+
+        const safeUserId = userId || "unknown";
+        const safeUserName = userName || "Bilinmeyen Kullanıcı";
         
         const announcementRef = doc(db, "announcements", announcementId);
         
         await updateDoc(announcementRef, {
             readBy: arrayUnion({
-                userId,
-                userName,
+                userId: safeUserId,
+                userName: safeUserName,
                 readAt: Timestamp.now()
             })
         });
@@ -28,7 +32,7 @@ export async function markAnnouncementAsRead(
     } catch (error) {
         console.error("[markAnnouncementAsRead] Error:", error);
         console.error("[markAnnouncementAsRead] Error details:", {
-            message: error instanceof Error ? error.message : 'Unknown error',
+            message: error instanceof Error ? error.message : String(error),
             announcementId,
             userId,
             userName

@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { DataTable } from "@/components/ui/data-table";
 import { ColumnDef } from "@tanstack/react-table";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, CheckCircle2, AlertCircle, Clock, XCircle, AlertTriangle, Filter, Check, ArrowUpDown, FileSpreadsheet } from "lucide-react";
+import { Loader2, CheckCircle2, AlertCircle, Clock, XCircle, AlertTriangle, Filter, Check, ArrowUpDown, FileSpreadsheet, Activity, Target, BrainCircuit, RefreshCw } from "lucide-react";
 import * as XLSX from "xlsx";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { DateRangeFilter } from "@/lib/types";
@@ -30,6 +30,7 @@ import {
     PopoverTrigger,
 } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface ActionPerformanceRow {
     id: string;
@@ -45,11 +46,39 @@ interface ActionPerformanceRow {
     isOverdue?: boolean;
 }
 
+interface RevisedAuditRow {
+    id: string; // auditId
+    storeName: string;
+    regionalManagerName?: string;
+    auditorName: string;
+    auditDate: Date;
+    rejectedItemsCount: number;
+    resubmittedItemsCount: number;
+    pendingRevisionCount: number;
+    firstRejectedAt: Date | null;
+    lastResubmittedAt: Date | null;
+    avgResubmitDays: number | null; 
+    statusLabel: string;
+}
+
+// Utility to parse irregular timestamp/date data
+const parseDateObj = (rawDate: any, fallback: Date): Date => {
+    if (!rawDate) return fallback;
+    if (typeof rawDate.toDate === 'function') return rawDate.toDate();
+    if (rawDate instanceof Date) return rawDate;
+    if (typeof rawDate === 'object' && rawDate !== null && 'seconds' in rawDate) {
+        return new Date(rawDate.seconds * 1000);
+    }
+    return new Date(rawDate);
+}
+
 export default function ActionPerformanceReport() {
     const [loading, setLoading] = useState(true);
     const [data, setData] = useState<ActionPerformanceRow[]>([]);
+    const [revisedData, setRevisedData] = useState<RevisedAuditRow[]>([]);
     const [dateRange, setDateRange] = useState<DateRangeFilter>({ from: undefined, to: undefined });
     const [statusFilter, setStatusFilter] = useState<string[]>([]);
+    const [activeTab, setActiveTab] = useState("performance");
 
     useEffect(() => {
         const fetchData = async () => {
@@ -83,20 +112,13 @@ export default function ActionPerformanceReport() {
                 });
 
                 const processedData: ActionPerformanceRow[] = [];
+                const processedRevisedData: RevisedAuditRow[] = [];
 
                 auditsSnapshot.docs.forEach(doc => {
                     const audit = { id: doc.id, ...doc.data() } as Audit;
                     if (!audit.completedAt) return;
 
-                    // Fix timestamp issue
-                    let auditDate: Date;
-                    if (audit.completedAt instanceof Timestamp) {
-                        auditDate = audit.completedAt.toDate();
-                    } else if (typeof (audit.completedAt as any).toDate === 'function') {
-                        auditDate = (audit.completedAt as any).toDate();
-                    } else {
-                        auditDate = new Date(audit.completedAt as any);
-                    }
+                    let auditDate: Date = parseDateObj(audit.completedAt, new Date());
 
                     // Find Regional Manager
                     let regionalManagerName = "-";
@@ -106,12 +128,20 @@ export default function ActionPerformanceReport() {
                         if (rmName) regionalManagerName = rmName;
                     }
 
-                    // Analyze Actions
+                    // For Action Performance Table
                     let totalActions = 0;
                     let rejectedActions = 0;
                     let actionsPending = false;
                     let firstSubmissionDate: Date | null = null;
                     let hasActionItems = false;
+
+                    // For Revised Analysis Table
+                    let rejectedItemsCount = 0;
+                    let resubmittedItemsCount = 0;
+                    let totalResubmitDays = 0;
+                    let itemsWithResubmitDays = 0;
+                    let firstRejectedAt: Date | null = null;
+                    let lastResubmittedAt: Date | null = null;
 
                     audit.sections.forEach(section => {
                         section.answers.forEach(answer => {
@@ -129,31 +159,83 @@ export default function ActionPerformanceReport() {
                                     rejectedActions++;
                                 }
 
-                                // Check submission date
+                                // Check submission date for Performance
                                 if (answer.actionData?.submittedAt) {
-                                    // Handle Timestamp or Date safely
-                                    let subDate: Date;
-                                    const rawDate = answer.actionData.submittedAt;
-
-                                    if (rawDate && typeof (rawDate as any).toDate === 'function') {
-                                        subDate = (rawDate as any).toDate();
-                                    } else if (rawDate instanceof Date) {
-                                        subDate = rawDate;
-                                    } else if (typeof rawDate === 'object' && rawDate !== null && 'seconds' in rawDate) {
-                                        subDate = new Date((rawDate as any).seconds * 1000);
-                                    } else {
-                                        subDate = new Date(rawDate as any);
-                                    }
-
+                                    const subDate = parseDateObj(answer.actionData.submittedAt, new Date());
                                     if (!firstSubmissionDate || subDate < firstSubmissionDate) {
                                         firstSubmissionDate = subDate;
+                                    }
+                                }
+
+                                // Extraction for Revised Actions
+                                if (answer.actionData?.rejectedAt) {
+                                    rejectedItemsCount++;
+                                    const rejectDate = parseDateObj(answer.actionData.rejectedAt, auditDate);
+                                    if (!firstRejectedAt || rejectDate < firstRejectedAt) firstRejectedAt = rejectDate;
+    
+                                    let hasResubmitted = false;
+                                    let resubmitDate: Date | null = null;
+                                    
+                                    if (answer.actionData.submittedAt) {
+                                        const subDate = parseDateObj(answer.actionData.submittedAt, new Date());
+                                        if (subDate >= rejectDate) {
+                                            hasResubmitted = true;
+                                            resubmitDate = subDate;
+                                        }
+                                    }
+                                    
+                                    const currentStatus = answer.actionData.status;
+                                    if (!hasResubmitted && (currentStatus === "pending_admin" || currentStatus === "approved")) {
+                                        hasResubmitted = true;
+                                        if(currentStatus === "approved" && answer.actionData.approvedAt) {
+                                            resubmitDate = parseDateObj(answer.actionData.approvedAt, new Date());
+                                        }
+                                    }
+    
+                                    if (hasResubmitted) {
+                                        resubmittedItemsCount++;
+                                        if (resubmitDate) {
+                                            if (!lastResubmittedAt || resubmitDate > lastResubmittedAt) lastResubmittedAt = resubmitDate;
+                                            
+                                            const daysTaken = getWorkingDaysPassed(rejectDate, resubmitDate);
+                                            totalResubmitDays += Math.max(0, daysTaken);
+                                            itemsWithResubmitDays++;
+                                        }
                                     }
                                 }
                             }
                         });
                     });
 
-                    if (!hasActionItems) return; // Skip audits with no actions
+                    // Build Revised Analytics row if there was any rejection in this audit
+                    if (rejectedItemsCount > 0) {
+                        const pendingRevisionCount = rejectedItemsCount - resubmittedItemsCount;
+                        let statusLabel = "";
+                        if (pendingRevisionCount === 0) {
+                            statusLabel = "Tümüne Dönüş Yapıldı";
+                        } else if (resubmittedItemsCount === 0) {
+                            statusLabel = "Dönüş Bekliyor";
+                        } else {
+                            statusLabel = `${pendingRevisionCount} Madde Bekliyor`;
+                        }
+                        
+                        processedRevisedData.push({
+                            id: audit.id,
+                            storeName: audit.storeName,
+                            regionalManagerName: regionalManagerName,
+                            auditorName: audit.auditorName,
+                            auditDate: auditDate,
+                            rejectedItemsCount,
+                            resubmittedItemsCount,
+                            pendingRevisionCount,
+                            firstRejectedAt,
+                            lastResubmittedAt,
+                            avgResubmitDays: itemsWithResubmitDays > 0 ? Math.round(totalResubmitDays / itemsWithResubmitDays) : null,
+                            statusLabel
+                        });
+                    }
+
+                    if (!hasActionItems) return; // Skip audits with no actions for performance tab
 
                     let status: ActionPerformanceRow['status'] = 'pending';
                     let daysTaken: number | null = null;
@@ -190,6 +272,7 @@ export default function ActionPerformanceReport() {
                 });
 
                 setData(processedData);
+                setRevisedData(processedRevisedData);
 
             } catch (error) {
                 console.error("Error fetching report data:", error);
@@ -201,9 +284,8 @@ export default function ActionPerformanceReport() {
         fetchData();
     }, []);
 
-    // Filter Logic
+    // Filter Logic for Performance Report
     const filteredData = data.filter(item => {
-        // Date Filter
         if (dateRange?.from) {
             const fromDate = new Date(dateRange.from);
             fromDate.setHours(0, 0, 0, 0);
@@ -214,19 +296,57 @@ export default function ActionPerformanceReport() {
             toDate.setHours(23, 59, 59, 999);
             if (item.auditDate > toDate) return false;
         }
-
-        // Status Filter
         if (statusFilter.length > 0) {
-
             if (!statusFilter.includes(item.status)) {
                 return false;
             }
         }
-
         return true;
     });
 
-    const columns: ColumnDef<ActionPerformanceRow>[] = [
+    // Filter Logic for Revised Actions Report
+    const filteredRevisedData = revisedData.filter(item => {
+        if (dateRange?.from) {
+            const fromDate = new Date(dateRange.from);
+            fromDate.setHours(0, 0, 0, 0);
+            if (item.auditDate < fromDate) return false; 
+        }
+        if (dateRange?.to) {
+            const toDate = new Date(dateRange.to);
+            toDate.setHours(23, 59, 59, 999);
+            if (item.auditDate > toDate) return false;
+        }
+        return true;
+    });
+
+    // Calculations for Revised Insight Cards
+    const totalRejectedEver = filteredRevisedData.reduce((acc, row) => acc + row.rejectedItemsCount, 0);
+    
+    let sumDays = 0; 
+    let countDays = 0;
+    filteredRevisedData.forEach(r => { 
+        if(r.avgResubmitDays !== null) { 
+            sumDays += r.avgResubmitDays; 
+            countDays++; 
+        }
+    });
+    const overallAvgDays = countDays > 0 ? (sumDays / countDays).toFixed(1) : "-";
+
+    const storeRejectionsMap = new Map<string, number>();
+    filteredRevisedData.forEach(item => {
+        storeRejectionsMap.set(item.storeName, (storeRejectionsMap.get(item.storeName) || 0) + item.rejectedItemsCount);
+    });
+    let maxRejections = 0;
+    let topRejectedStore = "-";
+    storeRejectionsMap.forEach((count, storeName) => {
+        if (count > maxRejections) {
+            maxRejections = count;
+            topRejectedStore = storeName;
+        }
+    });
+
+    // Columns Definition
+    const performanceColumns: ColumnDef<ActionPerformanceRow>[] = [
         {
             accessorKey: "storeName",
             header: ({ column }) => <DataTableColumnHeader column={column} title="Mağaza Adı" />,
@@ -366,6 +486,82 @@ export default function ActionPerformanceReport() {
         }
     ];
 
+    const revisedColumns: ColumnDef<RevisedAuditRow>[] = [
+        {
+            accessorKey: "storeName",
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Mağaza Adı" />,
+            cell: ({ row }) => <span className="font-medium text-base">{row.original.storeName}</span>,
+            meta: { title: "Mağaza Adı" } as any,
+        },
+        {
+            accessorKey: "regionalManagerName",
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Bölge Müdürü" />,
+            cell: ({ row }) => <span className="text-sm text-foreground">{row.original.regionalManagerName}</span>,
+            meta: { title: "Bölge Müdürü" } as any,
+        },
+        {
+            accessorKey: "auditDate",
+            header: ({ column }) => {
+                return (
+                    <Button
+                        variant="ghost"
+                        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                        className="px-0 hover:bg-transparent font-semibold text-foreground whitespace-nowrap"
+                    >
+                        Denetim Tarihi
+                        <ArrowUpDown className="ml-2 h-4 w-4" />
+                    </Button>
+                )
+            },
+            cell: ({ row }) => <span className="text-sm whitespace-nowrap">{row.original.auditDate.toLocaleDateString("tr-TR")}</span>,
+            enableColumnFilter: false,
+            meta: { title: "Denetim Tarihi" } as any,
+        },
+        {
+            accessorKey: "rejectedItemsCount",
+            header: ({ column }) => <DataTableColumnHeader column={column} title="İade Özeti" />,
+            cell: ({ row }) => (
+                <div className="flex flex-col gap-1 items-start">
+                    <Badge variant="destructive" className="bg-rose-50 border border-rose-200 text-rose-700 hover:bg-rose-100 items-center justify-between min-w-[120px] shadow-sm">
+                        <span>Ret Gören:</span>
+                        <span className="font-bold ml-2 font-mono">{row.original.rejectedItemsCount}</span>
+                    </Badge>
+                    <Badge variant="secondary" className="bg-emerald-50 border border-emerald-200 text-emerald-700 hover:bg-emerald-100 items-center justify-between min-w-[120px] shadow-sm">
+                        <span>Dönüş Yapan:</span>
+                        <span className="font-bold ml-2 font-mono">{row.original.resubmittedItemsCount}</span>
+                    </Badge>
+                </div>
+            ),
+            meta: { title: "İade Özeti" } as any,
+        },
+        {
+            accessorKey: "statusLabel",
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Revize Durumu" />,
+            cell: ({ row }) => {
+                const pending = row.original.pendingRevisionCount;
+                if (pending === 0) {
+                    return <Badge variant="outline" className="border-emerald-500 text-emerald-600 bg-emerald-50"><CheckCircle2 className="w-3 h-3 mr-1" /> Tümü Çözüldü</Badge>
+                }
+                if (row.original.resubmittedItemsCount === 0) {
+                    return <Badge variant="outline" className="border-rose-500 text-rose-600 bg-rose-50"><XCircle className="w-3 h-3 mr-1" /> Dönüş Bekliyor</Badge>
+                }
+                return <Badge variant="outline" className="border-amber-500 text-amber-600 bg-amber-50"><RefreshCw className="w-3 h-3 mr-1" /> {pending} Madde Bekliyor</Badge>
+            },
+            meta: { title: "Revize Durumu" } as any,
+        },
+        {
+            accessorKey: "avgResubmitDays",
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Ort. Dönüş Hızı" />,
+            cell: ({ row }) => {
+                const days = row.original.avgResubmitDays;
+                if (days === null) return <span className="text-xs text-muted-foreground italic pl-6">-</span>;
+                return <span className="font-bold text-sm bg-muted pl-4 px-2 py-1 rounded-md">{days} İş Günü</span>
+            },
+            enableColumnFilter: false,
+            meta: { title: "Ort. Dönüş Hızı" } as any,
+        }
+    ];
+
     const statusOptions = [
         { label: "Zamanında", value: "on_time", icon: CheckCircle2 },
         { label: "Geç Döndü", value: "late", icon: Clock },
@@ -373,62 +569,90 @@ export default function ActionPerformanceReport() {
     ];
 
     const handleExportExcel = () => {
-        const worksheet = XLSX.utils.json_to_sheet(filteredData.map(row => ({
-            "Mağaza Adı": row.storeName,
-            "Bölge Müdürü": row.regionalManagerName || "-",
-            "Denetmen": row.auditorName,
-            "Oluşturulma Tarihi": row.auditDate.toLocaleDateString("tr-TR"),
-            "Aksiyon Sayısı": row.totalActions,
-            "Reddedilen Aksiyon": row.rejectedActions,
-            "Dönüş Tarihi": row.returnDate ? row.returnDate.toLocaleDateString("tr-TR") : "-",
-            "Süre (İş Günü)": row.daysTaken !== null ? row.daysTaken : `Geçen: ${getWorkingDaysPassed(row.auditDate, new Date())}`,
-            "Durum": row.status === 'on_time' ? "Zamanında" : row.status === 'late' ? "Geç Döndü" : "Bekleniyor",
-            "Gecikme Durumu": row.isOverdue ? "Gecikti" : "Normal"
-        })));
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, "Aksiyon Performansı");
-        XLSX.writeFile(workbook, `Aksiyon_Performans_Raporu_${new Date().toLocaleDateString("tr-TR")}.xlsx`);
+        if (activeTab === "performance") {
+            const worksheet = XLSX.utils.json_to_sheet(filteredData.map(row => ({
+                "Mağaza Adı": row.storeName,
+                "Bölge Müdürü": row.regionalManagerName || "-",
+                "Denetmen": row.auditorName,
+                "Oluşturulma Tarihi": row.auditDate.toLocaleDateString("tr-TR"),
+                "Aksiyon Sayısı": row.totalActions,
+                "Reddedilen Aksiyon": row.rejectedActions,
+                "Dönüş Tarihi": row.returnDate ? row.returnDate.toLocaleDateString("tr-TR") : "-",
+                "Süre (İş Günü)": row.daysTaken !== null ? row.daysTaken : `Geçen: ${getWorkingDaysPassed(row.auditDate, new Date())}`,
+                "Durum": row.status === 'on_time' ? "Zamanında" : row.status === 'late' ? "Geç Döndü" : "Bekleniyor",
+                "Gecikme Durumu": row.isOverdue ? "Gecikti" : "Normal"
+            })));
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Aksiyon Performansı");
+            XLSX.writeFile(workbook, `Aksiyon_Performans_Raporu_${new Date().toLocaleDateString("tr-TR")}.xlsx`);
+        } else {
+            const worksheet = XLSX.utils.json_to_sheet(filteredRevisedData.map(row => ({
+                "Mağaza Adı": row.storeName,
+                "Bölge Müdürü": row.regionalManagerName || "-",
+                "Denetim Tarihi": row.auditDate.toLocaleDateString("tr-TR"),
+                "Denetmen": row.auditorName,
+                "Toplam Reddedilen Madde": row.rejectedItemsCount,
+                "Tekrar Dönüş Yapılan": row.resubmittedItemsCount,
+                "Hala Bekleyen Madde": row.pendingRevisionCount,
+                "Güncel Revize Durumu": row.statusLabel,
+                "Ortalama Dönüş Hızı": row.avgResubmitDays !== null ? `${row.avgResubmitDays} Gün` : "-"
+            })));
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Revize Analizi");
+            XLSX.writeFile(workbook, `Aksiyon_İade_Revize_Raporu_${new Date().toLocaleDateString("tr-TR")}.xlsx`);
+        }
     };
 
     return (
         <div className="container mx-auto py-8 px-4 md:px-6">
             <Card className="border-none shadow-md bg-white/50 backdrop-blur-sm">
-                <CardHeader>
-                    <CardTitle className="text-2xl font-bold flex items-center gap-2 text-primary">
-                        <div className="bg-primary/10 p-2 rounded-lg">
-                            <Clock className="h-6 w-6 text-primary" />
+                <CardHeader className="pb-2">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div>
+                            <CardTitle className="text-2xl font-bold flex items-center gap-2 text-primary">
+                                <div className="bg-primary/10 p-2 rounded-lg">
+                                    <Clock className="h-6 w-6 text-primary" />
+                                </div>
+                                Aksiyon Yönetim ve Performans Raporları
+                            </CardTitle>
+                            <CardDescription className="text-base text-muted-foreground mt-2">
+                                Mağazaların aksiyonlara dönüş hızlarını ve iade (revize) oranlarını yönetin.
+                            </CardDescription>
                         </div>
-                        Aksiyon Performans Raporu
-                    </CardTitle>
-                    <CardDescription className="text-base text-muted-foreground mt-2">
-                        Mağazaların denetim sonrasında aksiyonlara ne kadar sürede dönüş yaptığını analiz edin.
-                    </CardDescription>
+                    </div>
                 </CardHeader>
-                <CardContent className="p-6">
-                    {loading ? (
-                        <div className="flex flex-col items-center justify-center py-20 gap-4">
-                            <Loader2 className="h-10 w-10 animate-spin text-primary" />
-                            <p className="text-muted-foreground animate-pulse">Veriler yükleniyor...</p>
-                        </div>
-                    ) : (
-                        <DataTable
-                            columns={columns}
-                            data={filteredData}
-                            searchKey="storeName"
-                            searchPlaceholder="Mağaza adına göre ara..."
-                            toolbar={
-                                <div className="flex flex-wrap items-center gap-2 bg-white dark:bg-background p-1 rounded-lg border shadow-sm">
-                                    <DateRangePicker
-                                        value={dateRange}
-                                        onChange={setDateRange}
-                                        className="w-full sm:w-[220px] border-none shadow-none text-sm"
-                                    />
+                <CardContent className="px-6 pb-6 pt-0">
+                    <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 gap-4 border-b pb-4">
+                            <TabsList className="bg-muted/50 p-1 w-full sm:w-auto h-auto min-h-12 overflow-x-auto flex flex-nowrap rounded-lg">
+                                <TabsTrigger 
+                                    value="performance" 
+                                    className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-6 py-2.5 text-sm font-semibold flex items-center whitespace-nowrap min-w-max"
+                                >
+                                    <Activity className="w-4 h-4 mr-2" />
+                                    Aksiyon Hız Performansı
+                                </TabsTrigger>
+                                <TabsTrigger 
+                                    value="revised" 
+                                    className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-6 py-2.5 text-sm font-semibold flex items-center whitespace-nowrap min-w-max"
+                                >
+                                    <BrainCircuit className="w-4 h-4 mr-2" />
+                                    Revize (İade) Analizi
+                                </TabsTrigger>
+                            </TabsList>
+                            <div className="flex flex-wrap items-center gap-2 bg-white/80 dark:bg-background/80 p-1 rounded-lg border shadow-sm w-full lg:w-auto">
+                                <DateRangePicker
+                                    value={dateRange}
+                                    onChange={setDateRange}
+                                    className="w-full sm:w-auto sm:min-w-[260px] border-none shadow-none text-sm"
+                                />
 
-                                    <div className="hidden sm:block h-6 w-px bg-gray-200" />
+                                <div className="hidden lg:block h-6 w-px bg-gray-200" />
 
+                                {activeTab === "performance" && (
                                     <Popover>
                                         <PopoverTrigger asChild>
-                                            <Button variant="ghost" size="sm" className="h-8 border-dashed flex-shrink-0">
+                                            <Button variant="ghost" size="sm" className="h-8 border-dashed flex-shrink-0 ml-auto lg:ml-0">
                                                 <Filter className="mr-2 h-4 w-4" />
                                                 Durum
                                                 {statusFilter.length > 0 && (
@@ -466,7 +690,7 @@ export default function ActionPerformanceReport() {
                                                 )}
                                             </Button>
                                         </PopoverTrigger>
-                                        <PopoverContent className="w-[200px] p-0" align="start">
+                                        <PopoverContent className="w-[200px] p-0" align="end">
                                             <Command>
                                                 <CommandInput placeholder="Durum ara..." />
                                                 <CommandList>
@@ -520,34 +744,121 @@ export default function ActionPerformanceReport() {
                                             </Command>
                                         </PopoverContent>
                                     </Popover>
+                                )}
 
-                                    {(dateRange?.from || dateRange?.to) && (
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            onClick={() => setDateRange({ from: undefined, to: undefined })}
-                                            className="h-8 w-8 text-rose-500 hover:text-rose-600 hover:bg-rose-50 rounded-full flex-shrink-0"
-                                            title="Tarihi Temizle"
-                                        >
-                                            <XCircle className="h-4 w-4" />
-                                        </Button>
-                                    )}
-
+                                {(dateRange?.from || dateRange?.to) && (
                                     <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="ml-auto h-8 gap-2 text-emerald-600 border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300"
-                                        onClick={handleExportExcel}
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={() => setDateRange({ from: undefined, to: undefined })}
+                                        className={cn("h-8 w-8 text-rose-500 hover:text-rose-600 hover:bg-rose-50 rounded-full flex-shrink-0", activeTab === "revised" ? "ml-auto lg:ml-0" : "")}
+                                        title="Tarihi Temizle"
                                     >
-                                        <FileSpreadsheet className="h-4 w-4" />
-                                        Excel
+                                        <XCircle className="h-4 w-4" />
                                     </Button>
-                                </div>
-                            }
-                        />
-                    )}
+                                )}
+
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className={cn("h-8 gap-2 text-emerald-600 border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300", activeTab === "revised" ? "" : "")}
+                                    onClick={handleExportExcel}
+                                >
+                                    <FileSpreadsheet className="h-4 w-4" />
+                                    Excel
+                                </Button>
+                            </div>
+                        </div>
+
+                        {loading ? (
+                            <div className="flex flex-col items-center justify-center py-20 gap-4">
+                                <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                                <p className="text-muted-foreground animate-pulse">Veriler yükleniyor...</p>
+                            </div>
+                        ) : (
+                            <>
+                                <TabsContent value="performance" className="mt-0">
+                                    <DataTable
+                                        columns={performanceColumns}
+                                        data={filteredData}
+                                        searchKey="storeName"
+                                        searchPlaceholder="Mağaza adına göre ara..."
+                                    />
+                                </TabsContent>
+
+                                <TabsContent value="revised" className="mt-0 space-y-6">
+                                    
+                                    {/* Action Insights Panel for Revised Actions */}
+                                    <div className="grid gap-4 md:grid-cols-3">
+                                        <Card className="shadow-none border border-border/60 bg-gradient-to-br from-white to-gray-50 dark:from-background dark:to-muted/20">
+                                            <CardContent className="p-6">
+                                                <div className="flex items-start justify-between">
+                                                    <div>
+                                                        <p className="text-sm font-medium text-muted-foreground mb-1">Toplam Geçmiş İadeler</p>
+                                                        <h3 className="text-3xl font-bold tracking-tight text-foreground">{totalRejectedEver}</h3>
+                                                        <p className="text-xs text-muted-foreground mt-2 flex items-center leading-relaxed">
+                                                            Şimdiye kadar idari birimden "Ret" görmüş (<span className="text-rose-500 font-semibold mx-1">kötü dönüşlü</span>) aksiyonların toplamı.
+                                                        </p>
+                                                    </div>
+                                                    <div className="p-3 bg-blue-100 dark:bg-blue-900/40 rounded-xl text-blue-600 dark:text-blue-400">
+                                                        <Target className="w-5 h-5" />
+                                                    </div>
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+
+                                        <Card className="shadow-none border border-border/60 bg-gradient-to-br from-white to-amber-50/50 dark:from-background dark:to-amber-950/20">
+                                            <CardContent className="p-6">
+                                                <div className="flex items-start justify-between">
+                                                    <div>
+                                                        <p className="text-sm font-medium text-muted-foreground mb-1">En Çok İade Alan Mağaza</p>
+                                                        <h3 className="text-xl font-bold tracking-tight text-amber-700 dark:text-amber-500 line-clamp-1">{topRejectedStore}</h3>
+                                                        <p className="text-xs text-amber-600/70 mt-3 font-medium flex items-center">
+                                                            <AlertCircle className="w-3 h-3 mr-1"/> Toplam {maxRejections} defa yetersiz kalite/yanıt.
+                                                        </p>
+                                                    </div>
+                                                    <div className="p-3 bg-amber-100 dark:bg-amber-900/40 rounded-xl text-amber-600 dark:text-amber-400">
+                                                        <AlertTriangle className="w-5 h-5" />
+                                                    </div>
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                        
+                                        <Card className="shadow-none border border-border/60 bg-gradient-to-br from-emerald-50/50 to-white dark:from-emerald-950/20 dark:to-background">
+                                            <CardContent className="p-6">
+                                                <div className="flex items-start justify-between">
+                                                    <div>
+                                                        <p className="text-sm font-medium text-emerald-700 dark:text-emerald-500 mb-1 flex items-center gap-2">
+                                                            Mağaza Revize Hızı <RefreshCw className="w-3 h-3"/>
+                                                        </p>
+                                                        <div className="flex items-baseline gap-1">
+                                                            <h3 className="text-3xl font-bold tracking-tight text-emerald-600">{overallAvgDays}</h3>
+                                                            <span className="text-sm font-semibold text-emerald-600/70">İş Günü</span>
+                                                        </div>
+                                                        <p className="text-xs text-emerald-600/70 mt-2 font-medium">
+                                                            Mağazaların reddedildikten sonra tekrar düzeltip yollama ortalama hızı.
+                                                        </p>
+                                                    </div>
+                                                    <div className="p-3 bg-emerald-100 dark:bg-emerald-900/40 rounded-xl text-emerald-600 dark:text-emerald-400">
+                                                        <Activity className="w-5 h-5" />
+                                                    </div>
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    </div>
+
+                                    <DataTable
+                                        columns={revisedColumns}
+                                        data={filteredRevisedData}
+                                        searchKey="storeName"
+                                        searchPlaceholder="Mağaza adına göre ara..."
+                                    />
+                                </TabsContent>
+                            </>
+                        )}
+                    </Tabs>
                 </CardContent>
             </Card>
-        </div >
+        </div>
     );
 }

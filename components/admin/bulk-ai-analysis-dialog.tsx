@@ -598,12 +598,15 @@ export function BulkAIAnalysisDialog({ audits, dateRange }: BulkAIAnalysisDialog
                                             p: ({node, ...props}) => <p className="md-p">{props.children}</p>,
                                             ul: ({node, ...props}) => <ul className="pl-5 list-disc mb-4" style={{color: '#444'}}>{props.children}</ul>,
                                             li: ({node, ...props}) => <li className="md-li">{props.children}</li>,
+                                            strong: ({node, ...props}) => <strong style={{ fontWeight: 800, color: '#000' }}>{props.children}</strong>,
                                             table: ({node, ...props}) => <table className="md-table">{props.children}</table>,
                                             th: ({node, ...props}) => <th>{props.children}</th>,
                                             td: ({node, ...props}) => <td>{props.children}</td>,
                                         }}
                                     >
-                                        {report}
+                                        {report.replace(/\*{0,2}Tespit Edilen Eksiklikler:\*{0,2}/g, "**Tespit Edilen Eksiklikler:**")
+                                               .replace(/\*{0,2}Gelişim Alanları:\*{0,2}/g, "**Gelişim Alanları:**")
+                                               .replace(/\*{0,2}Denetmen Notları:\*{0,2}/g, "**Denetmen Notları:**")}
                                     </ReactMarkdown>
                                 </div>
                                 <footer style={{ textAlign: "center", fontSize: "11px", color: "#999", padding: "20px 0" }}>

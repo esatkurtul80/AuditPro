@@ -101,7 +101,12 @@ export default function AuditPage() {
     const [originalScore, setOriginalScore] = useState<number>(0);
     const [originalAudit, setOriginalAudit] = useState<Audit | null>(null);
     const [isDirty, setIsDirty] = useState(false);
-    const [validationErrors, setValidationErrors] = useState<{ photos: string[], notes: string[] }>({ photos: [], notes: [] });
+    const [validationErrors, setValidationErrors] = useState<{
+        unanswered: { label: string; sectionIndex: number; answerIndex: number }[];
+        photos: { label: string; sectionIndex: number; answerIndex: number }[];
+        notes: { label: string; sectionIndex: number; answerIndex: number }[];
+        personnel: { id: string; name: string }[];
+    }>({ unanswered: [], photos: [], notes: [], personnel: [] });
     const [showValidationModal, setShowValidationModal] = useState(false);
     const [showPreviewModal, setShowPreviewModal] = useState(false);
     const [historyCache, setHistoryCache] = useState<Record<string, QuestionHistory>>({});
@@ -851,95 +856,101 @@ export default function AuditPage() {
     const completeAudit = async () => {
         if (!audit || !auditId) return;
 
-        // Bölüm tutarlılığı kontrolü
-        const incompleteSections: string[] = [];
+        // ── 1. Cevaplanmamış soru kontrolü ─────────────────────────────────────
+        type ValidationItem = { label: string; sectionIndex: number; answerIndex: number };
+        const unansweredItems: ValidationItem[] = [];
 
-        audit.sections.forEach(section => {
-            const answeredQuestions = section.answers.filter(
+        audit.sections.forEach((section, sectionIndex) => {
+            const answeredCount = section.answers.filter(
                 answer => answer.answer && answer.answer.trim() !== ""
-            );
-            const totalQuestions = section.answers.length;
+            ).length;
+            const total = section.answers.length;
 
-            // Eğer bölümde hiç cevap yoksa, o bölümü "muaf" veya "atlanan" olarak kabul et ve zorlama.
-            // Ama eğer en az 1 cevap varsa, tüm sorular cevaplanmalı (kullanıcının isteği).
-            if (answeredQuestions.length > 0 && answeredQuestions.length < totalQuestions) {
-                incompleteSections.push(section.sectionName);
+            // En az 1 cevap verilmişse, o bölümdeki boşları bul
+            if (answeredCount > 0 && answeredCount < total) {
+                section.answers.forEach((answer, answerIndex) => {
+                    if (!answer.answer || answer.answer.trim() === "") {
+                        unansweredItems.push({
+                            label: `${section.sectionName}: ${answer.questionText}`,
+                            sectionIndex,
+                            answerIndex,
+                        });
+                    }
+                });
             }
         });
 
-        if (incompleteSections.length > 0) {
-            toast.error(
-                `Lütfen şu bölümlerdeki tüm soruları cevaplayın: ${incompleteSections.join(", ")}`,
-                { duration: 5000 }
-            );
-            return;
-        }
+        // ── 2. Zorunlu fotoğraf kontrolü ───────────────────────────────────────
+        const missingPhotos: ValidationItem[] = [];
 
-        // Zorunlu fotoğraf kontrolü
-        const missingPhotos: string[] = [];
-
-        audit.sections.forEach(section => {
-            section.answers.forEach(answer => {
+        audit.sections.forEach((section, sectionIndex) => {
+            section.answers.forEach((answer, answerIndex) => {
                 if (!answer.photoRequired) return;
                 if (!answer.answer || answer.answer.trim() === "" || answer.answer === "muaf") return;
-                // Fotoğraf zorunlu: "hayır" cevabı VEYA tam puan alınamamışsa
                 const isPhotoNeeded =
                     answer.answer === "hayir" ||
                     (answer.earnedPoints < answer.maxPoints);
                 if (isPhotoNeeded && (!answer.photos || answer.photos.length === 0)) {
-                    missingPhotos.push(`${section.sectionName}: ${answer.questionText}`);
+                    missingPhotos.push({
+                        label: `${section.sectionName}: ${answer.questionText}`,
+                        sectionIndex,
+                        answerIndex,
+                    });
                 }
             });
         });
 
-        // "Hayır" cevapları için zorunlu not kontrolü
-        const missingNotes: string[] = [];
+        // ── 3. "Hayır" cevabı için zorunlu not kontrolü ────────────────────────
+        const missingNotes: ValidationItem[] = [];
 
-        audit.sections.forEach(section => {
-            section.answers.forEach(answer => {
-                // "Hayır" cevabı verilmiş mi kontrol et
-                if (answer.answer === "hayir") {
-                    // Not var mı ve içeriği anlamlı mı kontrol et
-                    const hasValidNote = answer.notes &&
-                        answer.notes.length > 0 &&
-                        answer.notes.some(note => note && note.trim() !== "");
-
-                    if (!hasValidNote) {
-                        missingNotes.push(`${section.sectionName}: ${answer.questionText}`);
-                    }
+        audit.sections.forEach((section, sectionIndex) => {
+            section.answers.forEach((answer, answerIndex) => {
+                if (answer.answer !== "hayir") return;
+                const hasValidNote = answer.notes &&
+                    answer.notes.length > 0 &&
+                    answer.notes.some(note => note && note.trim() !== "");
+                if (!hasValidNote) {
+                    missingNotes.push({
+                        label: `${section.sectionName}: ${answer.questionText}`,
+                        sectionIndex,
+                        answerIndex,
+                    });
                 }
             });
         });
 
-        // Eğer eksik fotoğraf veya not varsa modal göster
-        if (missingPhotos.length > 0 || missingNotes.length > 0) {
-            setValidationErrors({ photos: missingPhotos, notes: missingNotes });
-            setShowValidationModal(true);
-            return;
-        }
-
-        // 4. Personel Değerlendirme Zorunluluk Kontrolü
+        // ── 4. Personel Değerlendirme Zorunluluk Kontrolü (async) ─────────────
+        let missingPersonnel: { id: string; name: string }[] = [];
         try {
             const pQuery = query(collection(db, "store_personnel"), where("storeId", "==", audit.storeId), where("status", "==", "active"));
             const pSnap = await getDocs(pQuery);
 
-            const eQuery = query(collection(db, "personnel_evaluations"), where("auditId", "==", auditId));
-            const eSnap = await getDocs(eQuery);
+            if (pSnap.docs.length > 0) {
+                const eQuery = query(collection(db, "personnel_evaluations"), where("auditId", "==", auditId));
+                const eSnap = await getDocs(eQuery);
 
-            const evaluatedPersonnelIds = new Set(eSnap.docs.map(doc => doc.data().personnelId));
-            const missingEvaluations = pSnap.docs.filter(doc => !evaluatedPersonnelIds.has(doc.id));
+                const evalMap = new Map<string, number>();
+                eSnap.docs.forEach(d => {
+                    const data = d.data();
+                    evalMap.set(data.personnelId, data.score ?? -99);
+                });
 
-            if (missingEvaluations.length > 0) {
-                toast.error("Personel değerlendirmesi zorunludur. Lütfen eksik personelleri değerlendirin veya durumlarını güncelleyin.", { duration: 6000 });
-                return;
-            }
-
-            if (pSnap.docs.length === 0 && eSnap.docs.length === 0) {
-                toast.error("Personel değerlendirmesi zorunludur. Lütfen Personel Değerlendirme bölümüne geçerek personelleri ekleyiniz.", { duration: 6000 });
-                return;
+                missingPersonnel = pSnap.docs
+                    .filter(d => {
+                        const score = evalMap.get(d.id);
+                        return score === undefined || score < 0;
+                    })
+                    .map(d => ({ id: d.id, name: (d.data().name as string) || "?" }));
             }
         } catch (error) {
             console.error("Personnel check error:", error);
+        }
+
+        // ── Herhangi bir hata varsa tek modalda göster ────────────────────────
+        if (unansweredItems.length > 0 || missingPhotos.length > 0 || missingNotes.length > 0 || missingPersonnel.length > 0) {
+            setValidationErrors({ unanswered: unansweredItems, photos: missingPhotos, notes: missingNotes, personnel: missingPersonnel });
+            setShowValidationModal(true);
+            return;
         }
 
         setCompleting(true);
@@ -1185,60 +1196,55 @@ export default function AuditPage() {
         if (!audit || !auditId || !userProfile) return;
 
         // Same validation as completeAudit — edit mode must enforce same rules
+        type ValidationItem = { label: string; sectionIndex: number; answerIndex: number };
 
-        // 1. Section consistency check
-        const incompleteSections: string[] = [];
-        audit.sections.forEach(section => {
-            const answeredQuestions = section.answers.filter(
+        // 1. Cevaplanmamış soru kontrolü
+        const unansweredItems: ValidationItem[] = [];
+        audit.sections.forEach((section, sectionIndex) => {
+            const answeredCount = section.answers.filter(
                 answer => answer.answer && answer.answer.trim() !== ""
-            );
-            const totalQuestions = section.answers.length;
-            if (answeredQuestions.length > 0 && answeredQuestions.length < totalQuestions) {
-                incompleteSections.push(section.sectionName);
+            ).length;
+            const total = section.answers.length;
+            if (answeredCount > 0 && answeredCount < total) {
+                section.answers.forEach((answer, answerIndex) => {
+                    if (!answer.answer || answer.answer.trim() === "") {
+                        unansweredItems.push({ label: `${section.sectionName}: ${answer.questionText}`, sectionIndex, answerIndex });
+                    }
+                });
             }
         });
 
-        if (incompleteSections.length > 0) {
-            toast.error(
-                `Lütfen şu bölümlerdeki tüm soruları cevaplayın: ${incompleteSections.join(", ")}`,
-                { duration: 5000 }
-            );
-            return;
-        }
-
-        // 2. Required photo check
-        const missingPhotos: string[] = [];
-        audit.sections.forEach(section => {
-            section.answers.forEach(answer => {
+        // 2. Zorunlu fotoğraf kontrolü
+        const missingPhotos: ValidationItem[] = [];
+        audit.sections.forEach((section, sectionIndex) => {
+            section.answers.forEach((answer, answerIndex) => {
                 if (!answer.photoRequired) return;
                 if (!answer.answer || answer.answer.trim() === "" || answer.answer === "muaf") return;
-                // Fotoğraf zorunlu: "hayır" cevabı VEYA tam puan alınamamışsa
                 const isPhotoNeeded =
                     answer.answer === "hayir" ||
                     (answer.earnedPoints < answer.maxPoints);
                 if (isPhotoNeeded && (!answer.photos || answer.photos.length === 0)) {
-                    missingPhotos.push(`${section.sectionName}: ${answer.questionText}`);
+                    missingPhotos.push({ label: `${section.sectionName}: ${answer.questionText}`, sectionIndex, answerIndex });
                 }
             });
         });
 
-        // 3. Required notes for "Hayır" answers
-        const missingNotes: string[] = [];
-        audit.sections.forEach(section => {
-            section.answers.forEach(answer => {
-                if (answer.answer === "hayir") {
-                    const hasValidNote = answer.notes &&
-                        answer.notes.length > 0 &&
-                        answer.notes.some(note => note && note.trim() !== "");
-                    if (!hasValidNote) {
-                        missingNotes.push(`${section.sectionName}: ${answer.questionText}`);
-                    }
+        // 3. "Hayır" cevabı için zorunlu not kontrolü
+        const missingNotes: ValidationItem[] = [];
+        audit.sections.forEach((section, sectionIndex) => {
+            section.answers.forEach((answer, answerIndex) => {
+                if (answer.answer !== "hayir") return;
+                const hasValidNote = answer.notes &&
+                    answer.notes.length > 0 &&
+                    answer.notes.some(note => note && note.trim() !== "");
+                if (!hasValidNote) {
+                    missingNotes.push({ label: `${section.sectionName}: ${answer.questionText}`, sectionIndex, answerIndex });
                 }
             });
         });
 
-        if (missingPhotos.length > 0 || missingNotes.length > 0) {
-            setValidationErrors({ photos: missingPhotos, notes: missingNotes });
+        if (unansweredItems.length > 0 || missingPhotos.length > 0 || missingNotes.length > 0) {
+            setValidationErrors({ unanswered: unansweredItems, photos: missingPhotos, notes: missingNotes });
             setShowValidationModal(true);
             return;
         }
@@ -1305,18 +1311,17 @@ export default function AuditPage() {
                             const currentStatus = answer.actionData?.status;
 
                             // Initialize logic:
-                            // 1. If it WASN'T needing action before, but now DOES -> NEW ACTION
-                            // 2. If it DOES need action, but has NO status -> NEW ACTION (fix corrupted state)
-                            // 3. Since updateAnswer now clears status on "evet", a toggle No->Yes->No results in missing status -> NEW ACTION.
-
-                            const isNewAction = !wasActionNeededBefore || !currentStatus;
+                            // 1. If it WASN'T needing action before, but now DOES → NEW ACTION → reset to pending_store
+                            // 2. If it DOES need action, has NO actionData at all → NEW ACTION (genuinely unresponded)
+                            // 3. If actionData EXISTS but has no status (old-format store response) → PRESERVE it, do NOT reset.
+                            //    Resetting would destroy the store's photos/notes saved in the old format.
+                            const isNewAction = !wasActionNeededBefore || (!currentStatus && !answer.actionData);
 
                             if (isNewAction) {
                                 return {
                                     ...answer,
                                     actionData: {
                                         status: "pending_store" as const,
-                                        // Reset notes/photos for a fresh action start
                                     }
                                 };
                             }
@@ -1966,16 +1971,20 @@ export default function AuditPage() {
                                                     variant="outline"
                                                     size="sm"
                                                     className="hover:bg-red-50 hover:text-red-600 border-slate-200 dark:border-slate-800"
-                                                    onMouseDown={(e) => e.preventDefault()}
-                                                    onClick={() => {
+                                                    onPointerDown={(e) => e.preventDefault()}
+                                                    onClick={(e) => {
+                                                        e.preventDefault();
                                                         const el = generalFeedbackRef.current;
-                                                        const currentNote = audit?.generalFeedback?.note || "";
+                                                        const currentNote = el?.value !== undefined ? el.value : (audit?.generalFeedback?.note || "");
                                                         const cursorStart = el?.selectionStart ?? currentNote.length;
                                                         const cursorEnd = el?.selectionEnd ?? currentNote.length;
 
                                                         const textToInsert = currentNote.length === 0 || cursorStart === 0 ? "ÖNEMLİ: " : "\nÖNEMLİ: ";
                                                         const newNote = currentNote.slice(0, cursorStart) + textToInsert + currentNote.slice(cursorEnd);
 
+                                                        if (el) {
+                                                            el.value = newNote;
+                                                        }
                                                         updateGeneralFeedback({ note: newNote });
 
                                                         setTimeout(() => {
@@ -1983,7 +1992,7 @@ export default function AuditPage() {
                                                                 el.focus();
                                                                 el.setSelectionRange(cursorStart + textToInsert.length, cursorStart + textToInsert.length);
                                                             }
-                                                        }, 50);
+                                                        }, 20);
                                                     }}
                                                     disabled={!canEdit}
                                                 >
@@ -1994,16 +2003,20 @@ export default function AuditPage() {
                                                     variant="outline"
                                                     size="sm"
                                                     className="hover:bg-green-50 hover:text-green-600 border-slate-200 dark:border-slate-800"
-                                                    onMouseDown={(e) => e.preventDefault()}
-                                                    onClick={() => {
+                                                    onPointerDown={(e) => e.preventDefault()}
+                                                    onClick={(e) => {
+                                                        e.preventDefault();
                                                         const el = generalFeedbackRef.current;
-                                                        const currentNote = audit?.generalFeedback?.note || "";
+                                                        const currentNote = el?.value !== undefined ? el.value : (audit?.generalFeedback?.note || "");
                                                         const cursorStart = el?.selectionStart ?? currentNote.length;
                                                         const cursorEnd = el?.selectionEnd ?? currentNote.length;
 
                                                         const textToInsert = currentNote.length === 0 || cursorStart === 0 ? "NOT: " : "\nNOT: ";
                                                         const newNote = currentNote.slice(0, cursorStart) + textToInsert + currentNote.slice(cursorEnd);
 
+                                                        if (el) {
+                                                            el.value = newNote;
+                                                        }
                                                         updateGeneralFeedback({ note: newNote });
 
                                                         setTimeout(() => {
@@ -2011,7 +2024,7 @@ export default function AuditPage() {
                                                                 el.focus();
                                                                 el.setSelectionRange(cursorStart + textToInsert.length, cursorStart + textToInsert.length);
                                                             }
-                                                        }, 50);
+                                                        }, 20);
                                                     }}
                                                     disabled={!canEdit}
                                                 >
@@ -2022,16 +2035,20 @@ export default function AuditPage() {
                                                     variant="outline"
                                                     size="sm"
                                                     className="hover:bg-blue-50 hover:text-blue-600 border-slate-200 dark:border-slate-800"
-                                                    onMouseDown={(e) => e.preventDefault()}
-                                                    onClick={() => {
+                                                    onPointerDown={(e) => e.preventDefault()}
+                                                    onClick={(e) => {
+                                                        e.preventDefault();
                                                         const el = generalFeedbackRef.current;
-                                                        const currentNote = audit?.generalFeedback?.note || "";
+                                                        const currentNote = el?.value !== undefined ? el.value : (audit?.generalFeedback?.note || "");
                                                         const cursorStart = el?.selectionStart ?? currentNote.length;
                                                         const cursorEnd = el?.selectionEnd ?? currentNote.length;
 
                                                         const textToInsert = currentNote.length === 0 || cursorStart === 0 ? "ÖNERİ: " : "\nÖNERİ: ";
                                                         const newNote = currentNote.slice(0, cursorStart) + textToInsert + currentNote.slice(cursorEnd);
 
+                                                        if (el) {
+                                                            el.value = newNote;
+                                                        }
                                                         updateGeneralFeedback({ note: newNote });
 
                                                         setTimeout(() => {
@@ -2039,7 +2056,7 @@ export default function AuditPage() {
                                                                 el.focus();
                                                                 el.setSelectionRange(cursorStart + textToInsert.length, cursorStart + textToInsert.length);
                                                             }
-                                                        }, 50);
+                                                        }, 20);
                                                     }}
                                                     disabled={!canEdit}
                                                 >
@@ -2094,7 +2111,7 @@ export default function AuditPage() {
                         // SECTION DETAIL VIEW
                         <div className="space-y-6 transition-all duration-500 ease-out animate-in fade-in slide-in-from-bottom-8">
                             {audit.sections[currentSectionIndex].answers.map((answer, answerIndex) => (
-                                <Card key={answerIndex} className="p-4 border shadow-sm hover:shadow-md transition-shadow bg-blue-50/30 dark:bg-blue-900/5 border-blue-200 dark:border-blue-800">
+                                <Card key={answerIndex} id={`question-card-${answerIndex}`} className="p-4 border shadow-sm hover:shadow-md transition-shadow bg-blue-50/30 dark:bg-blue-900/5 border-blue-200 dark:border-blue-800">
                                     <div className="space-y-4">
                                         <div className="flex items-start justify-between gap-4">
                                             <div className="flex-1">
@@ -2971,63 +2988,195 @@ export default function AuditPage() {
 
                     {/* Validation Errors Modal */}
                     <AlertDialog open={showValidationModal} onOpenChange={setShowValidationModal}>
-                        <AlertDialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-                            <AlertDialogHeader>
-                                <AlertDialogTitle className="text-xl">Denetim Tamamlanamıyor</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                    Lütfen aşağıdaki eksiklikleri tamamlayın:
-                                </AlertDialogDescription>
-                            </AlertDialogHeader>
-
-                            <div className="space-y-6 py-4">
-                                {validationErrors.photos.length > 0 && (
-                                    <div className="space-y-3">
-                                        <h4 className="font-semibold text-red-700 flex items-center gap-2">
-                                            <AlertCircle className="h-5 w-5" />
-                                            Fotoğraf Eklemeniz Gereken Sorular ({validationErrors.photos.length})
-                                        </h4>
-                                        <ul className="space-y-2">
-                                            {validationErrors.photos.map((item, index) => (
-                                                <li key={index} className="flex gap-2 text-sm">
-                                                    <span className="text-red-500 font-bold shrink-0">•</span>
-                                                    <span className="leading-relaxed">{item}</span>
-                                                </li>
-                                            ))}
-                                        </ul>
+                        <AlertDialogContent className="max-w-lg w-[95vw] max-h-[85vh] flex flex-col p-0 gap-0 overflow-hidden">
+                            {/* Radix accessibility requirement — visually hidden */}
+                            <AlertDialogTitle className="sr-only">Denetim Tamamlanamıyor</AlertDialogTitle>
+                            <AlertDialogDescription className="sr-only">Eksik öğeleri gösteren doğrulama modalı</AlertDialogDescription>
+                            {/* Header */}
+                            <div className="px-5 pt-5 pb-4 border-b bg-red-50 dark:bg-red-950/30 shrink-0">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/50 flex items-center justify-center shrink-0">
+                                        <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
                                     </div>
-                                )}
-
-                                {validationErrors.notes.length > 0 && (
-                                    <div className="space-y-3">
-                                        <h4 className="font-semibold text-orange-700 flex items-center gap-2">
-                                            <AlertCircle className="h-5 w-5" />
-                                            Not Eklemeniz Gereken Sorular ({validationErrors.notes.length})
-                                        </h4>
-                                        <div className="bg-orange-50 p-3 rounded-lg mb-2">
-                                            <p className="text-sm text-orange-800">
-                                                💡 "Hayır" cevabı verilen sorular için açıklayıcı not eklemeniz gerekmektedir.
-                                            </p>
-                                        </div>
-                                        <ul className="space-y-2">
-                                            {validationErrors.notes.map((item, index) => (
-                                                <li key={index} className="flex gap-2 text-sm">
-                                                    <span className="text-orange-500 font-bold shrink-0">•</span>
-                                                    <span className="leading-relaxed">{item}</span>
-                                                </li>
-                                            ))}
-                                        </ul>
+                                    <div>
+                                        <h2 className="text-base font-bold text-red-900 dark:text-red-100">Denetim Tamamlanamıyor</h2>
+                                        <p className="text-xs text-red-700/70 dark:text-red-300/70 mt-0.5">
+                                            Eksik öğeye tıklayarak doğrudan ilgili soruya gidin.
+                                        </p>
                                     </div>
-                                )}
+                                </div>
                             </div>
 
-                            <AlertDialogFooter>
-                                <AlertDialogAction
+                            {/* Scrollable body */}
+                            <div className="overflow-y-auto flex-1 px-5 py-4 space-y-5">
+
+                                {/* Cevaplanmamış sorular */}
+                                {validationErrors.unanswered.length > 0 && (
+                                    <div className="space-y-2">
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <span className="w-2 h-2 rounded-full bg-slate-500 shrink-0" />
+                                            <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                                                Cevaplanmamış Sorular
+                                                <span className="ml-1.5 text-xs font-normal bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-1.5 py-0.5 rounded-full">
+                                                    {validationErrors.unanswered.length}
+                                                </span>
+                                            </h4>
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            {validationErrors.unanswered.map((item, index) => (
+                                                <button
+                                                    key={index}
+                                                    onClick={() => {
+                                                        setShowValidationModal(false);
+                                                        setCurrentSectionIndex(item.sectionIndex);
+                                                        window.scrollTo({ top: 0, behavior: 'instant' });
+                                                        setTimeout(() => {
+                                                            const card = document.getElementById(`question-card-${item.answerIndex}`);
+                                                            if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                                        }, 350);
+                                                    }}
+                                                    className="w-full text-left flex items-start gap-3 p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 hover:border-slate-400 transition-all group"
+                                                >
+                                                    <span className="mt-0.5 shrink-0 w-5 h-5 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-xs font-bold text-slate-500 group-hover:bg-slate-200">{index + 1}</span>
+                                                    <span className="text-sm text-slate-700 dark:text-slate-300 leading-snug flex-1">{item.label}</span>
+                                                    <ChevronRight className="h-4 w-4 text-slate-400 shrink-0 mt-0.5 group-hover:text-slate-600 group-hover:translate-x-0.5 transition-transform" />
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Zorunlu fotoğraf eksikleri */}
+                                {validationErrors.photos.length > 0 && (
+                                    <div className="space-y-2">
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />
+                                            <h4 className="text-sm font-semibold text-red-700 dark:text-red-300">
+                                                Fotoğraf Eksik
+                                                <span className="ml-1.5 text-xs font-normal bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-300 px-1.5 py-0.5 rounded-full">
+                                                    {validationErrors.photos.length}
+                                                </span>
+                                            </h4>
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            {validationErrors.photos.map((item, index) => (
+                                                <button
+                                                    key={index}
+                                                    onClick={() => {
+                                                        setShowValidationModal(false);
+                                                        setCurrentSectionIndex(item.sectionIndex);
+                                                        window.scrollTo({ top: 0, behavior: 'instant' });
+                                                        setTimeout(() => {
+                                                            const card = document.getElementById(`question-card-${item.answerIndex}`);
+                                                            if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                                        }, 350);
+                                                    }}
+                                                    className="w-full text-left flex items-start gap-3 p-3 rounded-lg border border-red-200 dark:border-red-900/50 bg-red-50/50 dark:bg-red-950/20 hover:bg-red-50 dark:hover:bg-red-950/40 hover:border-red-400 transition-all group"
+                                                >
+                                                    <span className="mt-0.5 shrink-0 w-5 h-5 rounded-full bg-red-100 dark:bg-red-900/50 flex items-center justify-center text-xs font-bold text-red-500">{index + 1}</span>
+                                                    <span className="text-sm text-slate-700 dark:text-slate-300 leading-snug flex-1">{item.label}</span>
+                                                    <ChevronRight className="h-4 w-4 text-red-400 shrink-0 mt-0.5 group-hover:text-red-600 group-hover:translate-x-0.5 transition-transform" />
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Zorunlu not eksikleri */}
+                                {validationErrors.notes.length > 0 && (
+                                    <div className="space-y-2">
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
+                                            <h4 className="text-sm font-semibold text-amber-700 dark:text-amber-300">
+                                                Not Eksik
+                                                <span className="ml-1.5 text-xs font-normal bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-300 px-1.5 py-0.5 rounded-full">
+                                                    {validationErrors.notes.length}
+                                                </span>
+                                            </h4>
+                                        </div>
+                                        <p className="text-xs text-amber-700/80 dark:text-amber-400/80 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 rounded-lg px-3 py-2">
+                                            💡 "Hayır" cevabı verilen her soru için açıklayıcı not zorunludur.
+                                        </p>
+                                        <div className="space-y-1.5">
+                                            {validationErrors.notes.map((item, index) => (
+                                                <button
+                                                    key={index}
+                                                    onClick={() => {
+                                                        setShowValidationModal(false);
+                                                        setCurrentSectionIndex(item.sectionIndex);
+                                                        window.scrollTo({ top: 0, behavior: 'instant' });
+                                                        setTimeout(() => {
+                                                            const card = document.getElementById(`question-card-${item.answerIndex}`);
+                                                            if (card) {
+                                                                card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                                                // Not textarea'sına da focus at
+                                                                const noteEl = document.getElementById(`question_note_${item.sectionIndex}_${item.answerIndex}`);
+                                                                if (noteEl) setTimeout(() => noteEl.focus(), 200);
+                                                            }
+                                                        }, 350);
+                                                    }}
+                                                    className="w-full text-left flex items-start gap-3 p-3 rounded-lg border border-amber-200 dark:border-amber-900/50 bg-amber-50/50 dark:bg-amber-950/20 hover:bg-amber-50 dark:hover:bg-amber-950/40 hover:border-amber-400 transition-all group"
+                                                >
+                                                    <span className="mt-0.5 shrink-0 w-5 h-5 rounded-full bg-amber-100 dark:bg-amber-900/50 flex items-center justify-center text-xs font-bold text-amber-500">{index + 1}</span>
+                                                    <span className="text-sm text-slate-700 dark:text-slate-300 leading-snug flex-1">{item.label}</span>
+                                                    <ChevronRight className="h-4 w-4 text-amber-400 shrink-0 mt-0.5 group-hover:text-amber-600 group-hover:translate-x-0.5 transition-transform" />
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Personel puan eksikleri */}
+                                {validationErrors.personnel.length > 0 && (
+                                    <div className="space-y-2">
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <span className="w-2 h-2 rounded-full bg-purple-500 shrink-0" />
+                                            <h4 className="text-sm font-semibold text-purple-700 dark:text-purple-300">
+                                                Personel Puanı Eksik
+                                                <span className="ml-1.5 text-xs font-normal bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-300 px-1.5 py-0.5 rounded-full">
+                                                    {validationErrors.personnel.length}
+                                                </span>
+                                            </h4>
+                                        </div>
+                                        <p className="text-xs text-purple-700/80 dark:text-purple-400/80 bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800/50 rounded-lg px-3 py-2">
+                                            👤 Mağazada aktif çalışan personellerin tamamına puan verilmelidir.
+                                        </p>
+                                        <div className="space-y-1.5">
+                                            {validationErrors.personnel.map((person, index) => (
+                                                <button
+                                                    key={index}
+                                                    onClick={() => {
+                                                        setShowValidationModal(false);
+                                                        setCurrentSectionIndex('personnel');
+                                                        window.scrollTo({ top: 0, behavior: 'instant' });
+                                                        setTimeout(() => {
+                                                            const card = document.getElementById(`personnel-card-${person.id}`);
+                                                            if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                                        }, 400);
+                                                    }}
+                                                    className="w-full text-left flex items-center gap-3 p-3 rounded-lg border border-purple-200 dark:border-purple-900/50 bg-purple-50/50 dark:bg-purple-950/20 hover:bg-purple-50 dark:hover:bg-purple-950/40 hover:border-purple-400 transition-all group"
+                                                >
+                                                    <span className="shrink-0 w-5 h-5 rounded-full bg-purple-100 dark:bg-purple-900/50 flex items-center justify-center text-xs font-bold text-purple-500">{index + 1}</span>
+                                                    <span className="text-sm font-medium text-slate-700 dark:text-slate-300 flex-1">{person.name}</span>
+                                                    <ChevronRight className="h-4 w-4 text-purple-400 shrink-0 group-hover:text-purple-600 group-hover:translate-x-0.5 transition-transform" />
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                            </div>
+
+
+                            {/* Footer */}
+                            <div className="px-5 py-4 border-t bg-slate-50 dark:bg-slate-900/50 shrink-0">
+                                <button
                                     onClick={() => setShowValidationModal(false)}
-                                    className="bg-blue-600 hover:bg-blue-700"
+                                    className="w-full py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 dark:bg-slate-700 dark:hover:bg-slate-600 text-white text-sm font-medium transition-colors"
                                 >
-                                    Anladım
-                                </AlertDialogAction>
-                            </AlertDialogFooter>
+                                    Kapat ve Düzenle
+                                </button>
+                            </div>
                         </AlertDialogContent>
                     </AlertDialog>
 

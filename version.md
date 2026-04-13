@@ -2,11 +2,18 @@
 
 ```json
 {
-  "version": "3.0.5",
-  "build": 121,
+  "version": "3.0.6",
+  "build": 122,
   "status": "stable"
 }
 ```
+
+## [3.0.6] - 2026-04-13
+
+### v3.0.6
+- **Denetim Tamamlama Doğrulama Modalı (Navigasyon Düzeltmesi):** Eksik soru/fotoğraf/not uyarılarına tıklandığında artık bölüm başına değil, doğrudan ilgili soru kartına (`question-card-{index}`) scroll yapılıyor. Her kartına benzersiz DOM `id`'si atandı.
+- **Personel Puanı Uyarısı (Modal Entegrasyon):** Daha önce ayrı bir `toast` bildirimi olarak gösterilen "personele puan girilmedi" uyarısı, merkezi doğrulama modalına taşındı. Purpel renk temalı ayrı bölümde listeleniyor.
+- **Personel Puanı Uyarısı (Navigasyon):** Modalda puan eksik personele tıklandığında Personel sekmesine geçilip `personnel-card-{id}` DOM öğesine doğrudan scroll yapılıyor.
 
 ## [3.0.5] - 2026-04-07
 

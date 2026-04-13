@@ -736,8 +736,8 @@ export function PersonnelEvaluationSection({ auditId, storeId, storeName, canEdi
                             // If they are no longer active and already saved, lock it out unless they are transferring now
                             const isInactiveLocked = personnel.status !== "active";
 
-                            return (
-                                <div key={personnel.id} className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-sm transition-all hover:shadow-md">
+                                return (
+                                <div key={personnel.id} id={`personnel-card-${personnel.id}`} className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-sm transition-all hover:shadow-md">
                                     <div className="flex flex-col md:flex-row md:items-start gap-6">
                                         {/* Status and Identity Column */}
                                         <div className="shrink-0 md:w-64 space-y-4">
@@ -953,8 +953,9 @@ export function PersonnelEvaluationSection({ auditId, storeId, storeName, canEdi
                                                         type="button"
                                                         variant="outline"
                                                         size="sm"
-                                                        className="h-7 text-xs px-2 hover:bg-red-50 hover:text-red-600 border-slate-200"
-                                                        onClick={() => {
+                                                        className="h-7 text-xs px-2 active:bg-red-50 active:text-red-600 border-slate-200"
+                                                        onPointerDown={(e) => {
+                                                            e.preventDefault();
                                                             const el = textareaRefs.current[personnel.id];
                                                             const currentNote = draft.comment || "";
                                                             const cursorStart = el?.selectionStart ?? currentNote.length;
@@ -962,6 +963,8 @@ export function PersonnelEvaluationSection({ auditId, storeId, storeName, canEdi
 
                                                             const textToInsert = currentNote.length === 0 || cursorStart === 0 ? "ÖNEMLİ: " : "\nÖNEMLİ: ";
                                                             const newNote = currentNote.slice(0, cursorStart) + textToInsert + currentNote.slice(cursorEnd);
+
+                                                            if (el) el.value = newNote;
 
                                                             const newDraft = { ...draft, comment: newNote };
                                                             setDrafts(p => ({ ...p, [personnel.id]: newDraft }));
@@ -972,7 +975,7 @@ export function PersonnelEvaluationSection({ auditId, storeId, storeName, canEdi
                                                                     el.focus();
                                                                     el.setSelectionRange(cursorStart + textToInsert.length, cursorStart + textToInsert.length);
                                                                 }
-                                                            }, 50);
+                                                            }, 20);
                                                         }}
                                                         disabled={!canEdit || isInactiveLocked || draft.status === 'on_leave'}
                                                     >
@@ -982,8 +985,9 @@ export function PersonnelEvaluationSection({ auditId, storeId, storeName, canEdi
                                                         type="button"
                                                         variant="outline"
                                                         size="sm"
-                                                        className="h-7 text-xs px-2 hover:bg-green-50 hover:text-green-600 border-slate-200"
-                                                        onClick={() => {
+                                                        className="h-7 text-xs px-2 active:bg-green-50 active:text-green-600 border-slate-200"
+                                                        onPointerDown={(e) => {
+                                                            e.preventDefault();
                                                             const el = textareaRefs.current[personnel.id];
                                                             const currentNote = draft.comment || "";
                                                             const cursorStart = el?.selectionStart ?? currentNote.length;
@@ -991,6 +995,8 @@ export function PersonnelEvaluationSection({ auditId, storeId, storeName, canEdi
 
                                                             const textToInsert = currentNote.length === 0 || cursorStart === 0 ? "NOT: " : "\nNOT: ";
                                                             const newNote = currentNote.slice(0, cursorStart) + textToInsert + currentNote.slice(cursorEnd);
+
+                                                            if (el) el.value = newNote;
 
                                                             const newDraft = { ...draft, comment: newNote };
                                                             setDrafts(p => ({ ...p, [personnel.id]: newDraft }));
@@ -1001,7 +1007,7 @@ export function PersonnelEvaluationSection({ auditId, storeId, storeName, canEdi
                                                                     el.focus();
                                                                     el.setSelectionRange(cursorStart + textToInsert.length, cursorStart + textToInsert.length);
                                                                 }
-                                                            }, 50);
+                                                            }, 20);
                                                         }}
                                                         disabled={!canEdit || isInactiveLocked || draft.status === 'on_leave'}
                                                     >
@@ -1011,8 +1017,9 @@ export function PersonnelEvaluationSection({ auditId, storeId, storeName, canEdi
                                                         type="button"
                                                         variant="outline"
                                                         size="sm"
-                                                        className="h-7 text-xs px-2 hover:bg-blue-50 hover:text-blue-600 border-slate-200"
-                                                        onClick={() => {
+                                                        className="h-7 text-xs px-2 active:bg-blue-50 active:text-blue-600 border-slate-200"
+                                                        onPointerDown={(e) => {
+                                                            e.preventDefault();
                                                             const el = textareaRefs.current[personnel.id];
                                                             const currentNote = draft.comment || "";
                                                             const cursorStart = el?.selectionStart ?? currentNote.length;
@@ -1020,6 +1027,8 @@ export function PersonnelEvaluationSection({ auditId, storeId, storeName, canEdi
 
                                                             const textToInsert = currentNote.length === 0 || cursorStart === 0 ? "ÖNERİ: " : "\nÖNERİ: ";
                                                             const newNote = currentNote.slice(0, cursorStart) + textToInsert + currentNote.slice(cursorEnd);
+
+                                                            if (el) el.value = newNote;
 
                                                             const newDraft = { ...draft, comment: newNote };
                                                             setDrafts(p => ({ ...p, [personnel.id]: newDraft }));
@@ -1030,7 +1039,7 @@ export function PersonnelEvaluationSection({ auditId, storeId, storeName, canEdi
                                                                     el.focus();
                                                                     el.setSelectionRange(cursorStart + textToInsert.length, cursorStart + textToInsert.length);
                                                                 }
-                                                            }, 50);
+                                                            }, 20);
                                                         }}
                                                         disabled={!canEdit || isInactiveLocked || draft.status === 'on_leave'}
                                                     >

@@ -1,24 +1,22 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { DataTable } from "@/components/ui/data-table";
+import { DataTableColumnHeader } from "@/components/ui/data-table-column-header";
 import { ColumnDef } from "@tanstack/react-table";
 import { collection, getDocs, query, where, Timestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { Store, Audit, DateRangeFilter } from "@/lib/types";
-import { Loader2, Search, CheckCircle2, ThumbsUp, MinusCircle, AlertCircle, Calendar, FileSpreadsheet, ArrowUpDown } from "lucide-react";
+import { Store, Audit, DateRangeFilter, UserProfile } from "@/lib/types";
+import { Loader2, CheckCircle2, ThumbsUp, MinusCircle, AlertCircle, Calendar, FileSpreadsheet, ArrowUpDown, User, BrainCircuit, Activity, Target, ShieldAlert, TrendingDown, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import * as XLSX from "xlsx";
-
-import { ChevronLeft, ChevronRight } from "lucide-react";
 
 // --- TYPES ---
 interface ScoreAudit extends Audit {
@@ -28,7 +26,8 @@ interface ScoreAudit extends Audit {
 interface StoreScoreRow {
     storeId: string;
     storeName: string;
-    score1?: number; // Most recent
+    regionalManagerName: string;
+    score1?: number;
     score2?: number;
     score3?: number;
     score4?: number;
@@ -43,9 +42,23 @@ interface StoreScoreRow {
 interface MonthlyScoreRow {
     storeId: string;
     storeName: string;
+    regionalManagerName: string;
     months: {
-        [key: number]: number | null; // 0-11: Average Score
+        [key: number]: number | null;
     };
+}
+
+interface RegionalScoreRow {
+    regionalManagerId: string;
+    regionalManagerName: string;
+    totalStores: number;
+    auditedStores: number;
+    auditCoverage: number;
+    totalAudits: number;
+    averageScore: number;
+    highestScore: number | null;
+    lowestScore: number | null;
+    scoreVariance: number;
 }
 
 // --- CONSTANTS ---
@@ -55,7 +68,6 @@ const MONTH_NAMES = [
 ];
 
 // --- HELPERS ---
-
 const turkishSort = (rowA: any, rowB: any, columnId: string) => {
     const a = String(rowA.getValue(columnId) || "");
     const b = String(rowB.getValue(columnId) || "");
@@ -69,58 +81,11 @@ const getScoreBadge = (score: number) => {
     return { label: "ZAYIF", color: "bg-red-500 hover:bg-red-600", icon: AlertCircle, textColor: "text-red-700 bg-red-50 border-red-200" };
 };
 
-const SimpleSparkline = ({ data }: { data: (number | null)[] }) => {
-    // Filter out nulls for the trend
-    const values = data.filter((v): v is number => v !== null);
-    if (values.length < 2) return <div className="text-xs text-muted-foreground">-</div>;
-
-    const min = Math.min(...values);
-    const max = Math.max(...values);
-    const range = max - min || 1; // avoid divide by zero
-
-    // SVG Layout
-    const width = 80;
-    const height = 30;
-    const points = values.map((val, i) => {
-        const x = (i / (values.length - 1)) * width;
-        // Invert Y because SVG y=0 is top
-        const normalizedVal = (val - min) / range;
-        const y = height - (normalizedVal * height);
-        return `${x},${y}`;
-    }).join(" ");
-
-    // Determine color based on trend (last vs first)
-    const first = values[0];
-    const last = values[values.length - 1];
-    let strokeColor = "#64748b"; // slate-500 default
-    if (last > first) strokeColor = "#10b981"; // emerald-500
-    if (last < first) strokeColor = "#ef4444"; // red-500
-
-    return (
-        <svg width={width} height={height} className="overflow-visible">
-            <path
-                d={`M ${points}`}
-                fill="none"
-                stroke={strokeColor}
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-            />
-            {/* Last point dot */}
-            <circle
-                cx={width}
-                cy={height - ((last - min) / range * height)}
-                r="3"
-                fill={strokeColor}
-            />
-        </svg>
-    );
-};
-
 export default function PuanRaporuPage() {
     const [loading, setLoading] = useState(true);
     const [auditData, setAuditData] = useState<ScoreAudit[]>([]);
     const [stores, setStores] = useState<Store[]>([]);
+    const [regionalManagers, setRegionalManagers] = useState<UserProfile[]>([]);
 
     // Filters
     const [dateRange, setDateRange] = useState<DateRangeFilter>({ from: undefined, to: undefined });
@@ -129,8 +94,7 @@ export default function PuanRaporuPage() {
     // Processed Data
     const [scoreRows, setScoreRows] = useState<StoreScoreRow[]>([]);
     const [monthlyRows, setMonthlyRows] = useState<MonthlyScoreRow[]>([]);
-
-
+    const [regionalRows, setRegionalRows] = useState<RegionalScoreRow[]>([]);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -140,9 +104,13 @@ export default function PuanRaporuPage() {
                 const storesList = storesSnap.docs.map(d => ({ id: d.id, ...d.data() } as Store));
                 setStores(storesList);
 
-                // 2. Fetch Audits
-                // For a scalable solution, ideally use a composite index or backend function. 
-                // Given constraints, fetching all 'completed' audits is acceptable if volume is < 5-10k.
+                // 2. Fetch Regional Managers (bölge müdürleri)
+                const managersQuery = query(collection(db, "users"), where("role", "==", "bolge-muduru"));
+                const managersSnap = await getDocs(managersQuery);
+                const managersList = managersSnap.docs.map(d => ({ uid: d.id, ...d.data() } as UserProfile));
+                setRegionalManagers(managersList);
+
+                // 3. Fetch Audits
                 const auditsQuery = query(collection(db, "audits"), where("status", "==", "tamamlandi"));
                 const auditsSnap = await getDocs(auditsQuery);
                 const auditsList = auditsSnap.docs.map(d => {
@@ -167,6 +135,21 @@ export default function PuanRaporuPage() {
         };
         fetchData();
     }, []);
+
+    // Build manager lookup map
+    const managerMap = useMemo(() => {
+        const map: Record<string, string> = {};
+        regionalManagers.forEach(m => {
+            map[m.uid] = m.displayName || `${m.firstName || ""} ${m.lastName || ""}`.trim() || m.email;
+        });
+        return map;
+    }, [regionalManagers]);
+
+    // Helper to get manager name for a store
+    const getManagerName = (store: Store) => {
+        if (!store.regionalManagerId) return "-";
+        return managerMap[store.regionalManagerId] || "-";
+    };
 
     // --- Tab 1 Processing ---
     useEffect(() => {
@@ -193,13 +176,11 @@ export default function PuanRaporuPage() {
         const rows: StoreScoreRow[] = stores.map(store => {
             const storeAudits = filteredAudits
                 .filter(a => a.storeId === store.id)
-                .sort((a, b) => b.date.getTime() - a.date.getTime()); // Newest first
+                .sort((a, b) => b.date.getTime() - a.date.getTime());
 
             const last4 = storeAudits.slice(0, 4);
             const scores = last4.map(a => a.totalScore || 0);
 
-            // Calculate Average of audits IN THE RANGE
-            // Requirement says "iki tarih aralığındaki puan ortalamasını"
             const avg = storeAudits.length > 0
                 ? storeAudits.reduce((sum, a) => sum + (a.totalScore || 0), 0) / storeAudits.length
                 : 0;
@@ -207,6 +188,7 @@ export default function PuanRaporuPage() {
             return {
                 storeId: store.id,
                 storeName: store.name,
+                regionalManagerName: getManagerName(store),
                 score1: scores[0],
                 score2: scores[1],
                 score3: scores[2],
@@ -221,8 +203,7 @@ export default function PuanRaporuPage() {
         });
 
         setScoreRows(rows);
-
-    }, [auditData, stores, dateRange, loading]);
+    }, [auditData, stores, dateRange, loading, managerMap]);
 
     // --- Tab 2 Processing ---
     useEffect(() => {
@@ -232,9 +213,7 @@ export default function PuanRaporuPage() {
         const yearAudits = auditData.filter(a => a.date.getFullYear() === yearInt);
 
         const rows: MonthlyScoreRow[] = stores.map(store => {
-            // Group store audits by month
             const monthsData: { [key: number]: number[] } = {};
-            // Initialize months
             for (let i = 0; i < 12; i++) monthsData[i] = [];
 
             yearAudits
@@ -255,18 +234,87 @@ export default function PuanRaporuPage() {
             return {
                 storeId: store.id,
                 storeName: store.name,
+                regionalManagerName: getManagerName(store),
                 months: monthsAvg
             };
         });
 
         setMonthlyRows(rows);
+    }, [auditData, stores, selectedYear, loading, managerMap]);
 
-    }, [auditData, stores, selectedYear, loading]);
+    // --- Tab 3 Processing ---
+    useEffect(() => {
+        if (loading) return;
+
+        const filteredAudits = auditData.filter(a => {
+            if (dateRange.from) {
+                const auditDate = new Date(a.date);
+                auditDate.setHours(0, 0, 0, 0);
+                const from = new Date(dateRange.from);
+                from.setHours(0, 0, 0, 0);
+                if (auditDate < from) return false;
+            }
+            if (dateRange.to) {
+                const auditDate = new Date(a.date);
+                auditDate.setHours(0, 0, 0, 0);
+                const to = new Date(dateRange.to);
+                to.setHours(23, 59, 59, 999);
+                if (auditDate > to) return false;
+            }
+            return true;
+        });
+
+        const rows: RegionalScoreRow[] = regionalManagers.map(manager => {
+            const managerStores = stores.filter(s => s.regionalManagerId === manager.uid);
+            const totalStores = managerStores.length;
+            
+            const managerAudits = filteredAudits.filter(a => managerStores.some(s => s.id === a.storeId));
+            const totalAudits = managerAudits.length;
+
+            const auditedStoreIds = new Set(managerAudits.map(a => a.storeId));
+            const auditedStores = auditedStoreIds.size;
+            const auditCoverage = totalStores > 0 ? (auditedStores / totalStores) * 100 : 0;
+
+            const scores = managerAudits.map(a => a.totalScore || 0);
+            
+            const averageScore = scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
+            const highestScore = scores.length > 0 ? Math.max(...scores) : null;
+            const lowestScore = scores.length > 0 ? Math.min(...scores) : null;
+
+            // Variance & Standard Deviation
+            let scoreVariance = 0;
+            if (scores.length > 1) {
+                const variance = scores.reduce((sum, score) => sum + Math.pow(score - averageScore, 2), 0) / scores.length;
+                scoreVariance = Math.sqrt(variance);
+            }
+
+            return {
+                regionalManagerId: manager.uid,
+                regionalManagerName: manager.displayName || `${manager.firstName || ""} ${manager.lastName || ""}`.trim() || manager.email,
+                totalStores,
+                auditedStores,
+                auditCoverage,
+                totalAudits,
+                averageScore,
+                highestScore,
+                lowestScore,
+                scoreVariance
+            };
+        });
+
+        // Sort by average score DESC
+        rows.sort((a, b) => b.averageScore - a.averageScore);
+
+        setRegionalRows(rows);
+    }, [auditData, stores, dateRange, loading, regionalManagers]);
+
+    // Filtering is now handled directly by the DataTable component.
 
     // --- Export Functions ---
     const handleExportScores = (exportData: StoreScoreRow[] = scoreRows) => {
         const dataToExport = exportData.map(row => ({
             "Mağaza Adı": row.storeName,
+            "Bölge Müdürü": row.regionalManagerName,
             "1. Puan": row.score1 !== undefined ? row.score1.toFixed(0) : "-",
             "1. Puan Tarihi": row.date1 ? row.date1.toLocaleDateString("tr-TR") : "-",
             "2. Puan": row.score2 !== undefined ? row.score2.toFixed(0) : "-",
@@ -286,7 +334,10 @@ export default function PuanRaporuPage() {
 
     const handleExportMonthly = (exportData: MonthlyScoreRow[] = monthlyRows) => {
         const dataToExport = exportData.map(row => {
-            const rowData: any = { "Mağaza Adı": row.storeName };
+            const rowData: any = {
+                "Mağaza Adı": row.storeName,
+                "Bölge Müdürü": row.regionalManagerName
+            };
             MONTH_NAMES.forEach((month, index) => {
                 const score = row.months[index];
                 rowData[month] = score !== null ? score.toFixed(0) : "-";
@@ -300,6 +351,24 @@ export default function PuanRaporuPage() {
         XLSX.writeFile(wb, `Aylik_Gelisim_${selectedYear}.xlsx`);
     };
 
+    const handleExportRegional = (exportData: RegionalScoreRow[] = regionalRows) => {
+        const dataToExport = exportData.map(row => ({
+            "Bölge Müdürü": row.regionalManagerName,
+            "Sorumlu Mağaza": row.totalStores,
+            "Denetlenen Mağaza": row.auditedStores,
+            "Kapsama (%)": row.auditCoverage.toFixed(0) + "%",
+            "Toplam Denetim": row.totalAudits,
+            "Ortalama Puan": row.averageScore.toFixed(1),
+            "En Yüksek": row.highestScore !== null ? row.highestScore.toFixed(0) : "-",
+            "En Düşük": row.lowestScore !== null ? row.lowestScore.toFixed(0) : "-",
+            "Tutarlılık (Sapma)": row.scoreVariance.toFixed(1)
+        }));
+
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.json_to_sheet(dataToExport);
+        XLSX.utils.book_append_sheet(wb, ws, "Bolge_Puan_Analizi");
+        XLSX.writeFile(wb, "Bolge_Puan_Analizi.xlsx");
+    };
 
     // --- Columns Definitions ---
     const scoreColumns: ColumnDef<StoreScoreRow>[] = [
@@ -313,6 +382,24 @@ export default function PuanRaporuPage() {
             ),
             cell: ({ row }) => <div className="font-semibold">{row.original.storeName}</div>,
             sortingFn: turkishSort
+        },
+        {
+            accessorKey: "regionalManagerName",
+            header: ({ column }) => (
+                <DataTableColumnHeader column={column} title="Bölge Müdürü" />
+            ),
+            cell: ({ row }) => (
+                <div className="flex items-center gap-1.5 text-sm">
+                    <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    <span className={row.original.regionalManagerName === "-" ? "text-muted-foreground" : ""}>
+                        {row.original.regionalManagerName}
+                    </span>
+                </div>
+            ),
+            sortingFn: turkishSort,
+            filterFn: (row, id, value) => {
+                return value.includes(row.getValue(id));
+            },
         },
         {
             accessorKey: "score1",
@@ -459,6 +546,25 @@ export default function PuanRaporuPage() {
             cell: ({ row }) => <div className="font-semibold min-w-[150px] sticky left-0 bg-card group-hover:bg-accent z-10 p-2 border-r transition-colors">{row.original.storeName}</div>,
             sortingFn: turkishSort
         },
+        {
+            accessorKey: "regionalManagerName",
+            header: ({ column }) => (
+                <DataTableColumnHeader column={column} title="Bölge Müdürü" />
+            ),
+            meta: { title: "Bölge Müdürü" },
+            cell: ({ row }) => (
+                <div className="flex items-center gap-1 min-w-[130px] text-sm">
+                    <User className="h-3 w-3 text-muted-foreground shrink-0" />
+                    <span className={row.original.regionalManagerName === "-" ? "text-muted-foreground text-xs" : "text-xs font-medium"}>
+                        {row.original.regionalManagerName}
+                    </span>
+                </div>
+            ),
+            sortingFn: turkishSort,
+            filterFn: (row, id, value) => {
+                return value.includes(row.getValue(id));
+            },
+        },
 
         ...MONTH_NAMES.map((month, index) => ({
             id: `month-${index}`,
@@ -476,7 +582,6 @@ export default function PuanRaporuPage() {
                 if (score === null) return <div className="text-center text-muted-foreground/30 font-medium">-</div>;
 
                 const badgeInfo = getScoreBadge(score);
-                // Mini badge for dense table
                 return (
                     <div className="flex justify-center" title={`${month}: ${score.toFixed(1)} Puan`}>
                         <div className={cn("w-full max-w-[50px] text-center text-xs font-bold py-1 rounded", badgeInfo.color.split(" ")[0], "text-white")}>
@@ -488,7 +593,125 @@ export default function PuanRaporuPage() {
         }))
     ];
 
+    const regionalColumns: ColumnDef<RegionalScoreRow>[] = [
+        {
+            accessorKey: "regionalManagerName",
+            header: ({ column }) => (
+                <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")} className="-ml-4">
+                    Bölge Müdürü
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            ),
+            cell: ({ row }) => <div className="font-semibold text-primary/90">{row.original.regionalManagerName}</div>,
+        },
+        {
+            accessorKey: "auditCoverage",
+            header: ({ column }) => (
+                <div className="flex justify-center">
+                    <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
+                        Mağaza Kapsama
+                        <ArrowUpDown className="ml-2 h-4 w-4" />
+                    </Button>
+                </div>
+            ),
+            cell: ({ row }) => {
+                const cov = row.original.auditCoverage;
+                return (
+                    <div className="flex flex-col items-center justify-center gap-1.5 w-full max-w-[120px] mx-auto">
+                        <div className="text-xs font-medium text-muted-foreground">{row.original.auditedStores} / {row.original.totalStores} Mağaza</div>
+                        <div className="w-full h-2 bg-secondary rounded-full overflow-hidden">
+                            <div className={cn("h-full", cov >= 80 ? "bg-emerald-500" : cov >= 50 ? "bg-amber-500" : "bg-red-500")} style={{ width: `${cov}%` }} />
+                        </div>
+                    </div>
+                );
+            }
+        },
+        {
+            accessorKey: "totalAudits",
+            header: ({ column }) => (
+                <div className="flex justify-center">
+                    <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
+                        Top. Denetim
+                        <ArrowUpDown className="ml-2 h-4 w-4" />
+                    </Button>
+                </div>
+            ),
+            cell: ({ row }) => <div className="text-center font-mono font-medium">{row.original.totalAudits}</div>,
+        },
+        {
+            accessorKey: "averageScore",
+            header: ({ column }) => (
+                <div className="flex justify-center">
+                    <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")} className="font-bold text-primary">
+                        Ortalama
+                        <ArrowUpDown className="ml-2 h-4 w-4" />
+                    </Button>
+                </div>
+            ),
+            cell: ({ row }) => {
+                if (row.original.totalAudits === 0) return <div className="text-center">-</div>;
+                const avg = row.original.averageScore;
+                const badgeInfo = getScoreBadge(avg);
+                return (
+                    <div className="flex justify-center">
+                        <div className={cn("flex items-center justify-center px-3 py-1.5 rounded-md text-white text-sm font-bold min-w-[3.5rem] border-0", badgeInfo.color)}>
+                            {avg.toFixed(1)}
+                        </div>
+                    </div>
+                );
+            }
+        },
+        {
+            id: "minmax",
+            header: () => <div className="text-center">Min / Max</div>,
+            cell: ({ row }) => {
+                if (row.original.totalAudits === 0) return <div className="text-center text-muted-foreground">-</div>;
+                return (
+                    <div className="flex items-center justify-center gap-2 text-sm font-mono">
+                        <span className="text-red-500 font-medium">{row.original.lowestScore?.toFixed(0)}</span>
+                        <span className="text-muted-foreground/30">/</span>
+                        <span className="text-emerald-500 font-medium">{row.original.highestScore?.toFixed(0)}</span>
+                    </div>
+                );
+            }
+        },
+        {
+            accessorKey: "scoreVariance",
+            header: ({ column }) => (
+                <div className="flex justify-center">
+                    <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
+                        Tutarlılık (Sapma)
+                        <ArrowUpDown className="ml-2 h-4 w-4" />
+                    </Button>
+                </div>
+            ),
+            cell: ({ row }) => {
+                const audits = row.original.totalAudits;
+                if (audits < 2) return <div className="text-center w-full text-xs text-muted-foreground">Yetersiz Veri</div>;
+                
+                const variance = row.original.scoreVariance;
+                const isConsistent = variance <= 5;
+                const isVolatile = variance >= 10;
+                
+                return (
+                    <div className="flex flex-col items-center justify-center w-full gap-1 text-sm">
+                        <div className={cn("font-mono font-medium", isConsistent ? "text-emerald-500" : isVolatile ? "text-red-500" : "text-amber-500")}>
+                            ± {variance.toFixed(1)}
+                        </div>
+                        {isConsistent && <span className="text-[10px] bg-emerald-500/10 text-emerald-600 px-2 py-0.5 rounded border border-emerald-500/20 w-[95px] text-center">Yüksek Tutarlılık</span>}
+                        {isVolatile && <span className="text-[10px] bg-red-500/10 text-red-600 px-2 py-0.5 rounded border border-red-500/20 w-[95px] text-center">Tutarsız Bölge</span>}
+                        {!isConsistent && !isVolatile && <span className="text-[10px] bg-amber-500/10 text-amber-600 px-2 py-0.5 rounded border border-amber-500/20 w-[95px] text-center">Normal</span>}
+                    </div>
+                );
+            }
+        }
+    ];
 
+    const activeManagers = [...regionalRows].filter(r => r.totalAudits > 0);
+    const topManager = activeManagers.length > 0 ? [...activeManagers].sort((a,b) => b.averageScore - a.averageScore)[0] : null;
+    const needsImprovementManager = activeManagers.length > 0 ? [...activeManagers].sort((a,b) => a.averageScore - b.averageScore)[0] : null;
+    const multiAuditManagers = [...regionalRows].filter(r => r.totalAudits > 1);
+    const highestVarianceManager = multiAuditManagers.length > 0 ? [...multiAuditManagers].sort((a,b) => b.scoreVariance - a.scoreVariance)[0] : null;
 
     if (loading) {
         return (
@@ -509,43 +732,49 @@ export default function PuanRaporuPage() {
                 <TabsList>
                     <TabsTrigger value="scores">Son Denetim Puanları</TabsTrigger>
                     <TabsTrigger value="monthly">Aylık Gelişim Tablosu</TabsTrigger>
+                    <TabsTrigger value="regional" className="gap-2">
+                        <BrainCircuit className="w-4 h-4 text-primary" />
+                        Bölge Puan Analizi
+                    </TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="scores" className="space-y-4">
                     <Card>
                         <CardHeader>
-                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                                <div>
-                                    <CardTitle>Mağaza Puan Analizi</CardTitle>
-                                    <CardDescription>Belirtilen tarih aralığındaki son 4 denetim ve genel ortalama.</CardDescription>
+                            <div className="flex flex-col gap-4">
+                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                    <div>
+                                        <CardTitle>Mağaza Puan Analizi</CardTitle>
+                                        <CardDescription>Belirtilen tarih aralığındaki son 4 denetim ve genel ortalama.</CardDescription>
+                                    </div>
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <DateRangePicker value={dateRange} onChange={setDateRange} />
+                                    </div>
                                 </div>
-                                <div>
-                                    <DateRangePicker value={dateRange} onChange={setDateRange} />
-                                </div>
-                            </div>
 
-                            {/* Legend for Score Range */}
-                            <div className="mt-4 flex flex-wrap gap-3 text-sm">
-                                <Badge className={cn("gap-1.5 text-white border-0 px-3 py-1 text-sm", getScoreBadge(96).color)}>
-                                    <CheckCircle2 className="w-4 h-4" /> 100-95 ÇOK İYİ
-                                </Badge>
-                                <Badge className={cn("gap-1.5 text-white border-0 px-3 py-1 text-sm", getScoreBadge(91).color)}>
-                                    <ThumbsUp className="w-4 h-4" /> 94-90 İYİ
-                                </Badge>
-                                <Badge className={cn("gap-1.5 text-white border-0 px-3 py-1 text-sm", getScoreBadge(86).color)}>
-                                    <MinusCircle className="w-4 h-4" /> 89-85 ORTA
-                                </Badge>
-                                <Badge className={cn("gap-1.5 text-white border-0 px-3 py-1 text-sm", getScoreBadge(80).color)}>
-                                    <AlertCircle className="w-4 h-4" /> 84 ve ALTI ZAYIF
-                                </Badge>
+                                {/* Legend */}
+                                <div className="flex flex-wrap gap-3 text-sm">
+                                    <Badge className={cn("gap-1.5 text-white border-0 px-3 py-1 text-sm", getScoreBadge(96).color)}>
+                                        <CheckCircle2 className="w-4 h-4" /> 100-95 ÇOK İYİ
+                                    </Badge>
+                                    <Badge className={cn("gap-1.5 text-white border-0 px-3 py-1 text-sm", getScoreBadge(91).color)}>
+                                        <ThumbsUp className="w-4 h-4" /> 94-90 İYİ
+                                    </Badge>
+                                    <Badge className={cn("gap-1.5 text-white border-0 px-3 py-1 text-sm", getScoreBadge(86).color)}>
+                                        <MinusCircle className="w-4 h-4" /> 89-85 ORTA
+                                    </Badge>
+                                    <Badge className={cn("gap-1.5 text-white border-0 px-3 py-1 text-sm", getScoreBadge(80).color)}>
+                                        <AlertCircle className="w-4 h-4" /> 84 ve ALTI ZAYIF
+                                    </Badge>
+                                </div>
                             </div>
                         </CardHeader>
                         <CardContent>
                             <DataTable
                                 columns={scoreColumns}
                                 data={scoreRows}
-                                searchKey="storeName"
-                                searchPlaceholder="Mağaza ara..."
+                                enableGlobalFilter={true}
+                                searchPlaceholder="Mağaza veya Bölge Müdürü ara..."
                                 initialSorting={[{ id: "storeName", desc: false }]}
                                 pageSizeOptions={[10, 20, 50, 100, 200]}
                                 defaultPageSize={200}
@@ -565,40 +794,42 @@ export default function PuanRaporuPage() {
                 <TabsContent value="monthly" className="space-y-4">
                     <Card>
                         <CardHeader>
-                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                                <div>
-                                    <CardTitle>Aylık Gelişim Matrisi</CardTitle>
-                                    <CardDescription>Mağazaların yıl içindeki aylık puan ortalamaları.</CardDescription>
+                            <div className="flex flex-col gap-4">
+                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                    <div>
+                                        <CardTitle>Aylık Gelişim Matrisi</CardTitle>
+                                        <CardDescription>Mağazaların yıl içindeki aylık puan ortalamaları.</CardDescription>
+                                    </div>
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <Select value={selectedYear} onValueChange={setSelectedYear}>
+                                            <SelectTrigger className="w-[120px]">
+                                                <Calendar className="mr-2 h-4 w-4" />
+                                                <SelectValue placeholder="Yıl" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {Array.from({ length: 11 }, (_, i) => 2026 + i).map(y => (
+                                                    <SelectItem key={y} value={y.toString()}>{y}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
                                 </div>
-                                <div className="flex items-center gap-2">
-                                    <Select value={selectedYear} onValueChange={setSelectedYear}>
-                                        <SelectTrigger className="w-[120px]">
-                                            <Calendar className="mr-2 h-4 w-4" />
-                                            <SelectValue placeholder="Yıl" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {Array.from({ length: 11 }, (_, i) => 2026 + i).map(y => (
-                                                <SelectItem key={y} value={y.toString()}>{y}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                            </div>
 
-                            {/* Same Legend */}
-                            <div className="mt-4 flex flex-wrap gap-3 text-sm">
-                                <Badge className={cn("gap-1.5 text-white border-0 px-3 py-1 text-sm", getScoreBadge(96).color)}>
-                                    <CheckCircle2 className="w-4 h-4" /> 100-95 ÇOK İYİ
-                                </Badge>
-                                <Badge className={cn("gap-1.5 text-white border-0 px-3 py-1 text-sm", getScoreBadge(91).color)}>
-                                    <ThumbsUp className="w-4 h-4" /> 94-90 İYİ
-                                </Badge>
-                                <Badge className={cn("gap-1.5 text-white border-0 px-3 py-1 text-sm", getScoreBadge(86).color)}>
-                                    <MinusCircle className="w-4 h-4" /> 89-85 ORTA
-                                </Badge>
-                                <Badge className={cn("gap-1.5 text-white border-0 px-3 py-1 text-sm", getScoreBadge(80).color)}>
-                                    <AlertCircle className="w-4 h-4" /> 84 ve ALTI ZAYIF
-                                </Badge>
+                                {/* Legend */}
+                                <div className="flex flex-wrap gap-3 text-sm">
+                                    <Badge className={cn("gap-1.5 text-white border-0 px-3 py-1 text-sm", getScoreBadge(96).color)}>
+                                        <CheckCircle2 className="w-4 h-4" /> 100-95 ÇOK İYİ
+                                    </Badge>
+                                    <Badge className={cn("gap-1.5 text-white border-0 px-3 py-1 text-sm", getScoreBadge(91).color)}>
+                                        <ThumbsUp className="w-4 h-4" /> 94-90 İYİ
+                                    </Badge>
+                                    <Badge className={cn("gap-1.5 text-white border-0 px-3 py-1 text-sm", getScoreBadge(86).color)}>
+                                        <MinusCircle className="w-4 h-4" /> 89-85 ORTA
+                                    </Badge>
+                                    <Badge className={cn("gap-1.5 text-white border-0 px-3 py-1 text-sm", getScoreBadge(80).color)}>
+                                        <AlertCircle className="w-4 h-4" /> 84 ve ALTI ZAYIF
+                                    </Badge>
+                                </div>
                             </div>
                         </CardHeader>
                         <CardContent>
@@ -606,8 +837,8 @@ export default function PuanRaporuPage() {
                                 <DataTable
                                     columns={monthlyColumns}
                                     data={monthlyRows}
-                                    searchKey="storeName"
-                                    searchPlaceholder="Mağaza ara..."
+                                    enableGlobalFilter={true}
+                                    searchPlaceholder="Mağaza veya Bölge Müdürü ara..."
                                     initialSorting={[{ id: "storeName", desc: false }]}
                                     pageSizeOptions={[10, 20, 50, 100]}
                                     defaultPageSize={200}
@@ -621,6 +852,115 @@ export default function PuanRaporuPage() {
                                     )}
                                 />
                             </div>
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+
+                <TabsContent value="regional" className="space-y-4">
+                    {/* Insights Panel */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                        <Card className="bg-gradient-to-br from-emerald-500/10 via-card to-card border-none ring-1 ring-emerald-500/20 shadow-sm relative overflow-hidden">
+                            <div className="absolute top-0 right-0 p-4 opacity-10">
+                                <Activity className="w-16 h-16 text-emerald-500" />
+                            </div>
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-sm font-medium text-emerald-600 flex items-center gap-2">
+                                    <Target className="w-4 h-4" /> En Yüksek Performans
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                {topManager ? (
+                                    <>
+                                        <div className="text-xl font-bold truncate pr-4">{topManager.regionalManagerName}</div>
+                                        <p className="text-sm text-muted-foreground mt-1">
+                                            Ortalama Puan: <span className="font-bold text-emerald-600">{topManager.averageScore.toFixed(1)}</span> ({topManager.auditedStores} Mağaza)
+                                        </p>
+                                    </>
+                                ) : (
+                                    <div className="text-sm text-muted-foreground mt-2">Denetim verisi yok.</div>
+                                )}
+                            </CardContent>
+                        </Card>
+                        
+                        <Card className="bg-gradient-to-br from-amber-500/10 via-card to-card border-none ring-1 ring-amber-500/20 shadow-sm relative overflow-hidden">
+                            <div className="absolute top-0 right-0 p-4 opacity-10">
+                                <ShieldAlert className="w-16 h-16 text-amber-500" />
+                            </div>
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-sm font-medium text-amber-600 flex items-center gap-2">
+                                    <TrendingDown className="w-4 h-4" /> Gelişime Açık Bölge
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                {needsImprovementManager ? (
+                                    <>
+                                        <div className="text-xl font-bold truncate pr-4">{needsImprovementManager.regionalManagerName}</div>
+                                        <p className="text-sm text-muted-foreground mt-1">
+                                            Ortalama Puan: <span className="font-bold text-amber-600">{needsImprovementManager.averageScore.toFixed(1)}</span> ({needsImprovementManager.auditedStores} Mağaza)
+                                        </p>
+                                    </>
+                                ) : (
+                                    <div className="text-sm text-muted-foreground mt-2">Denetim verisi yok.</div>
+                                )}
+                            </CardContent>
+                        </Card>
+
+                        <Card className="bg-gradient-to-br from-blue-500/10 via-card to-card border-none ring-1 ring-blue-500/20 shadow-sm relative overflow-hidden">
+                            <div className="absolute top-0 right-0 p-4 opacity-10">
+                                <Activity className="w-16 h-16 text-blue-500" />
+                            </div>
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-sm font-medium text-blue-600 flex items-center gap-2">
+                                    <TrendingUp className="w-4 h-4" /> En Yüksek Tutarsızlık
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                {highestVarianceManager ? (
+                                    <>
+                                        <div className="text-xl font-bold truncate pr-4">{highestVarianceManager.regionalManagerName}</div>
+                                        <p className="text-sm text-muted-foreground mt-1">
+                                            Sapma Oranı: <span className="font-bold text-blue-600">±{highestVarianceManager.scoreVariance.toFixed(1)}</span> (Min: {highestVarianceManager.lowestScore?.toFixed(0)} - Max: {highestVarianceManager.highestScore?.toFixed(0)})
+                                        </p>
+                                    </>
+                                ) : (
+                                    <div className="text-sm text-muted-foreground mt-2">Yeterli denetim (2+) verisi yok.</div>
+                                )}
+                            </CardContent>
+                        </Card>
+                    </div>
+
+                    <Card>
+                        <CardHeader>
+                            <div className="flex flex-col gap-4">
+                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                    <div>
+                                        <CardTitle>Bölge Yönetimi Performans Listesi</CardTitle>
+                                        <CardDescription>Bölge Müdürlerinin mağaza kapsama, ortalama başarı ve tutarlılık (standart sapma) verileri.</CardDescription>
+                                    </div>
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <DateRangePicker value={dateRange} onChange={setDateRange} />
+                                    </div>
+                                </div>
+                            </div>
+                        </CardHeader>
+                        <CardContent>
+                            <DataTable
+                                columns={regionalColumns}
+                                data={regionalRows}
+                                enableGlobalFilter={true}
+                                searchPlaceholder="Bölge Müdürü ara..."
+                                initialSorting={[{ id: "averageScore", desc: true }]}
+                                pageSizeOptions={[10, 20]}
+                                defaultPageSize={20}
+                                toolbar={(table) => (
+                                    <div className="flex w-full gap-2">
+                                        <Button variant="outline" onClick={() => handleExportRegional(table.getSortedRowModel().rows.map((r: any) => r.original))} className="ml-auto gap-2">
+                                            <FileSpreadsheet className="h-4 w-4" />
+                                            Excel İndir
+                                        </Button>
+                                    </div>
+                                )}
+                            />
                         </CardContent>
                     </Card>
                 </TabsContent>

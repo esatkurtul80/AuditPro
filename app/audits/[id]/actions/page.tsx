@@ -766,7 +766,11 @@ export default function AuditActionsPage() {
                     (item.answer.earnedPoints || 0) < (item.answer.maxPoints || 0)
                 )
         ).filter(item => {
-            const status = item.answer.actionData?.status || "pending_store";
+            // No actionData at all → store hasn't responded yet → pending_store
+            if (!item.answer.actionData) return true;
+            // actionData exists but no status → old-format submission (store already responded) → NOT pending
+            const status = item.answer.actionData.status;
+            if (!status) return false;
             return status === "pending_store" || status === "rejected";
         });
 
@@ -1960,6 +1964,22 @@ export default function AuditActionsPage() {
                                                                 return `${label}: ${finalDate.toLocaleString("tr-TR")}`;
                                                             })()}
                                                         </div>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Fallback: approved/pending_admin but submission details missing (data lost during re-write) */}
+                                            {isAdmin && (status === "approved" || status === "pending_admin") &&
+                                                (!actionData || (!actionData.storeNote && !(actionData.storeImages && actionData.storeImages.length > 0))) && (
+                                                <div className="border-t pt-4">
+                                                    <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800">
+                                                        <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+                                                        <p className="text-xs text-amber-700 dark:text-amber-400">
+                                                            {status === "approved"
+                                                                ? "Bu aksiyon onaylandı. Mağaza dönüş detayları (fotoğraf/not) sistem güncellemesi sırasında mevcut değil hale geldi."
+                                                                : "Mağaza dönüş bilgileri yükleniyor veya bu denetim için ayrı bir biçimde kaydedilmiş."
+                                                            }
+                                                        </p>
                                                     </div>
                                                 </div>
                                             )}

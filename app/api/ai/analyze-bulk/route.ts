@@ -33,9 +33,9 @@ Lütfen gereksiz uzun cümlelerden kaçın ve çıktıyı kısa, net ve tam olar
 
 [Bölüm Adı - Örn: Kuruyemiş Bölümü]
 - A Mağazası:
-  * Tespit Edilen Eksiklikler: (Kısa ve net olarak eksikleri yaz)
-  * Gelişim Alanları: (Bu eksikliklerin nasıl giderileceğine dair yapılabilecekler)
-  * Denetmen Notları: (Sisteme girilen not varsa TIRNAK İÇİNDE yaz, yoksa bu satırı boş geçebilirsin)
+  * **Tespit Edilen Eksiklikler:** (Kısa ve net olarak eksikleri yaz)
+  * **Gelişim Alanları:** (Bu eksikliklerin nasıl giderileceğine dair yapılabilecekler)
+  * **Denetmen Notları:** (Sisteme girilen not varsa TIRNAK İÇİNDE yaz, yoksa bu satırı boş geçebilirsin)
 
 - B Mağazası: ...
 (Sadece sorun olan mağazaları yaz. Sorun yoksa o mağazayı pas geç.)`;

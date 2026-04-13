@@ -439,8 +439,13 @@ export default function PersonnelReportPage() {
         },
         {
             accessorKey: "score",
-            header: () => <div className="text-center">Puan</div>,
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Puan" showFilter={false} />,
             meta: { title: "Puan" },
+            sortingFn: (rowA, rowB, columnId) => {
+                const a = rowA.getValue<number>(columnId) ?? -999;
+                const b = rowB.getValue<number>(columnId) ?? -999;
+                return a - b;
+            },
             cell: ({ row }) => {
                 const score = row.original.score;
                 const pStatus = row.original.personnelStatus;
@@ -554,7 +559,13 @@ export default function PersonnelReportPage() {
         },
         {
             accessorKey: "averageScore",
-            header: () => <div className="text-center">Ortalama Puan</div>,
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Ortalama Puan" showFilter={false} />,
+            meta: { title: "Ortalama Puan" },
+            sortingFn: (rowA, rowB, columnId) => {
+                const a = rowA.getValue<number>(columnId) ?? 0;
+                const b = rowB.getValue<number>(columnId) ?? 0;
+                return a - b;
+            },
             cell: ({ row }) => {
                 const score = row.original.averageScore;
                 if (score === undefined || score === null) return <div className="text-center">-</div>;

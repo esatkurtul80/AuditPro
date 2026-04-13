@@ -24,6 +24,7 @@ import {
     Calendar,
     Hotel,
     Paintbrush,
+    MapPin,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, useEffect, Suspense } from "react";
@@ -68,6 +69,7 @@ function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar }: 
         { href: "/admin/reports/questions", label: "Soru Raporları", icon: FileQuestion },
         { href: "/admin/reports/action-performance", label: "Aksiyon Raporu", icon: CheckCircle },
         { href: "/admin/reports/auditor-performance", label: "Denetçi Performansı", icon: Users },
+        { href: "/admin/reports/bolge-raporu", label: "Bölge Raporu", icon: MapPin },
         { href: "/admin/reports/auditor-timesheet", label: "Denetmen Puantajı", icon: Calendar },
         { href: "/admin/reports/special-report-design", label: "Özel Rapor Tasarımı", icon: Paintbrush },
     ];

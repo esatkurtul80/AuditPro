@@ -679,31 +679,38 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
                     display: "flex",
                     justifyContent: "space-between",
                     alignItems: "center",
-                    gap: "8px",
                     padding: "8px 16px",
                     background: "rgba(255,255,255,0.95)",
                     backdropFilter: "blur(12px)",
                     borderBottom: "1px solid rgba(0,0,0,0.08)",
                     marginBottom: "12px"
                 }} className="sticky-header">
-                    {onClose && (
-                        <Button onClick={onClose} className="gap-1.5 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-md shadow-purple-500/20">
-                            <ArrowLeft className="h-4 w-4" />
-                            Geri
-                        </Button>
-                    )}
-
-                    <Button
-                        onClick={() => generatePDF()}
-                        disabled={generating || !scriptLoaded}
-                        className="gap-2 bg-slate-900 hover:bg-slate-800 text-white shadow-sm ml-auto"
-                    >
-                        {generating ? (
-                            <><Loader2 className="h-4 w-4 animate-spin" /> Hazırlanıyor...</>
-                        ) : (
-                            <><Download className="h-4 w-4" /> PDF İndir</>
+                    <div className="flex flex-1 justify-start">
+                        {onClose && (
+                            <Button onClick={onClose} className="gap-1.5 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-md shadow-purple-500/20">
+                                <ArrowLeft className="h-4 w-4" />
+                                Geri
+                            </Button>
                         )}
-                    </Button>
+                    </div>
+
+                    <div className="hidden sm:flex flex-[2] justify-center text-center font-semibold text-sm md:text-base text-slate-800 px-2 lg:truncate">
+                        {audit.storeName} - {getFormattedDate(audit.createdAt)} - {audit.auditorName || "Belirtilmedi"}
+                    </div>
+
+                    <div className="flex flex-1 justify-end">
+                        <Button
+                            onClick={() => generatePDF()}
+                            disabled={generating || !scriptLoaded}
+                            className="gap-2 bg-slate-900 hover:bg-slate-800 text-white shadow-sm"
+                        >
+                            {generating ? (
+                                <><Loader2 className="h-4 w-4 animate-spin" /> Hazırlanıyor...</>
+                            ) : (
+                                <><Download className="h-4 w-4" /> PDF İndir</>
+                            )}
+                        </Button>
+                    </div>
                 </div>
             )}
 

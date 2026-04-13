@@ -231,24 +231,43 @@ function AdminActionsContent() {
         }
 
         // Tab Filter
-        let hasMatchingAction = false;
+        // SHORTCUT: If allActionsResolved is explicitly true, treat as fully approved.
+        // This handles cases where actionData fields may be missing from Firestore after
+        // a re-write (e.g. audit edit), which would otherwise cause a false "pending_store" fallback.
+        if (audit.allActionsResolved === true) {
+            return currentTab === 'approved';
+        }
+
         let allActionsApproved = true;
-        let hasPendingStore = false;
-        let hasPendingAdmin = false;
+        let hasPendingStore = false;   // Mağaza henüz hiç dönüş yapmadı
+        let hasPendingAdmin = false;   // Dönüş yapıldı, admin onayı bekliyor
+        let hasRejected = false;       // Admin reddetti, mağaza düzeltmeli göndermeli
 
         audit.sections.forEach(section => {
             section.answers.forEach(answer => {
                 const isActionNeeded = answer.answer && answer.answer.trim() !== "" && answer.answer !== "muaf" && (answer.earnedPoints || 0) < (answer.maxPoints || 0);
 
                 if (isActionNeeded) {
-                    const status = answer.actionData?.status || "pending_store";
+                    // Status resolution:
+                    // - No actionData at all       → pending_store (store hasn't responded yet)
+                    // - actionData exists, no status → pending_admin (old format: store responded before status field was added)
+                    // - actionData with status     → use that status
+                    const status = !answer.actionData
+                        ? "pending_store"
+                        : (answer.actionData.status || "pending_admin");
 
                     if (status !== "approved") {
                         allActionsApproved = false;
                     }
 
-                    if (status === "pending_store" || status === "rejected") {
+                    // pending_store: mağaza henüz hiç dönüş yapmadı
+                    if (status === "pending_store") {
                         hasPendingStore = true;
+                    }
+
+                    // rejected: mağaza dönüş yaptı ama admin reddetti → düzeltme bekleniyor
+                    if (status === "rejected") {
+                        hasRejected = true;
                     }
 
                     if (status === "pending_admin") {
@@ -259,14 +278,13 @@ function AdminActionsContent() {
         });
 
         if (currentTab === 'pending_store') {
-            // Dönüş Yapmayanlar: Mağazadan dönüş beklenen aksiyonu olanlar
-            return hasPendingStore;
+            // Dönüş Yapmayanlar: Hiç dönüş yapmamış (pending_store) VEYA reddedilen (rejected — mağaza tekrar dönüş yapmalı)
+            return hasPendingStore || hasRejected;
         } else if (currentTab === 'pending_admin') {
-            // Onay Bekleyenler: Admin onayı bekleyen aksiyonu olanlar
-            return hasPendingAdmin;
+            // Onay Bekleyenler: Mağaza dönüş yaptı, admin onayı bekliyor (rejected yoksa)
+            return hasPendingAdmin && !hasRejected;
         } else if (currentTab === 'approved') {
-            // Onaylananlar: Tüm aksiyonları onaylanmış olanlar (hiç bekleyen yoksa)
-            // Ancak, en az bir "hayır" cevabı olmalı (zaten onSnapshot'ta filtreleniyor)
+            // Onaylananlar: Tüm aksiyonları onaylanmış olanlar
             return allActionsApproved;
         }
 
@@ -483,7 +501,7 @@ function AdminActionsContent() {
                     const isActionNeeded = a.answer && a.answer.trim() !== "" && a.answer !== "muaf" && (a.earnedPoints || 0) < (a.maxPoints || 0);
                     if (isActionNeeded) {
                         totalActions++;
-                        const status = a.actionData?.status || "pending_store";
+                        const status = !a.actionData ? "pending_store" : (a.actionData.status || "pending_admin");
                         if (status === "approved") approvedActions++;
                         else if (status === "pending_admin") pendingAdminActions++;
                         else if (status === "rejected") rejectedActions++;
@@ -513,7 +531,7 @@ function AdminActionsContent() {
                     const isActionNeeded = a.answer && a.answer.trim() !== "" && a.answer !== "muaf" && (a.earnedPoints || 0) < (a.maxPoints || 0);
                     if (isActionNeeded) {
                         totalActions++;
-                        const s = a.actionData?.status || "pending_store";
+                        const s = !a.actionData ? "pending_store" : (a.actionData.status || "pending_admin");
                         if (s === "pending_admin") pendingAdminActions++;
                         else if (s === "rejected") rejectedActions++;
                         else if (s === "pending_store") pendingStoreActions++;
@@ -706,7 +724,7 @@ function AdminActionsContent() {
                                                     const needed = a.answer && a.answer.trim() !== "muaf" && a.answer.trim() !== "" && (a.earnedPoints || 0) < (a.maxPoints || 0);
                                                     if (needed) {
                                                         total++;
-                                                        const stat = a.actionData?.status || "pending_store";
+                                                        const stat = !a.actionData ? "pending_store" : (a.actionData.status || "pending_admin");
                                                         if (stat === "approved") apprv++;
                                                         else if (stat === "pending_admin") pAdmin++;
                                                         else if (stat === "rejected") rej++;
