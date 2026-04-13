@@ -834,7 +834,7 @@ export default function BolgeRaporuPage() {
                                             <XAxis dataKey="month" tick={{ fontSize: 12 }} />
                                             <YAxis domain={[50, 100]} tick={{ fontSize: 11 }} />
                                             <Tooltip
-                                                formatter={(v: any, name: string) => [v !== null && v !== undefined ? `${v}/100` : "Veri yok", name]}
+                                                formatter={(v: any, name: any) => [v !== null && v !== undefined ? `${v}/100` : "Veri yok", String(name ?? "")]}
                                                 labelFormatter={(label: string) => `${label} ${selectedYear}`}
                                             />
                                             <Legend verticalAlign="bottom" height={52} wrapperStyle={{ paddingTop: 16, fontSize: 12 }} />
