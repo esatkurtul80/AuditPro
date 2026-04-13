@@ -743,7 +743,7 @@ export default function BolgeRaporuPage() {
                                             <XAxis dataKey="name" tick={{ fontSize: 11 }} angle={-30} textAnchor="end" interval={0} />
                                             <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} />
                                             <Tooltip
-                                                formatter={(v: any, name: string) => [`${v}/100`, name]}
+                                                formatter={(v: any, name: any) => [`${v}/100`, String(name ?? "")]}
                                                 labelFormatter={(_: any, payload: any) => payload?.[0]?.payload?.fullName || "" as any}
                                             />
                                             <Legend verticalAlign="bottom" wrapperStyle={{ fontSize: 11, paddingTop: 16 }} />
