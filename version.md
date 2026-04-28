@@ -2,11 +2,18 @@
 
 ```json
 {
-  "version": "3.0.6",
-  "build": 122,
+  "version": "3.0.7",
+  "build": 123,
   "status": "stable"
 }
 ```
+
+## [3.0.7] - 2026-04-28
+
+### v3.0.7
+- **Bildirim Okuma Durumu Detayı:** Admin bildirim gönder dialogunda geçmiş bildirim kartlarına tıklanınca her kullanıcının okundu/okunmadı durumunu gösteren detay modalı eklendi. Kullanıcı adı araması, Tümü/Okudu/Okumadı sekmeleri ve okunma oranı progress bar'ı içeriyor.
+- **Bölge Müdürü Rol Sorunu:** Firestore'da `pending` durumuna düşen bölge müdürü hesapları (`Cahit Türker`) manuel olarak `bolge_muduru` rolüne güncellendi.
+- **Mağaza Puanı Doğruluğu:** `use-store-data.ts`'de `totalScore` Firestore'dan doğrudan okunuyor; 99-100 arası değerler 99'a sabitleniyor, tam 100 korunuyor.
 
 ## [3.0.6] - 2026-04-13
 

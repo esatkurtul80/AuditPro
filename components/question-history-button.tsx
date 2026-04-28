@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { History, Loader2, X, Calendar, User } from "lucide-react";
+import { History, Loader2, X, Calendar, User, Store, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { ref as storageRef, getDownloadURL } from "firebase/storage";
 import { storage } from "@/lib/firebase";
 import {
@@ -199,183 +200,173 @@ export function QuestionHistoryButton({
 
                                 <Separator className="my-4" />
 
-                                {/* Audit Entries */}
-                                <Accordion type="single" collapsible className="space-y-3">
+                                {/* Timeline of Failures */}
+                                <Accordion type="single" collapsible className="w-full space-y-2 px-2">
                                     {history.entries.map((entry, index) => (
-                                        <AccordionItem
-                                            key={entry.auditId}
-                                            value={`audit-${index}`}
-                                            className="border rounded-lg px-4"
-                                        >
-                                            <AccordionTrigger className="hover:no-underline py-4">
-                                                <div className="flex items-center justify-between w-full pr-4">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="flex flex-col items-start">
-                                                            <span className="font-semibold">
-                                                                {(() => {
-                                                                    const daysAgo = differenceInDays(new Date(), entry.completedAt.toDate());
-                                                                    return `${entry.auditorName.toLocaleUpperCase('tr-TR')} - ${daysAgo} GÜN ÖNCE YAPILAN DENETİM`;
-                                                                })()}
+                                        <AccordionItem key={entry.auditId} value={entry.auditId} className="border-0 bg-transparent">
+                                            <div className="relative pl-6 border-l-2 border-slate-200 last:border-0 pb-2">
+                                                {/* Dot */}
+                                                <div className="absolute -left-[9px] top-4 h-4 w-4 rounded-full bg-slate-200 border-2 border-white shadow-sm ring-1 ring-slate-100"></div>
+
+                                                <AccordionTrigger className="hover:no-underline py-3 px-1">
+                                                    {/* Header: Date & Auditor */}
+                                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 w-full pr-4 text-left">
+                                                        <div className="flex items-center gap-2 flex-wrap">
+                                                            <span className="font-semibold text-sm text-slate-900">
+                                                                {format(entry.completedAt.toDate(), "dd MMMM yyyy", { locale: tr })}
                                                             </span>
-                                                            <span className="text-sm text-muted-foreground">
-                                                                {format(entry.completedAt.toDate(), "dd MMMM yyyy HH:mm", { locale: tr })}
-                                                            </span>
+                                                            <span className="text-xs text-slate-400">•</span>
+                                                            <span className="text-xs font-medium text-slate-500">{entry.auditorName}</span>
+                                                            <span className="text-xs text-slate-400">•</span>
+                                                            <span className="text-xs text-slate-500">{differenceInDays(new Date(), entry.completedAt.toDate())} gün önce</span>
                                                         </div>
+                                                        <Badge variant="destructive" className="w-fit text-[10px] bg-red-100 text-red-700 border-red-200 hover:bg-red-100 shrink-0">
+                                                            {(() => {
+                                                                if (entry.questionType === 'yes_no' || !entry.questionType) {
+                                                                    return 'Hayır';
+                                                                }
+                                                                return `${entry.earnedPoints}/${entry.maxPoints} Puan`;
+                                                            })()}
+                                                        </Badge>
                                                     </div>
-                                                    <Badge variant="outline" className="bg-red-500 dark:bg-red-900 text-white border-red-500 dark:border-red-900">
+                                                </AccordionTrigger>
+
+                                                <AccordionContent className="pt-2 pb-6 px-1">
+                                                    {/* Auditor Content */}
+                                                    <div className="bg-slate-50 border rounded-lg p-3 space-y-3">
+                                                        {/* Question Type Details */}
                                                         {(() => {
-                                                            if (entry.questionType === 'yes_no' || !entry.questionType) {
-                                                                return 'Hayır';
+                                                            if (entry.questionType === 'rating' && entry.ratingMax) {
+                                                                const rating = parseInt(entry.answer) || 0;
+                                                                return (
+                                                                    <div className="flex items-center gap-2">
+                                                                        <div className="text-lg">
+                                                                            {Array.from({ length: entry.ratingMax }, (_, i) => (
+                                                                                <span key={i} className={i < rating ? "text-yellow-500" : "text-gray-300"}>★</span>
+                                                                            ))}
+                                                                        </div>
+                                                                        <span className="text-xs font-medium text-muted-foreground">{rating}/{entry.ratingMax}</span>
+                                                                    </div>
+                                                                );
                                                             }
-                                                            // For other question types, show points
-                                                            return `${entry.earnedPoints}/${entry.maxPoints} Puan`;
+                                                            if (entry.questionType === 'checkbox' && entry.options) {
+                                                                const selectedIds = entry.selectedOptions || [];
+                                                                const uncheckedOptions = entry.options.filter(opt => !selectedIds.includes(opt.id));
+                                                                if (uncheckedOptions.length > 0) {
+                                                                    return (
+                                                                        <div className="space-y-1">
+                                                                            <span className="text-xs font-semibold text-slate-500">İşaretlenmemiş:</span>
+                                                                            {uncheckedOptions.map((option, idx) => (
+                                                                                <div key={idx} className="text-xs text-red-600 flex items-center gap-1">
+                                                                                    <span>✗</span> {option.text}
+                                                                                </div>
+                                                                            ))}
+                                                                        </div>
+                                                                    );
+                                                                }
+                                                            }
+                                                            if (entry.questionType === 'multiple_choice' && entry.options) {
+                                                                const selectedOption = entry.options.find(opt => opt.id === entry.answer);
+                                                                if (selectedOption) {
+                                                                    return (
+                                                                        <div className="text-xs font-medium text-slate-700">
+                                                                            Seçilen: {selectedOption.text}
+                                                                        </div>
+                                                                    );
+                                                                }
+                                                            }
+                                                            return null;
                                                         })()}
-                                                    </Badge>
-                                                </div>
-                                            </AccordionTrigger>
-                                            <AccordionContent className="pb-4">
-                                                <div className="space-y-4 pt-2">
-                                                    {/* Info Grid */}
-                                                    <div className="grid grid-cols-2 gap-3 text-sm">
-                                                        <div className="flex items-center gap-2 text-muted-foreground">
-                                                            <User className="h-4 w-4" />
-                                                            <span>{entry.auditorName}</span>
-                                                        </div>
-                                                        <div className="flex items-center gap-2 text-muted-foreground">
-                                                            <Calendar className="h-4 w-4" />
-                                                            <span>
-                                                                {format(entry.completedAt.toDate(), "HH:mm", { locale: tr })}
-                                                            </span>
-                                                        </div>
+
+                                                        {/* Note */}
+                                                        {entry.notes && entry.notes.length > 0 && entry.notes.some(n => n.trim()) && (
+                                                            <div className="text-sm text-slate-700 italic">
+                                                                {entry.notes.filter(n => n.trim()).map((note, idx) => (
+                                                                    <div key={idx}>&quot;{note}&quot;</div>
+                                                                ))}
+                                                            </div>
+                                                        )}
+
+                                                        {/* Photos */}
+                                                        {entry.photos && entry.photos.length > 0 && (
+                                                            <div className="flex gap-2 flex-wrap mt-2">
+                                                                {entry.photos.map((photo, pIdx) => (
+                                                                    <div key={pIdx} className="h-16 w-16 rounded border bg-white shrink-0 overflow-hidden cursor-pointer hover:opacity-90" onClick={() => setSelectedImage(photo)}>
+                                                                        <img src={getImgSrc(photo)} className="h-full w-full object-cover" alt="Evidence" onError={() => handleImgError(photo)} />
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        )}
                                                     </div>
 
-                                                    {/* Question Type Details */}
-                                                    {(() => {
-                                                        // Rating Questions: Show stars
-                                                        if (entry.questionType === 'rating' && entry.ratingMax) {
-                                                            const rating = parseInt(entry.answer) || 0;
-                                                            return (
-                                                                <>
-                                                                    <Separator />
-                                                                    <div className="space-y-2">
-                                                                        <h4 className="font-medium text-foreground">Verilen Puan</h4>
-                                                                        <div className="flex items-center gap-2">
-                                                                            <div className="text-2xl">
-                                                                                {Array.from({ length: entry.ratingMax }, (_, i) => (
-                                                                                    <span key={i} className={i < rating ? "text-yellow-500" : "text-gray-300"}>
-                                                                                        ★
-                                                                                    </span>
-                                                                                ))}
-                                                                            </div>
-                                                                            <span className="text-sm font-medium text-muted-foreground">
-                                                                                {rating}/{entry.ratingMax}
-                                                                            </span>
-                                                                        </div>
+                                                    {/* Store Action Content (If Exists) */}
+                                                    {entry.actionData && (entry.actionData.storeNote || (entry.actionData.storeImages && entry.actionData.storeImages.length > 0)) ? (
+                                                        <div className="mt-4 pt-4 border-t border-dashed relative">
+                                                            {/* Connector Line/Icon */}
+                                                            <div className="absolute -left-[30px] top-6 flex items-center gap-2">
+                                                                <div className="h-px w-5 bg-slate-300"></div>
+                                                            </div>
+                                                            
+                                                            <div className="bg-blue-50/50 border border-blue-100 rounded-lg p-3">
+                                                                <div className="flex items-center justify-between mb-2">
+                                                                    <div className="flex items-center gap-2 text-blue-700 font-semibold text-xs uppercase tracking-wide">
+                                                                        <Store className="h-3 w-3" />
+                                                                        Mağaza Aksiyon Dönüşü
                                                                     </div>
-                                                                </>
-                                                            );
-                                                        }
-
-                                                        // Checkbox Questions: Show unchecked options
-                                                        if (entry.questionType === 'checkbox' && entry.options) {
-                                                            const selectedIds = entry.selectedOptions || [];
-                                                            const uncheckedOptions = entry.options.filter(opt => !selectedIds.includes(opt.id));
-
-                                                            if (uncheckedOptions.length > 0) {
-                                                                return (
-                                                                    <>
-                                                                        <Separator />
-                                                                        <div className="space-y-2">
-                                                                            <h4 className="font-medium text-foreground">İşaretlenmemiş Seçenekler</h4>
-                                                                            <div className="space-y-1">
-                                                                                {uncheckedOptions.map((option, idx) => (
-                                                                                    <div key={idx} className="text-sm bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 p-2 rounded-md flex items-center gap-2">
-                                                                                        <span className="text-lg">✗</span>
-                                                                                        <span>{option.text}</span>
-                                                                                        <span className="ml-auto text-xs opacity-70">({option.points} puan)</span>
-                                                                                    </div>
-                                                                                ))}
-                                                                            </div>
-                                                                        </div>
-                                                                    </>
-                                                                );
-                                                            }
-                                                        }
-
-                                                        // Multiple Choice (Radio): Show selected option
-                                                        if (entry.questionType === 'multiple_choice' && entry.options) {
-                                                            const selectedOption = entry.options.find(opt => opt.id === entry.answer);
-
-                                                            if (selectedOption) {
-                                                                return (
-                                                                    <>
-                                                                        <Separator />
-                                                                        <div className="space-y-2">
-                                                                            <h4 className="font-medium text-foreground">Seçilen Şık</h4>
-                                                                            <div className="text-sm bg-muted p-3 rounded-md">
-                                                                                <div className="flex items-center justify-between">
-                                                                                    <span>{selectedOption.text}</span>
-                                                                                    <Badge variant="outline">{selectedOption.points} puan</Badge>
-                                                                                </div>
-                                                                            </div>
-                                                                        </div>
-                                                                    </>
-                                                                );
-                                                            }
-                                                        }
-
-                                                        return null;
-                                                    })()}
-
-                                                    {/* Notes Section */}
-                                                    {entry.notes && entry.notes.length > 0 && entry.notes.some(n => n.trim()) && (
-                                                        <>
-                                                            <Separator />
-                                                            <div className="space-y-2">
-                                                                <h4 className="font-medium text-foreground">Notlar</h4>
-                                                                <div className="space-y-2">
-                                                                    {entry.notes.filter(n => n.trim()).map((note, noteIndex) => (
-                                                                        <div
-                                                                            key={noteIndex}
-                                                                            className="text-sm bg-muted p-3 rounded-md"
-                                                                        >
-                                                                            {note}
-                                                                        </div>
-                                                                    ))}
+                                                                    <Badge variant="outline" className={cn(
+                                                                        "text-[10px]",
+                                                                        entry.actionData.status === 'approved' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : 
+                                                                        entry.actionData.status === 'rejected' ? 'bg-red-100 text-red-700 border-red-200' : 
+                                                                        'bg-amber-100 text-amber-700 border-amber-200'
+                                                                    )}>
+                                                                        {entry.actionData.status === 'approved' ? 'Onaylandı' : 
+                                                                         entry.actionData.status === 'rejected' ? 'Reddedildi' : 
+                                                                         entry.actionData.status === 'pending_admin' ? 'Onay Bekliyor' : 'Bekliyor'}
+                                                                    </Badge>
                                                                 </div>
-                                                            </div>
-                                                        </>
-                                                    )}
 
-                                                    {/* Photos Section */}
-                                                    {entry.photos && entry.photos.length > 0 && (
-                                                        <>
-                                                            <Separator />
-                                                            <div className="space-y-2">
-                                                                <h4 className="font-medium text-foreground">
-                                                                    Fotoğraflar <span className="text-muted-foreground">({entry.photos.length})</span>
-                                                                </h4>
-                                                                <div className="grid grid-cols-4 gap-2">
-                                                                    {entry.photos.map((photo, photoIndex) => (
-                                                                        <div
-                                                                            key={photoIndex}
-                                                                            className="relative aspect-square rounded-md overflow-hidden border bg-muted cursor-pointer group"
-                                                                            onClick={() => setSelectedImage(photo)}
-                                                                        >
-                                                                            <img
-                                                                                src={getImgSrc(photo)}
-                                                                                alt={`Fotoğraf ${photoIndex + 1}`}
-                                                                                className="h-full w-full object-cover transition-transform group-hover:scale-110"
-                                                                                onError={() => handleImgError(photo)}
-                                                                            />
-                                                                        </div>
-                                                                    ))}
-                                                                </div>
+                                                                {entry.actionData.storeNote && (
+                                                                    <p className="text-sm text-slate-800 mb-3 leading-relaxed">
+                                                                        {entry.actionData.storeNote}
+                                                                    </p>
+                                                                )}
+
+                                                                {entry.actionData.storeImages && entry.actionData.storeImages.length > 0 && (
+                                                                    <div className="flex gap-2 flex-wrap pb-1">
+                                                                        {entry.actionData.storeImages.map((img: string, i: number) => (
+                                                                            <div key={i} className="h-16 w-16 rounded border border-blue-200 bg-white shrink-0 overflow-hidden cursor-pointer hover:opacity-90" onClick={() => setSelectedImage(img)}>
+                                                                                <img src={getImgSrc(img)} className="h-full w-full object-cover" alt="Action" onError={() => handleImgError(img)} />
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                )}
+
+                                                                {entry.actionData.adminNote && entry.actionData.status === 'rejected' && (
+                                                                    <div className="mt-3 pt-3 border-t border-blue-200/50">
+                                                                        <h5 className="text-[10px] font-bold text-red-600 uppercase tracking-wider mb-1 flex items-center gap-1">
+                                                                            <AlertCircle className="h-3 w-3" />
+                                                                            Red Nedeni
+                                                                        </h5>
+                                                                        <p className="text-xs text-red-700 italic">
+                                                                            &quot;{entry.actionData.adminNote}&quot;
+                                                                        </p>
+                                                                    </div>
+                                                                )}
                                                             </div>
-                                                        </>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="mt-4 pt-4 border-t border-dashed relative">
+                                                            <div className="absolute -left-[30px] top-6 flex items-center gap-2">
+                                                                <div className="h-px w-5 bg-slate-300"></div>
+                                                            </div>
+                                                            <div className="flex items-center gap-2 text-xs text-amber-600 italic bg-amber-50 p-2 rounded-md border border-amber-100">
+                                                                <AlertCircle className="h-3 w-3" />
+                                                                Mağaza henüz aksiyon dönüşü yapmamış.
+                                                            </div>
+                                                        </div>
                                                     )}
-                                                </div>
-                                            </AccordionContent>
+                                                </AccordionContent>
+                                            </div>
                                         </AccordionItem>
                                     ))}
                                 </Accordion>

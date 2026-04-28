@@ -54,7 +54,7 @@ export function StoreAuditHistoryDialog({ storeId, open, onOpenChange, storeName
                 const d = doc.data();
                 return {
                     id: doc.id,
-                    createdAt: (d.createdAt as Timestamp)?.toDate() || new Date(),
+                    createdAt: d.createdAt ? (typeof d.createdAt.toDate === 'function' ? d.createdAt.toDate() : new Date(d.createdAt)) : new Date(),
                     auditorName: d.auditorName || "Bilinmiyor",
                     auditorId: d.auditorId, // Capture ID
                     score: d.totalScore ?? d.score

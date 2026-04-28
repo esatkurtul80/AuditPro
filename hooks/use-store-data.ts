@@ -190,36 +190,30 @@ export function useStoreData() {
                     };
 
                     // 3. Score Calculation
-                    let finalScore = 0;
-                    if (auditData.sections) {
-                        let totalSectionPercentage = 0;
-                        let sectionCount = 0;
+                    // Use the stored totalScore from Firestore as source of truth.
+                    // Only apply the 99-cap for scores strictly between 99 and 100 (e.g., 99.3 → 99).
+                    let finalScore = auditData.totalScore ?? auditData.score ?? 0;
 
+                    // If totalScore is not stored, recalculate from sections
+                    if (!auditData.totalScore && auditData.sections) {
+                        let rawEarned = 0;
+                        let rawMax = 0;
                         auditData.sections.forEach((section: any) => {
-                            let sectionEarned = 0;
-                            let sectionMax = 0;
-                            let hasValidQuestions = false;
-
                             section.answers?.forEach((a: any) => {
                                 if (a.answer && a.answer.trim() !== "" && a.answer !== "muaf") {
-                                    sectionEarned += (a.earnedPoints || 0);
-                                    sectionMax += (a.maxPoints || 0);
-                                    hasValidQuestions = true;
+                                    rawEarned += (a.earnedPoints || 0);
+                                    rawMax += (a.maxPoints || 0);
                                 }
                             });
-
-                            if (hasValidQuestions && sectionMax > 0) {
-                                const sectionScore = (sectionEarned / sectionMax) * 100;
-                                totalSectionPercentage += sectionScore;
-                                sectionCount++;
-                            }
                         });
+                        const rawPercentage = rawMax > 0 ? (rawEarned / rawMax) * 100 : 0;
+                        finalScore = Math.round(rawPercentage);
+                    }
 
-                        const averageScore = sectionCount > 0 ? totalSectionPercentage / sectionCount : 0;
-                        const decimalPart = averageScore % 1;
-                        finalScore = decimalPart >= 0.50 ? Math.ceil(averageScore) : Math.floor(averageScore);
-                    } else {
-                        finalScore = auditData.totalScore || 0;
+                    // Apply 99-cap: only values strictly between 99 and 100 get capped to 99.
+                    // Exact 99 and exact 100 are left untouched.
+                    if (finalScore > 99 && finalScore < 100) {
+                        finalScore = 99;
                     }
 
                     if (finalScore > 100) finalScore = 100;

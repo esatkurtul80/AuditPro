@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
+export const maxDuration = 60; // Allows the function to run for up to 60 seconds (useful for Vercel Hobby/Pro timeouts)
+
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
 export async function POST(req: Request) {
@@ -40,9 +42,9 @@ Lütfen gereksiz uzun cümlelerden kaçın ve çıktıyı kısa, net ve tam olar
 - B Mağazası: ...
 (Sadece sorun olan mağazaları yaz. Sorun yoksa o mağazayı pas geç.)`;
 
-        // Not: API'deki en stabil ve güncel model olan gemini-2.5-flash kullanılıyor.
+        // Not: Kullanıcı isteği üzerine gemini-1.5-flash kullanılıyor.
         const model = genAI.getGenerativeModel({ 
-            model: "gemini-2.5-flash",
+            model: "gemini-1.5-flash",
             systemInstruction: systemPrompt 
         });
 

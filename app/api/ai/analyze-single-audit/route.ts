@@ -141,7 +141,7 @@ Geçmiş verilere kıyasla mağazanın ilerleyişi ve dikkat edilmesi gereken kr
 Denetmenin 'ÖNERİ' başlığı altında yazdığı cümleleri BİREBİR aktar. Eğer denetmenin özel bir önerisi yoksa, senin verilerden çıkardığın en kritik 2-3 yapıcı tavsiyeyi maddeler halinde yaz.`;
 
         const model = genAI.getGenerativeModel({ 
-            model: "gemini-2.5-flash",
+            model: "gemini-1.5-flash",
             systemInstruction: systemPrompt 
         });
 

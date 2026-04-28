@@ -1,3 +1,5 @@
+/* eslint-disable @next/next/no-img-element */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect } from "react";
 import {
     Dialog,
@@ -30,7 +32,7 @@ import { format } from "date-fns";
 import { tr } from "date-fns/locale";
 import { getStoreAnalysis } from "@/lib/store-analysis";
 import type { StoreAnalysisData } from "@/lib/store-analysis";
-import { cn, getWorkingDaysPassed } from "@/lib/utils";
+import { cn, getWorkingDaysPassed, parseDate, formatDateSafe } from "@/lib/utils";
 
 interface StoreAnalysisDialogProps {
     storeId: string;
@@ -47,6 +49,7 @@ export function StoreAnalysisDialog({ storeId, storeName, isOpen, onClose }: Sto
 
     useEffect(() => {
         if (isOpen && storeId) {
+            // eslint-disable-next-line
             setLoading(true);
             getStoreAnalysis(storeId)
                 .then(result => {
@@ -159,9 +162,12 @@ export function StoreAnalysisDialog({ storeId, storeName, isOpen, onClose }: Sto
                                                 }
                                                 // Track earliest submission
                                                 if (answer.actionData?.submittedAt) {
-                                                    const subDate = answer.actionData.submittedAt.toDate();
-                                                    if (!firstSubmissionDate || subDate < firstSubmissionDate) {
-                                                        firstSubmissionDate = subDate;
+                                                    const subDateVal = answer.actionData.submittedAt;
+                                                    const subDate = parseDate(subDateVal);
+                                                    if (subDate) {
+                                                        if (!firstSubmissionDate || subDate < firstSubmissionDate) {
+                                                            firstSubmissionDate = subDate;
+                                                        }
                                                     }
                                                 }
                                             }
@@ -193,7 +199,8 @@ export function StoreAnalysisDialog({ storeId, storeName, isOpen, onClose }: Sto
                                         );
                                     } else if (firstSubmissionDate && lastAudit.completedAt) {
                                         // Calculate Business Days
-                                        const count = getWorkingDaysPassed(lastAudit.completedAt.toDate(), firstSubmissionDate);
+                                        const completedDate = parseDate(lastAudit.completedAt);
+                                        const count = completedDate ? getWorkingDaysPassed(completedDate, firstSubmissionDate) : 0;
                                         
                                         const isLate = count > 3;
                                         content = (
@@ -216,9 +223,9 @@ export function StoreAnalysisDialog({ storeId, storeName, isOpen, onClose }: Sto
                                                 <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Son Aksiyon Dönüşü</span>
                                                 <div className="flex flex-col gap-0.5">
                                                     {content}
-                                                    {firstSubmissionDate && lastAudit.completedAt && (
+                                                    {firstSubmissionDate && lastAudit.completedAt && parseDate(lastAudit.completedAt) && (
                                                         <span className="text-[10px] text-slate-400 font-medium">
-                                                            {format(lastAudit.completedAt.toDate(), "d MMM", { locale: tr })} - {format(firstSubmissionDate, "d MMM", { locale: tr })}
+                                                            {formatDateSafe(lastAudit.completedAt, "d MMM", { locale: tr })} - {formatDateSafe(firstSubmissionDate, "d MMM", { locale: tr })}
                                                         </span>
                                                     )}
                                                 </div>
@@ -402,7 +409,7 @@ export function StoreAnalysisDialog({ storeId, storeName, isOpen, onClose }: Sto
                                         <div>
                                             <h4 className="font-bold text-blue-900 text-sm">Son Denetim Özeti</h4>
                                             <p className="text-blue-700 text-xs mt-1">
-                                                En son <strong>{format(data.lastAuditDate, 'd MMMM yyyy', {locale: tr})}</strong> tarihinde denetlendi. 
+                                                En son <strong>{formatDateSafe(data.lastAuditDate, 'd MMMM yyyy', {locale: tr})}</strong> tarihinde denetlendi. 
                                                 Aradan geçen süre: <strong className="underline">{data.daysSinceLastAudit} gün</strong>.
                                             </p>
                                         </div>
@@ -424,7 +431,7 @@ export function StoreAnalysisDialog({ storeId, storeName, isOpen, onClose }: Sto
                                     <div className="space-y-4">
                                         <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex gap-3 text-sm text-amber-800">
                                             <AlertOctagon className="h-5 w-5 text-amber-600 shrink-0" />
-                                            <p><strong>{data?.auditHistory[0]?.completedAt ? format(data.auditHistory[0].completedAt.toDate(), "d MMMM yyyy", {locale: tr}) : "Son denetim"}</strong> Tarihli son denetimde alınan hayırlar aşağıdadır.</p>
+                                            <p><strong>{data?.auditHistory[0]?.completedAt && parseDate(data.auditHistory[0].completedAt) ? formatDateSafe(data.auditHistory[0].completedAt, "d MMMM yyyy", {locale: tr}) : "Son denetim"}</strong> Tarihli son denetimde alınan hayırlar aşağıdadır.</p>
                                         </div>
                                         
                                         {/* Since we don't store failures separately in store analysis response but get full audit object,
@@ -466,7 +473,7 @@ export function StoreAnalysisDialog({ storeId, storeName, isOpen, onClose }: Sto
                                                                         <User className="h-3 w-3 text-slate-400" />
                                                                         <span className="text-slate-500 text-xs uppercase font-bold">Denetçi Notu:</span>
                                                                     </div>
-                                                                    <p className="text-slate-700 italic">"{fail.notes[0]}"</p>
+                                                                    <p className="text-slate-700 italic">&quot;{fail.notes[0]}&quot;</p>
                                                                 </div>
                                                             )}
 
@@ -488,7 +495,7 @@ export function StoreAnalysisDialog({ storeId, storeName, isOpen, onClose }: Sto
                                                                         <span className="text-blue-600 text-xs uppercase font-bold">Mağaza Aksiyonu:</span>
                                                                     </div>
                                                                     {fail.actionData.storeNote && (
-                                                                        <p className="text-slate-700 italic mb-2">"{fail.actionData.storeNote}"</p>
+                                                                        <p className="text-slate-700 italic mb-2">&quot;{fail.actionData.storeNote}&quot;</p>
                                                                     )}
                                                                     {fail.actionData.storeImages && fail.actionData.storeImages.length > 0 && (
                                                                         <div className="flex gap-2 flex-wrap mt-2">
@@ -541,9 +548,7 @@ export function StoreAnalysisDialog({ storeId, storeName, isOpen, onClose }: Sto
                                                             <div className="flex items-center gap-4 text-xs text-slate-500 mt-1">
                                                                 <span className="flex items-center gap-1">
                                                                     <Calendar className="h-3 w-3" />
-                                                                    {audit.completedAt 
-                                                                        ? format(audit.completedAt.toDate(), "d MMM yyyy", {locale: tr}) 
-                                                                        : "-"}
+                                                                    {formatDateSafe(audit.completedAt, "d MMM yyyy", {locale: tr})}
                                                                 </span>
                                                                 <span className="flex items-center gap-1">
                                                                     <User className="h-3 w-3" />
@@ -608,7 +613,7 @@ export function StoreAnalysisDialog({ storeId, storeName, isOpen, onClose }: Sto
                                                                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
                                                                     <div className="flex items-center gap-2">
                                                                         <span className="font-medium text-sm text-slate-900">
-                                                                            {historyItem.auditDate ? format(new Date(historyItem.auditDate), 'd MMMM yyyy', {locale: tr}) : '-'}
+                                                                            {formatDateSafe(historyItem.auditDate, 'd MMMM yyyy', {locale: tr})}
                                                                         </span>
                                                                         <span className="text-xs text-slate-400">•</span>
                                                                         <span className="text-xs text-slate-500">{historyItem.auditorName}</span>
@@ -623,7 +628,7 @@ export function StoreAnalysisDialog({ storeId, storeName, isOpen, onClose }: Sto
                                                                     {/* Note */}
                                                                     {historyItem.notes && historyItem.notes.length > 0 && (
                                                                         <div className="text-sm text-slate-700 italic">
-                                                                            "{historyItem.notes[0]}"
+                                                                            &quot;{historyItem.notes[0]}&quot;
                                                                         </div>
                                                                     )}
                                                                     {/* Photos */}
@@ -701,7 +706,6 @@ export function StoreAnalysisDialog({ storeId, storeName, isOpen, onClose }: Sto
                     >
                         <XCircle className="h-8 w-8" />
                     </button>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                         src={selectedImage || undefined}
                         alt="Tam boyut fotoğraf"

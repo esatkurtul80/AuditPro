@@ -15,6 +15,7 @@ export interface QuestionHistoryEntry {
     ratingMax?: number;                 // For rating questions
     notes: string[];
     photos: string[];
+    actionData?: any; // Using any or ActionData depending on imports. Let's use any here for simplicity or import ActionData. Wait, ActionData is not imported. I'll just use any. Or we have AuditAnswer, I can just use ActionData from lib/types.
 }
 
 export interface QuestionHistory {
@@ -62,17 +63,23 @@ function isIncompleteAnswer(answer: AuditAnswer): boolean {
 export async function getPreviousAudits(
     storeId: string,
     auditTypeId: string,
-    currentAuditId: string
+    currentAuditId: string,
+    beforeDate?: Timestamp
 ): Promise<Audit[]> {
     try {
-        const auditsQuery = query(
-            collection(db, "audits"),
+        const constraints: any[] = [
             where("storeId", "==", storeId),
             where("auditTypeId", "==", auditTypeId),
             where("status", "==", "tamamlandi"),
             orderBy("completedAt", "desc"),
-            limit(10) // Get last 10 audits for performance
-        );
+            limit(10)
+        ];
+
+        if (beforeDate) {
+            constraints.splice(3, 0, where("completedAt", "<", beforeDate));
+        }
+
+        const auditsQuery = query(collection(db, "audits"), ...constraints);
 
         const auditsSnapshot = await getDocs(auditsQuery);
         const audits = auditsSnapshot.docs
@@ -99,9 +106,10 @@ export async function getQuestionHistory(
     storeId: string,
     auditTypeId: string,
     questionId: string,
-    currentAuditId: string
+    currentAuditId: string,
+    currentAuditCompletedAt?: Timestamp
 ): Promise<QuestionHistory> {
-    const previousAudits = await getPreviousAudits(storeId, auditTypeId, currentAuditId);
+    const previousAudits = await getPreviousAudits(storeId, auditTypeId, currentAuditId, currentAuditCompletedAt);
 
     const entries: QuestionHistoryEntry[] = [];
     let consecutiveFailCount = 0;
@@ -157,6 +165,7 @@ export async function getQuestionHistory(
                 ratingMax: foundAnswer.ratingMax,
                 notes: foundAnswer.notes || [],
                 photos: foundAnswer.photos || [],
+                actionData: foundAnswer.actionData,
             });
         } else {
             // Found complete answer, stop counting consecutive failures
@@ -164,10 +173,6 @@ export async function getQuestionHistory(
         }
     }
 
-    return {
-        consecutiveFailCount,
-        entries,
-    };
     return {
         consecutiveFailCount,
         entries,

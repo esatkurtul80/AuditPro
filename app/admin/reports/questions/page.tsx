@@ -40,6 +40,8 @@ interface QuestionStats {
     pointsLost: number;
     maxStreak: number; // Maximum consecutive failures across all stores
     storesWithStreak: string[]; // Stores that had the max streak
+    questionType: string;
+    optionCounts: Record<string, { text: string; count: number; maxStreak: number }>;
 }
 
 interface StoreStreakTracker {
@@ -184,16 +186,24 @@ export default function QuestionAnalysisPage() {
         const questionMap = new Map<string, QuestionStats>();
         const storeStreaks: Record<string, StoreStreakTracker> = {};
         const storeMaxStreaks: Record<string, Record<string, number>> = {};
+        const storeOptionStreaks: Record<string, Record<string, Record<string, number>>> = {};
+        const storeOptionMaxStreaks: Record<string, Record<string, Record<string, number>>> = {};
 
         filteredAudits.forEach(audit => {
             const storeId = audit.storeId;
             if (!storeStreaks[storeId]) storeStreaks[storeId] = {};
             if (!storeMaxStreaks[storeId]) storeMaxStreaks[storeId] = {};
+            if (!storeOptionStreaks[storeId]) storeOptionStreaks[storeId] = {};
+            if (!storeOptionMaxStreaks[storeId]) storeOptionMaxStreaks[storeId] = {};
 
             audit.sections.forEach(section => {
                 section.answers.forEach(answer => {
-                    if (!questionMap.has(answer.questionId)) {
-                        questionMap.set(answer.questionId, {
+                    const qId = answer.questionId;
+                    if (!storeOptionStreaks[storeId][qId]) storeOptionStreaks[storeId][qId] = {};
+                    if (!storeOptionMaxStreaks[storeId][qId]) storeOptionMaxStreaks[storeId][qId] = {};
+
+                    if (!questionMap.has(qId)) {
+                        questionMap.set(qId, {
                             id: answer.questionId,
                             text: answer.questionText,
                             sectionName: section.sectionName,
@@ -203,7 +213,9 @@ export default function QuestionAnalysisPage() {
                             exemptCount: 0,
                             pointsLost: 0,
                             maxStreak: 0,
-                            storesWithStreak: []
+                            storesWithStreak: [],
+                            questionType: answer.questionType || "yes_no",
+                            optionCounts: {}
                         });
                     }
 
@@ -213,13 +225,57 @@ export default function QuestionAnalysisPage() {
                     const isFail = answer.answer === "hayir";
                     const isSuccess = answer.answer === "evet";
 
+                    if (q.questionType === "multiple_choice" || q.questionType === "checkbox") {
+                        const selectedTexts = new Set<string>();
+
+                        const processOption = (optIdOrText: string) => {
+                            if (!optIdOrText) return;
+                            const optionDef = answer.options?.find(o => o.id === optIdOrText || o.text === optIdOrText);
+                            const text = optionDef ? optionDef.text : optIdOrText;
+                            selectedTexts.add(text);
+                            
+                            if (!q.optionCounts[text]) {
+                                q.optionCounts[text] = { text, count: 0, maxStreak: 0 };
+                            }
+                            q.optionCounts[text].count++;
+                        };
+
+                        if (q.questionType === "multiple_choice" && answer.answer) {
+                            processOption(answer.answer);
+                        } else if (q.questionType === "checkbox" && Array.isArray(answer.selectedOptions)) {
+                            answer.selectedOptions.forEach(opt => processOption(opt));
+                        }
+
+                        // Track option streaks
+                        const allPossibleTexts = answer.options ? answer.options.map(o => o.text) : Object.keys(q.optionCounts);
+                        const textsToProcess = new Set([...allPossibleTexts, ...Array.from(selectedTexts)]);
+                        
+                        textsToProcess.forEach(text => {
+                            if (!q.optionCounts[text]) {
+                                q.optionCounts[text] = { text, count: 0, maxStreak: 0 };
+                            }
+                            const currentOptStreak = storeOptionStreaks[storeId][qId][text] || 0;
+                            if (selectedTexts.has(text)) {
+                                const newStreak = currentOptStreak + 1;
+                                storeOptionStreaks[storeId][qId][text] = newStreak;
+                                if (newStreak > (storeOptionMaxStreaks[storeId][qId][text] || 0)) {
+                                    storeOptionMaxStreaks[storeId][qId][text] = newStreak;
+                                }
+                            } else {
+                                storeOptionStreaks[storeId][qId][text] = 0;
+                            }
+                        });
+                    }
+
                     if (isFail) {
                         q.failCount++;
                         q.pointsLost += (answer.maxPoints - answer.earnedPoints);
                     } else if (isSuccess) {
                         q.successCount++;
                     } else {
-                        q.exemptCount++;
+                        if (q.questionType === "yes_no") {
+                            q.exemptCount++;
+                        }
                     }
 
                     const currentStoreStreak = storeStreaks[storeId][answer.questionId] || 0;
@@ -251,6 +307,19 @@ export default function QuestionAnalysisPage() {
                 }
             }
             q.maxStreak = maxS;
+
+            if (q.questionType === "multiple_choice" || q.questionType === "checkbox") {
+                 Object.keys(q.optionCounts).forEach(text => {
+                     let maxOptStreak = 0;
+                     for (const sId in storeOptionMaxStreaks) {
+                         const streak = storeOptionMaxStreaks[sId]?.[q.id]?.[text] || 0;
+                         if (streak > maxOptStreak) {
+                             maxOptStreak = streak;
+                         }
+                     }
+                     q.optionCounts[text].maxStreak = maxOptStreak;
+                 });
+            }
         });
 
         return Array.from(questionMap.values());
@@ -258,15 +327,24 @@ export default function QuestionAnalysisPage() {
 
     const exportToExcel = async (dataToExport: QuestionStats[]) => {
         const XLSX = await import("xlsx");
-        const ws = XLSX.utils.json_to_sheet(dataToExport.map(s => ({
-            "Soru": s.text,
-            "Bölüm": s.sectionName,
-            "Toplam Cevap": s.totalAnswers,
-            "Hata (Hayır) Sayısı": s.failCount,
-            "Başarısızlık Oranı (%)": ((s.failCount / s.totalAnswers) * 100).toFixed(1),
-            "Toplam Puan Kaybı": s.pointsLost,
-            "Maksimum Arka Arkaya Hata": s.maxStreak
-        })));
+        const ws = XLSX.utils.json_to_sheet(dataToExport.map(s => {
+            let details = "";
+            if (s.questionType === "multiple_choice" || s.questionType === "checkbox") {
+                details = Object.values(s.optionCounts).map(opt => `${opt.text}: ${opt.count} (Max Seri: ${opt.maxStreak})`).join(" | ");
+            }
+
+            return {
+                "Soru": s.text,
+                "Bölüm": s.sectionName,
+                "Tip": s.questionType === "yes_no" ? "Evet/Hayır" : (s.questionType === "multiple_choice" ? "Çoktan Seçmeli" : (s.questionType === "checkbox" ? "Çoklu Seçim" : s.questionType)),
+                "Toplam Cevap": s.totalAnswers,
+                "Hata (Hayır) Sayısı": s.questionType === "yes_no" ? s.failCount : "-",
+                "Başarısızlık Oranı (%)": s.questionType === "yes_no" ? ((s.failCount / s.totalAnswers) * 100).toFixed(1) : "-",
+                "Seçenek Dağılımı": details,
+                "Toplam Puan Kaybı": s.pointsLost,
+                "Maksimum Arka Arkaya Hata": s.maxStreak
+            };
+        }));
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Soru Analizi");
         XLSX.writeFile(wb, `soru-analiz-raporu-${format(new Date(), "yyyy-MM-dd")}.xlsx`);
@@ -307,12 +385,18 @@ export default function QuestionAnalysisPage() {
             header: ({ column }: { column: any }) => <DataTableColumnHeader column={column} title="Hata (Hayır)" showFilter={false} className="justify-center w-full" />,
             cell: ({ row }) => (
                 <div className="text-center whitespace-nowrap flex flex-col items-center">
-                    <Badge variant={row.original.failCount > 0 ? "destructive" : "secondary"}>
-                        {row.original.failCount}
-                    </Badge>
-                    <div className="text-[10px] text-muted-foreground mt-1">
-                        %{((row.original.failCount / row.original.totalAnswers) * 100).toFixed(0)}
-                    </div>
+                    {row.original.questionType === "yes_no" ? (
+                        <>
+                            <Badge variant={row.original.failCount > 0 ? "destructive" : "secondary"}>
+                                {row.original.failCount}
+                            </Badge>
+                            <div className="text-[10px] text-muted-foreground mt-1">
+                                %{row.original.totalAnswers > 0 ? ((row.original.failCount / row.original.totalAnswers) * 100).toFixed(0) : 0}
+                            </div>
+                        </>
+                    ) : (
+                        <span className="text-muted-foreground">-</span>
+                    )}
                 </div>
             )
         },
@@ -341,6 +425,36 @@ export default function QuestionAnalysisPage() {
                     )}
                 </div>
             )
+        },
+        {
+            accessorKey: "optionCounts",
+            meta: { title: "Cevap Dağılımı" },
+            header: ({ column }: { column: any }) => <DataTableColumnHeader column={column} title="Cevap Dağılımı" showFilter={false} className="w-full" />,
+            cell: ({ row }) => {
+                const qType = row.original.questionType;
+                if (qType === "multiple_choice" || qType === "checkbox") {
+                    const opts = Object.values(row.original.optionCounts).sort((a, b) => b.count - a.count);
+                    if (opts.length === 0) return <div className="text-xs text-muted-foreground">-</div>;
+                    return (
+                        <div className="flex flex-col gap-1 min-w-[200px]">
+                            {opts.map((opt, i) => (
+                                <div key={i} className="flex justify-between items-center text-xs">
+                                    <span className="text-muted-foreground truncate mr-2" title={opt.text}>{opt.text}</span>
+                                    <div className="flex gap-1 items-center">
+                                        <Badge variant="secondary" className="text-[10px] px-1 py-0">{opt.count}</Badge>
+                                        {opt.maxStreak > 1 && (
+                                            <Badge variant="outline" className="border-yellow-500 text-yellow-600 bg-yellow-50 text-[10px] px-1 py-0" title={`Max Seri: ${opt.maxStreak}`}>
+                                                {opt.maxStreak} seri
+                                            </Badge>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    );
+                }
+                return <div className="text-center text-xs text-muted-foreground">-</div>;
+            }
         }
     ];
 

@@ -38,6 +38,7 @@ import { db } from "@/lib/firebase";
 import { UserProfile, NotificationType } from "@/lib/types";
 import { useAuth } from "@/components/auth-provider";
 import { NotificationResultDialog } from "./notification-result-dialog";
+import { BroadcastDetailDialog } from "./broadcast-detail-dialog";
 import { format } from "date-fns";
 import { tr } from "date-fns/locale";
 
@@ -63,6 +64,8 @@ export function SendNotificationDialog({ trigger, open: controlledOpen, onOpenCh
     const [showResult, setShowResult] = useState(false);
     const [history, setHistory] = useState<any[]>([]);
     const [deleteId, setDeleteId] = useState<string | null>(null);
+    const [selectedBroadcast, setSelectedBroadcast] = useState<any | null>(null);
+    const [showBroadcastDetail, setShowBroadcastDetail] = useState(false);
 
     useEffect(() => {
         if (!open) return;
@@ -276,7 +279,14 @@ export function SendNotificationDialog({ trigger, open: controlledOpen, onOpenCh
                                     <p className="text-sm text-muted-foreground text-center py-8">Henüz bildirim gönderilmemiş.</p>
                                 ) : (
                                     history.map((item) => (
-                                        <div key={item.id} className="rounded-lg border p-3 flex flex-col gap-1.5 bg-accent/30 relative group">
+                                        <div
+                                            key={item.id}
+                                            className="rounded-lg border p-3 flex flex-col gap-1.5 bg-accent/30 relative group cursor-pointer hover:border-blue-300 hover:bg-blue-50/30 transition-colors"
+                                            onClick={() => {
+                                                setSelectedBroadcast(item);
+                                                setShowBroadcastDetail(true);
+                                            }}
+                                        >
                                             <div className="flex items-start justify-between gap-2 pr-6">
                                                 <span className="font-semibold text-sm line-clamp-1 flex-1">{item.title}</span>
                                                 <span className="text-[10px] text-muted-foreground whitespace-nowrap bg-background px-1.5 py-0.5 rounded border">
@@ -335,6 +345,12 @@ export function SendNotificationDialog({ trigger, open: controlledOpen, onOpenCh
                 open={showResult}
                 onOpenChange={setShowResult}
                 results={resultData}
+            />
+
+            <BroadcastDetailDialog
+                open={showBroadcastDetail}
+                onOpenChange={setShowBroadcastDetail}
+                broadcast={selectedBroadcast}
             />
 
             <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>

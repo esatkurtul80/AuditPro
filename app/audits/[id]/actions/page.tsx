@@ -73,6 +73,8 @@ import {
 } from "@/lib/offline-storage";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { invalidateStoreDataCache } from "@/hooks/use-store-data";
+import { QuestionHistoryButton } from "@/components/question-history-button";
+import { getStoreAuditHistory, QuestionHistory, QuestionHistoryEntry } from "@/lib/question-history";
 
 const SECTION_COLORS = [
     "bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800",
@@ -138,6 +140,89 @@ export default function AuditActionsPage() {
 
     const [isDownloading, setIsDownloading] = useState(false);
     const [robotoFont, setRobotoFont] = useState<string | null>(null);
+
+    const [historyCache, setHistoryCache] = useState<Record<string, QuestionHistory>>({});
+
+    useEffect(() => {
+        const fetchHistory = async () => {
+            if (!audit?.storeId) return;
+            try {
+                const pastAudits = await getStoreAuditHistory(audit.storeId, 12);
+                // Exclude current audit AND any audits completed AFTER this audit's date
+                const currentAuditTime = audit.completedAt
+                    ? (audit.completedAt as any).toDate?.().getTime() ?? new Date(audit.completedAt as any).getTime()
+                    : Date.now();
+                const relevantAudits = pastAudits.filter(a => {
+                    if (a.id === audit.id) return false;
+                    if (!a.completedAt) return false;
+                    const t = (a.completedAt as any).toDate?.().getTime() ?? new Date(a.completedAt as any).getTime();
+                    return t < currentAuditTime;
+                });
+
+                const newHistoryCache: Record<string, QuestionHistory> = {};
+                
+                audit.sections.forEach(section => {
+                    section.answers.forEach(answer => {
+                        const qId = answer.questionId;
+                        const entries: QuestionHistoryEntry[] = [];
+                        let consecutiveFailCount = 0;
+
+                        for (const pastAudit of relevantAudits) {
+                            let foundPastAnswer: AuditAnswer | null = null;
+                            for (const pastSection of pastAudit.sections) {
+                                const found = pastSection.answers.find(a => a.questionId === qId);
+                                if (found) {
+                                    foundPastAnswer = found;
+                                    break;
+                                }
+                            }
+
+                            if (!foundPastAnswer) continue;
+
+                            let isFail = false;
+                            if (foundPastAnswer.questionType === 'yes_no' || !foundPastAnswer.questionType) {
+                                isFail = foundPastAnswer.answer === 'hayir';
+                            } else if (['rating', 'multiple_choice', 'checkbox'].includes(foundPastAnswer.questionType || '')) {
+                                isFail = foundPastAnswer.earnedPoints < foundPastAnswer.maxPoints;
+                            }
+
+                            if (isFail) {
+                                consecutiveFailCount++;
+                                entries.push({
+                                    auditId: pastAudit.id,
+                                    auditorName: pastAudit.auditorName,
+                                    completedAt: pastAudit.completedAt!,
+                                    answer: foundPastAnswer.answer,
+                                    earnedPoints: foundPastAnswer.earnedPoints,
+                                    maxPoints: foundPastAnswer.maxPoints,
+                                    questionType: foundPastAnswer.questionType,
+                                    selectedOptions: foundPastAnswer.selectedOptions,
+                                    options: foundPastAnswer.options,
+                                    ratingMax: foundPastAnswer.ratingMax,
+                                    notes: foundPastAnswer.notes || [],
+                                    photos: foundPastAnswer.photos || [],
+                                    actionData: foundPastAnswer.actionData,
+                                });
+                            } else {
+                                break;
+                            }
+                        }
+
+                        newHistoryCache[qId] = {
+                            consecutiveFailCount,
+                            entries
+                        };
+                    });
+                });
+
+                setHistoryCache(newHistoryCache);
+            } catch (error) {
+                console.error("Error fetching audit history:", error);
+            }
+        };
+
+        fetchHistory();
+    }, [audit?.storeId, audit?.id]);
 
     // Check store permission - only allow stores to view their own audits
     useEffect(() => {
@@ -1796,6 +1881,18 @@ export default function AuditActionsPage() {
                                                         </div>
                                                     )}
                                                 </div>
+
+                                                {(isAdmin || isRegionalManager) && (
+                                                    <div className="shrink-0 ml-4">
+                                                        <QuestionHistoryButton
+                                                            storeId={audit.storeId}
+                                                            auditTypeId={audit.auditTypeId}
+                                                            questionId={answer.questionId}
+                                                            currentAuditId={auditId}
+                                                            historyData={historyCache[answer.questionId]}
+                                                        />
+                                                    </div>
+                                                )}
 
                                             </div>
                                         </CardHeader>

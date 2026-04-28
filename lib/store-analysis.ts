@@ -2,6 +2,7 @@ import { collection, query, where, getDocs, orderBy, limit, Timestamp, doc, getD
 import { db } from "@/lib/firebase";
 import { Audit, AuditAnswer, Store } from "@/lib/types";
 import { differenceInDays } from "date-fns";
+import { parseDate } from "@/lib/utils";
 
 export interface RecurringIssueHistoryItem {
     auditId: string;
@@ -74,7 +75,7 @@ function identifyRecurringIssues(audits: Audit[]): RecurringIssue[] {
                 // Add current (latest) audit to history
                 history.push({
                     auditId: latestAudit.id,
-                    auditDate: latestAudit.completedAt ? latestAudit.completedAt.toDate() : null,
+                    auditDate: parseDate(latestAudit.completedAt),
                     auditorName: latestAudit.auditorName,
                     answer: answer.answer,
                     notes: answer.notes || [],
@@ -104,7 +105,7 @@ function identifyRecurringIssues(audits: Audit[]): RecurringIssue[] {
                                 // Add historical failure to history list
                                 history.push({
                                     auditId: prevAudit.id,
-                                    auditDate: prevAudit.completedAt ? prevAudit.completedAt.toDate() : null,
+                                    auditDate: parseDate(prevAudit.completedAt),
                                     auditorName: prevAudit.auditorName,
                                     answer: prevAnswer.answer,
                                     notes: prevAnswer.notes || [],
@@ -182,8 +183,10 @@ export async function getStoreAnalysis(storeId: string): Promise<StoreAnalysisDa
         if (history.length > 0) {
             const lastAudit = history[0];
             if (lastAudit.completedAt) {
-                lastAuditDate = lastAudit.completedAt.toDate();
-                daysSinceLastAudit = differenceInDays(new Date(), lastAuditDate);
+                lastAuditDate = parseDate(lastAudit.completedAt);
+                if (lastAuditDate) {
+                    daysSinceLastAudit = differenceInDays(new Date(), lastAuditDate);
+                }
             }
             lastScore = lastAudit.totalScore;
         }

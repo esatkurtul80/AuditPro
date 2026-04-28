@@ -338,13 +338,32 @@ export default function MagazaPage() {
                                         const statusInfo = getAuditStatus(audit);
                                         const profile = auditorProfiles.get(audit.auditorId);
                                         
-                                        const percentage = (audit.totalScore / audit.maxScore) * 100;
+                                        let rawEarned = 0;
+                                        let rawMax = 0;
+                                        if (audit.sections) {
+                                            audit.sections.forEach(s => {
+                                                if (s.answers) {
+                                                    s.answers.forEach(a => {
+                                                        if (a.answer && a.answer !== "muaf" && a.answer.trim() !== "") {
+                                                            rawEarned += a.earnedPoints || 0;
+                                                            rawMax += a.maxPoints || 0;
+                                                        }
+                                                    });
+                                                }
+                                            });
+                                        }
+                                        const rawPercentage = rawMax > 0 ? (rawEarned / rawMax) * 100 : 0;
+                                        
+                                        let displayScore = Math.round(rawPercentage);
+                                        if (rawPercentage > 99 && rawPercentage < 100) {
+                                            displayScore = 99;
+                                        }
                                         
                                         // Colors based on score
                                         let scoreClass = "";
-                                        if (percentage < 70) scoreClass = "text-red-600 bg-red-50 border-red-200 dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/20";
-                                        else if (percentage < 85) scoreClass = "text-orange-600 bg-orange-50 border-orange-200 dark:bg-orange-500/10 dark:text-orange-400 dark:border-orange-500/20";
-                                        else if (percentage < 93) scoreClass = "text-amber-600 bg-amber-50 border-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20";
+                                        if (displayScore < 70) scoreClass = "text-red-600 bg-red-50 border-red-200 dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/20";
+                                        else if (displayScore < 85) scoreClass = "text-orange-600 bg-orange-50 border-orange-200 dark:bg-orange-500/10 dark:text-orange-400 dark:border-orange-500/20";
+                                        else if (displayScore < 93) scoreClass = "text-amber-600 bg-amber-50 border-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20";
                                         else scoreClass = "text-emerald-600 bg-emerald-50 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20";
 
                                         // Auditor name logic
@@ -392,7 +411,7 @@ export default function MagazaPage() {
                                                             </div>
                                                         </div>
                                                         <div className={`px-2.5 py-1 rounded-md border text-xs font-bold leading-none ${scoreClass}`}>
-                                                            {percentage.toFixed(0)} Puan
+                                                            {displayScore} Puan
                                                         </div>
                                                     </div>
 
@@ -478,13 +497,32 @@ export default function MagazaPage() {
                                 <GridFadeIn className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                     {completedAudits.map((audit) => {
                                         const profile = auditorProfiles.get(audit.auditorId);
-                                        const percentage = (audit.totalScore / audit.maxScore) * 100;
+                                        let rawEarned = 0;
+                                        let rawMax = 0;
+                                        if (audit.sections) {
+                                            audit.sections.forEach(s => {
+                                                if (s.answers) {
+                                                    s.answers.forEach(a => {
+                                                        if (a.answer && a.answer !== "muaf" && a.answer.trim() !== "") {
+                                                            rawEarned += a.earnedPoints || 0;
+                                                            rawMax += a.maxPoints || 0;
+                                                        }
+                                                    });
+                                                }
+                                            });
+                                        }
+                                        const rawPercentage = rawMax > 0 ? (rawEarned / rawMax) * 100 : 0;
+                                        
+                                        let displayScore = Math.round(rawPercentage);
+                                        if (rawPercentage > 99 && rawPercentage < 100) {
+                                            displayScore = 99;
+                                        }
                                         
                                         // Colors
                                         let scoreClass = "";
-                                        if (percentage < 70) scoreClass = "text-red-600 bg-red-50 border-red-200 dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/20";
-                                        else if (percentage < 85) scoreClass = "text-orange-600 bg-orange-50 border-orange-200 dark:bg-orange-500/10 dark:text-orange-400 dark:border-orange-500/20";
-                                        else if (percentage < 93) scoreClass = "text-amber-600 bg-amber-50 border-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20";
+                                        if (displayScore < 70) scoreClass = "text-red-600 bg-red-50 border-red-200 dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/20";
+                                        else if (displayScore < 85) scoreClass = "text-orange-600 bg-orange-50 border-orange-200 dark:bg-orange-500/10 dark:text-orange-400 dark:border-orange-500/20";
+                                        else if (displayScore < 93) scoreClass = "text-amber-600 bg-amber-50 border-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20";
                                         else scoreClass = "text-emerald-600 bg-emerald-50 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20";
 
                                         // Name logic
@@ -523,7 +561,7 @@ export default function MagazaPage() {
                                                             </div>
                                                         </div>
                                                         <div className={`px-2.5 py-1 rounded-md border text-xs font-bold leading-none ${scoreClass}`}>
-                                                            {percentage.toFixed(0)} Puan
+                                                            {displayScore} Puan
                                                         </div>
                                                     </div>
 

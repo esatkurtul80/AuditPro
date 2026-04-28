@@ -835,7 +835,7 @@ export default function BolgeRaporuPage() {
                                             <YAxis domain={[50, 100]} tick={{ fontSize: 11 }} />
                                             <Tooltip
                                                 formatter={(v: any, name: any) => [v !== null && v !== undefined ? `${v}/100` : "Veri yok", String(name ?? "")]}
-                                                labelFormatter={(label: string) => `${label} ${selectedYear}`}
+                                                labelFormatter={(label: any) => `${label} ${selectedYear}`}
                                             />
                                             <Legend verticalAlign="bottom" height={52} wrapperStyle={{ paddingTop: 16, fontSize: 12 }} />
                                             {monthlyManagerData.managers.map((mgr, idx) => (

@@ -552,7 +552,16 @@ export default function AuditPage() {
             // PROCESS HISTORY DATA (Client-Side)
             // We calculate the history status for ALL questions right here, right now.
             const newHistoryCache: Record<string, QuestionHistory> = {};
-            const relevantAudits = pastAudits.filter(a => a.id !== auditId); // Exclude current
+            // Exclude current audit AND any audits completed after the current audit's date
+            const currentAuditTime = auditData.completedAt
+                ? (auditData.completedAt as any).toDate?.().getTime() ?? new Date(auditData.completedAt as any).getTime()
+                : Date.now();
+            const relevantAudits = pastAudits.filter(a => {
+                if (a.id === auditId) return false;
+                if (!a.completedAt) return false;
+                const t = (a.completedAt as any).toDate?.().getTime() ?? new Date(a.completedAt as any).getTime();
+                return t < currentAuditTime;
+            });
 
             // Iterate over every question in the current audit to calculate its history
             auditData.sections.forEach(section => {
@@ -701,9 +710,9 @@ export default function AuditPage() {
             else if (updates.answer === "muaf") newAnswer.earnedPoints = newAnswer.maxPoints;
         }
 
-        if (!isActionNeeded(newAnswer)) {
-            delete newAnswer.actionData;
-        }
+        // DO NOT delete newAnswer.actionData here.
+        // It causes data loss if the auditor temporarily toggles an answer during edit mode.
+        // Cleanup happens safely in saveAndNotify / completeAudit when the audit is actually saved.
 
         if (isFirstAnswer) {
             newAnswer.durationSeconds = Math.round((now - lastActionTime.current) / 1000);
@@ -993,7 +1002,8 @@ export default function AuditPage() {
             const updatedSections = sectionsToComplete.map(section => ({
                 ...section,
                 answers: section.answers.map(answer => {
-                    if (answer.answer === "hayir") {
+                    const isActionNeeded = answer.answer === "hayir" || (answer.questionType === "checkbox" && answer.earnedPoints < answer.maxPoints);
+                    if (isActionNeeded) {
                         return {
                             ...answer,
                             actionData: {
@@ -1001,7 +1011,7 @@ export default function AuditPage() {
                             }
                         };
                     }
-                    // For answers that are not "hayir", ensure actionData is removed if it exists
+                    // For answers that do not need action, ensure actionData is removed if it exists
                     const { actionData, ...restOfAnswer } = answer;
                     return restOfAnswer;
                 })
@@ -1244,7 +1254,7 @@ export default function AuditPage() {
         });
 
         if (unansweredItems.length > 0 || missingPhotos.length > 0 || missingNotes.length > 0) {
-            setValidationErrors({ unanswered: unansweredItems, photos: missingPhotos, notes: missingNotes });
+            setValidationErrors({ unanswered: unansweredItems, photos: missingPhotos, notes: missingNotes, personnel: [] });
             setShowValidationModal(true);
             return;
         }
