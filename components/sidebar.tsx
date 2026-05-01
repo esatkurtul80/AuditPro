@@ -25,6 +25,7 @@ import {
     Hotel,
     Paintbrush,
     MapPin,
+    FolderOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, useEffect, Suspense } from "react";
@@ -180,6 +181,7 @@ function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar }: 
     const adminLinks = [
         { href: "/admin/dashboard", label: "Panel", icon: LayoutDashboard },
         { href: "/admin/stores", label: "Mağazalar", icon: Store },
+        { href: "/admin/dosyalar", label: "Dosyalar", icon: FolderOpen },
         { href: "/admin/cop-kutusu", label: "Çöp Kutusu", icon: Trash2 },
     ];
 

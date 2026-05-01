@@ -1,4 +1,6 @@
 "use client";
+// Score utilities – single source of truth
+import { calcDisplayScore } from "@/lib/utils";
 
 import { useEffect, useState } from "react";
 import {
@@ -293,9 +295,7 @@ export default function ReportPanelDashboard() {
                                 <TableBody>
                                     {completedAudits
                                         .map((audit) => {
-                                            const pct = audit.maxScore
-                                                ? Math.round((audit.totalScore / audit.maxScore) * 100)
-                                                : 0;
+                                            const pct = calcDisplayScore(audit.totalScore);
 
                                             // Calculate total duration
                                             let durationStr = "—";
@@ -315,7 +315,7 @@ export default function ReportPanelDashboard() {
                                                     <TableCell className="text-sm text-muted-foreground">{audit.auditorName}</TableCell>
                                                     <TableCell>
                                                         <Badge className={`${scoreColor(pct)} text-white font-mono min-w-[3rem] justify-center`}>
-                                                            {audit.totalScore}
+                                                            {pct}
                                                         </Badge>
                                                     </TableCell>
                                                     <TableCell className="text-xs text-muted-foreground font-mono whitespace-nowrap">

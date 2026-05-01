@@ -167,6 +167,8 @@ export async function getQuestionHistory(
                 photos: foundAnswer.photos || [],
                 actionData: foundAnswer.actionData,
             });
+
+
         } else {
             // Found complete answer, stop counting consecutive failures
             break;

@@ -68,6 +68,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import Logger from "@/lib/logger";
 import { getStoreAuditHistory, QuestionHistory, QuestionHistoryEntry } from "@/lib/question-history";
 import { PersonnelEvaluationSection } from "@/components/audits/personnel-evaluation-section";
+import { applyScoreRule } from "@/lib/utils";
 
 const AuditPageLayout = ({ children, isRegionalManager }: { children: React.ReactNode; isRegionalManager: boolean }) => {
     if (isRegionalManager) {
@@ -608,6 +609,7 @@ export default function AuditPage() {
                                 ratingMax: foundPastAnswer.ratingMax,
                                 notes: foundPastAnswer.notes || [],
                                 photos: foundPastAnswer.photos || [],
+                                actionData: foundPastAnswer.actionData, // ← was missing!
                             });
                         } else {
                             break; // Streak broken
@@ -740,7 +742,7 @@ export default function AuditPage() {
                 if (m > 0) scores.push((e / m) * 100);
             });
             const raw = scores.length > 0 ? scores.reduce((s, v) => s + v, 0) / scores.length : 0;
-            const totalScore = (raw > 99 && raw < 100) ? 99 : Math.round(raw);
+            const totalScore = applyScoreRule(raw);
             return { ...prev, sections: newSections, totalScore, updatedAt: Timestamp.now() };
         });
 
@@ -782,7 +784,7 @@ export default function AuditPage() {
                 if (m > 0) scores.push((e / m) * 100);
             });
             const raw = scores.length > 0 ? scores.reduce((s, v) => s + v, 0) / scores.length : 0;
-            const totalScore = (raw > 99 && raw < 100) ? 99 : Math.round(raw);
+            const totalScore = applyScoreRule(raw);
 
             const firestorePayload: Record<string, unknown> = {
                 sections: sectionsToSave,
@@ -1765,7 +1767,7 @@ export default function AuditPage() {
                         <div className="flex flex-col items-center">
                             <div className="flex items-center justify-center w-20 h-20 bg-white dark:bg-slate-800 rounded-full shadow-lg border-4 border-blue-100 dark:border-blue-800">
                                 <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">
-                                    {audit.totalScore || 0}
+                                    {applyScoreRule(audit.totalScore || 0)}
                                 </div>
                             </div>
                         </div>

@@ -299,8 +299,8 @@ export function QuestionHistoryButton({
                                                         )}
                                                     </div>
 
-                                                    {/* Store Action Content (If Exists) */}
-                                                    {entry.actionData && (entry.actionData.storeNote || (entry.actionData.storeImages && entry.actionData.storeImages.length > 0)) ? (
+                                                     {/* Store Action Content (If Exists) */}
+                                                     {entry.actionData && entry.actionData.status && entry.actionData.status !== 'pending_store' ? (
                                                         <div className="mt-4 pt-4 border-t border-dashed relative">
                                                             {/* Connector Line/Icon */}
                                                             <div className="absolute -left-[30px] top-6 flex items-center gap-2">

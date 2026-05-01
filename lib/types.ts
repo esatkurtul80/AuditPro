@@ -243,7 +243,7 @@ export interface ActionItem {
 }
 
 // Notification type
-export type NotificationType = "action_rejected" | "action_approved" | "new_audit" | "action_correction" | "audit_edited" | "pending_user" | "admin_message" | "rejected_action" | "audit_completed";
+export type NotificationType = "action_rejected" | "action_approved" | "action_submitted" | "new_audit" | "action_correction" | "audit_edited" | "pending_user" | "admin_message" | "rejected_action" | "audit_completed";
 
 export interface Notification {
     id: string;
@@ -253,6 +253,9 @@ export interface Notification {
     message: string;
     read: boolean;
     relatedId?: string; // audit ID, action ID, etc.
+    auditId?: string;   // explicit audit ID for action notifications
+    storeName?: string; // store name for regional manager notifications
+    link?: string;      // direct navigation link on click
     senderName?: string;
     changes?: Array<{
         sectionName: string;

@@ -567,6 +567,17 @@ export default function PersonnelReportPage() {
                 return a - b;
             },
             cell: ({ row }) => {
+                // Check if any of this personnel's evaluations show resigned
+                const evals: EvaluationRow[] = row.original.evaluations || [];
+                const isResigned = evals.some((e: EvaluationRow) => e.personnelStatus === "resigned");
+                if (isResigned) {
+                    return (
+                        <div className="flex justify-center">
+                            <Badge className="bg-rose-500 text-white font-medium px-2">İşten Ayrıldı</Badge>
+                        </div>
+                    );
+                }
+
                 const score = row.original.averageScore;
                 if (score === undefined || score === null) return <div className="text-center">-</div>;
 
@@ -813,7 +824,9 @@ export default function PersonnelReportPage() {
                                                     <CardTitle className="text-sm font-medium">{ev.formattedDate}</CardTitle>
                                                     <CardDescription className="text-xs mt-1">{ev.storeName} - {ev.auditorName}</CardDescription>
                                                 </div>
-                                                {(ev.score ?? 0) < 0 ? (
+                                                {ev.personnelStatus === "resigned" ? (
+                                                    <Badge className="bg-rose-500 text-white">İşten Ayrıldı</Badge>
+                                                ) : (ev.score ?? 0) < 0 ? (
                                                     <Badge className="bg-sky-500 text-white">İzinli</Badge>
                                                 ) : (
                                                     <Badge className={cn("text-white font-mono min-w-[3rem] justify-center", color)}>

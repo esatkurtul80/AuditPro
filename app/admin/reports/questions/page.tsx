@@ -228,34 +228,41 @@ export default function QuestionAnalysisPage() {
                     if (q.questionType === "multiple_choice" || q.questionType === "checkbox") {
                         const selectedTexts = new Set<string>();
 
-                        const processOption = (optIdOrText: string) => {
-                            if (!optIdOrText) return;
+                        const resolveText = (optIdOrText: string): string => {
+                            if (!optIdOrText) return optIdOrText;
                             const optionDef = answer.options?.find(o => o.id === optIdOrText || o.text === optIdOrText);
-                            const text = optionDef ? optionDef.text : optIdOrText;
-                            selectedTexts.add(text);
-                            
-                            if (!q.optionCounts[text]) {
-                                q.optionCounts[text] = { text, count: 0, maxStreak: 0 };
-                            }
-                            q.optionCounts[text].count++;
+                            return optionDef ? optionDef.text : optIdOrText;
                         };
 
                         if (q.questionType === "multiple_choice" && answer.answer) {
-                            processOption(answer.answer);
+                            selectedTexts.add(resolveText(answer.answer));
                         } else if (q.questionType === "checkbox" && Array.isArray(answer.selectedOptions)) {
-                            answer.selectedOptions.forEach(opt => processOption(opt));
+                            answer.selectedOptions.forEach(opt => selectedTexts.add(resolveText(opt)));
                         }
 
-                        // Track option streaks
-                        const allPossibleTexts = answer.options ? answer.options.map(o => o.text) : Object.keys(q.optionCounts);
+                        // All possible options for this question
+                        const allPossibleTexts = answer.options
+                            ? answer.options.map(o => o.text)
+                            : Object.keys(q.optionCounts);
+
+                        // Ensure every option has an entry
                         const textsToProcess = new Set([...allPossibleTexts, ...Array.from(selectedTexts)]);
-                        
+
                         textsToProcess.forEach(text => {
                             if (!q.optionCounts[text]) {
                                 q.optionCounts[text] = { text, count: 0, maxStreak: 0 };
                             }
+
+                            const wasNotSelected = !selectedTexts.has(text);
+
+                            // count = number of audits where this option was NOT selected (points missed)
+                            if (wasNotSelected) {
+                                q.optionCounts[text].count++;
+                            }
+
+                            // Streak tracking: streak increases when option is NOT selected
                             const currentOptStreak = storeOptionStreaks[storeId][qId][text] || 0;
-                            if (selectedTexts.has(text)) {
+                            if (wasNotSelected) {
                                 const newStreak = currentOptStreak + 1;
                                 storeOptionStreaks[storeId][qId][text] = newStreak;
                                 if (newStreak > (storeOptionMaxStreaks[storeId][qId][text] || 0)) {
@@ -330,19 +337,26 @@ export default function QuestionAnalysisPage() {
         const ws = XLSX.utils.json_to_sheet(dataToExport.map(s => {
             let details = "";
             if (s.questionType === "multiple_choice" || s.questionType === "checkbox") {
-                details = Object.values(s.optionCounts).map(opt => `${opt.text}: ${opt.count} (Max Seri: ${opt.maxStreak})`).join(" | ");
+                details = Object.values(s.optionCounts).map(opt => `${opt.text}: ${opt.count} kez puan alınamadı (Max Seri: ${opt.maxStreak})`).join(" | ");
             }
+
+            const isOption = s.questionType === "multiple_choice" || s.questionType === "checkbox";
+            const totalMissed = isOption
+                ? Object.values(s.optionCounts).reduce((sum, o) => sum + o.count, 0)
+                : null;
+            const effectiveStreak = isOption
+                ? Math.max(0, ...Object.values(s.optionCounts).map(o => o.maxStreak))
+                : s.maxStreak;
 
             return {
                 "Soru": s.text,
                 "Bölüm": s.sectionName,
                 "Tip": s.questionType === "yes_no" ? "Evet/Hayır" : (s.questionType === "multiple_choice" ? "Çoktan Seçmeli" : (s.questionType === "checkbox" ? "Çoklu Seçim" : s.questionType)),
                 "Toplam Cevap": s.totalAnswers,
-                "Hata (Hayır) Sayısı": s.questionType === "yes_no" ? s.failCount : "-",
+                "Hata Sayısı": isOption ? totalMissed : s.failCount,
                 "Başarısızlık Oranı (%)": s.questionType === "yes_no" ? ((s.failCount / s.totalAnswers) * 100).toFixed(1) : "-",
                 "Seçenek Dağılımı": details,
-                "Toplam Puan Kaybı": s.pointsLost,
-                "Maksimum Arka Arkaya Hata": s.maxStreak
+                "Maksimum Arka Arkaya Hata": effectiveStreak
             };
         }));
         const wb = XLSX.utils.book_new();
@@ -383,48 +397,59 @@ export default function QuestionAnalysisPage() {
             accessorKey: "failCount",
             meta: { title: "Hata" },
             header: ({ column }: { column: any }) => <DataTableColumnHeader column={column} title="Hata (Hayır)" showFilter={false} className="justify-center w-full" />,
-            cell: ({ row }) => (
-                <div className="text-center whitespace-nowrap flex flex-col items-center">
-                    {row.original.questionType === "yes_no" ? (
-                        <>
-                            <Badge variant={row.original.failCount > 0 ? "destructive" : "secondary"}>
-                                {row.original.failCount}
+            cell: ({ row }) => {
+                const { questionType, failCount, totalAnswers, optionCounts } = row.original;
+
+                if (questionType === "yes_no") {
+                    return (
+                        <div className="text-center whitespace-nowrap flex flex-col items-center">
+                            <Badge variant={failCount > 0 ? "destructive" : "secondary"}>
+                                {failCount}
                             </Badge>
                             <div className="text-[10px] text-muted-foreground mt-1">
-                                %{row.original.totalAnswers > 0 ? ((row.original.failCount / row.original.totalAnswers) * 100).toFixed(0) : 0}
+                                %{totalAnswers > 0 ? ((failCount / totalAnswers) * 100).toFixed(0) : 0}
                             </div>
-                        </>
-                    ) : (
-                        <span className="text-muted-foreground">-</span>
-                    )}
-                </div>
-            )
+                        </div>
+                    );
+                }
+
+                // For multiple_choice / checkbox: sum of all option miss counts
+                const totalMissed = Object.values(optionCounts).reduce((sum, o) => sum + o.count, 0);
+                return (
+                    <div className="text-center whitespace-nowrap flex flex-col items-center">
+                        <Badge variant={totalMissed > 0 ? "destructive" : "secondary"}>
+                            {totalMissed}
+                        </Badge>
+                        <div className="text-[10px] text-muted-foreground mt-1">toplam</div>
+                    </div>
+                );
+            }
         },
-        {
-            accessorKey: "pointsLost",
-            meta: { title: "Puan Kaybı" },
-            header: ({ column }: { column: any }) => <DataTableColumnHeader column={column} title="Puan Kaybı" showFilter={false} className="justify-center w-full" />,
-            cell: ({ row }) => (
-                <div className="text-center font-semibold text-orange-600 whitespace-nowrap">
-                    {row.original.pointsLost > 0 ? `-${row.original.pointsLost}` : "0"}
-                </div>
-            )
-        },
+
         {
             accessorKey: "maxStreak",
             meta: { title: "Max Seri Hata" },
             header: ({ column }: { column: any }) => <DataTableColumnHeader column={column} title="Max Seri Hata" showFilter={false} className="justify-center w-full" />,
-            cell: ({ row }) => (
-                <div className="text-center whitespace-nowrap flex justify-center">
-                    {row.original.maxStreak > 1 ? (
-                        <Badge variant="outline" className="border-yellow-500 text-yellow-600 bg-yellow-50">
-                            {row.original.maxStreak} Kez
-                        </Badge>
-                    ) : (
-                        <span className="text-muted-foreground">-</span>
-                    )}
-                </div>
-            )
+            cell: ({ row }) => {
+                const { questionType, maxStreak, optionCounts } = row.original;
+
+                // For option-based questions: use the highest maxStreak across all options
+                const effectiveStreak = (questionType === "multiple_choice" || questionType === "checkbox")
+                    ? Math.max(0, ...Object.values(optionCounts).map(o => o.maxStreak))
+                    : maxStreak;
+
+                return (
+                    <div className="text-center whitespace-nowrap flex justify-center">
+                        {effectiveStreak > 1 ? (
+                            <Badge variant="outline" className="border-yellow-500 text-yellow-600 bg-yellow-50">
+                                {effectiveStreak} Kez
+                            </Badge>
+                        ) : (
+                            <span className="text-muted-foreground">-</span>
+                        )}
+                    </div>
+                );
+            }
         },
         {
             accessorKey: "optionCounts",
@@ -441,9 +466,13 @@ export default function QuestionAnalysisPage() {
                                 <div key={i} className="flex justify-between items-center text-xs">
                                     <span className="text-muted-foreground truncate mr-2" title={opt.text}>{opt.text}</span>
                                     <div className="flex gap-1 items-center">
-                                        <Badge variant="secondary" className="text-[10px] px-1 py-0">{opt.count}</Badge>
+                                        {opt.count > 0 && (
+                                            <Badge variant="destructive" className="text-[10px] px-1 py-0" title={`${opt.count} denetimde puan alınamadı`}>
+                                                {opt.count} kez alınamadı
+                                            </Badge>
+                                        )}
                                         {opt.maxStreak > 1 && (
-                                            <Badge variant="outline" className="border-yellow-500 text-yellow-600 bg-yellow-50 text-[10px] px-1 py-0" title={`Max Seri: ${opt.maxStreak}`}>
+                                            <Badge variant="outline" className="border-yellow-500 text-yellow-600 bg-yellow-50 text-[10px] px-1 py-0" title={`Max arka arkaya seçilmedi: ${opt.maxStreak}`}>
                                                 {opt.maxStreak} seri
                                             </Badge>
                                         )}

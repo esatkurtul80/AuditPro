@@ -80,6 +80,7 @@ import {
     DateRangeFilter,
 } from "@/lib/types";
 import { permanentlyDeleteAudit } from "@/lib/firebase-utils";
+import { applyScoreRule } from "@/lib/utils";
 import { toast } from "sonner";
 import { DataTable } from "@/components/ui/data-table";
 import { ColumnDef, Column, Row } from "@tanstack/react-table";
@@ -425,7 +426,7 @@ export default function AdminDashboard() {
             accessorKey: "totalScore",
             meta: { title: "Puan" },
             header: ({ column }: { column: Column<Audit> }) => <DataTableColumnHeader column={column} title="Puan" showFilter={false} />,
-            cell: ({ row }: { row: Row<Audit> }) => <span className="font-semibold">{row.original.totalScore || 0}</span>,
+            cell: ({ row }: { row: Row<Audit> }) => <span className="font-semibold">{applyScoreRule(row.original.totalScore || 0)}</span>,
         },
         {
             id: "createdAt",

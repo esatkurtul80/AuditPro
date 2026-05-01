@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useAuth } from "@/components/auth-provider";
-import { collection, getDocs, query, where, orderBy, limit } from "firebase/firestore";
+import { collection, getDocs, onSnapshot, query, where, orderBy, limit } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { applyScoreRule, calcDisplayScore } from "@/lib/utils";
 import { Store, Audit } from "@/lib/types";
 import {
     Card,
@@ -49,6 +50,7 @@ export function RegionalDashboard() {
     const [myStores, setMyStores] = useState<Store[]>([]);
     const [globalPendingAudits, setGlobalPendingAudits] = useState<any[]>([]);
     const [recentAudits, setRecentAudits] = useState<any[]>([]);
+    const [liveAudits, setLiveAudits] = useState<any[]>([]);
     const [selectedMonth, setSelectedMonth] = useState<string>("all");
     const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
     const [selectedStore, setSelectedStore] = useState<string>("all");
@@ -60,6 +62,68 @@ export function RegionalDashboard() {
             loadDashboardData();
         }
     }, [userProfile, selectedMonth, selectedYear, selectedStore]);
+
+    // Real-time listener for completed audits (action status updates)
+    useEffect(() => {
+        if (!userProfile?.uid || myStores.length === 0) return;
+
+        const allStoreIds = myStores.map(s => s.id);
+        const targetStoreIds = selectedStore === "all" ? allStoreIds : [selectedStore];
+        const storeChunk = targetStoreIds.slice(0, 30);
+
+        let q = query(
+            collection(db, "audits"),
+            where("storeId", "in", storeChunk),
+            where("status", "==", "tamamlandi"),
+            orderBy("createdAt", "desc"),
+            limit(50)
+        );
+
+        const unsub = onSnapshot(q, (snapshot) => {
+            const audits = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data(),
+                storeName: myStores.find(s => s.id === doc.data().storeId)?.name || "Bilinmeyen Mağaza"
+            }));
+            setRecentAudits(audits);
+        });
+
+        return () => unsub();
+    }, [userProfile, myStores, selectedStore, selectedMonth, selectedYear]);
+
+    // Real-time listener for in-progress audits — two separate queries to avoid Firestore disjunction limit
+    useEffect(() => {
+        if (!userProfile?.uid || myStores.length === 0) return;
+
+        const storeIds = myStores.map(s => s.id).slice(0, 30);
+        const mergedMap = new Map<string, any>();
+
+        const makeQuery = (status: string) => query(
+            collection(db, "audits"),
+            where("storeId", "in", storeIds),
+            where("status", "==", status)
+        );
+
+        const handleSnap = (snap: any) => {
+            snap.docs.forEach((d: any) => {
+                mergedMap.set(d.id, {
+                    id: d.id,
+                    ...d.data(),
+                    storeName: myStores.find(s => s.id === d.data().storeId)?.name || "Bilinmeyen Mağaza"
+                });
+            });
+            // Remove docs that no longer match this status snapshot
+            snap.docChanges().forEach((change: any) => {
+                if (change.type === "removed") mergedMap.delete(change.doc.id);
+            });
+            setLiveAudits(Array.from(mergedMap.values()));
+        };
+
+        const unsub1 = onSnapshot(makeQuery("devam_ediyor"), handleSnap);
+        const unsub2 = onSnapshot(makeQuery("baslatildi"), handleSnap);
+
+        return () => { unsub1(); unsub2(); };
+    }, [userProfile, myStores]);
 
     const loadDashboardData = async () => {
         if (!userProfile?.uid) return;
@@ -178,18 +242,8 @@ export function RegionalDashboard() {
                    auditsData = snapshot.docs.map(d => ({id: d.id, ...d.data()})).filter((a:any) => targetStoreIds.includes(a.storeId));
             }
 
-            // Enrich audit data with store names
-            const enrichedAudits = auditsData
-                .filter((audit: any) => audit.status !== "iptal_edildi")
-                .map(audit => {
-                const store = storesData.find(s => s.id === audit.storeId);
-                return {
-                    ...audit,
-                    storeName: store?.name || "Bilinmeyen Mağaza"
-                };
-            });
-
-            setRecentAudits(enrichedAudits);
+            // Enrich audit data with store names — recentAudits is now handled by onSnapshot listener
+            // setRecentAudits is intentionally not called here
         } catch (error) {
             console.error("Error loading dashboard:", error);
         } finally {
@@ -216,7 +270,9 @@ export function RegionalDashboard() {
     const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const currentMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
 
+    // Only completed audits in current month for average calculation
     const currentMonthAudits = recentAudits.filter(audit => {
+        if (audit.status !== "tamamlandi") return false;
         if (!audit.createdAt?.seconds) return false;
         const auditDate = new Date(audit.createdAt.seconds * 1000);
         return auditDate >= currentMonthStart && auditDate <= currentMonthEnd;
@@ -225,41 +281,12 @@ export function RegionalDashboard() {
     const months = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
     const years = Array.from({ length: 11 }, (_, i) => 2026 + i);
 
-    // Calculate current month average score using section-based scoring
+    // Calculate current month average score — use stored totalScore via calcDisplayScore
     const currentMonthAverage = currentMonthAudits.length > 0
-        ? Math.round(
+        ? applyScoreRule(
             currentMonthAudits.reduce((acc, audit) => {
-                // Calculate score the same way as audit page (section-based)
-                const sectionScores: number[] = [];
-
-                if (audit.sections && Array.isArray(audit.sections)) {
-                    audit.sections.forEach((section: any) => {
-                        let sectionEarned = 0;
-                        let sectionMax = 0;
-
-                        if (section.answers && Array.isArray(section.answers)) {
-                            section.answers.forEach((answer: any) => {
-                                // Only count answered questions (excluding "muaf")
-                                if (answer.answer && answer.answer.trim() !== "" && answer.answer !== "muaf") {
-                                    sectionEarned += answer.earnedPoints || 0;
-                                    sectionMax += answer.maxPoints || 0;
-                                }
-                            });
-                        }
-
-                        if (sectionMax > 0) {
-                            const sectionScore = (sectionEarned / sectionMax) * 100;
-                            sectionScores.push(sectionScore);
-                        }
-                    });
-                }
-
-                // Average of all section scores for this audit
-                const auditScore = sectionScores.length > 0
-                    ? sectionScores.reduce((sum, score) => sum + score, 0) / sectionScores.length
-                    : 0;
-
-                return acc + auditScore;
+                const score = calcDisplayScore(audit.totalScore, undefined, undefined);
+                return acc + score;
             }, 0) / currentMonthAudits.length
         )
         : 0;
@@ -326,8 +353,61 @@ export function RegionalDashboard() {
                 </Card>
             </div>
 
+            {/* Live Audits Section — real-time via onSnapshot */}
+            {liveAudits.length > 0 && (
+                <Card className="border shadow-sm overflow-hidden border-green-200 dark:border-green-900">
+                    <CardHeader className="px-4 py-3 border-b bg-green-50/60 dark:bg-green-950/20">
+                        <div className="flex items-center gap-2">
+                            {/* Pulsing green dot */}
+                            <span className="relative flex h-3 w-3">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                            </span>
+                            <CardTitle className="text-base text-green-700 dark:text-green-400">
+                                Anlık Denetimler
+                            </CardTitle>
+                            <Badge className="ml-auto bg-green-500 hover:bg-green-600 text-white text-[10px] px-1.5 py-0">
+                                {liveAudits.length} aktif
+                            </Badge>
+                        </div>
+                        <CardDescription className="text-xs text-green-700/70 dark:text-green-500/70">
+                            Şu anda devam eden denetimler gerçek zamanlı gösterilmektedir.
+                        </CardDescription>
+                    </CardHeader>
+                    <div className="divide-y divide-green-100 dark:divide-green-900/40">
+                        {liveAudits.map((audit: any) => {
+                            const startTime = audit.startedAt?.seconds
+                                ? format(new Date(audit.startedAt.seconds * 1000), "HH:mm", { locale: tr })
+                                : audit.createdAt?.seconds
+                                    ? format(new Date(audit.createdAt.seconds * 1000), "HH:mm", { locale: tr })
+                                    : null;
+                            return (
+                                <div key={audit.id} className="flex items-center justify-between px-4 py-3 hover:bg-green-50/50 dark:hover:bg-green-950/10 transition-colors">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/40 flex items-center justify-center shrink-0">
+                                            <PlayCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-semibold text-foreground">{audit.storeName}</p>
+                                            <p className="text-[11px] text-muted-foreground">{audit.auditorName || "Denetmen"}</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        {startTime && (
+                                            <div className="flex items-center gap-1 text-[11px] text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-900/40 px-2 py-0.5 rounded-full font-medium">
+                                                <Clock className="h-3 w-3" />
+                                                {startTime}{String.fromCharCode(39)}de başladı
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </Card>
+            )}
 
-{/* Persistent Lists - Unified Waiting & Overdue Table */}
+            {/* Persistent Lists - Unified Waiting & Overdue Table */}
             <Card className="border shadow-sm overflow-hidden">
                 <CardHeader className="px-4 py-3 border-b bg-muted/20">
                     <div className="flex items-center gap-2">
@@ -409,7 +489,7 @@ export function RegionalDashboard() {
                                     const deadlineMs = audit.actionDeadline?.seconds * 1000 || 0;
                                     const diffMs = deadlineMs - Date.now();
                                     const isOverdue = diffMs < 0;
-                                    const daysDiff = Math.ceil(Math.abs(diffMs) / (1000 * 60 * 60 * 24));
+                                    const daysDiff = Math.floor(Math.abs(diffMs) / (1000 * 60 * 60 * 24));
 
                                     return (
                                         <tr key={audit.id} className="hover:bg-muted/10 transition-colors">
@@ -417,7 +497,11 @@ export function RegionalDashboard() {
                                             <td className="px-4 py-3 text-center">
                                                 {isOverdue ? (
                                                     <Badge variant="outline" className="bg-red-50 text-red-600 border-red-200 hover:bg-red-100 whitespace-nowrap">
-                                                        {daysDiff} gün gecikti
+                                                        {daysDiff > 0 ? `${daysDiff} gün gecikti` : 'Bugün son gün geçti'}
+                                                    </Badge>
+                                                ) : daysDiff === 0 ? (
+                                                    <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-300 hover:bg-amber-100 whitespace-nowrap font-semibold">
+                                                        Dönüş için son gün
                                                     </Badge>
                                                 ) : (
                                                     <Badge variant="outline" className="bg-orange-50 text-orange-600 border-orange-200 hover:bg-orange-100 whitespace-nowrap">
@@ -509,35 +593,8 @@ export function RegionalDashboard() {
                     ) : (
                         <div className="space-y-4">
                             {recentAudits.map((audit) => {
-                                // Calculate score the same way as audit page
-                                const sectionScores: number[] = [];
-
-                                if (audit.sections && Array.isArray(audit.sections)) {
-                                    audit.sections.forEach((section: any) => {
-                                        let sectionEarned = 0;
-                                        let sectionMax = 0;
-
-                                        if (section.answers && Array.isArray(section.answers)) {
-                                            section.answers.forEach((answer: any) => {
-                                                // Only count answered questions (excluding "muaf")
-                                                if (answer.answer && answer.answer.trim() !== "" && answer.answer !== "muaf") {
-                                                    sectionEarned += answer.earnedPoints || 0;
-                                                    sectionMax += answer.maxPoints || 0;
-                                                }
-                                            });
-                                        }
-
-                                        if (sectionMax > 0) {
-                                            const sectionScore = (sectionEarned / sectionMax) * 100;
-                                            sectionScores.push(sectionScore);
-                                        }
-                                    });
-                                }
-
-                                // Average of all section scores
-                                const scorePercent = sectionScores.length > 0
-                                    ? Math.round(sectionScores.reduce((sum, score) => sum + score, 0) / sectionScores.length)
-                                    : 0;
+                                // Use stored totalScore — single source of truth via calcDisplayScore
+                                const scorePercent = calcDisplayScore(audit.totalScore, undefined, undefined);
 
                                 return (() => {
                                     // Determine if store has action items and their status
@@ -548,9 +605,29 @@ export function RegionalDashboard() {
                                     ) || [];
 
                                     const hasActions = actionItems.length > 0;
-                                    const storeResponded = hasActions && actionItems.some((a: any) =>
-                                        a.actionData?.status === "pending_review" || a.actionData?.status === "approved"
+
+                                    // Granular status counts
+                                    const pendingStoreCount = actionItems.filter((a: any) =>
+                                        !a.actionData?.status || a.actionData?.status === "pending_store"
+                                    ).length;
+                                    const pendingAdminCount = actionItems.filter((a: any) =>
+                                        a.actionData?.status === "pending_admin" || a.actionData?.status === "pending_review"
+                                    ).length;
+                                    const approvedCount = actionItems.filter((a: any) =>
+                                        a.actionData?.status === "approved"
+                                    ).length;
+                                    const rejectedCount = actionItems.filter((a: any) =>
+                                        a.actionData?.status === "rejected"
+                                    ).length;
+
+                                    // Rejected question texts for display
+                                    const rejectedItems = actionItems.filter((a: any) =>
+                                        a.actionData?.status === "rejected"
                                     );
+
+                                    const allApproved = hasActions && approvedCount === actionItems.length;
+                                    const storeResponded = hasActions && pendingStoreCount === 0 && rejectedCount === 0;
+                                    const waitingAdminApproval = hasActions && pendingAdminCount > 0 && pendingStoreCount === 0;
 
                                     // Deadline calculation
                                     let deadlineDays: number | null = null;
@@ -559,7 +636,7 @@ export function RegionalDashboard() {
                                         const deadlineMs = audit.actionDeadline.seconds * 1000;
                                         const now = Date.now();
                                         const diffMs = deadlineMs - now;
-                                        deadlineDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+                                        deadlineDays = Math.floor(Math.abs(diffMs) / (1000 * 60 * 60 * 24));
                                         deadlinePassed = diffMs < 0;
                                     }
 
@@ -571,23 +648,67 @@ export function RegionalDashboard() {
                                                     <p className="text-sm font-medium truncate">{audit.storeName}</p>
                                                     <p className="text-[10px] text-muted-foreground truncate">{audit.auditorName || "Denetmen"}</p>
                                                     <div className="flex items-center gap-2 flex-wrap">
-                                                        {hasActions && !storeResponded && (
+                                                        {/* Status Badge */}
+                                                        {hasActions && pendingStoreCount > 0 && rejectedCount === 0 && (
                                                             <Badge variant="outline" className="text-orange-600 border-orange-500 bg-orange-50 dark:bg-orange-950/30 text-[10px] px-1.5 py-0">
                                                                 <Clock className="mr-1 h-2.5 w-2.5" />
                                                                 Dönüş Bekliyor
+                                                            </Badge>
+                                                        )}
+                                                        {hasActions && waitingAdminApproval && (
+                                                            <Badge variant="outline" className="text-blue-600 border-blue-400 bg-blue-50 dark:bg-blue-950/30 text-[10px] px-1.5 py-0">
+                                                                <Clock className="mr-1 h-2.5 w-2.5" />
+                                                                Onay Bekliyor
+                                                            </Badge>
+                                                        )}
+                                                        {hasActions && allApproved && (
+                                                            <Badge variant="outline" className="text-green-600 border-green-400 bg-green-50 dark:bg-green-950/30 text-[10px] px-1.5 py-0">
+                                                                ✓ Tüm Dönüşler Onaylandı
+                                                            </Badge>
+                                                        )}
+                                                        {hasActions && !allApproved && approvedCount > 0 && rejectedCount > 0 && pendingStoreCount === 0 && pendingAdminCount === 0 && (
+                                                            <Badge variant="outline" className="text-amber-700 border-amber-400 bg-amber-50 dark:bg-amber-950/30 text-[10px] px-1.5 py-0">
+                                                                {approvedCount} Onaylandı · {rejectedCount} Reddedildi
+                                                            </Badge>
+                                                        )}
+                                                        {hasActions && rejectedCount > 0 && pendingStoreCount > 0 && (
+                                                            <Badge variant="outline" className="text-red-600 border-red-400 bg-red-50 dark:bg-red-950/30 text-[10px] px-1.5 py-0">
+                                                                ✕ {rejectedCount} Soru Reddedildi
                                                             </Badge>
                                                         )}
                                                         <span className="text-[10px] text-muted-foreground">
                                                             {audit.createdAt?.seconds ? format(new Date(audit.createdAt.seconds * 1000), "d MMM yyyy", { locale: tr }) : "-"}
                                                         </span>
                                                     </div>
-                                                    {hasActions && deadlineDays !== null && !storeResponded && (
-                                                        <Badge variant="outline" className={`text-[10px] px-1.5 py-0 mt-0.5 ${deadlinePassed ? 'text-red-600 border-red-500 bg-red-50 dark:bg-red-950/30' : 'text-muted-foreground border-muted-foreground/40'}`}>
+                                                    {hasActions && deadlineDays !== null && pendingStoreCount > 0 && (
+                                                        <Badge variant="outline" className={`text-[10px] px-1.5 py-0 mt-0.5 ${
+                                                            deadlinePassed
+                                                                ? 'text-red-600 border-red-500 bg-red-50 dark:bg-red-950/30'
+                                                                : deadlineDays === 0
+                                                                    ? 'text-amber-700 border-amber-400 bg-amber-50 dark:bg-amber-950/30 font-semibold'
+                                                                    : 'text-muted-foreground border-muted-foreground/40'
+                                                        }`}>
                                                             {deadlinePassed
-                                                                ? `⚠ Son dönüş tarihi ${Math.abs(deadlineDays)} gün geçti`
-                                                                : `Son dönüş tarihine ${deadlineDays} gün kaldı`
+                                                                ? `⚠ Son dönüş tarihi ${deadlineDays} gün geçti`
+                                                                : deadlineDays === 0
+                                                                    ? '⚠ Dönüş için son gün'
+                                                                    : `Son dönüş tarihine ${deadlineDays} gün kaldı`
                                                             }
                                                         </Badge>
+                                                    )}
+                                                    {/* Rejected question list inside card */}
+                                                    {rejectedItems.length > 0 && (
+                                                        <div className="mt-1.5 p-2 rounded-md bg-red-50 dark:bg-red-950/20 border border-red-200/70">
+                                                            <p className="text-[10px] font-semibold text-red-700 dark:text-red-400 mb-1">Reddedilen Sorular:</p>
+                                                            {rejectedItems.map((a: any, i: number) => (
+                                                                <p key={i} className="text-[10px] text-red-600 dark:text-red-400 leading-relaxed">
+                                                                    • {a.questionText || "Soru"}
+                                                                    {a.actionData?.adminNote && (
+                                                                        <span className="block text-red-400 dark:text-red-500 pl-3">Red Sebebi: {a.actionData.adminNote}</span>
+                                                                    )}
+                                                                </p>
+                                                            ))}
+                                                        </div>
                                                     )}
                                                 </div>
                                                 <div className="flex items-center gap-2 ml-3">
@@ -619,7 +740,7 @@ export function RegionalDashboard() {
                                                         Özel Rapor
                                                     </Button>
                                                 </div>
-                                                {hasActions && storeResponded && (
+                                                {hasActions && (waitingAdminApproval || storeResponded || rejectedCount > 0) && (
                                                     <Button 
                                                         variant="default" 
                                                         size="sm" 

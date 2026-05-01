@@ -2,78 +2,57 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ─── Helper Functions ───
     function isAuthenticated() {
       return request.auth != null;
     }
-
     function getUserRole() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
     }
-
     function isAdmin() {
       return isAuthenticated() && getUserRole() == 'admin';
     }
-
     function isAuditor() {
       return isAuthenticated() && getUserRole() == 'denetmen';
     }
-
     function isRegionalManager() {
       return isAuthenticated() && getUserRole() == 'bolge-muduru';
     }
-
     function isReportManager() {
       return isAuthenticated() && getUserRole() == 'rapor-yoneticisi';
     }
-
     function isStoreUser() {
       return isAuthenticated() && getUserRole() == 'magaza';
     }
-
     function isOwner(userId) {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
-    // ─── Users Collection ───
     match /users/{userId} {
       allow read: if isOwner(userId) || isAdmin() || isAuditor() || isRegionalManager() || isStoreUser() || isReportManager();
       allow update: if isOwner(userId) || isAdmin();
       allow create: if isAdmin() || (isOwner(userId) && request.resource.data.role == 'pending');
       allow delete: if isAdmin();
     }
-
-    // ─── Stores Collection ───
     match /stores/{storeId} {
       allow read: if isAuthenticated();
       allow write: if isAdmin();
     }
-
-    // ─── Audit Types Collection ───
     match /auditTypes/{typeId} {
       allow read: if isAuthenticated();
       allow write: if isAdmin();
     }
-
-    // ─── Sections Collection (read by auditors when creating audits) ───
     match /sections/{sectionId} {
       allow read: if isAuthenticated();
       allow write: if isAdmin();
     }
-
-    // ─── Questions Collection (read by auditors when creating audits) ───
     match /questions/{questionId} {
       allow read: if isAuthenticated();
       allow write: if isAdmin();
     }
-
-    // ─── Question Categories Collection ───
     match /question_categories/{categoryId} {
       allow read: if isAuthenticated();
       allow write: if isAdmin();
     }
-
-    // ─── Audits Collection ───
     match /audits/{auditId} {
       allow read: if isAdmin() || isAuditor() || isRegionalManager() || isReportManager()
         || (isStoreUser() && resource.data.storeId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.storeId);
@@ -82,81 +61,67 @@ service cloud.firestore {
         || (isStoreUser() && resource.data.storeId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.storeId);
       allow delete: if isAdmin();
     }
-
-    // ─── Actions (Aksiyonlar) Collection ───
     match /actions/{actionId} {
       allow read: if isAuthenticated();
       allow create, update: if isAdmin() || isAuditor() || isStoreUser() || isRegionalManager();
       allow delete: if isAdmin();
     }
-
-    // ─── Notifications Collection ───
     match /notifications/{notifId} {
       allow read: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
       allow create: if isAdmin() || isAuditor() || isRegionalManager() || isStoreUser();
       allow update: if isAuthenticated() && resource.data.userId == request.auth.uid;
       allow delete: if isAdmin();
     }
-
-    // ─── Announcements Collection ───
     match /announcements/{announcementId} {
       allow read: if isAuthenticated();
-      allow write: if isAdmin();
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin()
+        || (isAuthenticated() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readBy']));
     }
-
-    // ─── Audit Schedules Collection ───
     match /audit_schedules/{scheduleId} {
       allow read: if isAuthenticated();
       allow write: if isAdmin();
     }
-
-    // ─── Accommodation Types Collection ───
     match /accommodation_types/{typeId} {
       allow read: if isAuthenticated();
       allow write: if isAdmin();
     }
-
-    // ─── System Logs Collection ───
     match /system_logs/{logId} {
       allow read: if isAdmin();
       allow create: if isAuthenticated();
       allow update, delete: if isAdmin();
     }
-
-    // ─── Trash Collection ───
     match /trash/{trashId} {
       allow read, write: if isAdmin();
     }
-
-    // ─── Broadcast History Collection ───
     match /broadcast_history/{historyId} {
       allow read, write: if isAdmin();
     }
-
-    // ─── Settings Collection ───
     match /settings/{settingId} {
       allow read: if isAuthenticated();
       allow write: if isAdmin();
     }
-
-    // ─── Store Personnel Collection ───
     match /store_personnel/{personId} {
       allow read: if isAuthenticated();
       allow create, update: if isAdmin() || isAuditor() || isRegionalManager();
       allow delete: if isAdmin();
     }
-
-    // ─── Personnel Evaluations Collection ───
     match /personnel_evaluations/{evalId} {
       allow read: if isAuthenticated();
       allow create, update: if isAdmin() || isAuditor() || isRegionalManager();
       allow delete: if isAdmin();
     }
-
-    // ─── Leave Types Collection ───
     match /leave_types/{typeId} {
       allow read: if isAuthenticated();
       allow write: if isAdmin();
+    }
+    match /folders/{folderId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAdmin();
+    }
+    match /shared_files/{fileId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAdmin();
     }
   }
 }

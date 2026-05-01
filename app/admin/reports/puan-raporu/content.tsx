@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState } from "react";
 
@@ -15,7 +15,7 @@ import { collection, getDocs, query, where, Timestamp } from "firebase/firestore
 import { db } from "@/lib/firebase";
 import { Store, Audit, DateRangeFilter } from "@/lib/types";
 import { Loader2, Search, CheckCircle2, ThumbsUp, MinusCircle, AlertCircle, Calendar, FileSpreadsheet } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, applyScoreRule } from "@/lib/utils";
 // Recharts removed - using SimpleSparkline instead
 import { LineChart as LineChartIcon, ListPlus, ChevronLeft, ChevronRight } from "lucide-react";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
@@ -325,7 +325,7 @@ export function PuanRaporuContent() {
                 return (
                     <div className="flex flex-col items-center justify-center">
                         <Badge className={cn("font-mono text-base px-3 py-1 text-white border-0", badgeInfo.color)}>
-                            {score.toFixed(0)}
+                            {applyScoreRule(score)}
                         </Badge>
                         {date && <span className="text-[10px] text-muted-foreground mt-1">{date.toLocaleDateString("tr-TR")}</span>}
                     </div>
@@ -344,7 +344,7 @@ export function PuanRaporuContent() {
                 return (
                     <div className="flex flex-col items-center justify-center">
                         <Badge className={cn("font-mono text-base px-3 py-1 text-white border-0", badgeInfo.color)}>
-                            {score.toFixed(0)}
+                            {applyScoreRule(score)}
                         </Badge>
                         {date && <span className="text-[10px] text-muted-foreground mt-1">{date.toLocaleDateString("tr-TR")}</span>}
                     </div>
@@ -363,7 +363,7 @@ export function PuanRaporuContent() {
                 return (
                     <div className="flex flex-col items-center justify-center">
                         <Badge className={cn("font-mono text-base px-3 py-1 text-white border-0", badgeInfo.color)}>
-                            {score.toFixed(0)}
+                            {applyScoreRule(score)}
                         </Badge>
                         {date && <span className="text-[10px] text-muted-foreground mt-1">{date.toLocaleDateString("tr-TR")}</span>}
                     </div>
@@ -382,7 +382,7 @@ export function PuanRaporuContent() {
                 return (
                     <div className="flex flex-col items-center justify-center">
                         <Badge className={cn("font-mono text-base px-3 py-1 text-white border-0", badgeInfo.color)}>
-                            {score.toFixed(0)}
+                            {applyScoreRule(score)}
                         </Badge>
                         {date && <span className="text-[10px] text-muted-foreground mt-1">{date.toLocaleDateString("tr-TR")}</span>}
                     </div>
@@ -402,7 +402,7 @@ export function PuanRaporuContent() {
                     <div className="flex justify-center">
                         <div className={cn("flex items-center gap-2 px-3 py-1 rounded-md border text-white text-sm font-bold border-0", badgeInfo.color)}>
                             <Icon className="w-4 h-4" />
-                            {avg.toFixed(0)}
+                            {applyScoreRule(avg)}
                         </div>
                     </div>
                 );
@@ -451,7 +451,7 @@ export function PuanRaporuContent() {
                 return (
                     <div className="flex justify-center" title={`${month}: ${score.toFixed(1)} Puan`}>
                         <div className={cn("w-full max-w-[50px] text-center text-xs font-bold py-1 rounded", badgeInfo.color.split(" ")[0], "text-white")}>
-                            {score.toFixed(0)}
+                            {applyScoreRule(score)}
                         </div>
                     </div>
                 );
@@ -477,7 +477,7 @@ export function PuanRaporuContent() {
                         <SimpleSparkline data={scores} />
                         {scores.length > 0 && (
                             <span className="text-sm font-medium">
-                                Ort: {(scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(0)}
+                                Ort: {applyScoreRule(scores.reduce((a, b) => a + b, 0) / scores.length)}
                             </span>
                         )}
                     </div>

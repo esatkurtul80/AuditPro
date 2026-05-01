@@ -193,3 +193,42 @@ body {
     opacity: 0;
   }
 }
+/* ── Excel table preview styles ─────────────────────────────────────── */
+.excel-table-wrapper table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 12px;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+.excel-table-wrapper th,
+.excel-table-wrapper td {
+  border: 1px solid #e2e8f0;
+  padding: 4px 8px;
+  white-space: nowrap;
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.excel-table-wrapper th {
+  background: #f8fafc;
+  font-weight: 600;
+  color: #475569;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.dark .excel-table-wrapper th {
+  background: #1e293b;
+  border-color: #334155;
+  color: #94a3b8;
+}
+.dark .excel-table-wrapper td {
+  border-color: #334155;
+  color: #cbd5e1;
+}
+.excel-table-wrapper tr:nth-child(even) td {
+  background: #f8fafc;
+}
+.dark .excel-table-wrapper tr:nth-child(even) td {
+  background: #0f172a;
+}

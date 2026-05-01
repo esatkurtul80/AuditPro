@@ -27,7 +27,7 @@ import { Badge } from "@/components/ui/badge";
 import { useRouter, useSearchParams } from "next/navigation";
 import { DataTable } from "@/components/ui/data-table";
 import { ColumnDef, Column, Row } from "@tanstack/react-table";
-import { cn, getWorkingDaysPassed, calculateDeadlineDate } from "@/lib/utils";
+import { cn, getWorkingDaysPassed, calculateDeadlineDate, applyScoreRule } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ArrowUpDown, Search, XCircle, ListFilter, FileSpreadsheet } from "lucide-react";
 import * as XLSX from "xlsx";
@@ -476,7 +476,7 @@ function AdminActionsContent() {
             meta: { title: "Puan" },
             header: ({ column }: { column: Column<Audit> }) => <DataTableColumnHeader column={column} title="Puan" showFilter={false} />,
             cell: ({ row }: { row: Row<Audit> }) => {
-                const score = row.original.totalScore || 0;
+                const score = applyScoreRule(row.original.totalScore || 0);
                 const badgeClass = score >= 80
                     ? "bg-green-100 text-green-800 hover:bg-green-100"
                     : score >= 60

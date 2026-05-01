@@ -3,7 +3,53 @@ import { twMerge } from "tailwind-merge"
 import { format } from "date-fns"
 
 export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs))
+    return twMerge(clsx(inputs))
+}
+
+/**
+ * ─── MERKEZI PUAN KURALI ─────────────────────────────────────────
+ * Tüm UI bileşenlerindeki puan gösterimleri bu fonksiyondan geçmeli.
+ *
+ * Kural: 99 < ham_puan < 100  →  99 olarak göster
+ *        Diğer durumlarda Math.round ile yuvarla.
+ *
+ * @param raw - Ham (ondalıklı) puan değeri
+ * @returns Gösterilecek tam sayı puan
+ */
+export function applyScoreRule(raw: number): number {
+    if (raw > 99 && raw < 100) return 99;
+    return Math.round(raw);
+}
+
+/**
+ * ─── TEK KAYNAK PUAN HESAPLAYICI ─────────────────────────────────
+ * Firestore'dan gelen saklı puan varsa onu kullan (applyScoreRule ile),
+ * yoksa earned/max'tan hesapla ve yine applyScoreRule'dan geçir.
+ *
+ * Kullanım örnekleri:
+ *   calcDisplayScore(audit.totalScore)                      // Firestore puanı
+ *   calcDisplayScore(null, earned, max)                     // Canlı hesaplama
+ *   calcDisplayScore(audit.totalScore, earned, max)         // Firestore öncelikli, fallback hesaplama
+ *
+ * @param stored  - Firestore'da saklı totalScore (null/undefined ise hesaplanır)
+ * @param earned  - Kazanılan ham puan (opsiyonel, hesaplama modunda gerekli)
+ * @param max     - Maksimum puan (opsiyonel, hesaplama modunda gerekli)
+ * @returns Gösterilecek tam sayı puan
+ */
+export function calcDisplayScore(
+    stored?: number | null,
+    earned?: number,
+    max?: number
+): number {
+    // Firestore'da geçerli bir değer varsa önce onu kullan
+    if (stored != null && !isNaN(stored) && stored > 0) {
+        return applyScoreRule(stored);
+    }
+    // Fallback: earned/max'tan hesapla
+    if (earned != null && max != null && max > 0) {
+        return applyScoreRule((earned / max) * 100);
+    }
+    return 0;
 }
 
 /**

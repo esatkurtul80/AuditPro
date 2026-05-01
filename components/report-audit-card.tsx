@@ -3,7 +3,7 @@
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { cn, calcDisplayScore } from "@/lib/utils";
 import { Calendar, CheckCircle2, AlertCircle, Clock, ArrowRight, Star, ExternalLink, Award, User } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -132,7 +132,7 @@ export function ReportAuditCard({
     };
 
     const status = getStatusText();
-    const percentage = totalScore > 0 ? Math.round((score / totalScore) * 100) : 0;
+    const percentage = calcDisplayScore(null, score, totalScore > 0 ? totalScore : undefined);
     const isPerfectScore = percentage === 100;
     
     // Calculate pending actions for display

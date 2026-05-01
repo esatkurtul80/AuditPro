@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { PlayCircle, CheckCircle2, Eye, Edit, XCircle, FileText, MoreHorizontal } from "lucide-react"
 import Link from "next/link"
 import { Timestamp } from "firebase/firestore"
+import { applyScoreRule } from "@/lib/utils"
 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 
@@ -70,7 +71,7 @@ export const getAuditColumns = (onCancel?: (auditId: string) => void): ColumnDef
         accessorKey: "totalScore",
         header: "Puan",
         cell: ({ row }) => {
-            return <div>{row.getValue("totalScore") || 0}</div>
+            return <div>{applyScoreRule(row.getValue("totalScore") || 0)}</div>
         },
     },
     {

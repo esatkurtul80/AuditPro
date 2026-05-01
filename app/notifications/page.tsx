@@ -263,11 +263,11 @@ function NotificationsContent() {
                 }
             }
             setExpandedIds(newExpanded);
+        } else if (notification.link) {
+            // Navigate to the stored link (action_submitted, action_rejected, etc.)
+            router.push(notification.link);
         } else if (notification.relatedId) {
-            // Default action for other types
-            if (notification.type === "audit_edited") {
-                router.push(`/audits/${notification.relatedId}?mode=view`);
-            }
+            router.push(`/audits/${notification.relatedId}?mode=view`);
         }
     };
 
@@ -283,6 +283,8 @@ function NotificationsContent() {
             case "action_rejected":
             case "rejected_action":
                 return <Badge className="bg-red-500 dark:bg-red-900/50 dark:text-red-100">Aksiyon Reddedildi</Badge>;
+            case "action_submitted":
+                return <Badge className="bg-orange-500 dark:bg-orange-900/50 dark:text-orange-100">Aksiyon Dönüşü Yapıldı</Badge>;
             case "action_approved":
                 return <Badge className="bg-green-500 dark:bg-green-900/50 dark:text-green-100">Aksiyon Onaylandı</Badge>;
             case "new_audit":
@@ -397,6 +399,7 @@ function NotificationsContent() {
                                     <SelectItem value="all">Tümü</SelectItem>
                                     <SelectItem value="admin_message">Sistem Mesajı</SelectItem>
                                     <SelectItem value="audit_edited">Denetim Düzenlendi</SelectItem>
+                                    <SelectItem value="action_submitted">Aksiyon Dönüşü Yapıldı</SelectItem>
                                     <SelectItem value="action_rejected">Aksiyon Reddedildi</SelectItem>
                                     <SelectItem value="action_approved">Aksiyon Onaylandı</SelectItem>
                                     <SelectItem value="new_audit">Yeni Denetim</SelectItem>

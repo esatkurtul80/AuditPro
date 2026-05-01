@@ -159,7 +159,7 @@ export function BroadcastDetailDialog({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[560px] max-h-[85vh] flex flex-col">
+            <DialogContent className="sm:max-w-[700px] max-h-[90vh] flex flex-col gap-4 overflow-hidden">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                         <Users className="h-5 w-5 text-blue-500" />
@@ -173,6 +173,12 @@ export function BroadcastDetailDialog({
                             : ""}
                     </DialogDescription>
                 </DialogHeader>
+
+                {/* Message Body */}
+                <div className="rounded-lg bg-muted/50 border border-border/60 px-4 py-3 max-h-[140px] overflow-y-auto">
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Mesaj İçeriği</p>
+                    <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">{broadcast.message}</p>
+                </div>
 
                 {/* Stats Bar */}
                 <div className="grid grid-cols-3 gap-3 text-center">
@@ -231,7 +237,7 @@ export function BroadcastDetailDialog({
                 </div>
 
                 {/* User List */}
-                <ScrollArea className="h-[280px] rounded-md border bg-muted/20">
+                <ScrollArea className="h-[220px] rounded-md border bg-muted/20">
                     {loading ? (
                         <div className="flex items-center justify-center py-12">
                             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />

@@ -2,11 +2,19 @@
 
 ```json
 {
-  "version": "3.0.7",
-  "build": 123,
+  "version": "3.0.8",
+  "build": 124,
   "status": "stable"
 }
 ```
+
+## [3.0.8] - 2026-05-01
+
+### v3.0.8
+- **Denetmen Paneli Dosya Yönetimi:** Dosyalar ve klasörler her zaman A'dan Z'ye (alfabetik) sıralanacak şekilde güncellendi.
+- **PDF Önizleme (Thumbnail):** Denetmen paneli dosya görünümünde hem grid (kart) hem de liste görünümlerinde PDF belgelerinin ilk sayfası için otomatik küçük resim (thumbnail) oluşturma desteği eklendi.
+- **Dosya Görünümü İyileştirmeleri:** Tablet ve mobil cihazlarda grid görünümündeki kartların boyut bozulması/uzaması engellendi ve sabit 2 kolon ile sınırlandırıldı. Modal üzerindeki çift kapatma butonu sorunu giderildi.
+- **Hata Giderimi:** `pdfjs-dist` paketinden kaynaklanan TypeScript (`RenderParameters`) derleme hatası düzeltildi.
 
 ## [3.0.7] - 2026-04-28
 

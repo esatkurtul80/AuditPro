@@ -160,7 +160,7 @@ export default function AuditActionsPage() {
                 });
 
                 const newHistoryCache: Record<string, QuestionHistory> = {};
-                
+
                 audit.sections.forEach(section => {
                     section.answers.forEach(answer => {
                         const qId = answer.questionId;
@@ -1025,6 +1025,59 @@ export default function AuditActionsPage() {
             // Invalidate store data cache so the store panel shows updated status
             invalidateStoreDataCache();
 
+            // --- Bölge Müdürüne bildirim: mağaza aksiyon dönüşü gönderdi ---
+            try {
+                if (audit.storeId) {
+                    const storeDocRef = doc(db, "stores", audit.storeId);
+                    const storeSnap = await getDoc(storeDocRef);
+                    const regionalManagerId = storeSnap.exists() ? storeSnap.data()?.regionalManagerId : null;
+
+                    console.log("[RM Notify - Submit] storeId:", audit.storeId, "regionalManagerId:", regionalManagerId);
+
+                    if (regionalManagerId) {
+                        const submitterName = userProfile
+                            ? (userProfile.firstName && userProfile.lastName
+                                ? `${userProfile.firstName} ${userProfile.lastName}`
+                                : userProfile.displayName)
+                            : "Mağaza";
+
+                        const rmTitle = `Aksiyon Dönüşü Yapıldı — ${audit.storeName}`;
+                        const rmMessage = `${audit.storeName} mağazası ${pendingItems.length} adet aksiyona dönüş yaptı ve admin onayına gönderdi.\n\nGönderen: ${submitterName}`;
+
+                        await addDoc(collection(db, "notifications"), {
+                            userId: regionalManagerId,
+                            type: "action_submitted",
+                            title: rmTitle,
+                            message: rmMessage,
+                            senderName: submitterName,
+                            read: false,
+                            createdAt: Timestamp.now(),
+                            auditId: auditId,
+                            storeName: audit.storeName,
+                            link: `/audits/${auditId}/actions`
+                        });
+
+                        console.log("[RM Notify - Submit] Notification sent to RM:", regionalManagerId);
+
+                        // Push notification (WhatsApp-style)
+                        fetch("/api/send-notification", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                                title: rmTitle,
+                                message: rmMessage,
+                                userIds: [regionalManagerId],
+                                url: `/audits/${auditId}/actions`
+                            })
+                        }).catch(err => console.error("RM Push API Error (submit):", err));
+                    } else {
+                        console.warn("[RM Notify - Submit] No regionalManagerId for store:", audit.storeId);
+                    }
+                }
+            } catch (rmNotifError) {
+                console.error("RM notification (submit) failed:", rmNotifError);
+            }
+
             window.scrollTo(0, 0);
 
         } catch (error) {
@@ -1087,6 +1140,14 @@ export default function AuditActionsPage() {
             // Send Notification to Store Users
             try {
                 if (audit.storeId) {
+                    // Shared variables for both store and RM notifications
+                    const questionText = (((freshSectionsResult as unknown as any[])?.[sectionIndex]?.answers?.[answerIndex] as any)?.questionText || "").substring(0, 50) + "...";
+                    const senderName = userProfile
+                        ? (userProfile.firstName && userProfile.lastName
+                            ? `${userProfile.firstName} ${userProfile.lastName}`
+                            : userProfile.displayName)
+                        : "Admin";
+
                     const usersRef = collection(db, "users");
                     const q = query(usersRef, where("storeId", "==", audit.storeId));
                     const snapshot = await getDocs(q);
@@ -1094,7 +1155,6 @@ export default function AuditActionsPage() {
 
                     if (targetUsers.length > 0) {
                         const notificationsRef = collection(db, "notifications");
-                        const questionText = (((freshSectionsResult as unknown as any[])?.[sectionIndex]?.answers?.[answerIndex] as any)?.questionText || "").substring(0, 50) + "...";
                         const notifTitle = "Aksiyon Reddedildi - Düzeltme Gerekli";
 
                         // Format date for clarity
@@ -1103,16 +1163,10 @@ export default function AuditActionsPage() {
 
                         const notifMessage = `${auditInfo} denetimindeki "${questionText}" sorusuna verdiğiniz yanıt reddedildi.\n\nRed Nedeni: ${rejectionReason}\n\nLütfen düzeltici aksiyonunuzu güncelleyiniz.`;
 
-                        const senderName = userProfile
-                            ? (userProfile.firstName && userProfile.lastName
-                                ? `${userProfile.firstName} ${userProfile.lastName}`
-                                : userProfile.displayName)
-                            : "Admin";
-
                         const batchPromises = targetUsers.map(user => {
                             return addDoc(notificationsRef, {
                                 userId: user.id,
-                                type: "rejected_action", // Specific type for styling/logic if needed
+                                type: "rejected_action",
                                 title: notifTitle,
                                 message: notifMessage,
                                 senderName: senderName,
@@ -1126,7 +1180,6 @@ export default function AuditActionsPage() {
                         await Promise.all(batchPromises);
 
                         // Trigger Push API
-                        // We don't await this to keep UI responsive, or we await safely
                         fetch("/api/send-notification", {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
@@ -1137,6 +1190,52 @@ export default function AuditActionsPage() {
                                 url: `/audits/${auditId}/actions#action-${sectionIndex}-${answerIndex}`
                             })
                         }).catch(err => console.error("Push API Error:", err));
+                    }
+
+                    // --- Also notify Regional Managers for this store ---
+                    try {
+                        // Find the RM via the stores collection (regionalManagerId field)
+                        const storeDocRef = doc(db, "stores", audit.storeId);
+                        const storeSnap = await getDoc(storeDocRef);
+                        const regionalManagerId = storeSnap.exists() ? storeSnap.data()?.regionalManagerId : null;
+
+                        console.log("[RM Notify] storeId:", audit.storeId, "regionalManagerId:", regionalManagerId);
+
+                        if (regionalManagerId) {
+                            const rmTitle = `Aksiyon Reddedildi — ${audit.storeName}`;
+                            const rmMessage = `${audit.storeName} mağazasındaki denetimde bir aksiyon reddedildi.\n\nSoru: ${questionText}\nRed Nedeni: ${rejectionReason}`;
+
+                            await addDoc(collection(db, "notifications"), {
+                                userId: regionalManagerId,
+                                type: "action_rejected",
+                                title: rmTitle,
+                                message: rmMessage,
+                                senderName: senderName,
+                                read: false,
+                                createdAt: Timestamp.now(),
+                                auditId: auditId,
+                                storeName: audit.storeName,
+                                link: `/audits/${auditId}/actions`
+                            });
+
+                            console.log("[RM Notify] Notification sent to RM:", regionalManagerId);
+
+                            // Push to RM as well
+                            fetch("/api/send-notification", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({
+                                    title: rmTitle,
+                                    message: rmMessage,
+                                    userIds: [regionalManagerId],
+                                    url: `/audits/${auditId}/actions`
+                                })
+                            }).catch(err => console.error("RM Push API Error:", err));
+                        } else {
+                            console.warn("[RM Notify] No regionalManagerId found for store:", audit.storeId);
+                        }
+                    } catch (rmNotifError) {
+                        console.error("RM notification failed:", rmNotifError);
                     }
                 }
             } catch (notifError) {
@@ -1898,7 +1997,7 @@ export default function AuditActionsPage() {
                                         </CardHeader>
                                         <CardContent className="space-y-6">
                                             {/* Original Issue */}
-                                            <div className="bg-muted/50 p-4 rounded-lg space-y-3">
+                                            <div className="bg-muted/100 p-4 rounded-lg space-y-3 border border-muted-foreground/20">
                                                 <h4 className="flex items-center gap-2 font-medium text-sm text-foreground/80">
                                                     <AlertCircle className="h-4 w-4" />
                                                     Denetmen Notları
@@ -2011,7 +2110,7 @@ export default function AuditActionsPage() {
                                                     </h4>
                                                     <div className={cn(
                                                         "border p-4 rounded-lg",
-                                                        status === "rejected" ? "bg-red-50/50 dark:bg-red-900/10" : "bg-gray-50/80"
+                                                        status === "rejected" ? "bg-red-50/50 dark:bg-red-900/30 border-red-300/80" : "bg-sky-100/80 dark:bg-sky-900/20 border-sky-300/50"
                                                     )}>
                                                         {actionData.storeNote && (
                                                             <p className="text-sm whitespace-pre-wrap">{actionData.storeNote}</p>
@@ -2068,18 +2167,18 @@ export default function AuditActionsPage() {
                                             {/* Fallback: approved/pending_admin but submission details missing (data lost during re-write) */}
                                             {isAdmin && (status === "approved" || status === "pending_admin") &&
                                                 (!actionData || (!actionData.storeNote && !(actionData.storeImages && actionData.storeImages.length > 0))) && (
-                                                <div className="border-t pt-4">
-                                                    <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800">
-                                                        <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
-                                                        <p className="text-xs text-amber-700 dark:text-amber-400">
-                                                            {status === "approved"
-                                                                ? "Bu aksiyon onaylandı. Mağaza dönüş detayları (fotoğraf/not) sistem güncellemesi sırasında mevcut değil hale geldi."
-                                                                : "Mağaza dönüş bilgileri yükleniyor veya bu denetim için ayrı bir biçimde kaydedilmiş."
-                                                            }
-                                                        </p>
+                                                    <div className="border-t pt-4">
+                                                        <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800">
+                                                            <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+                                                            <p className="text-xs text-amber-700 dark:text-amber-400">
+                                                                {status === "approved"
+                                                                    ? "Bu aksiyon onaylandı. Mağaza dönüş detayları (fotoğraf/not) sistem güncellemesi sırasında mevcut değil hale geldi."
+                                                                    : "Mağaza dönüş bilgileri yükleniyor veya bu denetim için ayrı bir biçimde kaydedilmiş."
+                                                                }
+                                                            </p>
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            )}
+                                                )}
 
                                             {/* Admin Actions - Only show when store has responded */}
                                             {isAdmin && status !== "pending_store" && (

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Bell, Circle, ClipboardPen, MessageCircle } from "lucide-react";
+import { Plus, Bell, Circle, ClipboardPen, MessageCircle, FolderOpen } from "lucide-react";
+import { DosyalarModal } from "@/components/denetmen/dosyalar-modal";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter, usePathname } from "next/navigation";
@@ -25,6 +26,7 @@ export function FloatingActionButton() {
     const [isOpen, setIsOpen] = useState(false);
     const [isCreateAuditOpen, setIsCreateAuditOpen] = useState(false);
     const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+    const [isDosyalarOpen, setIsDosyalarOpen] = useState(false);
     const router = useRouter();
     const pathname = usePathname();
 
@@ -78,6 +80,7 @@ export function FloatingActionButton() {
     return (
         <>
             <CreateAuditDialog open={isCreateAuditOpen} onOpenChange={setIsCreateAuditOpen} />
+            <DosyalarModal open={isDosyalarOpen} onClose={() => setIsDosyalarOpen(false)} />
 
             <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
                 <AlertDialogContent>
@@ -117,7 +120,7 @@ export function FloatingActionButton() {
                         <div className="flex flex-col items-end gap-4 mb-3">
                             {/* WhatsApp Share Button */}
                             <motion.div
-                                custom={2}
+                                custom={3}
                                 initial="hidden"
                                 animate="visible"
                                 exit="exit"
@@ -137,7 +140,7 @@ export function FloatingActionButton() {
 
                             {/* Notification Button */}
                             <motion.div
-                                custom={1}
+                                custom={2}
                                 initial="hidden"
                                 animate="visible"
                                 exit="exit"
@@ -152,6 +155,26 @@ export function FloatingActionButton() {
                                         <Bell className="h-6 w-6" />
                                     </div>
                                     <span className="font-semibold text-lg text-slate-400">Bildirim Yap</span>
+                                </Button>
+                            </motion.div>
+
+                            {/* Dosyalar Button */}
+                            <motion.div
+                                custom={1}
+                                initial="hidden"
+                                animate="visible"
+                                exit="exit"
+                                variants={subButtonVariants}
+                            >
+                                <Button
+                                    variant="default"
+                                    className="h-16 pr-6 pl-3 rounded-full bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 shadow-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-750 flex items-center gap-3 group transition-all"
+                                    onClick={() => { setIsOpen(false); setIsDosyalarOpen(true); }}
+                                >
+                                    <div className="flex items-center justify-center w-12 h-12 rounded-full bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 group-hover:scale-110 transition-transform">
+                                        <FolderOpen className="h-6 w-6" />
+                                    </div>
+                                    <span className="font-semibold text-lg">Dosyalar</span>
                                 </Button>
                             </motion.div>
 

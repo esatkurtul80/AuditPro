@@ -32,7 +32,7 @@ import { format } from "date-fns";
 import { tr } from "date-fns/locale";
 import { getStoreAnalysis } from "@/lib/store-analysis";
 import type { StoreAnalysisData } from "@/lib/store-analysis";
-import { cn, getWorkingDaysPassed, parseDate, formatDateSafe } from "@/lib/utils";
+import { cn, getWorkingDaysPassed, parseDate, formatDateSafe, applyScoreRule } from "@/lib/utils";
 
 interface StoreAnalysisDialogProps {
     storeId: string;
@@ -129,7 +129,7 @@ export function StoreAnalysisDialog({ storeId, storeName, isOpen, onClose }: Sto
                                 <div className="flex flex-col items-start gap-2">
                                     <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Son Puan</span>
                                     <Badge variant="outline" className={cn("text-lg px-3 py-1 font-bold", getScoreColor(data.lastScore || 0))}>
-                                        {data.lastScore ? `${data.lastScore.toFixed(0)}` : '-'}
+                                        {data.lastScore ? `${applyScoreRule(data.lastScore)}` : '-'}
                                     </Badge>
                                 </div>
                                 <div className="w-px self-stretch bg-slate-200 mx-1"></div>
@@ -538,8 +538,8 @@ export function StoreAnalysisDialog({ storeId, storeName, isOpen, onClose }: Sto
                                             <Card key={audit.id} className="p-4 hover:shadow-md transition-shadow cursor-default group">
                                                 <div className="flex items-center justify-between">
                                                     <div className="flex items-start gap-3">
-                                                        <div className={cn("p-2 rounded-lg font-bold text-sm min-w-[50px] text-center", getScoreColor(audit.totalScore))}>
-                                                            {audit.totalScore.toFixed(0)}
+                                                        <div className={cn("p-2 rounded-lg font-bold text-sm min-w-[50px] text-center", getScoreColor(applyScoreRule(audit.totalScore)))}>
+                                                            {applyScoreRule(audit.totalScore)}
                                                         </div>
                                                         <div>
                                                             <div className="font-semibold text-slate-900">

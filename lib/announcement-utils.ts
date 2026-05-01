@@ -29,14 +29,20 @@ export async function markAnnouncementAsRead(
             })
         });
         
-    } catch (error) {
-        console.error("[markAnnouncementAsRead] Error:", error);
-        console.error("[markAnnouncementAsRead] Error details:", {
-            message: error instanceof Error ? error.message : String(error),
-            announcementId,
-            userId,
-            userName
-        });
+    } catch (error: any) {
+        // FirebaseError properties (code, message) are non-enumerable,
+        // so we extract them explicitly to avoid logging empty {}
+        const errorCode: string = error?.code ?? "unknown";
+        const errorMessage: string = error?.message ?? String(error);
+
+        // permission-denied is expected when Firestore rules block the write;
+        // silently skip to avoid polluting logs with a non-actionable error.
+        if (errorCode === "permission-denied") return;
+
+        console.error(
+            `[markAnnouncementAsRead] code=${errorCode} id=${announcementId} user=${userId}`,
+            errorMessage
+        );
         // Silently fail - don't disrupt user experience
     }
 }
