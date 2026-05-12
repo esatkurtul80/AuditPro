@@ -1019,12 +1019,28 @@ export default function AuditPage() {
                 })
             }));
 
+            // Recalculate totalScore from the fresh sections using section-average algorithm
+            // (same formula used in updateAnswer and audit-summary display)
+            const finalScores: number[] = [];
+            updatedSections.forEach(sec => {
+                let e = 0, m = 0;
+                sec.answers.forEach((a: AuditAnswer) => {
+                    if (a.answer && a.answer.trim() !== "" && a.answer !== "muaf") {
+                        e += a.earnedPoints; m += a.maxPoints;
+                    }
+                });
+                if (m > 0) finalScores.push((e / m) * 100);
+            });
+            const finalRaw = finalScores.length > 0 ? finalScores.reduce((s, v) => s + v, 0) / finalScores.length : 0;
+            const finalTotalScore = applyScoreRule(finalRaw);
+
             await updateDoc(doc(db, "audits", auditId), {
                 status: "tamamlandi",
                 completedAt: now,
                 updatedAt: now,
                 actionDeadline: actionDeadline,
                 sections: updatedSections,
+                totalScore: finalTotalScore,
                 allActionsResolved: false, // Initially false if there are actions
                 ...(generalFeedbackToComplete ? {
                     generalFeedback: {
@@ -1042,6 +1058,7 @@ export default function AuditPage() {
                 updatedAt: now,
                 actionDeadline: actionDeadline,
                 sections: updatedSections,
+                totalScore: finalTotalScore,
                 allActionsResolved: false
             });
             setJustCompleted(true);
@@ -1767,7 +1784,20 @@ export default function AuditPage() {
                         <div className="flex flex-col items-center">
                             <div className="flex items-center justify-center w-20 h-20 bg-white dark:bg-slate-800 rounded-full shadow-lg border-4 border-blue-100 dark:border-blue-800">
                                 <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">
-                                    {applyScoreRule(audit.totalScore || 0)}
+                                    {(() => {
+                                        const scores: number[] = [];
+                                        audit.sections.forEach(sec => {
+                                            let e = 0, m = 0;
+                                            sec.answers.forEach(a => {
+                                                if (a.answer && a.answer.trim() !== "" && a.answer !== "muaf") {
+                                                    e += a.earnedPoints; m += a.maxPoints;
+                                                }
+                                            });
+                                            if (m > 0) scores.push((e / m) * 100);
+                                        });
+                                        const raw = scores.length > 0 ? scores.reduce((s, v) => s + v, 0) / scores.length : 0;
+                                        return applyScoreRule(raw);
+                                    })()}
                                 </div>
                             </div>
                         </div>

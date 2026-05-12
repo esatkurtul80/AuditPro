@@ -194,19 +194,22 @@ export function useStoreData() {
                     // Only apply the 99-cap for scores strictly between 99 and 100 (e.g., 99.3 → 99).
                     let finalScore = auditData.totalScore ?? auditData.score ?? 0;
 
-                    // If totalScore is not stored, recalculate from sections
+                    // If totalScore is not stored, recalculate from sections using Algorithm B (section-average)
                     if (!auditData.totalScore && auditData.sections) {
-                        let rawEarned = 0;
-                        let rawMax = 0;
+                        const sectionScores: number[] = [];
                         auditData.sections.forEach((section: any) => {
+                            let e = 0, m = 0;
                             section.answers?.forEach((a: any) => {
                                 if (a.answer && a.answer.trim() !== "" && a.answer !== "muaf") {
-                                    rawEarned += (a.earnedPoints || 0);
-                                    rawMax += (a.maxPoints || 0);
+                                    e += (a.earnedPoints || 0);
+                                    m += (a.maxPoints || 0);
                                 }
                             });
+                            if (m > 0) sectionScores.push((e / m) * 100);
                         });
-                        const rawPercentage = rawMax > 0 ? (rawEarned / rawMax) * 100 : 0;
+                        const rawPercentage = sectionScores.length > 0
+                            ? sectionScores.reduce((s, v) => s + v, 0) / sectionScores.length
+                            : 0;
                         finalScore = Math.round(rawPercentage);
                     }
 

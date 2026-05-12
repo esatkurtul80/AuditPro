@@ -79,6 +79,7 @@ function SidebarContent({ className, onLinkClick, isCollapsed, toggleSidebar }: 
         { href: "/admin/schedule", label: "Program", icon: CalendarDays },
         { href: "/admin/schedule/leave-types", label: "İzin Türleri", icon: ClipboardList },
         { href: "/admin/schedule/accommodation-types", label: "Konaklama Türleri", icon: Hotel },
+        { href: "/admin/schedule/lojmanlar", label: "Lojmanlar", icon: MapPin },
     ];
 
     const actionsSubLinks = [

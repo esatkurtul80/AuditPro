@@ -1,6 +1,6 @@
 "use client";
 // Score utilities – single source of truth
-import { calcDisplayScore } from "@/lib/utils";
+import { calcAuditScore } from "@/lib/utils";
 
 import { useEffect, useState } from "react";
 import {
@@ -295,7 +295,7 @@ export default function ReportPanelDashboard() {
                                 <TableBody>
                                     {completedAudits
                                         .map((audit) => {
-                                            const pct = calcDisplayScore(audit.totalScore);
+                                            const pct = calcAuditScore((audit as any).sections, audit.totalScore);
 
                                             // Calculate total duration
                                             let durationStr = "—";

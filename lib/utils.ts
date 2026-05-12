@@ -7,50 +7,82 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
- * ─── MERKEZI PUAN KURALI ─────────────────────────────────────────
- * Tüm UI bileşenlerindeki puan gösterimleri bu fonksiyondan geçmeli.
- *
- * Kural: 99 < ham_puan < 100  →  99 olarak göster
- *        Diğer durumlarda Math.round ile yuvarla.
- *
- * @param raw - Ham (ondalıklı) puan değeri
- * @returns Gösterilecek tam sayı puan
+ * ─── MERKEZİ PUAN KURALI (iç yardımcı) ──────────────────────────────
+ * calcAuditScore tarafından içten kullanılır — dışarıdan çağırma.
+ * Kural: 99 < ham_puan < 100  → 99
+ *        Diğer → Math.round
  */
-export function applyScoreRule(raw: number): number {
+function _applyRule(raw: number): number {
     if (raw > 99 && raw < 100) return 99;
     return Math.round(raw);
 }
 
 /**
- * ─── TEK KAYNAK PUAN HESAPLAYICI ─────────────────────────────────
- * Firestore'dan gelen saklı puan varsa onu kullan (applyScoreRule ile),
- * yoksa earned/max'tan hesapla ve yine applyScoreRule'dan geçir.
+ * ─── ALGORİTMA B — TEK KAYNAK PUAN HESAPLAYICI ───────────────────────
  *
- * Kullanım örnekleri:
- *   calcDisplayScore(audit.totalScore)                      // Firestore puanı
- *   calcDisplayScore(null, earned, max)                     // Canlı hesaplama
- *   calcDisplayScore(audit.totalScore, earned, max)         // Firestore öncelikli, fallback hesaplama
+ * Tek doğru yer burası. Hem hesaplama formülü (Algoritma B) hem de
+ * gösterim kuralı (99 < puan < 100 → 99) bu fonksiyonun içindedir.
  *
- * @param stored  - Firestore'da saklı totalScore (null/undefined ise hesaplanır)
- * @param earned  - Kazanılan ham puan (opsiyonel, hesaplama modunda gerekli)
- * @param max     - Maksimum puan (opsiyonel, hesaplama modunda gerekli)
- * @returns Gösterilecek tam sayı puan
+ * Formülü veya kuralı değiştirmek istersen YALNIZCA buraya dokun.
+ * Başka hiçbir dosyada yuvarlama veya hesaplama mantığı bulunmamalıdır.
+ *
+ * ── Algoritma B ──────────────────────────────────────────────────────
+ *   Her bölüm için: (kazanılan / maksimum) × 100  → bölüm yüzdesi
+ *   Final puan    : bölüm yüzdelerinin aritmetik ortalaması
+ *   Muaf / boş cevaplar hesaba KATILMAZ.
+ *
+ * ── Gösterim Kuralı ──────────────────────────────────────────────────
+ *   99 < ham_puan < 100  → 99 göster   (hiç tam 100 yapmadan)
+ *   Diğer tüm değerler   → Math.round
+ *
+ * @param sections - Audit["sections"] dizisi (null/undefined → fallback)
+ * @param fallback - sections yoksa kullanılacak Firestore puanı
+ * @returns Gösterilecek tam sayı puan (0 – 100)
  */
-export function calcDisplayScore(
-    stored?: number | null,
-    earned?: number,
-    max?: number
+export function calcAuditScore(
+    sections: Array<{
+        answers?: Array<{
+            answer?: string;
+            earnedPoints?: number;
+            maxPoints?: number;
+        }>;
+    }> | null | undefined,
+    fallback?: number | null
 ): number {
-    // Firestore'da geçerli bir değer varsa önce onu kullan
-    if (stored != null && !isNaN(stored) && stored > 0) {
-        return applyScoreRule(stored);
+    // sections yoksa Firestore'daki değeri kural üzerinden döndür
+    if (!sections || sections.length === 0) {
+        return _applyRule(fallback ?? 0);
     }
-    // Fallback: earned/max'tan hesapla
-    if (earned != null && max != null && max > 0) {
-        return applyScoreRule((earned / max) * 100);
-    }
-    return 0;
+
+    // Her bölümün % puanını hesapla (muaf/boş sorular hariç)
+    const sectionScores: number[] = [];
+    sections.forEach(sec => {
+        let earned = 0, max = 0;
+        sec.answers?.forEach(a => {
+            if (a.answer && a.answer.trim() !== "" && a.answer !== "muaf") {
+                earned += (a.earnedPoints ?? 0);
+                max    += (a.maxPoints    ?? 0);
+            }
+        });
+        if (max > 0) sectionScores.push((earned / max) * 100);
+    });
+
+    // Geçerli bölüm yoksa yine fallback
+    if (sectionScores.length === 0) return _applyRule(fallback ?? 0);
+
+    // Bölüm ortalması → kural → tam sayı
+    const avg = sectionScores.reduce((s, v) => s + v, 0) / sectionScores.length;
+    return _applyRule(avg);
 }
+
+/**
+ * @deprecated Yeni kodlarda doğrudan calcAuditScore kullan.
+ * Geriye dönük uyumluluk için korunmaktadır.
+ */
+export function applyScoreRule(raw: number): number {
+    return _applyRule(raw);
+}
+
 
 /**
  * Robustly parses a date from various formats including Firestore Timestamps, JS Dates, and serialized objects.

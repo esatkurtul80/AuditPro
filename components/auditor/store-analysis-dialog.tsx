@@ -32,7 +32,7 @@ import { format } from "date-fns";
 import { tr } from "date-fns/locale";
 import { getStoreAnalysis } from "@/lib/store-analysis";
 import type { StoreAnalysisData } from "@/lib/store-analysis";
-import { cn, getWorkingDaysPassed, parseDate, formatDateSafe, applyScoreRule } from "@/lib/utils";
+import { cn, applyScoreRule, formatDateSafe, calcAuditScore, getWorkingDaysPassed, parseDate } from "@/lib/utils";
 
 interface StoreAnalysisDialogProps {
     storeId: string;
@@ -534,12 +534,14 @@ export function StoreAnalysisDialog({ storeId, storeName, isOpen, onClose }: Sto
                                     </div>
                                 ) : (
                                     <div className="space-y-3">
-                                        {data?.auditHistory.map((audit) => (
+                                        {data?.auditHistory.map((audit) => {
+                                            const liveScore = calcAuditScore((audit as any).sections, audit.totalScore);
+                                            return (
                                             <Card key={audit.id} className="p-4 hover:shadow-md transition-shadow cursor-default group">
                                                 <div className="flex items-center justify-between">
                                                     <div className="flex items-start gap-3">
-                                                        <div className={cn("p-2 rounded-lg font-bold text-sm min-w-[50px] text-center", getScoreColor(applyScoreRule(audit.totalScore)))}>
-                                                            {applyScoreRule(audit.totalScore)}
+                                                        <div className={cn("p-2 rounded-lg font-bold text-sm min-w-[50px] text-center", getScoreColor(liveScore))}>
+                                                            {liveScore}
                                                         </div>
                                                         <div>
                                                             <div className="font-semibold text-slate-900">
@@ -562,7 +564,8 @@ export function StoreAnalysisDialog({ storeId, storeName, isOpen, onClose }: Sto
                                                     </Button>
                                                 </div>
                                             </Card>
-                                        ))}
+                                            );
+                                        })}
                                     </div>
                                 )}
                             </TabsContent>

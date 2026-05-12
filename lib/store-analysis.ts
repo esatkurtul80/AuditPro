@@ -2,7 +2,7 @@ import { collection, query, where, getDocs, orderBy, limit, Timestamp, doc, getD
 import { db } from "@/lib/firebase";
 import { Audit, AuditAnswer, Store } from "@/lib/types";
 import { differenceInDays } from "date-fns";
-import { parseDate } from "@/lib/utils";
+import { parseDate, calcAuditScore } from "@/lib/utils";
 
 export interface RecurringIssueHistoryItem {
     auditId: string;
@@ -188,7 +188,8 @@ export async function getStoreAnalysis(storeId: string): Promise<StoreAnalysisDa
                     daysSinceLastAudit = differenceInDays(new Date(), lastAuditDate);
                 }
             }
-            lastScore = lastAudit.totalScore;
+            // Central Algorithm B
+            lastScore = calcAuditScore(lastAudit.sections as any, lastAudit.totalScore);
         }
 
         // 4. Identify Recurring Issues

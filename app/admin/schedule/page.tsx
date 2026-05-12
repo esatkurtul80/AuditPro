@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
-    CalendarDays, Save, Send, ChevronLeft, ChevronRight, Search, Sparkles, ChevronDown, Ban, Loader2, Download, Map as MapIcon
+    CalendarDays, Save, Send, ChevronLeft, ChevronRight, Search, Sparkles, ChevronDown, Ban, Loader2, Download, Map as MapIcon, Brain
 } from "lucide-react";
 import Script from "next/script";
 import {
@@ -74,6 +74,7 @@ import {
 import { StoreAuditHistoryDialog } from "@/components/admin/schedule/store-audit-history-dialog";
 import { StoreSelectorDialog } from "@/components/admin/schedule/add-store-dialog";
 import { ScheduleMapModal } from "@/components/admin/schedule/schedule-map-modal";
+import { AiScheduleDialog } from "@/components/admin/schedule/ai-schedule-dialog";
 import {
     Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
     DialogTrigger,
@@ -148,8 +149,8 @@ function DraggableStoreRow({
     let bgClass = index % 2 === 0 ? "bg-white" : "bg-slate-50";
     // Overlay type color subtly
     if (store.suggestionType === 'target') bgClass = cn(bgClass, "hover:bg-orange-50");
-    if (store.suggestionType === 'repeat') bgClass = cn(bgClass, "bg-red-50/50 hover:bg-red-100/50");
-    if (store.suggestionType === 'new') bgClass = cn(bgClass, "bg-blue-50/50 hover:bg-blue-100/50");
+    if (store.suggestionType === 'repeat') bgClass = cn(bgClass, "bg-blue-50/60 hover:bg-blue-100/60");
+    if (store.suggestionType === 'new') bgClass = cn(bgClass, "bg-emerald-50/50 hover:bg-emerald-100/50");
 
     return (
         <ContextMenu>
@@ -166,7 +167,10 @@ function DraggableStoreRow({
                     )}
                     title={`${store.name}`}
                 >
-                    <div className="px-2 py-1 font-semibold truncate border-r border-slate-100 h-full flex items-center relative uppercase">
+                    <div className={cn(
+                        "px-2 py-1 font-semibold truncate border-r border-slate-100 h-full flex items-center relative uppercase",
+                        store.suggestionType === 'repeat' ? "text-blue-700" : ""
+                    )}>
                         {store.name}
                         {scheduledDate && (
                             <div className="absolute top-0 right-0 bottom-0 flex items-center pr-1 pointer-events-none">
@@ -182,7 +186,10 @@ function DraggableStoreRow({
                     {/* Last Audit Dates */}
                     <div className="px-2 py-1 border-r border-slate-100 h-full flex flex-col justify-center items-center leading-tight">
                         {auditInfo.lastDates.length > 0 ? (
-                            <span className="block whitespace-nowrap font-medium">{format(auditInfo.lastDates[0], 'dd.MM.yyyy')}</span>
+                            <span className={cn(
+                                "block whitespace-nowrap font-medium",
+                                store.suggestionType === 'repeat' ? "text-blue-600" : ""
+                            )}>{format(auditInfo.lastDates[0], 'dd.MM.yyyy')}</span>
                         ) : (
                             <span className="text-slate-400">-</span>
                         )}
@@ -195,7 +202,10 @@ function DraggableStoreRow({
                     </div>
 
                     {/* Days Since */}
-                    <div className="px-2 py-1 flex items-center justify-center font-bold">
+                    <div className={cn(
+                        "px-2 py-1 flex items-center justify-center font-bold",
+                        store.suggestionType === 'repeat' ? "text-blue-600" : ""
+                    )}>
                         {auditInfo.daysSince >= 0 ? auditInfo.daysSince : <span className="text-blue-600">YENİ</span>}
                     </div>
                 </div>
@@ -774,6 +784,7 @@ export default function SchedulePage() {
     const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
     const [accommodationTypes, setAccommodationTypes] = useState<AccommodationType[]>([]);
     const [mapOpen, setMapOpen] = useState(false);
+    const [aiScheduleOpen, setAiScheduleOpen] = useState(false);
 
     const handleDownloadPDF = async () => {
         try {
@@ -1303,9 +1314,15 @@ export default function SchedulePage() {
             lastAuditorName = auditor ? `${auditor.firstName || ''} ${auditor.lastName || ''}`.trim() : (lastAudit.auditorName || 'Bilinmiyor');
         }
 
+        // Calculate daysSince from the PLANNING ANCHOR (next Monday), not today.
+        // This shows how many days will have passed when the plan is executed.
         let daysSince = -1;
         if (lastAudit) {
-            daysSince = differenceInDays(new Date(), lastAudit.createdAt);
+            const todayStart = startOfDay(new Date());
+            const viewedMonday = startOfWeek(currentDate, { weekStartsOn: 1 });
+            const nextMonday = startOfWeek(addWeeks(currentDate, 1), { weekStartsOn: 1 });
+            const anchor = isBefore(viewedMonday, todayStart) ? nextMonday : viewedMonday;
+            daysSince = differenceInDays(anchor, lastAudit.createdAt);
         }
 
         return { lastDates, lastAuditorName, daysSince };
@@ -1328,103 +1345,148 @@ export default function SchedulePage() {
     useEffect(() => {
         if (loading || stores.length === 0) return;
 
-        const currentMonthStart = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+        // --- KEY CHANGE: Use NEXT week's Monday as the planning reference date ---
+        // When planning next week, the 12-day rule must be evaluated against
+        // the first day of the week being planned, not today.
+        const nextWeekMonday = startOfWeek(addWeeks(currentDate, 1), { weekStartsOn: 1 });
+        // If we're already viewing a future week, use that week's Monday
+        const today = startOfDay(new Date());
+        const viewedWeekMonday = startOfWeek(currentDate, { weekStartsOn: 1 });
+        // planningAnchor = the Monday of the NEXT week relative to currentDate
+        // (the week we'd be planning for)
+        const planningAnchor = isBefore(viewedWeekMonday, today)
+            ? nextWeekMonday  // Viewing past/current week → planning for next week
+            : viewedWeekMonday; // Already viewing future → plan for that week
 
-        // 1. Monthly Missing
-        // Definition: Stores that have NOT been visited/scheduled in the current calendar month.
-        // User Request B: "If visited in Week 1, remove from suggestions in Week 2".
-        // 2. New Ready Stores (Calculate First to exclude from Monthly Missing)
-        const twentyDaysAgo = addDays(new Date(), -20);
+        const currentMonthStart = startOfMonth(planningAnchor);
+        const currentMonthEnd = endOfMonth(planningAnchor);
+
+        // --- Capacity: how many slots are available in the planned week ---
+        // 8 auditors × 5 weekdays = 40. We use actual auditor count.
+        const weekdaysInPlan = 5; // Mon–Fri
+        const totalCapacity = auditors.length * weekdaysInPlan;
+
+        // 2. New Ready Stores
+        const twentyDaysAgo = addDays(today, -20);
         const newReady = stores.filter(store => {
             if (!store.openingDate) return false;
             const openDate = new Date(store.openingDate);
             const isOldEnough = openDate <= twentyDaysAgo;
             const hasEverBeenAudited = audits.some(a => a.storeId === store.id);
-            // Also check if scheduled? Usually "New Ready" implies "Plan First Audit".
-            // If scheduled, it's not "Ready", it's "Planned".
             const isScheduled = schedule.some(s => s.storeId === store.id);
-
             return isOldEnough && !hasEverBeenAudited && !isScheduled;
         });
 
-        // 1. Monthly Missing
-        // Definition: Stores that have NOT been visited/scheduled in the current calendar month.
-        // User Request B: "If visited in Week 1, remove from suggestions in Week 2".
-        // FIX: Exclude stores that are already in "New Ready" to prevent duplicates.
+        // 1. Monthly Missing (First Audits not yet done this month)
+        // 12-day rule evaluated against planningAnchor (next Monday), NOT today.
         const monthlyMissing = stores.filter(store => {
-            // If it's in New Ready, skip it here
             if (newReady.some(nr => nr.id === store.id)) return false;
 
-            // Check past audits in current month OR within 12 days
-            const hasAuditRecent = audits.some(a => {
-                if (a.storeId !== store.id) return false;
-                const isThisMonth = a.createdAt >= currentMonthStart && a.createdAt <= endOfMonth(currentDate);
-                const diffDays = Math.abs(differenceInDays(a.createdAt, currentDate));
-                return isThisMonth || diffDays <= 12;
-            });
+            // Check if already audited this month
+            const hasAuditThisMonth = audits.some(a =>
+                a.storeId === store.id &&
+                a.createdAt >= currentMonthStart &&
+                a.createdAt <= currentMonthEnd
+            );
+            if (hasAuditThisMonth) return false;
 
-            // Check scheduled items in current month OR within 12 days
-            const isScheduledRecent = schedule.some(s => {
-                if (s.storeId !== store.id) return false;
-                const isThisMonth = s.date >= currentMonthStart && s.date <= endOfMonth(currentDate);
-                const diffDays = Math.abs(differenceInDays(s.date, currentDate));
-                return isThisMonth || diffDays <= 12;
-            });
+            // Check if scheduled this month
+            const isScheduledThisMonth = schedule.some(s =>
+                s.storeId === store.id &&
+                s.date >= currentMonthStart &&
+                s.date <= currentMonthEnd
+            );
+            if (isScheduledThisMonth) return false;
 
-            return !hasAuditRecent && !isScheduledRecent;
+            // 12-day rule: check last audit/schedule date against planningAnchor
+            const lastAuditDate = audits
+                .filter(a => a.storeId === store.id)
+                .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0]?.createdAt;
+            const lastScheduleDate = schedule
+                .filter(s => s.storeId === store.id)
+                .sort((a, b) => b.date.getTime() - a.date.getTime())[0]?.date;
+
+            const lastInteraction = lastAuditDate && lastScheduleDate
+                ? (lastAuditDate > lastScheduleDate ? lastAuditDate : lastScheduleDate)
+                : (lastAuditDate || lastScheduleDate);
+
+            if (lastInteraction) {
+                const daysBetween = differenceInDays(planningAnchor, lastInteraction);
+                if (daysBetween < 12) return false; // Too soon even for next week
+            }
+
+            return true;
         }).map(store => ({ ...store, lastScore: getLastAuditScore(store.id) }));
 
-        // 3. Re-Audit Candidates (Low Score & 12 Day Rule)
-        // Def: Audited this month BUT passed 12 days since last audit/schedule.
-        // Priority: Low score first.
+        // 3. Re-Audit Candidates (Second Visit)
+        // Eligible if: 1 audit/schedule this month, not yet maxed out (< 2),
+        // AND 12 days will have passed by planningAnchor.
         const reAuditCandidates = stores.filter(store => {
-            // Must have been audited this month to be considered for "2nd round" usually
-            // Or just any store that fits the criteria? User implication: "After finishing 1st audits..."
-            // So we primarily look for stores that HAVE 1 audit this month.
             const thisMonthAudits = audits.filter(a =>
                 a.storeId === store.id &&
-                a.createdAt >= currentMonthStart
+                a.createdAt >= currentMonthStart &&
+                a.createdAt <= currentMonthEnd
             );
-
-            // If 0 audits this month, it's in "Monthly Missing" list (Priority 1).
             const thisMonthSchedule = schedule.filter(s =>
                 s.storeId === store.id &&
-                s.date >= currentMonthStart
+                s.date >= currentMonthStart &&
+                s.date <= currentMonthEnd
             );
 
-            // Logic Update: A store is a candidate for "Re-Audit" (2nd visit) if:
-            // 1. It has at least 1 interaction this month (Audit OR Schedule).
-            // 2. It has NOT reached the max 2 visits limit.
             const totalInteractions = thisMonthAudits.length + thisMonthSchedule.length;
+            if (totalInteractions === 0) return false; // → monthlyMissing
+            if (totalInteractions >= 2) return false;  // Already maxed out
 
-            if (totalInteractions === 0) return false; // Belongs to Monthly Missing
-            if (totalInteractions >= 2) return false; // Already maxed out
-
-            // Check 12-day rule against the LATEST interaction (Audit OR Schedule)
-            // Get all dates
+            // Latest interaction date
             const allDates = [
                 ...thisMonthAudits.map(a => a.createdAt),
                 ...thisMonthSchedule.map(s => s.date)
-            ].sort((a, b) => b.getTime() - a.getTime()); // Newest first
+            ].sort((a, b) => b.getTime() - a.getTime());
 
             const lastInteractionDate = allDates[0];
-            if (!lastInteractionDate) return false; // Should not happen given check above
+            if (!lastInteractionDate) return false;
 
-            const diffTime = Math.abs(currentDate.getTime() - lastInteractionDate.getTime());
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            // 12-day rule measured from planningAnchor (next Monday), not today
+            const daysSinceLastByPlanningDate = differenceInDays(planningAnchor, lastInteractionDate);
+            return daysSinceLastByPlanningDate >= 12;
 
-            return diffDays >= 12;
+        }).map(store => {
+            const lastScore = getLastAuditScore(store.id);
+            // Find last interaction date for sorting by proximity
+            const lastAuditDate = audits
+                .filter(a => a.storeId === store.id && a.createdAt >= currentMonthStart)
+                .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0]?.createdAt;
+            const lastScheduleDate = schedule
+                .filter(s => s.storeId === store.id && s.date >= currentMonthStart)
+                .sort((a, b) => b.date.getTime() - a.date.getTime())[0]?.date;
+            const lastInteraction = lastAuditDate && lastScheduleDate
+                ? (lastAuditDate > lastScheduleDate ? lastAuditDate : lastScheduleDate)
+                : (lastAuditDate || lastScheduleDate);
+            const daysSince = lastInteraction ? differenceInDays(planningAnchor, lastInteraction) : 999;
+            return { ...store, lastScore, _daysSince: daysSince };
+        })
+        // Sort: most days elapsed first (closest to overdue) → then lowest score
+        .sort((a, b) => {
+            if (b._daysSince !== a._daysSince) return b._daysSince - a._daysSince;
+            return (a.lastScore || 100) - (b.lastScore || 100);
+        });
 
-        }).map(store => ({ ...store, lastScore: getLastAuditScore(store.id) }))
-            .sort((a, b) => (a.lastScore || 100) - (b.lastScore || 100)); // Sort lowest score first
+        // --- Capacity-aware merge ---
+        // Slots needed = totalCapacity
+        // If firstAuditCount < totalCapacity → fill remaining with reAuditCandidates
+        const firstAuditPool = [...monthlyMissing, ...newReady];
+        const firstAuditCount = firstAuditPool.length;
+        const remainingSlots = Math.max(0, totalCapacity - firstAuditCount);
+        // Only take as many re-audit candidates as there are remaining slots
+        const trimmedReAudit = reAuditCandidates.slice(0, remainingSlots);
 
         setSuggestions({
             monthlyMissing,
             newReady,
-            reAuditCandidates
+            reAuditCandidates: trimmedReAudit
         });
 
-    }, [stores, audits, schedule, currentDate, loading]);
+    }, [stores, audits, schedule, currentDate, loading, auditors]);
 
     const handlePreviousWeek = () => setCurrentDate(subWeeks(currentDate, 1));
     const handleNextWeek = () => setCurrentDate(addWeeks(currentDate, 1));
@@ -1740,6 +1802,8 @@ export default function SchedulePage() {
         if (hasDuplicate) errors.push("Bu mağaza bu hafta zaten planlanmış!");
 
         // 2. Frequency Limit Check (Max 2 per month)
+        // Published items are already finalized — no need to flag them.
+        if (item.status === 'published') return errors.length > 0 ? errors.map(e => `• ${e}`).join('\n\n') : null;
         const itemMonthStart = startOfMonth(item.date);
         const itemMonthEnd = endOfMonth(item.date);
 
@@ -1750,11 +1814,16 @@ export default function SchedulePage() {
             a.status === 'tamamlandi'
         );
 
+        // Only count DRAFT schedule items — published ones are already reflected
+        // in the audits collection as completed audits, so counting them here
+        // would cause double-counting (e.g., 2 completed + 1 published plan = false 3).
         const monthlyScheduleList = schedule.filter(s =>
             s.id !== item.id &&
             s.storeId === item.storeId &&
             s.date >= itemMonthStart &&
-            s.date <= itemMonthEnd
+            s.date <= itemMonthEnd &&
+            s.status !== 'published' &&
+            s.type === 'audit'
         );
 
         if ((monthlyAuditsList.length + monthlyScheduleList.length + 1) > 2) {
@@ -2514,10 +2583,20 @@ export default function SchedulePage() {
                     <div className="flex flex-col h-full w-full bg-white">
 
                         <Tabs defaultValue="akilli" className="flex flex-col h-full">
-                            {/* Custom Header - Fixed Height 69px (Matches Left Toolbar: p-4 + h-9 + border) */}
-                            {/* Content aligned to top (pt-1) to satisfy 'move buttons up' request */}
-                            {/* Removed bg-white to satisfy 'remove white area' request */}
-                            <div className="h-[69px] flex items-start justify-center pt-1.5 px-4 border-b bg-slate-50/50 shrink-0">
+                            {/* AI Schedule Button */}
+                            <div className="px-3 pt-2 pb-0 shrink-0">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="w-full gap-2 text-xs font-semibold border-indigo-200 text-indigo-700 hover:bg-indigo-50 hover:border-indigo-300 bg-indigo-50/50"
+                                    onClick={() => setAiScheduleOpen(true)}
+                                >
+                                    <Brain className="h-3.5 w-3.5" />
+                                    Rota Bazlı Haftalık Program
+                                </Button>
+                            </div>
+                            {/* Custom Header */}
+                            <div className="h-[55px] flex items-start justify-center pt-1.5 px-4 border-b bg-slate-50/50 shrink-0">
                                 <TabsList className="flex items-center gap-1 p-1 bg-slate-200/50 rounded-lg w-full max-w-[400px] h-12">
                                     <TabsTrigger
                                         value="akilli"
@@ -2902,6 +2981,16 @@ export default function SchedulePage() {
             audits={audits}
             currentDate={currentDate}
             accommodationTypes={accommodationTypes}
+        />
+
+        <AiScheduleDialog
+            open={aiScheduleOpen}
+            onOpenChange={setAiScheduleOpen}
+            auditors={auditors}
+            stores={stores}
+            audits={audits}
+            schedule={schedule}
+            currentDate={currentDate}
         />
     </>
     );

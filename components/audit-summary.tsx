@@ -14,7 +14,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { ref as storageRef, getDownloadURL } from "firebase/storage";
 import { storage } from "@/lib/firebase";
-import { applyScoreRule } from "@/lib/utils";
+import { applyScoreRule, calcDisplayScore } from "@/lib/utils";
 
 interface AuditSummaryProps { audit: Audit; isPreview?: boolean; }
 
@@ -702,10 +702,7 @@ export function AuditSummary({ audit, onQuestionClick, showIncompleteOnly = fals
               }
             });
 
-            // Bölümlerin ortalaması
             const averageScore = sectionCount > 0 ? totalSectionPercentage / sectionCount : 0;
-
-            // Özel yuvarlama: .50 ve üzeri yukarı, altı aşağı
             const decimalPart = averageScore % 1;
             return decimalPart >= 0.50 ? Math.ceil(averageScore) : Math.floor(averageScore);
           })()}`],
@@ -1095,14 +1092,9 @@ export function AuditSummary({ audit, onQuestionClick, showIncompleteOnly = fals
                     }
                   });
 
-                  // Bölümlerin ortalaması
                   const averageScore = sectionCount > 0 ? totalSectionPercentage / sectionCount : 0;
-
-                  // Özel yuvarlama: .50 ve üzeri yukarı, altı aşağı
                   const decimalPart = averageScore % 1;
-                  const finalScore = decimalPart >= 0.50 ? Math.ceil(averageScore) : Math.floor(averageScore);
-
-                  return finalScore;
+                  return decimalPart >= 0.50 ? Math.ceil(averageScore) : Math.floor(averageScore);
                 })()}
               </p>
             </div>

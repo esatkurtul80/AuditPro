@@ -2,11 +2,19 @@
 
 ```json
 {
-  "version": "3.0.8",
-  "build": 124,
+  "version": "3.0.9",
+  "build": 125,
   "status": "stable"
 }
 ```
+
+## [3.0.9] - 2026-05-12
+
+### v3.0.9
+- **Merkezi Puan Hesaplama:** Tüm sistemde puan hesaplama tek bir fonksiyona (`calcAuditScore` — `lib/utils.ts`) bağlandı. Algoritma B (bölüm yüzde ortalaması) ve 99 kuralı bu fonksiyonun içinde kapsüllendi.
+- **Puan Tutarlılığı:** Admin paneli, bölge müdürü paneli, rapor paneli, mağaza analiz diyaloğu ve `lib/store-analysis.ts` stale Firestore `totalScore` yerine artık canlı `calcAuditScore` hesabını kullanıyor.
+- **Score Rules Dokümantasyonu:** `docs/score-rules.md` oluşturuldu — puan kuralı referans belgesi. Yeni sayfa/bileşen yazarken buradan başlanmalı.
+- **`applyScoreRule` Deprecate:** Artık yalnızca geriye dönük uyumluluk için korunuyor; yeni kodlarda doğrudan `calcAuditScore` kullanılmalı.
 
 ## [3.0.8] - 2026-05-01
 

@@ -123,5 +123,9 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       allow create, update, delete: if isAdmin();
     }
+    match /lodging_locations/{locationId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
   }
 }

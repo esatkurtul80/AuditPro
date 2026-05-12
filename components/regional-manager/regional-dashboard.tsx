@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/components/auth-provider";
 import { collection, getDocs, onSnapshot, query, where, orderBy, limit } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { applyScoreRule, calcDisplayScore } from "@/lib/utils";
+import { applyScoreRule, calcAuditScore } from "@/lib/utils";
 import { Store, Audit } from "@/lib/types";
 import {
     Card,
@@ -281,13 +281,10 @@ export function RegionalDashboard() {
     const months = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
     const years = Array.from({ length: 11 }, (_, i) => 2026 + i);
 
-    // Calculate current month average score — use stored totalScore via calcDisplayScore
+    // Calculate current month average score — Algorithm B (single source: calcAuditScore)
     const currentMonthAverage = currentMonthAudits.length > 0
         ? applyScoreRule(
-            currentMonthAudits.reduce((acc, audit) => {
-                const score = calcDisplayScore(audit.totalScore, undefined, undefined);
-                return acc + score;
-            }, 0) / currentMonthAudits.length
+            currentMonthAudits.reduce((acc, audit) => acc + calcAuditScore((audit as any).sections, audit.totalScore), 0) / currentMonthAudits.length
         )
         : 0;
 
@@ -593,8 +590,8 @@ export function RegionalDashboard() {
                     ) : (
                         <div className="space-y-4">
                             {recentAudits.map((audit) => {
-                                // Use stored totalScore — single source of truth via calcDisplayScore
-                                const scorePercent = calcDisplayScore(audit.totalScore, undefined, undefined);
+                                // Central Algorithm B
+                                const scorePercent = calcAuditScore((audit as any).sections, audit.totalScore);
 
                                 return (() => {
                                     // Determine if store has action items and their status
