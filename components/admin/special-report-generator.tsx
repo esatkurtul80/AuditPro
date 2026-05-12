@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import Script from "next/script";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogClose, DialogTitle } from "@/components/ui/dialog";
+import { calcAuditScore } from "@/lib/utils";
 
 interface SpecialReportGeneratorProps {
     audit: Audit;
@@ -757,7 +758,7 @@ export function SpecialReportGenerator({ audit, store, mode = 'download', onComp
                                         <div className="info-row"><span className="info-label">Mağaza Adı:</span> <span className="info-val">{audit.storeName}</span></div>
                                         <div className="info-row"><span className="info-label">Denetimi Yapan:</span> <span className="info-val">{audit.auditorName}</span></div>
                                         <div className="info-row"><span className="info-label">İlgili Hafta:</span> <span className="info-val">{getWeekString(audit.createdAt)}</span></div>
-                                        <div className="info-row"><span className="info-label">Mağaza Puanı:</span> <span className="score-badge">{audit.totalScore}</span></div>
+                                        <div className="info-row"><span className="info-label">Mağaza Puanı:</span> <span className="score-badge">{calcAuditScore(audit.sections as any, audit.totalScore)}</span></div>
                                     </div>
                                     <div className="col-right">
                                         <div className="info-row"><span className="info-label">Denetim Tarihi:</span> <span className="info-val">{getFormattedDate(audit.createdAt)}</span></div>

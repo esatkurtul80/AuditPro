@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardFooter, CardTitle }
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Calendar, User, FileText, ChevronRight, Eye, Play, Award, CheckCircle2, AlertCircle, Clock, ArrowRight, Star } from "lucide-react";
-import { cn, calcDisplayScore } from "@/lib/utils";
+import { cn, calcAuditScore } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
 
 // Helper function to calculate days
@@ -109,7 +109,7 @@ export function AuditCard({
     onClick,
     onActionClick
 }: AuditCardProps) {
-    const percentage = calcDisplayScore(null, score, totalScore > 0 ? totalScore : undefined);
+    const percentage = calcAuditScore(null, score);
     const isPerfectScore = percentage === 100;
 
     // Calculate pending action count explicitly for the badge

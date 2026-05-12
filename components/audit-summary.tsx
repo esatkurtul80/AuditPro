@@ -14,7 +14,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { ref as storageRef, getDownloadURL } from "firebase/storage";
 import { storage } from "@/lib/firebase";
-import { applyScoreRule, calcDisplayScore } from "@/lib/utils";
+import { calcAuditScore } from "@/lib/utils";
 
 interface AuditSummaryProps { audit: Audit; isPreview?: boolean; }
 
@@ -294,7 +294,7 @@ export function AuditSummary({ audit, onQuestionClick, showIncompleteOnly = fals
                         sectionMax += answer.maxPoints;
                       }
                     });
-                    const sectionScore = sectionMax > 0 ? applyScoreRule((sectionEarned / sectionMax) * 100) : 0;
+                    const sectionScore = sectionMax > 0 ? Math.round((sectionEarned / sectionMax) * 100) : 0;
 
                     const filteredQuestions = section.answers.filter(a => {
                       if (filterType === 'all') return a.answer && a.answer.trim() !== "";
@@ -449,7 +449,7 @@ export function AuditSummary({ audit, onQuestionClick, showIncompleteOnly = fals
                   sectionMax += answer.maxPoints;
                 }
               });
-              const sectionScore = sectionMax > 0 ? applyScoreRule((sectionEarned / sectionMax) * 100) : 0;
+              const sectionScore = sectionMax > 0 ? Math.round((sectionEarned / sectionMax) * 100) : 0;
 
               const filteredQuestions = section.answers.filter(a => {
                 if (filterType === 'all') return a.answer && a.answer.trim() !== "";
@@ -672,7 +672,7 @@ export function AuditSummary({ audit, onQuestionClick, showIncompleteOnly = fals
 
       // Denetim Bilgileri Tablosu
       const weekNum = audit.startedAt ? getWeekNumber(audit.startedAt.toDate()) : '-';
-      const scorePercentage = audit.maxScore > 0 ? `${applyScoreRule((audit.totalScore / audit.maxScore) * 100)}%` : '-';
+      const scorePercentage = audit.maxScore > 0 ? `${calcAuditScore(audit.sections as any, audit.totalScore)}%` : '-';
 
       autoTable(doc, {
         startY: yPos,
@@ -737,7 +737,7 @@ export function AuditSummary({ audit, onQuestionClick, showIncompleteOnly = fals
             sectionMax += a.maxPoints;
           }
         });
-        const sectionScore = sectionMax > 0 ? applyScoreRule((sectionEarned / sectionMax) * 100) : 0;
+        const sectionScore = sectionMax > 0 ? Math.round((sectionEarned / sectionMax) * 100) : 0;
 
         // Zaten çizilen hücreleri takip etmek için
         const drawnPhotoCells = new Set<string>();

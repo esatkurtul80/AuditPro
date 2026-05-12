@@ -6,6 +6,7 @@ import { db } from "@/lib/firebase";
 import { collection, query, where, getDocs, Timestamp } from "firebase/firestore";
 import { getReturnDeadline } from "@/lib/date-utils";
 import { Audit, ActionStats } from "@/lib/types";
+import { calcAuditScore } from "@/lib/utils";
 
 // --- Types ---
 
@@ -189,37 +190,8 @@ export function useStoreData() {
                         pending_admin: pendingAdminActions
                     };
 
-                    // 3. Score Calculation
-                    // Use the stored totalScore from Firestore as source of truth.
-                    // Only apply the 99-cap for scores strictly between 99 and 100 (e.g., 99.3 → 99).
-                    let finalScore = auditData.totalScore ?? auditData.score ?? 0;
-
-                    // If totalScore is not stored, recalculate from sections using Algorithm B (section-average)
-                    if (!auditData.totalScore && auditData.sections) {
-                        const sectionScores: number[] = [];
-                        auditData.sections.forEach((section: any) => {
-                            let e = 0, m = 0;
-                            section.answers?.forEach((a: any) => {
-                                if (a.answer && a.answer.trim() !== "" && a.answer !== "muaf") {
-                                    e += (a.earnedPoints || 0);
-                                    m += (a.maxPoints || 0);
-                                }
-                            });
-                            if (m > 0) sectionScores.push((e / m) * 100);
-                        });
-                        const rawPercentage = sectionScores.length > 0
-                            ? sectionScores.reduce((s, v) => s + v, 0) / sectionScores.length
-                            : 0;
-                        finalScore = Math.round(rawPercentage);
-                    }
-
-                    // Apply 99-cap: only values strictly between 99 and 100 get capped to 99.
-                    // Exact 99 and exact 100 are left untouched.
-                    if (finalScore > 99 && finalScore < 100) {
-                        finalScore = 99;
-                    }
-
-                    if (finalScore > 100) finalScore = 100;
+                    // 3. Score Calculation — always use centralised utility (Algoritma B + 99-rule)
+                    const finalScore = calcAuditScore(auditData.sections, auditData.totalScore ?? auditData.score);
 
                     return {
                         id: doc.id,

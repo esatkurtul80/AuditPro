@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Button } from "@/components/ui/button";
 import { Sparkles, BrainCircuit, Loader2, Download, CheckCircle2 } from "lucide-react";
 import { Audit, DateRangeFilter } from "@/lib/types";
+import { calcAuditScore } from "@/lib/utils";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import { db } from "@/lib/firebase";
@@ -582,7 +583,7 @@ export function BulkAIAnalysisDialog({ audits, dateRange }: BulkAIAnalysisDialog
                                                             <td><strong>{audit.storeName}</strong></td>
                                                             <td>{audit.auditorName || '-'}</td>
                                                             <td>{formattedDate}</td>
-                                                            <td><span className="score-badge">{audit.totalScore || 0}</span></td>
+                                                            <td><span className="score-badge">{calcAuditScore((audit as any).sections, audit.totalScore)}</span></td>
                                                         </tr>
                                                     )
                                                 })}
