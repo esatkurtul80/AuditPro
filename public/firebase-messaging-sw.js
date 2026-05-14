@@ -17,15 +17,27 @@ firebase.initializeApp(firebaseConfig);
 const messaging = firebase.messaging();
 
 // Handle background messages
-// DATA-ONLY MESSAGE HANDLER
-// We use data-only messages to prevent double notifications
-// Browser won't auto-show, so we MUST show manually here.
+// When the app is in the background or closed, FCM routes messages here.
+// We MUST call showNotification manually — relying on the browser to auto-show
+// only works for pure notification-only messages (no data field).
+// Since our messages include both notification + data, Chrome always delegates to SW.
 messaging.onBackgroundMessage((payload) => {
     console.log('[SW] Background message received:', payload);
-    // Browser will handle the 'notification' payload automatically!
-    // We do NOT call showNotification to avoid duplicates.
-    // This fixes the PC 2x issue.
-    // iOS/Android will show the system notification from payload.
+
+    const title = payload.notification?.title || payload.data?.title || 'AuditPro';
+    const body  = payload.notification?.body  || payload.data?.body  || '';
+    const url   = payload.data?.url || payload.fcmOptions?.link || '/';
+
+    const options = {
+        body: body,
+        icon: '/pwa-icon-192.png',
+        badge: '/pwa-icon-192.png',
+        data: { url: url },
+        requireInteraction: false,
+        vibrate: [200, 100, 200]
+    };
+
+    self.registration.showNotification(title, options);
 });
 
 self.addEventListener('notificationclick', function (event) {
@@ -33,7 +45,7 @@ self.addEventListener('notificationclick', function (event) {
     event.notification.close();
 
     // Get URL from data payload or default to root
-    const targetUrl = event.notification.data?.url || '/';
+    const targetUrl = event.notification.data?.url || event.notification.data?.link || '/';
 
     // Open the app or focus the window
     event.waitUntil(

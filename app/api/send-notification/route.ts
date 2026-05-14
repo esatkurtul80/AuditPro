@@ -154,10 +154,17 @@ export async function POST(req: Request) {
                     "apns-priority": "10",
                 }
             },
-            // WebPush: Add notification key so Browser handles it (No SW manual show needed)
+            // WebPush: notification key triggers system notification display in browser
             webpush: {
+                notification: {
+                    title: title,
+                    body: message,
+                    icon: '/pwa-icon-192.png',
+                    requireInteraction: false,
+                    vibrate: [200, 100, 200]
+                },
                 fcmOptions: {
-                    link: url || "/"
+                    link: url ? `https://tugbadenetim.info${url.startsWith('/') ? url : '/' + url}` : "https://tugbadenetim.info"
                 },
                 headers: {
                     "Urgency": "high"
