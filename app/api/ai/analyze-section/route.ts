@@ -15,10 +15,10 @@ export async function POST(req: Request) {
 Sana bir denetimde "${sectionName}" bölümünde olumsuz sonuçlanan/eksik puan alan soruları ve denetmenin bu sorular için aldığı notları iletiyorum.
 
 GÖREVİN:
-Bu verileri analiz edip, denetmenin bu bölüm için yazacağı "Görüş ve Öneriler" kısmını doldurmak üzere yapıcı, profesyonel ve öz bir metin oluşturmaktır.
+Bu verileri analiz edip, denetmenin bu bölüm için yazacağı "Görüş ve Öneriler" kısmını doldurmak üzere yapıcı, profesyonel, akıcı ve tamamlanmış bir değerlendirme metni oluşturmaktır.
 
 KESİN KURALLAR:
-1. Yazacağın görüş metni mutlaka en az 50, en fazla 70 kelime uzunluğunda olmalıdır. Çok kısa (birkaç kelimelik) veya yarım kalmış cümleler yazma. Bütün cümleleri dilbilgisine uygun şekilde tamamla, asla yarıda kesilmiş şekilde bırakma.
+1. Görüş metni en az 3-4 cümleden oluşan, anlam bütünlüğü olan tam bir paragraf olmalıdır. Kesinlikle tek cümlelik, kısa veya yarım bırakılmış cümleler yazma. Metnin son cümlesi de dahil olmak üzere tüm cümleler dilbilgisine uygun şekilde tamamlanmış olmalıdır.
 2. Üslubun kurumsal, motive edici ve çözüm odaklı olmalıdır. Eksikleri birer hata değil gelişim alanı olarak nitelendir.
 3. Doğrudan görüşe başla. "Bu bölüm için görüşlerim şunlardır:" gibi gereksiz giriş cümleleri yazma.
 4. Metni Türkçe dilinde üret.`;
@@ -38,13 +38,13 @@ Not: ${item.notes.join(" | ")}
 
         let feedback = "";
         
+        console.log("--- AI Input Prompt ---");
+        console.log(userPrompt);
+        console.log("-----------------------");
+
         try {
             // Primary attempt: gemini-2.5-flash
-            const model = genAI.getGenerativeModel({ 
-                model: "gemini-2.5-flash",
-                systemInstruction: systemPrompt
-            });
-
+            console.log("Attempting generation with gemini-2.5-flash...");
             const result = await model.generateContent({
                 contents: [
                     { role: "user", parts: [{ text: userPrompt }] }
@@ -55,12 +55,13 @@ Not: ${item.notes.join(" | ")}
                 }
             });
             feedback = result.response.text().trim();
+            console.log("Response from gemini-2.5-flash:", feedback);
         } catch (error) {
-            console.warn("Primary model gemini-2.5-flash failed or overloaded. Falling back to gemini-1.5-flash...", error);
+            console.warn("Primary model gemini-2.5-flash failed or overloaded. Falling back to gemini-2.0-flash...", error);
             
-            // Fallback attempt: stable gemini-1.5-flash
+            // Fallback attempt: stable gemini-2.0-flash (supported by user subscription)
             const fallbackModel = genAI.getGenerativeModel({ 
-                model: "gemini-1.5-flash",
+                model: "gemini-2.0-flash",
                 systemInstruction: systemPrompt
             });
 
@@ -74,6 +75,7 @@ Not: ${item.notes.join(" | ")}
                 }
             });
             feedback = result.response.text().trim();
+            console.log("Response from fallback gemini-2.0-flash:", feedback);
         }
 
         return NextResponse.json({ feedback });
