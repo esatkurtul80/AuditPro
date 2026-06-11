@@ -12,7 +12,7 @@ export async function POST(req: Request) {
         }
 
         const systemPrompt = `Sen profesyonel bir iç denetim uzmanı ve mağaza operasyon analistisin.
-Sana bir denetimde "${sectionName}" bölümünde olumsuz sonuçlanan/eksik puan alan soruları, denetmenin bu sorular için aldığı notları ve bu soruların önceki denetimlerde de olumsuz olup olmadığını (ardışık hata sayısı) iletiyorum.
+Sana bir denetimde "${sectionName}" bölümünde olumsuz sonuçlanan/eksik puan alan soruları, denetmenin bu sorular için aldığı notları, önceki denetimlerdeki tamamlanma tarihlerini, geçmiş notları ve ardışık hata sayılarını iletiyorum.
 
 GÖREVİN:
 Bu verileri analiz edip, denetmenin bu bölüm için yazacağı "Görüş ve Öneriler" kısmını doldurmak üzere yapıcı, profesyonel, akıcı ve tamamlanmış bir değerlendirme metni oluşturmaktır.
@@ -23,7 +23,7 @@ KESİN KURALLAR:
 3. ÜSLUP (ÇOK ÖNEMLİ): Kesinlikle sert ve emir kipi taşıyan "-meli, -malı, yapılmalıdır, gösterilmelidir, edilmelidir" gibi ifadeler KULLANMA. Bunun yerine çok daha yumuşak, yapıcı ve tavsiye niteliğinde olan "-ebilir, -abilir, yapılabilir, sağlanabilir, gösterilebilir, dikkat edilebilir, yararlı olacaktır" gibi yapıcı kelimeler kullan.
 4. Doğrudan görüşe başla. "Bu bölüm için görüşlerim şunlardır:" gibi gereksiz giriş cümleleri yazma.
 5. Metni Türkçe dilinde üret.
-6. SÜREGELEN SORUNLARIN BELİRTİLMESİ: Eğer ardışık hata sayısı 2 veya daha fazla (consecutiveFailCount >= 2) olan, yani önceki denetimlerden süregelen maddeler varsa, bunları hem ana paragrafta süregelen bir sorun olarak belirt hem de ana paragraftan sonra bir satır boşluk bırakarak "Önceki Denetimlerden Süregelen Eksiklikler:" başlığı altında liste (madde) halinde yaz (Örn: "- [Konu/Soru Tanımı] (X denetimdir üst üste eksik)"). Süregelen eksiklik yoksa bu listeyi ve başlığı asla oluşturma.`;
+6. SÜREGELEN ORTAK KONULARIN BELİRTİLMESİ: Eğer bir sorunun ardışık hata sayısı 2 veya daha fazla ise, şimdiki not ile geçmiş denetimlerdeki notları karşılaştır. Eğer hem geçmiş denetimlerde hem de şimdiki denetimde ortak olarak adı geçen spesifik ürünler, parti numaraları (örn. "Kaju 21.03 pt"), markalar veya konular varsa, bunları tespit et. Bu ortak süregelen maddeleri/ürünleri ana değerlendirme paragrafından sonra bir satır boşluk bırakarak "Önceki Denetimlerden Süregelen Eksiklikler:" başlığı altında liste (madde) halinde belirt (Örn: "- [Ortak Ürün/Konu Detayı] (X denetimdir üst üste giderilmemiş)"). Eğer ardışık hata olsa bile notlar içinde ortaklaşan/aynı olan spesifik bir ürün veya konu detayı yoksa (örn. tamamen farklı ürünler geçiyorsa), bu listeyi ve başlığı asla oluşturma. Sadece doğrudan soru başlığını listeleme, mutlaka notlar içindeki ortak spesifik ürün veya konuyu bulup listele.`;
 
         // Use gemini-2.5-flash as explicitly requested by the user
         const model = genAI.getGenerativeModel({ 
@@ -35,13 +35,15 @@ KESİN KURALLAR:
 Eksikler ve Alınan Notlar:
 ${failedAnswers.map((item: any, i: number) => `
 Soru: ${item.questionText}
-Not: ${item.notes.join(" | ")}
+Şimdiki Not: ${item.notes.join(" | ")}
+${item.pastNotes && item.pastNotes.length > 0 ? `Geçmiş Denetimlerde Alınan Notlar:
+${item.pastNotes.map((pn: any) => `- ${pn.completedAt}: ${pn.notes.join(" | ")}`).join("\n")}` : 'Geçmiş Denetimlerde Alınan Not Yok.'}
 Ardışık Hata Sayısı (Mevcut Dahil): ${item.consecutiveFailCount} denetimdir üst üste olumsuz.
 `).join("\n")}
 
 Lütfen yukarıda yer alan eksiklerin HER BİRİNİ tek tek ele alarak analiz notunu ve yapıcı önerisini yaz. En az 50 en fazla 70 kelimeden oluşan (yaklaşık 3-4 cümle) tam ve akıcı bir değerlendirme paragrafı oluştur. Metindeki tüm cümleleri dilbilgisine uygun şekilde tamamla. Üslup olarak kesinlikle "-meli, -malı" (yapılmalı, gösterilmeli vb.) ifadeleri yerine "-ebilir, -abilir" (yapılabilir, gösterilebilir, sağlanabilir, dikkat edilebilir vb.) şeklinde çok daha yumuşak ve yapıcı bir dil kullan.
 
-ÖNEMLİ: Eğer ardışık hata sayısı 2 veya daha fazla (consecutiveFailCount >= 2) olan süregelen maddeler varsa, bunları ana paragrafın ardından boş bir satır bırakarak "Önceki Denetimlerden Süregelen Eksiklikler:" başlığı altında liste (madde) halinde belirt (Örn: "- [Madde/Soru Konusu] (X denetimdir üst üste eksik/olumsuz)"). Eğer süregelen eksiklik yoksa bu listeyi ve başlığı asla ekleme.`;
+ÖNEMLİ: Eğer ardışık hata sayısı 2 veya daha fazla (consecutiveFailCount >= 2) olan süregelen maddeler varsa ve bu maddelerin şimdiki notu ile geçmiş notlarında ORTAK/AYNI ürün, parti no, konu vb. detaylar yer alıyorsa, bunları ana paragrafın ardından boş bir satır bırakarak "Önceki Denetimlerden Süregelen Eksiklikler:" başlığı altında liste (madde) halinde belirt (Örn: "- [Ortak Ürün/Konu Detayı] (X denetimdir üst üste giderilmemiş)"). Ortak/aynı detay yoksa bu listeyi ve başlığı asla ekleme.`;
 
         let feedback = "";
         

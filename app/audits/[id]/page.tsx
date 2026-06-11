@@ -1582,6 +1582,7 @@ export default function AuditPage() {
                 .map((ans: AuditAnswer) => {
                     // Üst üste kaç denetimdir başarısız olduğunu hesapla (mevcut denetim = 1)
                     let consecutiveFailCount = 1;
+                    const pastNotes: { completedAt: string; notes: string[] }[] = [];
                     for (const prevAudit of previousAudits) {
                         let prevAns = null;
                         for (const sec of prevAudit.sections) {
@@ -1594,6 +1595,16 @@ export default function AuditPage() {
                         // Eğer önceki denetimde bu soru varsa ve hayır veya eksik puan alınmışsa
                         if (prevAns && (prevAns.answer === 'hayir' || prevAns.earnedPoints < prevAns.maxPoints)) {
                             consecutiveFailCount++;
+                            const prevNotes = prevAns.notes ? prevAns.notes.filter((note: string) => note.trim() !== "") : [];
+                            if (prevNotes.length > 0) {
+                                const dateStr = prevAudit.completedAt 
+                                    ? new Date(prevAudit.completedAt.seconds * 1000).toLocaleDateString('tr-TR')
+                                    : "Bilinmeyen Tarih";
+                                pastNotes.push({
+                                    completedAt: dateStr,
+                                    notes: prevNotes
+                                });
+                            }
                         } else {
                             // Eğer tam puan alınmışsa veya soru bulunamadıysa ardışık başarısızlık serisi bozulur
                             break;
@@ -1603,7 +1614,8 @@ export default function AuditPage() {
                     return {
                         questionText: ans.questionText,
                         notes: ans.notes.filter((note: string) => note.trim() !== ""),
-                        consecutiveFailCount
+                        consecutiveFailCount,
+                        pastNotes
                     };
                 });
 
