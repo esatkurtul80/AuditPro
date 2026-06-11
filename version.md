@@ -2,11 +2,16 @@
 
 ```json
 {
-  "version": "3.0.9",
-  "build": 125,
+  "version": "3.1.0",
+  "build": 126,
   "status": "stable"
 }
 ```
+
+## [3.1.0] - 2026-06-11
+
+### v3.1.0
+- **Bölüm Görüşleri Yapay Zeka Desteği:** Bölüm sonlarında yer alan görüş ve öneriler alanına `gemini-2.5-flash` modeli ile entegre olan "AI ile Doldur" butonu eklendi. Bölümdeki olumsuz/eksik puanlı sorular ve bu sorulara ait denetmen notları analiz edilerek otomatik özet görüşler oluşturulabiliyor.
 
 ## [3.0.9] - 2026-05-12
 
