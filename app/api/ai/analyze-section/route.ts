@@ -45,8 +45,13 @@ Lütfen yukarıda yer alan eksikleri ve denetmen notlarını temel alarak, bu b�
         console.log("-----------------------");
 
         try {
-            // Primary attempt: gemini-2.5-flash
-            console.log("Attempting generation with gemini-2.5-flash...");
+            // Primary attempt: gemini-2.5-flash-lite (fast, highly available)
+            console.log("Attempting generation with gemini-2.5-flash-lite...");
+            const model = genAI.getGenerativeModel({ 
+                model: "gemini-2.5-flash-lite",
+                systemInstruction: systemPrompt
+            });
+
             const result = await model.generateContent({
                 contents: [
                     { role: "user", parts: [{ text: userPrompt }] }
@@ -57,27 +62,50 @@ Lütfen yukarıda yer alan eksikleri ve denetmen notlarını temel alarak, bu b�
                 }
             });
             feedback = result.response.text().trim();
-            console.log("Response from gemini-2.5-flash:", feedback);
+            console.log("Response from gemini-2.5-flash-lite:", feedback);
         } catch (error) {
-            console.warn("Primary model gemini-2.5-flash failed or overloaded. Falling back to gemini-flash-latest...", error);
+            console.warn("Primary model gemini-2.5-flash-lite failed or overloaded. Falling back to gemini-2.5-flash...", error);
             
-            // Fallback attempt: stable gemini-flash-latest (supported by user subscription)
-            const fallbackModel = genAI.getGenerativeModel({ 
-                model: "gemini-flash-latest",
-                systemInstruction: systemPrompt
-            });
+            try {
+                // Fallback attempt 1: gemini-2.5-flash
+                console.log("Attempting generation with gemini-2.5-flash...");
+                const fallbackModel1 = genAI.getGenerativeModel({ 
+                    model: "gemini-2.5-flash",
+                    systemInstruction: systemPrompt
+                });
 
-            const result = await fallbackModel.generateContent({
-                contents: [
-                    { role: "user", parts: [{ text: userPrompt }] }
-                ],
-                generationConfig: {
-                    temperature: 0.7,
-                    maxOutputTokens: 600
-                }
-            });
-            feedback = result.response.text().trim();
-            console.log("Response from fallback gemini-flash-latest:", feedback);
+                const result = await fallbackModel1.generateContent({
+                    contents: [
+                        { role: "user", parts: [{ text: userPrompt }] }
+                    ],
+                    generationConfig: {
+                        temperature: 0.7,
+                        maxOutputTokens: 600
+                    }
+                });
+                feedback = result.response.text().trim();
+                console.log("Response from fallback gemini-2.5-flash:", feedback);
+            } catch (fbError) {
+                console.warn("Fallback model gemini-2.5-flash failed. Falling back to gemini-flash-latest...", fbError);
+                
+                // Fallback attempt 2: stable gemini-flash-latest (supported by user subscription)
+                const fallbackModel2 = genAI.getGenerativeModel({ 
+                    model: "gemini-flash-latest",
+                    systemInstruction: systemPrompt
+                });
+
+                const result = await fallbackModel2.generateContent({
+                    contents: [
+                        { role: "user", parts: [{ text: userPrompt }] }
+                    ],
+                    generationConfig: {
+                        temperature: 0.7,
+                        maxOutputTokens: 600
+                    }
+                });
+                feedback = result.response.text().trim();
+                console.log("Response from fallback gemini-flash-latest:", feedback);
+            }
         }
 
         return NextResponse.json({ feedback });
