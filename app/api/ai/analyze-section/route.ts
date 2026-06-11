@@ -11,11 +11,6 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "Eksik soru bilgisi" }, { status: 400 });
         }
 
-        // Use gemini-2.5-flash as explicitly requested by the user
-        const model = genAI.getGenerativeModel({ 
-            model: "gemini-2.5-flash" 
-        });
-
         const systemPrompt = `Sen profesyonel bir iç denetim uzmanı ve mağaza operasyon analistisin.
 Sana bir denetimde "${sectionName}" bölümünde olumsuz sonuçlanan/eksik puan alan soruları ve denetmenin bu sorular için aldığı notları iletiyorum.
 
@@ -23,10 +18,16 @@ GÖREVİN:
 Bu verileri analiz edip, denetmenin bu bölüm için yazacağı "Görüş ve Öneriler" kısmını doldurmak üzere yapıcı, profesyonel ve kısa bir özet metin oluşturmaktır.
 
 KESİN KURALLAR:
-1. Çok kısa (birkaç kelimelik) veya tek cümlelik yüzeysel yanıtlar yazma. Başarısız noktaları yapıcı bir dille ele alan ve gelişim önerileri sunan, en az 2-3 tam cümlelik profesyonel ve öz bir paragraf oluştur.
+1. Çok kısa (birkaç kelimelik) veya tek cümlelik yarım kalmış yanıtlar yazma. Başarısız noktaları yapıcı bir dille ele alan ve gelişim önerileri sunan, en az 2-3 tam cümlelik profesyonel ve öz bir paragraf oluştur. Cümlelerin tamamlanmış olmasına ve havada kalmamasına dikkat et.
 2. Üslubun kurumsal, motive edici ve çözüm odaklı olmalıdır. Eksikleri birer hata değil gelişim alanı olarak nitelendir.
 3. Doğrudan görüşe başla. "Bu bölüm için görüşlerim şunlardır:" gibi gereksiz giriş cümleleri yazma.
 4. Metni Türkçe dilinde üret.`;
+
+        // Use gemini-2.5-flash as explicitly requested by the user
+        const model = genAI.getGenerativeModel({ 
+            model: "gemini-2.5-flash",
+            systemInstruction: systemPrompt
+        });
 
         const userPrompt = `Bölüm: ${sectionName}
 Eksikler ve Alınan Notlar:
@@ -37,11 +38,11 @@ Not: ${item.notes.join(" | ")}
 
         const result = await model.generateContent({
             contents: [
-                { role: "user", parts: [{ text: `${systemPrompt}\n\n${userPrompt}` }] }
+                { role: "user", parts: [{ text: userPrompt }] }
             ],
             generationConfig: {
-                temperature: 0.6,
-                maxOutputTokens: 200
+                temperature: 0.7,
+                maxOutputTokens: 300
             }
         });
 
