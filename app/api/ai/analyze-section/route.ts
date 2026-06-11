@@ -36,17 +36,45 @@ Soru: ${item.questionText}
 Not: ${item.notes.join(" | ")}
 `).join("\n")}`;
 
-        const result = await model.generateContent({
-            contents: [
-                { role: "user", parts: [{ text: userPrompt }] }
-            ],
-            generationConfig: {
-                temperature: 0.7,
-                maxOutputTokens: 600
-            }
-        });
+        let feedback = "";
+        
+        try {
+            // Primary attempt: gemini-2.5-flash
+            const model = genAI.getGenerativeModel({ 
+                model: "gemini-2.5-flash",
+                systemInstruction: systemPrompt
+            });
 
-        const feedback = result.response.text().trim();
+            const result = await model.generateContent({
+                contents: [
+                    { role: "user", parts: [{ text: userPrompt }] }
+                ],
+                generationConfig: {
+                    temperature: 0.7,
+                    maxOutputTokens: 600
+                }
+            });
+            feedback = result.response.text().trim();
+        } catch (error) {
+            console.warn("Primary model gemini-2.5-flash failed or overloaded. Falling back to gemini-1.5-flash...", error);
+            
+            // Fallback attempt: stable gemini-1.5-flash
+            const fallbackModel = genAI.getGenerativeModel({ 
+                model: "gemini-1.5-flash",
+                systemInstruction: systemPrompt
+            });
+
+            const result = await fallbackModel.generateContent({
+                contents: [
+                    { role: "user", parts: [{ text: userPrompt }] }
+                ],
+                generationConfig: {
+                    temperature: 0.7,
+                    maxOutputTokens: 600
+                }
+            });
+            feedback = result.response.text().trim();
+        }
 
         return NextResponse.json({ feedback });
 
