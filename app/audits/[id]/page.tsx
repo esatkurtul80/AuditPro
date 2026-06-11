@@ -1590,10 +1590,22 @@ export default function AuditPage() {
 
             if (data.feedback) {
                 const fullText = data.feedback;
+                let finalNote = fullText;
+                
                 if (sectionFeedbackRef.current) {
-                    sectionFeedbackRef.current.value = fullText;
+                    const existingText = sectionFeedbackRef.current.value.trim();
+                    if (existingText) {
+                        finalNote = `${existingText}\n\n${fullText}`;
+                    }
+                    sectionFeedbackRef.current.value = finalNote;
+                } else {
+                    const existingNote = (audit.sections[currentSectionIndex].feedback?.note || "").trim();
+                    if (existingNote) {
+                        finalNote = `${existingNote}\n\n${fullText}`;
+                    }
                 }
-                updateSectionFeedback(currentSectionIndex, { note: fullText });
+                
+                updateSectionFeedback(currentSectionIndex, { note: finalNote });
                 toast.success("Bölüm görüşü yapay zeka ile dolduruldu!");
             } else {
                 throw new Error(data.error || "AI yanıt üretemedi.");

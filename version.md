@@ -15,6 +15,7 @@
 - **Gemini'den Groq API Geçişi**: Tüm yapay zeka analiz ve tamamlama servisleri, hız ve maliyet avantajı sunan Groq API altyapısına (`llama-3.3-70b-versatile`, `llama-3.1-8b-instant`, `mixtral-8x7b-32768`) taşınmıştır.
 - **Hata Toleransı ve Dayanıklılık**: Groq API isteklerinde geçici yoğunluk veya aşırı yüklenme (503/429 hataları) durumunda otomatik olarak bekleme ve yeniden deneme (retry with backoff) mekanizması entegre edilmiştir.
 - **Yapay Zeka Üslup İyileştirmesi**: Oluşturulan görüşlerin yapıcı, yumuşak ve tavsiye niteliğinde (`-ebilir/-abilir` ekleri) olması sağlanmış; sert/emir kipleri (`-meli/-malı`) engellenmiştir.
+- **Not Ekleme İyileştirmesi**: Yapay Zeka butonu çalıştırıldığında, alanda daha önce yazılmış olan notlar artık silinmemekte ve yeni analiz notu mevcut içeriğin altına yeni bir satırdan eklenmektedir.
 
 ## [3.0.9] - 2026-05-12
 
