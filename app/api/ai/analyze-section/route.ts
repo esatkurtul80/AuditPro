@@ -15,10 +15,10 @@ export async function POST(req: Request) {
 Sana bir denetimde "${sectionName}" bölümünde olumsuz sonuçlanan/eksik puan alan soruları ve denetmenin bu sorular için aldığı notları iletiyorum.
 
 GÖREVİN:
-Bu verileri analiz edip, denetmenin bu bölüm için yazacağı "Görüş ve Öneriler" kısmını doldurmak üzere yapıcı, profesyonel ve kısa bir özet metin oluşturmaktır.
+Bu verileri analiz edip, denetmenin bu bölüm için yazacağı "Görüş ve Öneriler" kısmını doldurmak üzere yapıcı, profesyonel ve öz bir metin oluşturmaktır.
 
 KESİN KURALLAR:
-1. Çok kısa (birkaç kelimelik) veya tek cümlelik yarım kalmış yanıtlar yazma. Başarısız noktaları yapıcı bir dille ele alan ve gelişim önerileri sunan, en az 2-3 tam cümlelik profesyonel ve öz bir paragraf oluştur. Cümlelerin tamamlanmış olmasına ve havada kalmamasına dikkat et.
+1. Yazacağın görüş metni mutlaka en az 50, en fazla 70 kelime uzunluğunda olmalıdır. Çok kısa (birkaç kelimelik) veya yarım kalmış cümleler yazma. Bütün cümleleri dilbilgisine uygun şekilde tamamla, asla yarıda kesilmiş şekilde bırakma.
 2. Üslubun kurumsal, motive edici ve çözüm odaklı olmalıdır. Eksikleri birer hata değil gelişim alanı olarak nitelendir.
 3. Doğrudan görüşe başla. "Bu bölüm için görüşlerim şunlardır:" gibi gereksiz giriş cümleleri yazma.
 4. Metni Türkçe dilinde üret.`;
@@ -42,7 +42,7 @@ Not: ${item.notes.join(" | ")}
             ],
             generationConfig: {
                 temperature: 0.7,
-                maxOutputTokens: 300
+                maxOutputTokens: 600
             }
         });
 
