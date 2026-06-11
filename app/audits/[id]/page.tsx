@@ -124,6 +124,9 @@ export default function AuditPage() {
     const [showAIModal, setShowAIModal] = useState(false);
     const [aiGeneratedFeedback, setAiGeneratedFeedback] = useState("");
     const [aiCopied, setAiCopied] = useState(false);
+    const [displayedFeedback, setDisplayedFeedback] = useState("");
+    const [isTyping, setIsTyping] = useState(false);
+    const typingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
     // Reset Section State
     const [resetAlertOpen, setResetAlertOpen] = useState(false);
@@ -1548,7 +1551,7 @@ export default function AuditPage() {
 
     const handleCopyToClipboard = async () => {
         try {
-            await navigator.clipboard.writeText(aiGeneratedFeedback);
+            await navigator.clipboard.writeText(displayedFeedback);
             setAiCopied(true);
             toast.success("Yorum panoya kopyalandı!");
             setTimeout(() => setAiCopied(false), 2000);
@@ -1597,10 +1600,36 @@ export default function AuditPage() {
             const data = await res.json();
 
             if (data.feedback) {
-                // 3. AI sonucunu state'e yaz ve modal'ı göster
-                setAiGeneratedFeedback(data.feedback);
+                // Clear any existing typing interval
+                if (typingIntervalRef.current) {
+                    clearInterval(typingIntervalRef.current);
+                }
+
+                const fullText = data.feedback;
+                setAiGeneratedFeedback(fullText);
+                setDisplayedFeedback("");
                 setShowAIModal(true);
                 setAiCopied(false);
+                setIsTyping(true);
+
+                // Word-by-word typing effect
+                const words = fullText.split(" ");
+                let currentWordIndex = 0;
+                let currentText = "";
+
+                typingIntervalRef.current = setInterval(() => {
+                    if (currentWordIndex < words.length) {
+                        currentText += (currentWordIndex === 0 ? "" : " ") + words[currentWordIndex];
+                        setDisplayedFeedback(currentText);
+                        currentWordIndex++;
+                    } else {
+                        if (typingIntervalRef.current) {
+                            clearInterval(typingIntervalRef.current);
+                            typingIntervalRef.current = null;
+                        }
+                        setIsTyping(false);
+                    }
+                }, 35); // 35ms per word for rapid typing effect
                 toast.success("Bölüm görüşü oluşturuldu!");
             } else {
                 throw new Error(data.error || "AI yanıt üretemedi.");
@@ -3100,7 +3129,14 @@ export default function AuditPage() {
                     )}
 
                     {/* AI Feedback Dialog */}
-                    <Dialog open={showAIModal} onOpenChange={setShowAIModal}>
+                    <Dialog open={showAIModal} onOpenChange={(open) => {
+                        setShowAIModal(open);
+                        if (!open && typingIntervalRef.current) {
+                            clearInterval(typingIntervalRef.current);
+                            typingIntervalRef.current = null;
+                            setIsTyping(false);
+                        }
+                    }}>
                         <DialogContent className="w-[95%] max-w-lg rounded-lg mx-auto">
                             <DialogHeader>
                                 <DialogTitle className="flex items-center gap-2 text-indigo-600">
@@ -3116,8 +3152,8 @@ export default function AuditPage() {
                             </DialogHeader>
                             <div className="my-2">
                                 <Textarea
-                                    value={aiGeneratedFeedback}
-                                    onChange={(e) => setAiGeneratedFeedback(e.target.value)}
+                                    value={displayedFeedback}
+                                    onChange={(e) => setDisplayedFeedback(e.target.value)}
                                     className="min-h-[140px] resize-none text-sm p-3 focus-visible:ring-1 focus-visible:ring-offset-0 focus-visible:ring-indigo-400"
                                     placeholder="AI tarafından üretilen görüş..."
                                 />
@@ -3129,7 +3165,14 @@ export default function AuditPage() {
                                 <Button
                                     type="button"
                                     variant="outline"
-                                    onClick={() => setShowAIModal(false)}
+                                    onClick={() => {
+                                        if (typingIntervalRef.current) {
+                                            clearInterval(typingIntervalRef.current);
+                                            typingIntervalRef.current = null;
+                                        }
+                                        setIsTyping(false);
+                                        setShowAIModal(false);
+                                    }}
                                     className="w-full sm:w-auto"
                                 >
                                     Kapat
@@ -3141,9 +3184,14 @@ export default function AuditPage() {
                                         if (typeof currentSectionIndex === 'number') {
                                             const el = sectionFeedbackRef.current;
                                             if (el) {
-                                                el.value = aiGeneratedFeedback;
+                                                el.value = displayedFeedback;
                                             }
-                                            updateSectionFeedback(currentSectionIndex, { note: aiGeneratedFeedback });
+                                            updateSectionFeedback(currentSectionIndex, { note: displayedFeedback });
+                                            if (typingIntervalRef.current) {
+                                                clearInterval(typingIntervalRef.current);
+                                                typingIntervalRef.current = null;
+                                            }
+                                            setIsTyping(false);
                                             setShowAIModal(false);
                                             toast.success("Değerlendirme metni alana yapıştırıldı.");
                                         }
