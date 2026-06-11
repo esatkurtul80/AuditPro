@@ -13,7 +13,7 @@
 ### v3.1.0
 - **Bölüm Görüşleri Yapay Zeka Desteği:** Bölüm sonlarında yer alan görüş ve öneriler alanına `gemini-2.5-flash` modeli ile entegre olan "AI ile Doldur" butonu eklendi. Bölümdeki olumsuz/eksik puanlı sorular ve bu sorulara ait denetmen notları analiz edilerek otomatik özet görüşler oluşturulabiliyor.
 - **Yapay Zeka Analiz Üslup İyileştirmesi:** Her olumsuz madde için ayrı ayrı analiz notunun üretilmesi garanti altına alındı. Emir kipi ("yapılmalı", "gösterilmeli" vb.) yerine yapıcı ve yumuşak ("yapılabilir", "gösterilebilir" vb.) bir dil kullanılması için yönlendirmeler güçlendirildi.
-- **Süregelen Detay Hataların Tespiti:** Önceki denetimlerin soru notları ile güncel soru notları karşılaştırılarak, sadece sorunun kendisi değil, notların içerisindeki ortak/aynı kalan spesifik ürün, parti no (pt no) ve detay konular analiz edilir. Eğer önceki denetimlerde de aynı spesifik detay olumsuz ise (örneğin kaju 21.03 pt vb.) yapay zeka tarafından tespit edilip liste halinde listelenir.
+- **Süregelen Detay Hataların Tespiti:** Önceki denetimlerin soru notları ile güncel soru notları karşılaştırılarak, sadece sorunun kendisi değil, notların içerisindeki ortak/aynı kalan spesifik ürün, parti no (pt no) ve detay konular analiz edilir. Süregelen hatalar ve ilk defa olumsuz olan hatalar istemci tarafında ayrıştırılarak yapay zekaya ayrı ayrı beslenir; bu sayede yapay zekanın ilk defa hata alınan maddeleri süregelen maddeymiş gibi yanlış raporlaması tamamen önlenir. Ortak detay olumsuz ise (örneğin kaju 21.03 pt vb.) yapay zeka tarafından tespit edilip liste halinde listelenir.
 
 ## [3.0.9] - 2026-05-12
 

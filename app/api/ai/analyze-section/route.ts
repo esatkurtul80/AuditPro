@@ -5,7 +5,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
 export async function POST(req: Request) {
     try {
-        const { sectionName, failedAnswers } = await req.json();
+        const { sectionName, failedAnswers, recurringAnswers } = await req.json();
 
         if (!failedAnswers || failedAnswers.length === 0) {
             return NextResponse.json({ error: "Eksik soru bilgisi" }, { status: 400 });

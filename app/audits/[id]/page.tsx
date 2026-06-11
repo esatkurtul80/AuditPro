@@ -1572,54 +1572,65 @@ export default function AuditPage() {
             const previousAudits = await getPreviousAudits(audit.storeId, audit.auditTypeId, audit.id);
 
             // 1. Hayır veya eksik puan alınan soruları ve bu soruların notlarını filtrele
-            const failedAnswers = currentSection.answers
+            const allFailedAnswers = currentSection.answers
                 .filter((ans: AuditAnswer) => {
                     const isNo = ans.answer === 'hayir';
                     const isNotMaxPoints = ans.earnedPoints < ans.maxPoints;
                     const hasNotes = ans.notes && ans.notes.some((note: string) => note.trim() !== "");
                     return (isNo || isNotMaxPoints) && hasNotes;
-                })
-                .map((ans: AuditAnswer) => {
-                    // Üst üste kaç denetimdir başarısız olduğunu hesapla (mevcut denetim = 1)
-                    let consecutiveFailCount = 1;
-                    const pastNotes: { completedAt: string; notes: string[] }[] = [];
-                    for (const prevAudit of previousAudits) {
-                        let prevAns = null;
-                        for (const sec of prevAudit.sections) {
-                            const found = sec.answers.find(a => a.questionId === ans.questionId);
-                            if (found) {
-                                prevAns = found;
-                                break;
-                            }
-                        }
-                        // Eğer önceki denetimde bu soru varsa ve hayır veya eksik puan alınmışsa
-                        if (prevAns && (prevAns.answer === 'hayir' || prevAns.earnedPoints < prevAns.maxPoints)) {
-                            consecutiveFailCount++;
-                            const prevNotes = prevAns.notes ? prevAns.notes.filter((note: string) => note.trim() !== "") : [];
-                            if (prevNotes.length > 0) {
-                                const dateStr = prevAudit.completedAt 
-                                    ? new Date(prevAudit.completedAt.seconds * 1000).toLocaleDateString('tr-TR')
-                                    : "Bilinmeyen Tarih";
-                                pastNotes.push({
-                                    completedAt: dateStr,
-                                    notes: prevNotes
-                                });
-                            }
-                        } else {
-                            // Eğer tam puan alınmışsa veya soru bulunamadıysa ardışık başarısızlık serisi bozulur
+                });
+
+            const failedAnswersPayload: any[] = [];
+            const recurringAnswersPayload: any[] = [];
+
+            for (const ans of allFailedAnswers) {
+                let consecutiveFailCount = 1;
+                const pastNotes: { completedAt: string; notes: string[] }[] = [];
+
+                for (const prevAudit of previousAudits) {
+                    let prevAns = null;
+                    for (const sec of prevAudit.sections) {
+                        const found = sec.answers.find(a => a.questionId === ans.questionId);
+                        if (found) {
+                            prevAns = found;
                             break;
                         }
                     }
+                    if (prevAns && (prevAns.answer === 'hayir' || prevAns.earnedPoints < prevAns.maxPoints)) {
+                        consecutiveFailCount++;
+                        const prevNotes = prevAns.notes ? prevAns.notes.filter((note: string) => note.trim() !== "") : [];
+                        if (prevNotes.length > 0) {
+                            const dateStr = prevAudit.completedAt 
+                                ? new Date(prevAudit.completedAt.seconds * 1000).toLocaleDateString('tr-TR')
+                                : "Bilinmeyen Tarih";
+                            pastNotes.push({
+                                completedAt: dateStr,
+                                notes: prevNotes
+                            });
+                        }
+                    } else {
+                        break;
+                    }
+                }
 
-                    return {
-                        questionText: ans.questionText,
-                        notes: ans.notes.filter((note: string) => note.trim() !== ""),
-                        consecutiveFailCount,
-                        pastNotes
-                    };
+                const cleanedNotes = ans.notes.filter((note: string) => note.trim() !== "");
+
+                failedAnswersPayload.push({
+                    questionText: ans.questionText,
+                    notes: cleanedNotes
                 });
 
-            if (failedAnswers.length === 0) {
+                if (consecutiveFailCount >= 2 && pastNotes.length > 0) {
+                    recurringAnswersPayload.push({
+                        questionText: ans.questionText,
+                        notes: cleanedNotes,
+                        consecutiveFailCount,
+                        pastNotes
+                    });
+                }
+            }
+
+            if (failedAnswersPayload.length === 0) {
                 toast.info("Bu bölümde olumsuz cevaplanan veya not girilmiş eksik puanlı soru bulunmamaktadır.");
                 setGeneratingAI(false);
                 return;
@@ -1631,7 +1642,8 @@ export default function AuditPage() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     sectionName: currentSection.sectionName,
-                    failedAnswers
+                    failedAnswers: failedAnswersPayload,
+                    recurringAnswers: recurringAnswersPayload
                 })
             });
 
