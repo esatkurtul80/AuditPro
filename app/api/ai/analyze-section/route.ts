@@ -34,7 +34,9 @@ Eksikler ve Alınan Notlar:
 ${failedAnswers.map((item: any, i: number) => `
 Soru: ${item.questionText}
 Not: ${item.notes.join(" | ")}
-`).join("\n")}`;
+`).join("\n")}
+
+Lütfen yukarıda yer alan eksikleri ve denetmen notlarını temel alarak, bu bölüm için yapıcı tavsiyeler ve düzeltici adımlar içeren, en az 50 en fazla 70 kelimeden oluşan (yaklaşık 3-4 cümle) tam ve akıcı bir değerlendirme paragrafı oluştur. Metindeki tüm cümleleri dilbilgisine uygun şekilde tamamla, kesinlikle yarım bırakma.`;
 
         let feedback = "";
         
@@ -57,11 +59,11 @@ Not: ${item.notes.join(" | ")}
             feedback = result.response.text().trim();
             console.log("Response from gemini-2.5-flash:", feedback);
         } catch (error) {
-            console.warn("Primary model gemini-2.5-flash failed or overloaded. Falling back to gemini-2.0-flash...", error);
+            console.warn("Primary model gemini-2.5-flash failed or overloaded. Falling back to gemini-flash-latest...", error);
             
-            // Fallback attempt: stable gemini-2.0-flash (supported by user subscription)
+            // Fallback attempt: stable gemini-flash-latest (supported by user subscription)
             const fallbackModel = genAI.getGenerativeModel({ 
-                model: "gemini-2.0-flash",
+                model: "gemini-flash-latest",
                 systemInstruction: systemPrompt
             });
 
@@ -75,7 +77,7 @@ Not: ${item.notes.join(" | ")}
                 }
             });
             feedback = result.response.text().trim();
-            console.log("Response from fallback gemini-2.0-flash:", feedback);
+            console.log("Response from fallback gemini-flash-latest:", feedback);
         }
 
         return NextResponse.json({ feedback });
