@@ -1,116 +1,91 @@
 import { NextResponse } from "next/server";
-import { GoogleGenerativeAI } from "@google/generative-ai";
-
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
 export async function POST(req: Request) {
     try {
-        const { sectionName, failedAnswers, recurringAnswers } = await req.json();
+        const { sectionName, failedAnswers } = await req.json();
 
         if (!failedAnswers || failedAnswers.length === 0) {
             return NextResponse.json({ error: "Eksik soru bilgisi" }, { status: 400 });
         }
 
         const systemPrompt = `Sen profesyonel bir iç denetim uzmanı ve mağaza operasyon analistisin.
-Sana bir denetimde "${sectionName}" bölümünde olumsuz sonuçlanan/eksik puan alan soruları, bu sorular için alınan notları ve varsa önceki denetimlerden süregelen (ardışık olumsuz) soru geçmişlerini iletiyorum.
+Sana bir denetimde "${sectionName}" bölümünde olumsuz sonuçlanan/eksik puan alan soruları ve bu sorular için alınan notları iletiyorum.
 
 GÖREVİN:
 Bu verileri analiz edip, denetmenin bu bölüm için yazacağı "Görüş ve Öneriler" kısmını doldurmak üzere yapıcı, profesyonel, akıcı ve tamamlanmış bir değerlendirme metni oluşturmaktır.
 
 KESİN KURALLAR:
-1. Görüş metni en az 3-4 cümleden oluşan, anlam bütünlüğü olan tam bir paragraf olmalıdır. Kesinlikle tek cümlelik, kısa veya yarım bırakılmış cümleler yazma. Metnin son cümlesi de dahil olmak üzere tüm cümleler dilbilgisine uygun şekilde tamamlanmış olmalıdır.
+1. Görüş metninin ana gövdesi en az 3-4 cümleden oluşan, anlam bütünlüğü olan tam bir paragraf olmalıdır. Kesinlikle tek cümlelik, kısa veya yarım bırakılmış cümleler yazma. Metnin son cümlesi de dahil olmak üzere tüm cümleler dilbilgisine uygun şekilde tamamlanmış olmalıdır.
 2. Bölümdeki HER BİR olumsuz madde/eksiklik için ayrı ayrı analiz notu ve yapıcı çözüm önerisi metinde mutlaka yer almalıdır. Hiçbir eksikliği atlamadan rapora yansıt.
 3. ÜSLUP (ÇOK ÖNEMLİ): Kesinlikle sert ve emir kipi taşıyan "-meli, -malı, yapılmalıdır, gösterilmelidir, edilmelidir" gibi ifadeler KULLANMA. Bunun yerine çok daha yumuşak, yapıcı ve tavsiye niteliğinde olan "-ebilir, -abilir, yapılabilir, sağlanabilir, gösterilebilir, dikkat edilebilir, yararlı olacaktır" gibi yapıcı kelimeler kullan.
 4. Doğrudan görüşe başla. "Bu bölüm için görüşlerim şunlardır:" gibi gereksiz giriş cümleleri yazma.
-5. Metni Türkçe dilinde üret.
-6. SÜREGELEN SORUNLARIN BELİRTİLMESİ: Sana iletilen "Süregelen Olumsuz Sorunlar (recurringAnswers)" listesindeki soruların sadece başlığını ve ardışık hata sayısını, ana değerlendirme paragrafından sonra bir satır boşluk bırakarak "Önceki Denetimlerden Süregelen Eksiklikler:" başlığı altında liste (madde) halinde belirt (Örn: "- [Soru Başlığı] (X denetimdir üst üste olumsuz)"). Detaylara (ürün adı, parti no vb.) girmene gerek yoktur, doğrudan soru başlığı ve ardışık hata sayısını yazman yeterlidir. Eğer "Süregelen Olumsuz Sorunlar (recurringAnswers)" listesi boşsa, bu listeyi ve başlığı asla oluşturma.`;
-
-        // Use gemini-2.5-flash as explicitly requested by the user
-        const model = genAI.getGenerativeModel({ 
-            model: "gemini-2.5-flash",
-            systemInstruction: systemPrompt
-        });
+5. Metni Türkçe dilinde üret.`;
 
         const userPrompt = `Bölüm: ${sectionName}
 
 Bu Denetimdeki Eksikler ve Alınan Notlar:
 ${failedAnswers.map((item: any) => `- Soru: ${item.questionText}\n  Not: ${item.notes.join(" | ")}`).join("\n")}
 
-${recurringAnswers && recurringAnswers.length > 0 ? `Süregelen Olumsuz Sorunlar (Son 2 veya daha fazla denetimdir üst üste olumsuz olanlar):
-${recurringAnswers.map((item: any) => `- Soru: ${item.questionText} (${item.consecutiveFailCount} denetimdir üst üste olumsuz)`).join("\n")}` : 'Bu denetimde geçmişten süregelen (ardışık olumsuz) bir sorun bulunmamaktadır.'}
-
-Lütfen yukarıda yer alan eksiklerin HER BİRİNİ tek tek ele alarak analiz notunu ve yapıcı önerisini yaz. En az 50 en fazla 70 kelimeden oluşan (yaklaşık 3-4 cümle) tam ve akıcı bir değerlendirme paragrafı oluştur. Metindeki tüm cümleleri dilbilgisine uygun şekilde tamamla. Üslup olarak kesinlikle "-meli, -malı" (yapılmalı, gösterilmeli vb.) ifadeleri yerine "-ebilir, -abilir" (yapılabilir, gösterilebilir, sağlanabilir, dikkat edilebilir vb.) şeklinde çok daha yumuşak ve yapıcı bir dil kullan.
-
-ÖNEMLİ: Eğer yukarıda "Süregelen Olumsuz Sorunlar" listesi varsa, bu listedeki soruları ana paragrafın ardından boş bir satır bırakarak "Önceki Denetimlerden Süregelen Eksiklikler:" başlığı altında liste (madde) halinde belirt (Örn: "- [Soru Başlığı] (X denetimdir üst üste olumsuz)"). Detaylara girmene gerek yoktur, sadece soru başlığı ve ardışık hata sayısı yeterlidir. Süregelen olumsuz bir soru yoksa bu listeyi ve başlığı asla ekleme.`;
+Lütfen yukarıda yer alan eksiklerin HER BİRİNİ tek tek ele alarak analiz notunu ve yapıcı önerisini yaz. En az 50 en fazla 70 kelimeden oluşan (yaklaşık 3-4 cümle) tam ve akıcı bir değerlendirme paragrafı oluştur. Metindeki tüm cümleleri dilbilgisine uygun şekilde tamamla. Üslup olarak kesinlikle "-meli, -malı" (yapılmalı, gösterilmeli vb.) ifadeleri yerine "-ebilir, -abilir" (yapılabilir, gösterilebilir, sağlanabilir, dikkat edilebilir vb.) şeklinde çok daha yumuşak ve yapıcı bir dil kullan.`;
 
         let feedback = "";
-        
-        console.log("--- AI Input Prompt ---");
-        console.log(userPrompt);
-        console.log("-----------------------");
+        const modelNames = [
+            "llama-3.3-70b-versatile",
+            "llama-3.1-8b-instant",
+            "mixtral-8x7b-32768"
+        ];
 
-        try {
-            // Primary attempt: gemini-2.5-flash-lite (fast, highly available)
-            console.log("Attempting generation with gemini-2.5-flash-lite...");
-            const model = genAI.getGenerativeModel({ 
-                model: "gemini-2.5-flash-lite",
-                systemInstruction: systemPrompt
-            });
+        let lastError: any = null;
 
-            const result = await model.generateContent({
-                contents: [
-                    { role: "user", parts: [{ text: userPrompt }] }
-                ],
-                generationConfig: {
-                    temperature: 0.7,
-                    maxOutputTokens: 600
+        for (const modelName of modelNames) {
+            let attempts = 0;
+            const maxAttempts = 3;
+            while (attempts < maxAttempts) {
+                try {
+                    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+                        method: "POST",
+                        headers: {
+                            "Authorization": `Bearer ${process.env.GROQ_API_KEY}`,
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify({
+                            model: modelName,
+                            messages: [
+                                { role: "system", content: systemPrompt },
+                                { role: "user", content: userPrompt }
+                            ],
+                            temperature: 0.7,
+                            max_tokens: 600
+                        })
+                    });
+
+                    if (!response.ok) {
+                        const errText = await response.text();
+                        throw new Error(`HTTP error! status: ${response.status} - ${errText}`);
+                    }
+
+                    const data = await response.json();
+                    feedback = data.choices[0].message.content.trim();
+                    break; // Başarılı → döngüden çık
+                } catch (err: any) {
+                    attempts++;
+                    lastError = err;
+                    const isTransient = err?.message && (err.message.includes("503") || err.message.includes("429") || err.message.includes("rate limit") || err.message.includes("overloaded"));
+                    
+                    if (isTransient && attempts < maxAttempts) {
+                        console.warn(`[Groq AI] ${modelName} transient error (${err?.message}). Retrying in ${attempts * 400}ms...`);
+                        await new Promise(resolve => setTimeout(resolve, attempts * 400));
+                    } else {
+                        console.warn(`[Groq AI] ${modelName} failed on attempt ${attempts} (${err?.message}), trying next model...`);
+                        break;
+                    }
                 }
-            });
-            feedback = result.response.text().trim();
-            console.log("Response from gemini-2.5-flash-lite:", feedback);
-        } catch (error) {
-            console.warn("Primary model gemini-2.5-flash-lite failed or overloaded. Falling back to gemini-2.5-flash...", error);
-            
-            try {
-                // Fallback attempt 1: gemini-2.5-flash
-                console.log("Attempting generation with gemini-2.5-flash...");
-                const fallbackModel1 = genAI.getGenerativeModel({ 
-                    model: "gemini-2.5-flash",
-                    systemInstruction: systemPrompt
-                });
-
-                const result = await fallbackModel1.generateContent({
-                    contents: [
-                        { role: "user", parts: [{ text: userPrompt }] }
-                    ],
-                    generationConfig: {
-                        temperature: 0.7,
-                        maxOutputTokens: 600
-                    }
-                });
-                feedback = result.response.text().trim();
-                console.log("Response from fallback gemini-2.5-flash:", feedback);
-            } catch (fbError) {
-                console.warn("Fallback model gemini-2.5-flash failed. Falling back to gemini-flash-latest...", fbError);
-                
-                // Fallback attempt 2: stable gemini-flash-latest (supported by user subscription)
-                const fallbackModel2 = genAI.getGenerativeModel({ 
-                    model: "gemini-flash-latest",
-                    systemInstruction: systemPrompt
-                });
-
-                const result = await fallbackModel2.generateContent({
-                    contents: [
-                        { role: "user", parts: [{ text: userPrompt }] }
-                    ],
-                    generationConfig: {
-                        temperature: 0.7,
-                        maxOutputTokens: 600
-                    }
-                });
-                feedback = result.response.text().trim();
-                console.log("Response from fallback gemini-flash-latest:", feedback);
             }
+            if (feedback) break;
+        }
+
+        if (!feedback) {
+            throw new Error("Tüm Groq modelleri şu anda meşgul veya yanıt veremiyor. Lütfen birkaç saniye bekleyip tekrar deneyin. (" + (lastError?.message ?? "Bilinmeyen hata") + ")");
         }
 
         return NextResponse.json({ feedback });

@@ -1,9 +1,6 @@
 import { NextResponse } from "next/server";
-import { GoogleGenerativeAI } from "@google/generative-ai";
 
 export const maxDuration = 60; // Allows the function to run for up to 60 seconds (useful for Vercel Hobby/Pro timeouts)
-
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
 export async function POST(req: Request) {
     try {
@@ -42,19 +39,69 @@ Lütfen gereksiz uzun cümlelerden kaçın ve çıktıyı kısa, net ve tam olar
 - B Mağazası: ...
 (Sadece sorun olan mağazaları yaz. Sorun yoksa o mağazayı pas geç.)`;
 
-        // Not: Kullanıcı isteği üzerine gemini-1.5-flash kullanılıyor.
-        const model = genAI.getGenerativeModel({ 
-            model: "gemini-1.5-flash",
-            systemInstruction: systemPrompt 
-        });
-
         const prompt = `Aşağıda belirli bir aralıktaki tüm mağazaların bölüm bölüm gruplanmış sıkıntılı noktaları (tam puan alınmayanlar) ve denetmen notları bulunmaktadır. Lütfen yukarıdaki talimatlara KESİNLİKLE uygun bir toplu analiz raporu oluştur.
 
 BULK ANALİZ VERİSİ (Bölüm Bazında):
 ${JSON.stringify(compressedData, null, 2)}`;
 
-        const result = await model.generateContent(prompt);
-        const responseText = result.response.text();
+        const modelNames = [
+            "llama-3.3-70b-versatile",
+            "llama-3.1-8b-instant",
+            "mixtral-8x7b-32768"
+        ];
+
+        let responseText = "";
+        let lastError: any = null;
+
+        for (const modelName of modelNames) {
+            let attempts = 0;
+            const maxAttempts = 3;
+            while (attempts < maxAttempts) {
+                try {
+                    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+                        method: "POST",
+                        headers: {
+                            "Authorization": `Bearer ${process.env.GROQ_API_KEY}`,
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify({
+                            model: modelName,
+                            messages: [
+                                { role: "system", content: systemPrompt },
+                                { role: "user", content: prompt }
+                            ],
+                            temperature: 0.7
+                        })
+                    });
+
+                    if (!response.ok) {
+                        const errText = await response.text();
+                        throw new Error(`HTTP error! status: ${response.status} - ${errText}`);
+                    }
+
+                    const data = await response.json();
+                    responseText = data.choices[0].message.content.trim();
+                    break;
+                } catch (err: any) {
+                    attempts++;
+                    lastError = err;
+                    const isTransient = err?.message && (err.message.includes("503") || err.message.includes("429") || err.message.includes("rate limit") || err.message.includes("overloaded"));
+                    
+                    if (isTransient && attempts < maxAttempts) {
+                        console.warn(`[Groq Bulk] ${modelName} transient error (${err?.message}). Retrying in ${attempts * 400}ms...`);
+                        await new Promise(resolve => setTimeout(resolve, attempts * 400));
+                    } else {
+                        console.warn(`[Groq Bulk] ${modelName} failed on attempt ${attempts} (${err?.message}), trying next model...`);
+                        break;
+                    }
+                }
+            }
+            if (responseText) break;
+        }
+
+        if (!responseText) {
+            throw new Error("Tüm Groq modelleri meşgul veya hata verdi: " + (lastError?.message ?? "Bilinmeyen hata"));
+        }
 
         return NextResponse.json({ 
             report: responseText

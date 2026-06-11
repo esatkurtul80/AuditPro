@@ -36,7 +36,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Upload, X, CheckCircle2, ArrowLeft, Circle, Plus, Save, WifiOff, Clock, Star, ChevronRight, AlertCircle, MoreHorizontal, ClipboardList, MessageSquare, UserCircle, Eye, FileText, Zap, Image as ImageIcon, Copy, Check } from "lucide-react";
+import { Loader2, Upload, X, CheckCircle2, ArrowLeft, Circle, Plus, Save, WifiOff, Clock, Star, ChevronRight, AlertCircle, MoreHorizontal, ClipboardList, MessageSquare, UserCircle, Eye, FileText, Zap, Image as ImageIcon, Copy, Check, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import * as LucideIcons from "lucide-react";
 import Link from "next/link";
@@ -74,7 +74,7 @@ import { QuestionHistoryButton } from "@/components/question-history-button";
 import { AuditSummary } from "@/components/audit-summary";
 import { Checkbox } from "@/components/ui/checkbox";
 import Logger from "@/lib/logger";
-import { getStoreAuditHistory, QuestionHistory, QuestionHistoryEntry, getPreviousAudits, isIncompleteAnswer } from "@/lib/question-history";
+import { getStoreAuditHistory, QuestionHistory, QuestionHistoryEntry } from "@/lib/question-history";
 import { PersonnelEvaluationSection } from "@/components/audits/personnel-evaluation-section";
 import { applyScoreRule } from "@/lib/utils";
 
@@ -121,12 +121,7 @@ export default function AuditPage() {
     const [historyCache, setHistoryCache] = useState<Record<string, QuestionHistory>>({});
     const [personnelStatus, setPersonnelStatus] = useState<{ total: number, evaluated: number, initialized: boolean }>({ total: 0, evaluated: 0, initialized: false });
     const [generatingAI, setGeneratingAI] = useState(false);
-    const [showAIModal, setShowAIModal] = useState(false);
-    const [aiGeneratedFeedback, setAiGeneratedFeedback] = useState("");
-    const [aiCopied, setAiCopied] = useState(false);
-    const [displayedFeedback, setDisplayedFeedback] = useState("");
-    const [isTyping, setIsTyping] = useState(false);
-    const typingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
 
     // Reset Section State
     const [resetAlertOpen, setResetAlertOpen] = useState(false);
@@ -1549,17 +1544,7 @@ export default function AuditPage() {
         }
     };
 
-    const handleCopyToClipboard = async () => {
-        try {
-            await navigator.clipboard.writeText(displayedFeedback);
-            setAiCopied(true);
-            toast.success("Yorum panoya kopyalandı!");
-            setTimeout(() => setAiCopied(false), 2000);
-        } catch (err) {
-            console.error("Failed to copy text: ", err);
-            toast.error("Kopyalama başarısız oldu.");
-        }
-    };
+
 
     const handleGenerateAISectionFeedback = async () => {
         if (typeof currentSectionIndex !== 'number' || !audit) return;
@@ -1568,51 +1553,19 @@ export default function AuditPage() {
         try {
             const currentSection = audit.sections[currentSectionIndex];
 
-            // Önceki tamamlanmış denetimleri getir
-            const previousAudits = await getPreviousAudits(audit.storeId, audit.auditTypeId, audit.id);
-
-            // 1. Hayır veya eksik puan alınan soruları ve bu soruların notlarını filtrele
-            const allFailedAnswers = currentSection.answers
-                .filter((ans: AuditAnswer) => {
-                    const isNo = ans.answer === 'hayir';
-                    const isNotMaxPoints = ans.earnedPoints < ans.maxPoints;
-                    const hasNotes = ans.notes && ans.notes.some((note: string) => note.trim() !== "");
-                    return (isNo || isNotMaxPoints) && hasNotes;
-                });
-
+            // Hayır veya eksik puan alınan, notu olan soruları filtrele
             const failedAnswersPayload: any[] = [];
-            const recurringAnswersPayload: any[] = [];
 
-            for (const ans of allFailedAnswers) {
-                let consecutiveFailCount = 1;
+            for (const ans of currentSection.answers) {
+                const isNo = ans.answer === 'hayir';
+                const isNotMaxPoints = ans.earnedPoints < ans.maxPoints;
+                const hasNotes = ans.notes && ans.notes.some((note: string) => note.trim() !== "");
 
-                for (const prevAudit of previousAudits) {
-                    let prevAns = null;
-                    for (const sec of prevAudit.sections) {
-                        const found = sec.answers.find(a => a.questionId === ans.questionId);
-                        if (found) {
-                            prevAns = found;
-                            break;
-                        }
-                    }
-                    if (prevAns && isIncompleteAnswer(prevAns)) {
-                        consecutiveFailCount++;
-                    } else {
-                        break;
-                    }
-                }
-
-                const cleanedNotes = ans.notes.filter((note: string) => note.trim() !== "");
-
-                failedAnswersPayload.push({
-                    questionText: ans.questionText,
-                    notes: cleanedNotes
-                });
-
-                if (consecutiveFailCount >= 2) {
-                    recurringAnswersPayload.push({
+                if ((isNo || isNotMaxPoints) && hasNotes) {
+                    const cleanedNotes = ans.notes.filter((note: string) => note.trim() !== "");
+                    failedAnswersPayload.push({
                         questionText: ans.questionText,
-                        consecutiveFailCount
+                        notes: cleanedNotes
                     });
                 }
             }
@@ -1623,51 +1576,25 @@ export default function AuditPage() {
                 return;
             }
 
-            // 2. API endpoint'ine istek gönder
+            // API endpoint'ine istek gönder
             const res = await fetch("/api/ai/analyze-section", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     sectionName: currentSection.sectionName,
-                    failedAnswers: failedAnswersPayload,
-                    recurringAnswers: recurringAnswersPayload
+                    failedAnswers: failedAnswersPayload
                 })
             });
 
             const data = await res.json();
 
             if (data.feedback) {
-                // Clear any existing typing interval
-                if (typingIntervalRef.current) {
-                    clearInterval(typingIntervalRef.current);
-                }
-
                 const fullText = data.feedback;
-                setAiGeneratedFeedback(fullText);
-                setDisplayedFeedback("");
-                setShowAIModal(true);
-                setAiCopied(false);
-                setIsTyping(true);
-
-                // Word-by-word typing effect
-                const words = fullText.split(" ");
-                let currentWordIndex = 0;
-                let currentText = "";
-
-                typingIntervalRef.current = setInterval(() => {
-                    if (currentWordIndex < words.length) {
-                        currentText += (currentWordIndex === 0 ? "" : " ") + words[currentWordIndex];
-                        setDisplayedFeedback(currentText);
-                        currentWordIndex++;
-                    } else {
-                        if (typingIntervalRef.current) {
-                            clearInterval(typingIntervalRef.current);
-                            typingIntervalRef.current = null;
-                        }
-                        setIsTyping(false);
-                    }
-                }, 35); // 35ms per word for rapid typing effect
-                toast.success("Bölüm görüşü oluşturuldu!");
+                if (sectionFeedbackRef.current) {
+                    sectionFeedbackRef.current.value = fullText;
+                }
+                updateSectionFeedback(currentSectionIndex, { note: fullText });
+                toast.success("Bölüm görüşü yapay zeka ile dolduruldu!");
             } else {
                 throw new Error(data.error || "AI yanıt üretemedi.");
             }
@@ -3099,9 +3026,9 @@ export default function AuditPage() {
                                                 <Label>Notlar</Label>
                                                 <Button
                                                     type="button"
-                                                    variant="ghost"
+                                                    variant="outline"
                                                     size="sm"
-                                                    className="h-7 text-xs gap-1.5 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-950/30"
+                                                    className="h-7 text-xs gap-1.5 text-blue-600 border border-blue-200 bg-white hover:bg-blue-50 hover:text-blue-700 dark:bg-slate-950 dark:border-blue-900/50 dark:hover:bg-blue-950/30 font-medium px-2.5 rounded-md shadow-sm"
                                                     onClick={(e) => {
                                                         e.preventDefault();
                                                         handleGenerateAISectionFeedback();
@@ -3111,9 +3038,9 @@ export default function AuditPage() {
                                                     {generatingAI ? (
                                                         <Loader2 className="h-3 w-3 animate-spin" />
                                                     ) : (
-                                                        <Zap className="h-3 w-3 fill-current" />
+                                                        <Sparkles className="h-3 w-3 fill-current" />
                                                     )}
-                                                    AI ile Doldur
+                                                    Yapay Zeka
                                                 </Button>
                                             </div>
                                             <Textarea
@@ -3165,93 +3092,7 @@ export default function AuditPage() {
                         <AuditSummary audit={audit} />
                     )}
 
-                    {/* AI Feedback Dialog */}
-                    <Dialog open={showAIModal} onOpenChange={(open) => {
-                        setShowAIModal(open);
-                        if (!open && typingIntervalRef.current) {
-                            clearInterval(typingIntervalRef.current);
-                            typingIntervalRef.current = null;
-                            setIsTyping(false);
-                        }
-                    }}>
-                        <DialogContent className="w-[95%] max-w-lg rounded-lg mx-auto">
-                            <DialogHeader>
-                                <DialogTitle className="flex items-center gap-2 text-indigo-600">
-                                    <Zap className="h-5 w-5 fill-current" />
-                                    AI Bölüm Değerlendirmesi
-                                </DialogTitle>
-                                <DialogDescription>
-                                    {audit && typeof currentSectionIndex === 'number' 
-                                        ? `"${audit.sections[currentSectionIndex]?.sectionName}" bölümü analiz edildi. Önerilen görüş ve yorum aşağıdadır:` 
-                                        : "Bölüm analizi tamamlandı."
-                                    }
-                                </DialogDescription>
-                            </DialogHeader>
-                            <div className="my-2">
-                                <Textarea
-                                    value={displayedFeedback}
-                                    onChange={(e) => setDisplayedFeedback(e.target.value)}
-                                    className="min-h-[140px] resize-none text-sm p-3 focus-visible:ring-1 focus-visible:ring-offset-0 focus-visible:ring-indigo-400"
-                                    placeholder="AI tarafından üretilen görüş..."
-                                />
-                                <span className="text-[11px] text-muted-foreground mt-1 block">
-                                    * Metni kopyalamadan önce üzerinde istediğiniz gibi değişiklikler yapabilirsiniz.
-                                </span>
-                            </div>
-                            <DialogFooter className="flex flex-col sm:flex-row gap-2 mt-2">
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    onClick={() => {
-                                        if (typingIntervalRef.current) {
-                                            clearInterval(typingIntervalRef.current);
-                                            typingIntervalRef.current = null;
-                                        }
-                                        setIsTyping(false);
-                                        setShowAIModal(false);
-                                    }}
-                                    className="w-full sm:w-auto"
-                                >
-                                    Kapat
-                                </Button>
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    onClick={() => {
-                                        if (typeof currentSectionIndex === 'number') {
-                                            const el = sectionFeedbackRef.current;
-                                            if (el) {
-                                                el.value = displayedFeedback;
-                                            }
-                                            updateSectionFeedback(currentSectionIndex, { note: displayedFeedback });
-                                            if (typingIntervalRef.current) {
-                                                clearInterval(typingIntervalRef.current);
-                                                typingIntervalRef.current = null;
-                                            }
-                                            setIsTyping(false);
-                                            setShowAIModal(false);
-                                            toast.success("Değerlendirme metni alana yapıştırıldı.");
-                                        }
-                                    }}
-                                    className="w-full sm:w-auto text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 border-indigo-200"
-                                >
-                                    Alana Yapıştır
-                                </Button>
-                                <Button
-                                    type="button"
-                                    onClick={handleCopyToClipboard}
-                                    className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white gap-1.5"
-                                >
-                                    {aiCopied ? (
-                                        <Check className="h-4 w-4" />
-                                    ) : (
-                                        <Copy className="h-4 w-4" />
-                                    )}
-                                    {aiCopied ? "Kopyalandı!" : "Kopyala"}
-                                </Button>
-                            </DialogFooter>
-                        </DialogContent>
-                    </Dialog>
+
 
                     {/* Reset Section Confirmation Dialog */}
                     <AlertDialog open={resetAlertOpen} onOpenChange={setResetAlertOpen}>

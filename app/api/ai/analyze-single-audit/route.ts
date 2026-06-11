@@ -1,8 +1,5 @@
 import { NextResponse } from "next/server";
-import { GoogleGenerativeAI } from "@google/generative-ai";
 import { adminDb, initAdmin } from "@/lib/firebase-admin";
-
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
 export async function POST(req: Request) {
     try {
@@ -140,19 +137,70 @@ Geçmiş verilere kıyasla mağazanın ilerleyişi ve dikkat edilmesi gereken kr
 💡 4. Denetmenin Önerileri ve Aksiyon Adımları
 Denetmenin 'ÖNERİ' başlığı altında yazdığı cümleleri BİREBİR aktar. Eğer denetmenin özel bir önerisi yoksa, senin verilerden çıkardığın en kritik 2-3 yapıcı tavsiyeyi maddeler halinde yaz.`;
 
-        const model = genAI.getGenerativeModel({ 
-            model: "gemini-1.5-flash",
-            systemInstruction: systemPrompt 
-        });
-
         // Prompt body
         const prompt = `Aşağıda güncel denetim ve geçmiş denetim özetlerini içeren JSON verisi bulunmaktadır. Lütfen bu veriyi okuyarak sistem talimatlarına (istenen markdown formatına) KESİNLİKLE uygun bir analiz raporunu oluştur. Orijinal notları (varsa) mutlaka tırnak içinde birebir ekle.
 
 VERİ:
 ${jsonInput}`;
 
-        const result = await model.generateContent(prompt);
-        const responseText = result.response.text();
+        const modelNames = [
+            "llama-3.3-70b-versatile",
+            "llama-3.1-8b-instant",
+            "mixtral-8x7b-32768"
+        ];
+
+        let responseText = "";
+        let lastError: any = null;
+
+        for (const modelName of modelNames) {
+            let attempts = 0;
+            const maxAttempts = 3;
+            while (attempts < maxAttempts) {
+                try {
+                    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+                        method: "POST",
+                        headers: {
+                            "Authorization": `Bearer ${process.env.GROQ_API_KEY}`,
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify({
+                            model: modelName,
+                            messages: [
+                                { role: "system", content: systemPrompt },
+                                { role: "user", content: prompt }
+                            ],
+                            temperature: 0.7
+                        })
+                    });
+
+                    if (!response.ok) {
+                        const errText = await response.text();
+                        throw new Error(`HTTP error! status: ${response.status} - ${errText}`);
+                    }
+
+                    const data = await response.json();
+                    responseText = data.choices[0].message.content.trim();
+                    break;
+                } catch (err: any) {
+                    attempts++;
+                    lastError = err;
+                    const isTransient = err?.message && (err.message.includes("503") || err.message.includes("429") || err.message.includes("rate limit") || err.message.includes("overloaded"));
+                    
+                    if (isTransient && attempts < maxAttempts) {
+                        console.warn(`[Groq Single Audit] ${modelName} transient error (${err?.message}). Retrying in ${attempts * 400}ms...`);
+                        await new Promise(resolve => setTimeout(resolve, attempts * 400));
+                    } else {
+                        console.warn(`[Groq Single Audit] ${modelName} failed on attempt ${attempts} (${err?.message}), trying next model...`);
+                        break;
+                    }
+                }
+            }
+            if (responseText) break;
+        }
+
+        if (!responseText) {
+            throw new Error("Tüm Groq modelleri meşgul veya hata verdi: " + (lastError?.message ?? "Bilinmeyen hata"));
+        }
 
         return NextResponse.json({ report: responseText });
 

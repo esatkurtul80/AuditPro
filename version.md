@@ -11,9 +11,10 @@
 ## [3.1.0] - 2026-06-11
 
 ### v3.1.0
-- **Bölüm Görüşleri Yapay Zeka Desteği:** Bölüm sonlarında yer alan görüş ve öneriler alanına `gemini-2.5-flash` modeli ile entegre olan "AI ile Doldur" butonu eklendi. Bölümdeki olumsuz/eksik puanlı sorular ve bu sorulara ait denetmen notları analiz edilerek otomatik özet görüşler oluşturulabiliyor.
-- **Yapay Zeka Analiz Üslup İyileştirmesi:** Her olumsuz madde için ayrı ayrı analiz notunun üretilmesi garanti altına alındı. Emir kipi ("yapılmalı", "gösterilmeli" vb.) yerine yapıcı ve yumuşak ("yapılabilir", "gösterilebilir" vb.) bir dil kullanılması için yönlendirmeler güçlendirildi.
-- **Süregelen Hataların Tespiti:** Önceki denetimler sorgulanarak üst üste 2 veya daha fazla denetimdir başarısız (hayır/eksik puan) olan maddeler tespit edilip yapay zekaya aktarılıyor. Süregelen sorular ve ilk defa olumsuz olan sorular istemci tarafında ayrıştırılarak yapay zekaya ayrı ayrı beslenir; bu sayede yapay zekanın ilk defa hata alınan maddeleri süregelen maddeymiş gibi yanlış raporlaması tamamen önlenir. Yapay zeka bu süregelen konuları en altta doğrudan soru başlığı ve ardışık hata sayısı ile liste (madde) halinde belirtir.
+- **Yapay Zeka Destekli Bölüm Görüşleri Entegrasyonu**: Bölüm değerlendirme notları alanına, denetimdeki eksikleri analiz ederek otomatik ve yapıcı görüşler oluşturan `"Yapay Zeka"` butonu eklenmiştir. Üretilen metin doğrudan notlar alanına aktarılır.
+- **Gemini'den Groq API Geçişi**: Tüm yapay zeka analiz ve tamamlama servisleri, hız ve maliyet avantajı sunan Groq API altyapısına (`llama-3.3-70b-versatile`, `llama-3.1-8b-instant`, `mixtral-8x7b-32768`) taşınmıştır.
+- **Hata Toleransı ve Dayanıklılık**: Groq API isteklerinde geçici yoğunluk veya aşırı yüklenme (503/429 hataları) durumunda otomatik olarak bekleme ve yeniden deneme (retry with backoff) mekanizması entegre edilmiştir.
+- **Yapay Zeka Üslup İyileştirmesi**: Oluşturulan görüşlerin yapıcı, yumuşak ve tavsiye niteliğinde (`-ebilir/-abilir` ekleri) olması sağlanmış; sert/emir kipleri (`-meli/-malı`) engellenmiştir.
 
 ## [3.0.9] - 2026-05-12
 

@@ -1,8 +1,4 @@
-import { GoogleGenerativeAI } from "@google/generative-ai"
 import { NextRequest } from "next/server"
-
-// Initialize Gemini API
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "")
 
 export async function POST(req: NextRequest) {
   try {
@@ -15,27 +11,69 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Get the generative model
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" })
-
     // Construct the full prompt with context
     const fullPrompt = context
       ? `Continue writing based on this context:\n\n${context}\n\nContinue with: ${prompt}`
       : `Write a continuation for: ${prompt}`
 
-    // Generate content
-    const result = await model.generateContent({
-      contents: [{ role: "user", parts: [{ text: fullPrompt }] }],
-      generationConfig: {
-        maxOutputTokens: 200,
-        temperature: 0.7,
-        topP: 0.8,
-        topK: 40,
-      },
-    })
+    const modelNames = [
+        "llama-3.1-8b-instant",
+        "llama-3.3-70b-versatile"
+    ];
 
-    const response = result.response
-    const text = response.text()
+    let text = "";
+    let lastError: any = null;
+
+    for (const modelName of modelNames) {
+        let attempts = 0;
+        const maxAttempts = 3;
+        while (attempts < maxAttempts) {
+            try {
+                const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+                    method: "POST",
+                    headers: {
+                        "Authorization": `Bearer ${process.env.GROQ_API_KEY}`,
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        model: modelName,
+                        messages: [
+                            { role: "system", content: "You are an assistant helping autocomplete notes or sentences. Continue the user's sentence directly and briefly, without any introduction or quotes." },
+                            { role: "user", content: fullPrompt }
+                        ],
+                        temperature: 0.7,
+                        max_tokens: 200
+                    })
+                });
+
+                if (!response.ok) {
+                    const errText = await response.text();
+                    throw new Error(`HTTP error! status: ${response.status} - ${errText}`);
+                }
+
+                const data = await response.json();
+                text = data.choices[0].message.content.trim();
+                break;
+            } catch (err: any) {
+                attempts++;
+                lastError = err;
+                const isTransient = err?.message && (err.message.includes("503") || err.message.includes("429") || err.message.includes("rate limit") || err.message.includes("overloaded"));
+                
+                if (isTransient && attempts < maxAttempts) {
+                    console.warn(`[Groq Autocomplete] ${modelName} transient error (${err?.message}). Retrying in ${attempts * 400}ms...`);
+                    await new Promise(resolve => setTimeout(resolve, attempts * 400));
+                } else {
+                    console.warn(`[Groq Autocomplete] ${modelName} failed on attempt ${attempts} (${err?.message}), trying next model...`);
+                    break;
+                }
+            }
+        }
+        if (text) break;
+    }
+
+    if (!text) {
+        throw new Error("Tüm Groq modelleri meşgul veya hata verdi: " + (lastError?.message ?? "Bilinmeyen hata"));
+    }
 
     return new Response(
       JSON.stringify({ completion: text }),
