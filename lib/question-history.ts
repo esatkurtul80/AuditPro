@@ -28,7 +28,7 @@ export interface QuestionHistory {
  * @param answer - The audit answer to check
  * @returns true if answer is incomplete, false otherwise
  */
-function isIncompleteAnswer(answer: AuditAnswer): boolean {
+export function isIncompleteAnswer(answer: AuditAnswer): boolean {
     // 1. Yes/No/Muaf questions: "hayir" is incomplete
     if (answer.questionType === 'yes_no' || !answer.questionType) {
         return answer.answer === 'hayir';

@@ -74,7 +74,7 @@ import { QuestionHistoryButton } from "@/components/question-history-button";
 import { AuditSummary } from "@/components/audit-summary";
 import { Checkbox } from "@/components/ui/checkbox";
 import Logger from "@/lib/logger";
-import { getStoreAuditHistory, QuestionHistory, QuestionHistoryEntry, getPreviousAudits } from "@/lib/question-history";
+import { getStoreAuditHistory, QuestionHistory, QuestionHistoryEntry, getPreviousAudits, isIncompleteAnswer } from "@/lib/question-history";
 import { PersonnelEvaluationSection } from "@/components/audits/personnel-evaluation-section";
 import { applyScoreRule } from "@/lib/utils";
 
@@ -1595,7 +1595,7 @@ export default function AuditPage() {
                             break;
                         }
                     }
-                    if (prevAns && (prevAns.answer === 'hayir' || prevAns.earnedPoints < prevAns.maxPoints)) {
+                    if (prevAns && isIncompleteAnswer(prevAns)) {
                         consecutiveFailCount++;
                     } else {
                         break;
