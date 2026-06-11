@@ -1585,7 +1585,6 @@ export default function AuditPage() {
 
             for (const ans of allFailedAnswers) {
                 let consecutiveFailCount = 1;
-                const pastNotes: { completedAt: string; notes: string[] }[] = [];
 
                 for (const prevAudit of previousAudits) {
                     let prevAns = null;
@@ -1598,16 +1597,6 @@ export default function AuditPage() {
                     }
                     if (prevAns && (prevAns.answer === 'hayir' || prevAns.earnedPoints < prevAns.maxPoints)) {
                         consecutiveFailCount++;
-                        const prevNotes = prevAns.notes ? prevAns.notes.filter((note: string) => note.trim() !== "") : [];
-                        if (prevNotes.length > 0) {
-                            const dateStr = prevAudit.completedAt 
-                                ? new Date(prevAudit.completedAt.seconds * 1000).toLocaleDateString('tr-TR')
-                                : "Bilinmeyen Tarih";
-                            pastNotes.push({
-                                completedAt: dateStr,
-                                notes: prevNotes
-                            });
-                        }
                     } else {
                         break;
                     }
@@ -1620,12 +1609,10 @@ export default function AuditPage() {
                     notes: cleanedNotes
                 });
 
-                if (consecutiveFailCount >= 2 && pastNotes.length > 0) {
+                if (consecutiveFailCount >= 2) {
                     recurringAnswersPayload.push({
                         questionText: ans.questionText,
-                        notes: cleanedNotes,
-                        consecutiveFailCount,
-                        pastNotes
+                        consecutiveFailCount
                     });
                 }
             }
