@@ -19,8 +19,8 @@ Bu verileri analiz edip, denetmenin bu bölüm için yazacağı "Görüş ve Ön
 
 KESİN KURALLAR:
 1. Görüş metni en az 3-4 cümleden oluşan, anlam bütünlüğü olan tam bir paragraf olmalıdır. Kesinlikle tek cümlelik, kısa veya yarım bırakılmış cümleler yazma. Metnin son cümlesi de dahil olmak üzere tüm cümleler dilbilgisine uygun şekilde tamamlanmış olmalıdır.
-2. Bölümdeki HER BİR olumsuz madde/eksiklik için ayrı ayrı yapıcı analiz ve çözüm önerisi metinde yer almalıdır. Hiçbir eksikliği atlamadan rapora yansıt.
-3. ÜSLUP (ÇOK ÖNEMLİ): Kesinlikle sert ve emir kipi taşıyan "-meli, -malı, yapılmalıdır, gösterilmelidir, edilmelidir" gibi ifadeler KULLANMA. Bunun yerine çok daha yumuşak, yapıcı ve tavsiye niteliğinde olan "-ebilir, -abilir, yapılabilir, gösterilebilir, dikkat edilmesi yararlı olacaktır, önem arz etmektedir" gibi yapıcı kelimeler kullan.
+2. Bölümdeki HER BİR olumsuz madde/eksiklik için ayrı ayrı analiz notu ve yapıcı çözüm önerisi metinde mutlaka yer almalıdır. Hiçbir eksikliği atlamadan rapora yansıt.
+3. ÜSLUP (ÇOK ÖNEMLİ): Kesinlikle sert ve emir kipi taşıyan "-meli, -malı, yapılmalıdır, gösterilmelidir, edilmelidir" gibi ifadeler KULLANMA. Bunun yerine çok daha yumuşak, yapıcı ve tavsiye niteliğinde olan "-ebilir, -abilir, yapılabilir, sağlanabilir, gösterilebilir, dikkat edilebilir, yararlı olacaktır" gibi yapıcı kelimeler kullan.
 4. Doğrudan görüşe başla. "Bu bölüm için görüşlerim şunlardır:" gibi gereksiz giriş cümleleri yazma.
 5. Metni Türkçe dilinde üret.`;
 
@@ -37,7 +37,7 @@ Soru: ${item.questionText}
 Not: ${item.notes.join(" | ")}
 `).join("\n")}
 
-Lütfen yukarıda yer alan eksiklerin HER BİRİNİ tek tek ele alarak yapıcı öneriler içeren, en az 50 en fazla 70 kelimeden oluşan (yaklaşık 3-4 cümle) tam ve akıcı bir değerlendirme paragrafı oluştur. Metindeki tüm cümleleri dilbilgisine uygun şekilde tamamla. Üslup olarak kesinlikle "-meli, -malı" (yapılmalı, gösterilmeli vb.) ifadeleri yerine "-ebilir, -abilir" (yapılabilir, gösterilebilir, dikkat edilmesi faydalı olacaktır vb.) şeklinde çok daha yumuşak ve yapıcı bir dil kullan.`;
+Lütfen yukarıda yer alan eksiklerin HER BİRİNİ tek tek ele alarak analiz notunu ve yapıcı önerisini yaz. En az 50 en fazla 70 kelimeden oluşan (yaklaşık 3-4 cümle) tam ve akıcı bir değerlendirme paragrafı oluştur. Metindeki tüm cümleleri dilbilgisine uygun şekilde tamamla. Üslup olarak kesinlikle "-meli, -malı" (yapılmalı, gösterilmeli vb.) ifadeleri yerine "-ebilir, -abilir" (yapılabilir, gösterilebilir, sağlanabilir, dikkat edilebilir vb.) şeklinde çok daha yumuşak ve yapıcı bir dil kullan.`;
 
         let feedback = "";
         
