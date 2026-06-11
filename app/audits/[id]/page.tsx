@@ -112,6 +112,7 @@ export default function AuditPage() {
     const [showPreviewModal, setShowPreviewModal] = useState(false);
     const [historyCache, setHistoryCache] = useState<Record<string, QuestionHistory>>({});
     const [personnelStatus, setPersonnelStatus] = useState<{ total: number, evaluated: number, initialized: boolean }>({ total: 0, evaluated: 0, initialized: false });
+    const [generatingAI, setGeneratingAI] = useState(false);
 
     // Reset Section State
     const [resetAlertOpen, setResetAlertOpen] = useState(false);
@@ -150,7 +151,11 @@ export default function AuditPage() {
         setShowPreviewModal(true);
     };
 
-    const canEdit = mode === "edit";
+    const canEdit = !audit
+        ? false
+        : audit.status === "devam_ediyor"
+            ? true
+            : mode === "edit";
 
     const handleTouchStart = (index: number) => {
         if (!canEdit) return;
@@ -1130,32 +1135,78 @@ export default function AuditPage() {
                         });
                     }
 
-                    // 3. Send Notification to Regional Manager
+                    // 3. Send Notification to Regional Manager & GMS
                     try {
                         const storeDoc = await getDoc(doc(db, "stores", audit.storeId));
                         if (storeDoc.exists()) {
                             const storeData = storeDoc.data() as Store;
-                            if (storeData.regionalManagerId) {
-                                const score = audit.totalScore || 0;
-                                const auditorName = userProfile?.firstName && userProfile?.lastName
-                                    ? `${userProfile.firstName} ${userProfile.lastName}`
-                                    : (userProfile?.displayName || "Bir Denetmen");
+                            const score = audit.totalScore || 0;
+                            const auditorName = userProfile?.firstName && userProfile?.lastName
+                                ? `${userProfile.firstName} ${userProfile.lastName}`
+                                : (userProfile?.displayName || "Bir Denetmen");
 
-                                // Regional Manager Notification
-                                await fetch("/api/send-notification", {
+                            const rmTitle = "✅ Denetim Tamamlandı";
+                            const commonMsg = `${storeData.name} mağazasının denetimi tamamlanmıştır. Puan: ${score}. Raporu incelemek için tıklayınız.`;
+
+                            // --- BM: /report ---
+                            if (storeData.regionalManagerId) {
+                                await addDoc(collection(db, "notifications"), {
+                                    userId: storeData.regionalManagerId,
+                                    type: "audit_completed",
+                                    title: rmTitle,
+                                    message: commonMsg,
+                                    read: false,
+                                    relatedId: auditId,
+                                    senderName: auditorName,
+                                    createdAt: Timestamp.now(),
+                                });
+                                fetch("/api/send-notification", {
                                     method: "POST",
                                     headers: { "Content-Type": "application/json" },
                                     body: JSON.stringify({
-                                        title: "✅ Denetim Tamamlandı",
-                                        message: `Sayın Bölge Müdürü, ${storeData.name} mağazasının denetimi tamamlanmıştır. Puan: ${score}. Raporu incelemek için tıklayınız.`,
-                                        recipients: [{ type: "user", id: storeData.regionalManagerId }],
+                                        title: rmTitle,
+                                        message: commonMsg,
+                                        userIds: [storeData.regionalManagerId],
                                         url: `/audits/${auditId}/report`
                                     })
-                                });
+                                }).catch(e => console.error("BM push err:", e));
+                            }
+
+                            // --- GMS: /summary (özel raporu göremez) ---
+                            const gmsSnap = await getDocs(query(
+                                collection(db, "users"),
+                                where("role", "==", "grup-magaza-sorumlusu"),
+                                where("assignedStoreIds", "array-contains", audit.storeId)
+                            ));
+                            const gmsIds = gmsSnap.docs.map(d => d.id);
+
+                            if (gmsIds.length > 0) {
+                                await Promise.all(gmsIds.map(uid =>
+                                    addDoc(collection(db, "notifications"), {
+                                        userId: uid,
+                                        type: "audit_completed",
+                                        title: rmTitle,
+                                        message: commonMsg,
+                                        read: false,
+                                        relatedId: auditId,
+                                        senderName: auditorName,
+                                        createdAt: Timestamp.now(),
+                                    })
+                                ));
+                                fetch("/api/send-notification", {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({
+                                        title: rmTitle,
+                                        message: commonMsg,
+                                        userIds: gmsIds,
+                                        url: `/audits/${auditId}/summary`
+                                    })
+                                }).catch(e => console.error("GMS push err:", e));
                             }
                         }
                     } catch (rmError) {
-                        console.error("Failed to send RM notification:", rmError);
+                        console.error("Failed to send RM/GMS notification:", rmError);
                     }
 
                     // 4. Send Notification to Rapor Yöneticisi users
@@ -1481,6 +1532,63 @@ export default function AuditPage() {
             toast.error("Denetim kaydedilirken hata oluştu");
         } finally {
             setSaving(false);
+        }
+    };
+
+    const handleGenerateAISectionFeedback = async () => {
+        if (typeof currentSectionIndex !== 'number' || !audit) return;
+
+        setGeneratingAI(true);
+        try {
+            const currentSection = audit.sections[currentSectionIndex];
+
+            // 1. Hayır veya eksik puan alınan soruları ve bu soruların notlarını filtrele
+            const failedAnswers = currentSection.answers
+                .filter((ans: AuditAnswer) => {
+                    const isNo = ans.answer === 'hayir';
+                    const isNotMaxPoints = ans.earnedPoints < ans.maxPoints;
+                    const hasNotes = ans.notes && ans.notes.some((note: string) => note.trim() !== "");
+                    return (isNo || isNotMaxPoints) && hasNotes;
+                })
+                .map((ans: AuditAnswer) => ({
+                    questionText: ans.questionText,
+                    notes: ans.notes.filter((note: string) => note.trim() !== "")
+                }));
+
+            if (failedAnswers.length === 0) {
+                toast.info("Bu bölümde olumsuz cevaplanan veya not girilmiş eksik puanlı soru bulunmamaktadır.");
+                setGeneratingAI(false);
+                return;
+            }
+
+            // 2. API endpoint'ine istek gönder
+            const res = await fetch("/api/ai/analyze-section", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    sectionName: currentSection.sectionName,
+                    failedAnswers
+                })
+            });
+
+            const data = await res.json();
+
+            if (data.feedback) {
+                // 3. Form alanını ve state'i güncelle
+                const el = sectionFeedbackRef.current;
+                if (el) {
+                    el.value = data.feedback;
+                }
+                updateSectionFeedback(currentSectionIndex, { note: data.feedback });
+                toast.success("Bölüm görüşleri AI tarafından oluşturuldu!");
+            } else {
+                throw new Error(data.error || "AI yanıt üretemedi.");
+            }
+        } catch (error: any) {
+            console.error("AI feedback generation error:", error);
+            toast.error("Görüş oluşturulurken bir hata oluştu: " + error.message);
+        } finally {
+            setGeneratingAI(false);
         }
     };
 
@@ -2900,7 +3008,27 @@ export default function AuditPage() {
                                                 </Button>
                                             </div>
 
-                                            <Label>Notlar</Label>
+                                            <div className="flex items-center justify-between mb-1.5">
+                                                <Label>Notlar</Label>
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="h-7 text-xs gap-1.5 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-950/30"
+                                                    onClick={(e) => {
+                                                        e.preventDefault();
+                                                        handleGenerateAISectionFeedback();
+                                                    }}
+                                                    disabled={generatingAI || !canEdit}
+                                                >
+                                                    {generatingAI ? (
+                                                        <Loader2 className="h-3 w-3 animate-spin" />
+                                                    ) : (
+                                                        <Zap className="h-3 w-3 fill-current" />
+                                                    )}
+                                                    AI ile Doldur
+                                                </Button>
+                                            </div>
                                             <Textarea
                                                 ref={sectionFeedbackRef}
                                                 defaultValue={audit.sections[currentSectionIndex].feedback?.note || ""}
