@@ -13,6 +13,7 @@
 ### v3.1.0
 - **Bölüm Görüşleri Yapay Zeka Desteği:** Bölüm sonlarında yer alan görüş ve öneriler alanına `gemini-2.5-flash` modeli ile entegre olan "AI ile Doldur" butonu eklendi. Bölümdeki olumsuz/eksik puanlı sorular ve bu sorulara ait denetmen notları analiz edilerek otomatik özet görüşler oluşturulabiliyor.
 - **Yapay Zeka Analiz Üslup İyileştirmesi:** Her olumsuz madde için ayrı ayrı analiz notunun üretilmesi garanti altına alındı. Emir kipi ("yapılmalı", "gösterilmeli" vb.) yerine yapıcı ve yumuşak ("yapılabilir", "gösterilebilir" vb.) bir dil kullanılması için yönlendirmeler güçlendirildi.
+- **Süregelen Hataların Tespiti:** Önceki denetimler sorgulanarak üst üste 2 veya daha fazla denetimdir başarısız (hayır/eksik puan) olan maddeler tespit edilip yapay zekaya aktarılıyor. Yapay zeka bu süregelen konuları hem genel metinde vurguluyor hem de görüşün en altında liste halinde belirtiyor.
 
 ## [3.0.9] - 2026-05-12
 

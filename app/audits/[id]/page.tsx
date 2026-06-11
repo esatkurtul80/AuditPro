@@ -74,7 +74,7 @@ import { QuestionHistoryButton } from "@/components/question-history-button";
 import { AuditSummary } from "@/components/audit-summary";
 import { Checkbox } from "@/components/ui/checkbox";
 import Logger from "@/lib/logger";
-import { getStoreAuditHistory, QuestionHistory, QuestionHistoryEntry } from "@/lib/question-history";
+import { getStoreAuditHistory, QuestionHistory, QuestionHistoryEntry, getPreviousAudits } from "@/lib/question-history";
 import { PersonnelEvaluationSection } from "@/components/audits/personnel-evaluation-section";
 import { applyScoreRule } from "@/lib/utils";
 
@@ -1568,6 +1568,9 @@ export default function AuditPage() {
         try {
             const currentSection = audit.sections[currentSectionIndex];
 
+            // Önceki tamamlanmış denetimleri getir
+            const previousAudits = await getPreviousAudits(audit.storeId, audit.auditTypeId, audit.id);
+
             // 1. Hayır veya eksik puan alınan soruları ve bu soruların notlarını filtrele
             const failedAnswers = currentSection.answers
                 .filter((ans: AuditAnswer) => {
@@ -1576,10 +1579,33 @@ export default function AuditPage() {
                     const hasNotes = ans.notes && ans.notes.some((note: string) => note.trim() !== "");
                     return (isNo || isNotMaxPoints) && hasNotes;
                 })
-                .map((ans: AuditAnswer) => ({
-                    questionText: ans.questionText,
-                    notes: ans.notes.filter((note: string) => note.trim() !== "")
-                }));
+                .map((ans: AuditAnswer) => {
+                    // Üst üste kaç denetimdir başarısız olduğunu hesapla (mevcut denetim = 1)
+                    let consecutiveFailCount = 1;
+                    for (const prevAudit of previousAudits) {
+                        let prevAns = null;
+                        for (const sec of prevAudit.sections) {
+                            const found = sec.answers.find(a => a.questionId === ans.questionId);
+                            if (found) {
+                                prevAns = found;
+                                break;
+                            }
+                        }
+                        // Eğer önceki denetimde bu soru varsa ve hayır veya eksik puan alınmışsa
+                        if (prevAns && (prevAns.answer === 'hayir' || prevAns.earnedPoints < prevAns.maxPoints)) {
+                            consecutiveFailCount++;
+                        } else {
+                            // Eğer tam puan alınmışsa veya soru bulunamadıysa ardışık başarısızlık serisi bozulur
+                            break;
+                        }
+                    }
+
+                    return {
+                        questionText: ans.questionText,
+                        notes: ans.notes.filter((note: string) => note.trim() !== ""),
+                        consecutiveFailCount
+                    };
+                });
 
             if (failedAnswers.length === 0) {
                 toast.info("Bu bölümde olumsuz cevaplanan veya not girilmiş eksik puanlı soru bulunmamaktadır.");
