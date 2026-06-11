@@ -36,7 +36,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Upload, X, CheckCircle2, ArrowLeft, Circle, Plus, Save, WifiOff, Clock, Star, ChevronRight, AlertCircle, MoreHorizontal, ClipboardList, MessageSquare, UserCircle, Eye, FileText, Zap, Image as ImageIcon } from "lucide-react";
+import { Loader2, Upload, X, CheckCircle2, ArrowLeft, Circle, Plus, Save, WifiOff, Clock, Star, ChevronRight, AlertCircle, MoreHorizontal, ClipboardList, MessageSquare, UserCircle, Eye, FileText, Zap, Image as ImageIcon, Copy, Check } from "lucide-react";
 import { toast } from "sonner";
 import * as LucideIcons from "lucide-react";
 import Link from "next/link";
@@ -48,6 +48,14 @@ import {
     SheetTitle,
     SheetTrigger,
 } from "@/components/ui/sheet";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+    DialogFooter,
+} from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import {
     AlertDialog,
@@ -113,6 +121,9 @@ export default function AuditPage() {
     const [historyCache, setHistoryCache] = useState<Record<string, QuestionHistory>>({});
     const [personnelStatus, setPersonnelStatus] = useState<{ total: number, evaluated: number, initialized: boolean }>({ total: 0, evaluated: 0, initialized: false });
     const [generatingAI, setGeneratingAI] = useState(false);
+    const [showAIModal, setShowAIModal] = useState(false);
+    const [aiGeneratedFeedback, setAiGeneratedFeedback] = useState("");
+    const [aiCopied, setAiCopied] = useState(false);
 
     // Reset Section State
     const [resetAlertOpen, setResetAlertOpen] = useState(false);
@@ -1535,6 +1546,18 @@ export default function AuditPage() {
         }
     };
 
+    const handleCopyToClipboard = async () => {
+        try {
+            await navigator.clipboard.writeText(aiGeneratedFeedback);
+            setAiCopied(true);
+            toast.success("Yorum panoya kopyalandı!");
+            setTimeout(() => setAiCopied(false), 2000);
+        } catch (err) {
+            console.error("Failed to copy text: ", err);
+            toast.error("Kopyalama başarısız oldu.");
+        }
+    };
+
     const handleGenerateAISectionFeedback = async () => {
         if (typeof currentSectionIndex !== 'number' || !audit) return;
 
@@ -1574,13 +1597,11 @@ export default function AuditPage() {
             const data = await res.json();
 
             if (data.feedback) {
-                // 3. Form alanını ve state'i güncelle
-                const el = sectionFeedbackRef.current;
-                if (el) {
-                    el.value = data.feedback;
-                }
-                updateSectionFeedback(currentSectionIndex, { note: data.feedback });
-                toast.success("Bölüm görüşleri AI tarafından oluşturuldu!");
+                // 3. AI sonucunu state'e yaz ve modal'ı göster
+                setAiGeneratedFeedback(data.feedback);
+                setShowAIModal(true);
+                setAiCopied(false);
+                toast.success("Bölüm görüşü oluşturuldu!");
             } else {
                 throw new Error(data.error || "AI yanıt üretemedi.");
             }
@@ -3077,6 +3098,75 @@ export default function AuditPage() {
                     {isCompleted && currentSectionIndex === null && isViewMode && (
                         <AuditSummary audit={audit} />
                     )}
+
+                    {/* AI Feedback Dialog */}
+                    <Dialog open={showAIModal} onOpenChange={setShowAIModal}>
+                        <DialogContent className="w-[95%] max-w-lg rounded-lg mx-auto">
+                            <DialogHeader>
+                                <DialogTitle className="flex items-center gap-2 text-indigo-600">
+                                    <Zap className="h-5 w-5 fill-current" />
+                                    AI Bölüm Değerlendirmesi
+                                </DialogTitle>
+                                <DialogDescription>
+                                    {audit && typeof currentSectionIndex === 'number' 
+                                        ? `"${audit.sections[currentSectionIndex]?.sectionName}" bölümü analiz edildi. Önerilen görüş ve yorum aşağıdadır:` 
+                                        : "Bölüm analizi tamamlandı."
+                                    }
+                                </DialogDescription>
+                            </DialogHeader>
+                            <div className="my-2">
+                                <Textarea
+                                    value={aiGeneratedFeedback}
+                                    onChange={(e) => setAiGeneratedFeedback(e.target.value)}
+                                    className="min-h-[140px] resize-none text-sm p-3 focus-visible:ring-1 focus-visible:ring-offset-0 focus-visible:ring-indigo-400"
+                                    placeholder="AI tarafından üretilen görüş..."
+                                />
+                                <span className="text-[11px] text-muted-foreground mt-1 block">
+                                    * Metni kopyalamadan önce üzerinde istediğiniz gibi değişiklikler yapabilirsiniz.
+                                </span>
+                            </div>
+                            <DialogFooter className="flex flex-col sm:flex-row gap-2 mt-2">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() => setShowAIModal(false)}
+                                    className="w-full sm:w-auto"
+                                >
+                                    Kapat
+                                </Button>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() => {
+                                        if (typeof currentSectionIndex === 'number') {
+                                            const el = sectionFeedbackRef.current;
+                                            if (el) {
+                                                el.value = aiGeneratedFeedback;
+                                            }
+                                            updateSectionFeedback(currentSectionIndex, { note: aiGeneratedFeedback });
+                                            setShowAIModal(false);
+                                            toast.success("Değerlendirme metni alana yapıştırıldı.");
+                                        }
+                                    }}
+                                    className="w-full sm:w-auto text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 border-indigo-200"
+                                >
+                                    Alana Yapıştır
+                                </Button>
+                                <Button
+                                    type="button"
+                                    onClick={handleCopyToClipboard}
+                                    className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white gap-1.5"
+                                >
+                                    {aiCopied ? (
+                                        <Check className="h-4 w-4" />
+                                    ) : (
+                                        <Copy className="h-4 w-4" />
+                                    )}
+                                    {aiCopied ? "Kopyalandı!" : "Kopyala"}
+                                </Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
 
                     {/* Reset Section Confirmation Dialog */}
                     <AlertDialog open={resetAlertOpen} onOpenChange={setResetAlertOpen}>

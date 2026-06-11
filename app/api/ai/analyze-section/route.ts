@@ -23,7 +23,7 @@ GÖREVİN:
 Bu verileri analiz edip, denetmenin bu bölüm için yazacağı "Görüş ve Öneriler" kısmını doldurmak üzere yapıcı, profesyonel ve kısa bir özet metin oluşturmaktır.
 
 KESİN KURALLAR:
-1. Çok uzun metinler yazma. En fazla 2-3 kısa ve net cümlede ana düşünceleri özetle.
+1. Çok kısa (birkaç kelimelik) veya tek cümlelik yüzeysel yanıtlar yazma. Başarısız noktaları yapıcı bir dille ele alan ve gelişim önerileri sunan, en az 2-3 tam cümlelik profesyonel ve öz bir paragraf oluştur.
 2. Üslubun kurumsal, motive edici ve çözüm odaklı olmalıdır. Eksikleri birer hata değil gelişim alanı olarak nitelendir.
 3. Doğrudan görüşe başla. "Bu bölüm için görüşlerim şunlardır:" gibi gereksiz giriş cümleleri yazma.
 4. Metni Türkçe dilinde üret.`;
